@@ -202,6 +202,8 @@ const reasons = {
     "The owner removed your access to this coding session: its project, the coding sessions switch or the share it rested on is gone, or you can no longer use sessions. Do not retry and do not use the session again; tell the owner.",
   SESSION_LIMIT:
     "You already run the most coding sessions allowed at a time. Stop a session you no longer need with action stop before you start another.",
+  TALK_LIMIT:
+    "Too many messages between you and this coding session in a short time. Wait a few minutes before you send the next one, and do not retry at once.",
   PROMPT_ANSWERED:
     "This prompt was already answered or has changed. Read the open prompts again with action requests and answer the one that is still open.",
   SESSION_RUNNING:
@@ -374,6 +376,7 @@ const byKey = {
   sessionsNotEnabled: "SESSIONS_NOT_ENABLED",
   grantRevoked: "GRANT_REVOKED",
   sessionLimit: "SESSION_LIMIT",
+  talkLimit: "TALK_LIMIT",
   projectNameInvalid: "PROJECT_NAME_INVALID",
   projectExists: "PROJECT_EXISTS",
   projectNotCreatedByYou: "PROJECT_NOT_CREATED_BY_YOU",

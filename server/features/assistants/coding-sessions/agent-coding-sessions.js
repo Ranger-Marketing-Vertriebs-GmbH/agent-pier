@@ -19,6 +19,8 @@ import {
 import { holdsGoal, tickWakes, wakeEscalation } from "./session-wakes.js";
 import { stillGranted } from "./session-control.js";
 import { SessionTalk } from "../session-talk/session-talk.js";
+import { talkRead, talkSend } from "../session-talk/talk-send.js";
+import { sessionProjectId, talkSessionsFor } from "../session-talk/talk-reach.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -47,8 +49,9 @@ const maxAnswers = 1000;
 /**
  * agentpier_coding_session (AssistantWorkflows.sessions): an agent's interactive
  * coding CLI sessions on projects the owner switched coding sessions on for it.
- * The agent reaches only sessions it started itself (AgentSessionStore); the turn
- * decides the session class (session-turns.js).
+ * The agent steers sessions it started itself (AgentSessionStore); the turn decides
+ * the session class (session-turns.js). Sessions the owner lets talk to it it may
+ * only send to and read (session-talk/talk-send.js).
  */
 export class AgentCodingSessions {
   constructor(w) {
@@ -72,8 +75,14 @@ export class AgentCodingSessions {
       options: (ctx) => sessionOptions(this.w, ctx),
       list: (ctx) => this.list(ctx),
       start: (ctx, input) => startSession(this.w, ctx, input),
-      send: (ctx, input, inv) => sendToSession(this.w, ctx, input, inv),
-      read: (ctx, input) => readSession(this.w, ctx, input),
+      send: (ctx, input, inv) =>
+        this.started(ctx, input)
+          ? sendToSession(this.w, ctx, input, inv)
+          : talkSend(this.w, ctx, input, inv),
+      read: (ctx, input) =>
+        this.started(ctx, input)
+          ? readSession(this.w, ctx, input)
+          : talkRead(this.w, ctx, input),
       wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
       requests: (ctx, input) => listPrompts(this.w, ctx, input),
       answer: (ctx, input, inv) => answerPrompt(this.w, ctx, input, inv),
@@ -217,7 +226,15 @@ export class AgentCodingSessions {
       return false;
     }
   }
-  // The sessions the agent started, each with its live status ("gone" once removed).
+  // Whether the call's session is one the agent started (its own record), not one
+  // it reaches through talk.
+  started(ctx, input) {
+    const record =
+      typeof input.sessionId === "string" ? this.store.get(input.sessionId) : null;
+    return record?.assistantId === ctx.assistantId;
+  }
+  // The sessions the agent started, each with its live status ("gone" once removed),
+  // then the running sessions it may talk to (`via` project or session grant).
   async list(ctx) {
     const names = new Map(this.w.s.memory.projects().projects.map((p) => [p.id, p.name]));
     const sessions = [];
@@ -245,6 +262,26 @@ export class AgentCodingSessions {
             }
           : null,
         createdAt: record.createdAt,
+        via: "started",
+      });
+    }
+    const own = new Set(sessions.map((s) => s.sessionId));
+    for (const { session, via } of await talkSessionsFor(this.w, ctx.assistantId)) {
+      // A session the agent started (one still launching included) shows as started.
+      if (
+        own.has(session.id) ||
+        this.store.get(session.id)?.assistantId === ctx.assistantId
+      )
+        continue;
+      const projectId = sessionProjectId(session);
+      sessions.push({
+        sessionId: session.id,
+        projectId,
+        projectName: names.get(projectId) ?? null,
+        tool: session.tool ?? null,
+        name: session.name ?? null,
+        status: session.status,
+        via,
       });
     }
     return { sessions };
