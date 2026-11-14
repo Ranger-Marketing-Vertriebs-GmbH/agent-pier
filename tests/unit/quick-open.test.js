@@ -105,6 +105,38 @@ const owner = workspaceEntries(sources, { agentsEnabled: true });
 const find = (query, entries = owner) => flat(searchEntries(entries, query));
 const pathOf = (item) => (item.target.route ? routePath(item.target.route) : null);
 
+test("a running coding session offers its agent access; others do not", () => {
+  const sessions = [
+    ...sources.workspace.sessions,
+    { id: "s3", name: "Old work", tool: "claude", cwd: "/x", status: "stopped" },
+    { id: "s4", name: "Terminal", tool: "shell", cwd: "/x", status: "running" },
+    { id: "s5", name: "Sign in", tool: "claude", status: "running", purpose: "login" },
+    {
+      id: "s6",
+      name: "Step",
+      tool: "codex",
+      status: "running",
+      pipeline: { runId: "r" },
+    },
+  ];
+  const entries = workspaceEntries(
+    { ...sources, workspace: { ...sources.workspace, sessions } },
+    { agentsEnabled: true },
+  );
+  const access = entries.filter((item) => item.id.endsWith(":agent-access"));
+  assert.deepEqual(
+    access.map((item) => item.id),
+    ["session:s1:agent-access"],
+  );
+  assert.equal(access[0].group, "actions");
+  assert.deepEqual(access[0].target, { session: "s1", pending: "session-agent-access" });
+  assert.equal(access[0].label.en, "Refactor billing · Agent access");
+  assert.ok(find("billing agent access", entries).some((i) => i.id === access[0].id));
+  // Without agents there is nothing to grant.
+  const off = workspaceEntries(sources, { agentsEnabled: false });
+  assert.ok(!off.some((item) => item.id.endsWith(":agent-access")));
+});
+
 test("a token matches fuzzily from a word start with few skipped letters", () => {
   assert.equal(fuzzyGaps("session", "sesion"), 1);
   assert.equal(fuzzyGaps("new session", "nsess"), 3);

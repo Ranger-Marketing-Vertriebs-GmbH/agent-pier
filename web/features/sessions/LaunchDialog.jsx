@@ -4,6 +4,9 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
 import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import LaunchSecretChoices from "../secrets/LaunchSecretChoices.jsx";
+import LaunchAgentChoices from "../session-talk/LaunchAgentChoices.jsx";
+import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import { secretsCopy } from "../../lib/i18n/messages/secrets.js";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
@@ -116,10 +119,15 @@ export default function LaunchDialog({
     [sshAccessIds, setSshAccessIds] = useState([]),
     // Secrets beyond the session project's own; a task-profile launch takes none.
     [secretIds, setSecretIds] = useState([]),
+    // Agents the session may talk to (coding CLIs only); a task-profile launch takes none.
+    [agentAccessIds, setAgentAccessIds] = useState([]),
     [refused, setRefused] = useState(null);
   const selectedTool = access.tool;
   const cliRemembered = access.toolRemembered && !profileId;
   const coding = selectedTool !== "shell";
+  const agentsEnabled = useAssistantFeature().enabled === true;
+  const agentChoice = agentsEnabled && isCodingCli(selectedTool) && !profileId;
+  const agentIds = agentChoice ? agentAccessIds : [];
   const modeDescription =
     launchMode === "profile"
       ? copy.profileModeDescription(profile?.config.permissions.mode || "")
@@ -168,6 +176,7 @@ export default function LaunchDialog({
                 agentbus: coding && busEnabled,
                 sshAccessIds,
                 ...(secretIds.length ? { secretIds } : {}),
+                ...(agentIds.length ? { agentAccessIds: agentIds } : {}),
                 agentpierTools: coding ? agentpierTools : false,
                 ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
@@ -436,6 +445,9 @@ export default function LaunchDialog({
                       ...(!profileId && secretIds.length
                         ? [secretsCopy.launchSummary(secretIds.length)]
                         : []),
+                      ...(agentIds.length
+                        ? [sessionTalkCopy.launch.summary(agentIds.length)]
+                        : []),
                     ].join(" · ")}
                   </small>
                 </span>
@@ -467,6 +479,12 @@ export default function LaunchDialog({
                 />
                 {!profileId && (
                   <LaunchSecretChoices selected={secretIds} change={setSecretIds} />
+                )}
+                {agentChoice && (
+                  <LaunchAgentChoices
+                    selected={agentAccessIds}
+                    change={setAgentAccessIds}
+                  />
                 )}
               </div>
             </details>

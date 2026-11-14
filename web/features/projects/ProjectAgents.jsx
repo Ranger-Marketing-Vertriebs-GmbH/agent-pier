@@ -30,8 +30,13 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
   const busy = !!pending;
   // The choice shows at once while it saves; a refusal shows the stored state again.
   const shown = pending || agent;
-  const save = async (coding, folder, sessions = shown.sessions === true) => {
-    setPending({ coding, folder, sessions });
+  const save = async (
+    coding,
+    folder,
+    sessions = shown.sessions === true,
+    talk = shown.talk === true,
+  ) => {
+    setPending({ coding, folder, sessions, talk });
     setError("");
     try {
       const saved = await api(
@@ -42,10 +47,14 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
             coding: agent.coding,
             folder: agent.folder,
             ...(agent.sessions !== undefined && { sessions: agent.sessions }),
+            ...(agent.talk !== undefined && { talk: agent.talk }),
           },
           coding,
           folder,
           sessions,
+          // Talking needs the project grant; without it the server refuses `talk`.
+          // Sent once the page knows the switch (older servers answer without it).
+          ...((agent.talk !== undefined || talk) && { talk: coding && talk }),
         },
       );
       onSaved({ ...agent, ...saved });
@@ -69,7 +78,9 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
             checked={shown.coding}
             disabled={busy}
             // Removing the grant removes the folder level as well.
-            onChange={(on) => save(on, on ? shown.folder : "none", on && shown.sessions)}
+            onChange={(on) =>
+              save(on, on ? shown.folder : "none", on && shown.sessions, on && shown.talk)
+            }
           />
           <CheckboxRow
             label={copy.sessions}
@@ -78,6 +89,16 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
             disabled={busy}
             // Coding sessions need the project grant, so ticking them grants it.
             onChange={(on) => save(on || shown.coding, shown.folder, on)}
+          />
+          <CheckboxRow
+            label={copy.talk}
+            sub={copy.talkHint}
+            checked={shown.talk === true}
+            disabled={busy}
+            // Talking needs the project grant as well, so ticking it grants it.
+            onChange={(on) =>
+              save(on || shown.coding, shown.folder, shown.sessions === true, on)
+            }
           />
         </ListCard>
       )}

@@ -221,13 +221,14 @@ test("the Craft Anything rebuild topics are owner only and name their routes", (
   assert.equal(REBUILD_ID.test(`../${id}`), false);
 });
 
-test("the package, plugin, SSH, sign-in and reload topics name their routes", () => {
+test("the package, plugin, SSH, sign-in, reload and agent access topics name their routes", () => {
   const expected = [
     ["job.mcp-package:s 1", "/mcp-servers/s%201/package", 2000, false],
     ["job.plugins:local-codex", "/accounts/local-codex/plugins", 2000, false],
     ["job.ssh-tools:abc", "/sessions/abc/ssh-accesses", 1500, true],
     ["job.chatgpt-login:current", "/assistant-model-login/current", 1000, false],
     ["session.reload:abc", "/sessions/abc/reload", 1500, true],
+    ["session.agent-access:abc", "/sessions/abc/agent-accesses", 30000, false],
   ];
   for (const [topic, path, interval, sampled] of expected) {
     const info = topicInfo(topic);

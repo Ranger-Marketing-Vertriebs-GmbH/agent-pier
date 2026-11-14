@@ -462,6 +462,18 @@ test("pinning memory entries finds the agent's memory page in both languages", (
   }
 });
 
+test("sessions talking to agents finds the agent's Projects page in both languages", () => {
+  for (const query of ["talk", "sprechen", "Sessions talk to agents"]) {
+    const hit = results(query).find((item) => item.id === "agent:ops:projects");
+    assert.ok(hit, query);
+    assert.equal(
+      pathOf(hit),
+      pathOf(index.find((item) => item.id === "agent:ops:projects")),
+    );
+    assert.ok(hit.alias, query);
+  }
+});
+
 test("new agent group is searchable in both languages and opens its form", () => {
   for (const query of ["Neue Gruppe", "New group"]) {
     const hit = results(query).find((r) => r.id === "action:new-agent-group");

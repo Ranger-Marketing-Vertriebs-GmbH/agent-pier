@@ -9,6 +9,9 @@ export const projectAgentsCopy = {
   sessions: "Coding-Sessions",
   sessionsHint:
     "Der Agent darf in diesem Projekt eigene Coding-Sessions starten und steuern, ohne jedes Mal zu fragen.",
+  talk: "Sessions dürfen sprechen",
+  talkHint:
+    "Jede Session dieses Projekts darf diesen Agenten fragen und ihm etwas mitteilen, und der Agent darf ihnen schreiben.",
   folderLegend: "Ordnerzugriff",
   folder: { none: "Keiner", read: "Lesen", write: "Lesen und schreiben" },
   noAgents: "Noch keine dauerhaften Agenten. Lege einen unter Agenten an.",

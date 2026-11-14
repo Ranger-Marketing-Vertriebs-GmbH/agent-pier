@@ -290,6 +290,7 @@
    size; on phones they wrap under the name. */
 .agent-access-row > .list-row-select,
 .agent-access-row > .agent-access-sessions,
+.agent-access-row > .agent-access-talk,
 .agent-access-row > .button {
   flex: none;
 }

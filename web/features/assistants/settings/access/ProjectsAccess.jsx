@@ -14,6 +14,7 @@ import {
   grantedProjectIds,
   removeProject,
   setSessionProject,
+  setTalkProject,
 } from "./access-groups.js";
 
 const copy = assistantSettingsCopy.access;
@@ -66,14 +67,25 @@ export default function ProjectsAccess({
           }}
           actions={
             !foldersOnly && (
-              <Switch
-                className="agent-access-sessions"
-                label={copy.sessions}
-                aria-label={copy.sessionsLabel(item.name)}
-                checked={(values.sessionProjectIds || []).includes(item.id)}
-                disabled={disabled}
-                onChange={(on) => update(setSessionProject(values, item.id, on))}
-              />
+              <>
+                <Switch
+                  className="agent-access-sessions"
+                  label={copy.sessions}
+                  aria-label={copy.sessionsLabel(item.name)}
+                  checked={(values.sessionProjectIds || []).includes(item.id)}
+                  disabled={disabled}
+                  onChange={(on) => update(setSessionProject(values, item.id, on))}
+                />
+                {/* The project's sessions and this agent may ask and tell each other. */}
+                <Switch
+                  className="agent-access-talk"
+                  label={copy.talk}
+                  aria-label={copy.talkLabel(item.name)}
+                  checked={(values.talkProjectIds || []).includes(item.id)}
+                  disabled={disabled}
+                  onChange={(on) => update(setTalkProject(values, item.id, on))}
+                />
+              </>
             )
           }
           onRevoke={() => update(removeProject(values, item.id, foldersOnly))}
@@ -96,7 +108,14 @@ export default function ProjectsAccess({
             ),
           ),
       }}
-      notes={writing && <p className="ssh-grant-warning">{wf.folderWarning}</p>}
+      notes={
+        <>
+          {writing && <p className="ssh-grant-warning">{wf.folderWarning}</p>}
+          {!foldersOnly && entries.length > 0 && (
+            <p className="assistant-note">{copy.talkHint}</p>
+          )}
+        </>
+      }
     >
       {!foldersOnly && (
         <ListCard>

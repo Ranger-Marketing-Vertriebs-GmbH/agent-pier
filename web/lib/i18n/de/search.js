@@ -54,6 +54,7 @@ export const searchCopy = {
     startTickets: "Tickets starten",
     summariseChat: "Diesen Chat zusammenfassen",
     showChanges: "Änderungen anzeigen",
+    agentAccess: "Agentenzugriff",
   },
   // Die Suche in der eigenen App eines Benutzers: die eigenen Agenten, deren Chats und Seiten, das Konto.
   user: {
@@ -95,5 +96,7 @@ export const searchCopy = {
     reviewChanges: "Änderungen prüfen",
     // Die Pins auf der Gedächtnisseite eines Agenten.
     memoryPins: "Einträge im Gedächtnis anheften",
+    // Die Sprech-Freigabe auf der Projekte-Seite eines Agenten.
+    sessionTalk: "Sessions sprechen mit Agenten",
   },
 };

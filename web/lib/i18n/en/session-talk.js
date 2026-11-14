@@ -17,4 +17,28 @@ export const sessionTalkCopy = {
       dropped: "dropped",
     },
   },
+  // A session's Agent access dialog.
+  dialog: {
+    title: "Agent access",
+    summary: "Choose the agents this session may talk to.",
+    hint: "Agents you tick here may write to this session, and the session may ask and tell them things. The access ends when the session stops.",
+    projectHint:
+      "Agents with “Sessions may talk” for this session's project are ticked already; change that in the agent's Access tab.",
+    viaProject: "via project",
+    empty: "No agents yet. Create one under Agents.",
+    loading: "Loading agents …",
+    busy: "Saving …",
+    saved: "Saved.",
+    tools: {
+      ready: "Can ask agents",
+      missing:
+        "Runs without AgentPier tools: agents can write to it, but it cannot ask them; start a new session with AgentPier tools to change that",
+    },
+  },
+  // The new-session dialog's agent choice.
+  launch: {
+    title: "Agents",
+    hint: "The session may ask and tell the agents you tick, and they may write to it, until it stops.",
+    summary: (count) => `${count} ${count === 1 ? "agent" : "agents"}`,
+  },
 };

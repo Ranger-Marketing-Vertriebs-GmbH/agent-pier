@@ -269,6 +269,13 @@ export const liveTopics = Object.freeze({
     interval: 1500,
     sampled: true,
   }),
+  // The agents a session may talk to (server/features/session-talk/live-topics.js),
+  // pushed on every grant change and every change of the agents.
+  "session.agent-access": Object.freeze({
+    mode: "state",
+    path: session("agent-accesses"),
+    interval: 30000,
+  }),
   // A file scope's job envelopes (`global` or `session:<id>`), the first page of its
   // jobs, pushed on every job write. Entry and result pages stay REST: the explorer
   // reads them when a job's `updatedAt` changes.

@@ -16,6 +16,7 @@ import { runStatusLabel } from "../pipelines/run-codes.js";
 import { runTitle } from "../pipelines/run-title.js";
 import { projectsRoute } from "../projects/routes.js";
 import { listedProjects } from "../../lib/project-list.js";
+import { talkEligibleSession } from "../session-talk/talk-eligible.js";
 
 const same = (text) => ({ de: String(text ?? ""), en: String(text ?? "") });
 const folder = (cwd) => (cwd ? cwd.split("/").filter(Boolean).at(-1) || cwd : "");
@@ -51,6 +52,29 @@ export function sessionEntries({ sessions = [], accounts = [], tools = [] } = {}
           icon: "terminal",
           extra: [project, session.cwd, cli, session.tool, account].filter(Boolean),
         },
+      );
+    });
+}
+
+/**
+ * "<session> · Agent access" for every running coding session that may talk to
+ * agents: it opens the session and its Agent access dialog (page action
+ * `session-agent-access`, useSessionActions.jsx).
+ */
+export function sessionAgentAccessEntries({ sessions = [] } = {}) {
+  const root = bilingual(() => commonCopy.sessions);
+  const label = bilingual(() => searchCopy.actions.agentAccess);
+  return sessions
+    .filter((session) => session?.id && session.name && talkEligibleSession(session))
+    .map((session) => {
+      const project = session.repositoryName || folder(session.cwd);
+      return entry(
+        "actions",
+        `session:${session.id}:agent-access`,
+        { de: `${session.name} · ${label.de}`, en: `${session.name} · ${label.en}` },
+        project ? join(root, same(project)) : root,
+        { session: session.id, pending: "session-agent-access" },
+        { icon: "talk", extra: [project, session.tool].filter(Boolean) },
       );
     });
 }
@@ -256,6 +280,7 @@ export function workspaceEntries(sources = {}, { agentsEnabled = false } = {}) {
     ...sessionEntries(sources.workspace || {}),
     ...projectEntries(sources),
     ...(agentsEnabled ? chatEntries(sources) : []),
+    ...(agentsEnabled ? sessionAgentAccessEntries(sources.workspace || {}) : []),
     ...runEntries(sources.runs || []),
     ...pipelineEntries(sources.pipelines || []),
     ...inboxEntries(sources.inbox || []),
