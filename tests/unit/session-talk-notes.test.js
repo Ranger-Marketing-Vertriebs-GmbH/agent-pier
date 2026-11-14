@@ -46,6 +46,20 @@ const rows = [
   },
 ];
 
+test("a limit note of an agent's send shows in the sending chat", () => {
+  const limit = {
+    ...base,
+    id: "h",
+    op: "limit",
+    direction: "to-session",
+    phase: "noted",
+  };
+  assert.deepEqual(
+    talkNotes([limit], "c1").map((n) => [n.id, n.op]),
+    [["session-talk:h", "limit"]],
+  );
+});
+
 test("talk rows become quiet notes of their own chat", () => {
   const notes = talkNotes(rows, "c1");
   assert.deepEqual(
