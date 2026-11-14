@@ -16,7 +16,6 @@ export function talkNotes(rows, conversationId) {
   return (rows || []).flatMap((row) => {
     if (row.conversationId !== conversationId) return [];
     if (!["send", "late", "limit"].includes(row.op)) return [];
-    if (row.op === "limit" && row.direction !== "to-agent") return [];
     if (row.op !== "limit" && row.direction !== "to-session") return [];
     const text =
       row.op !== "limit" && typeof row.text === "string"
