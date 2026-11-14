@@ -407,8 +407,19 @@ users and command-completion turns cannot start or steer sessions.
 models, launch modes, secrets, SSH accesses and sandbox profiles. `start` launches a
 session; `list`, `send`, `wait`, `read`, `requests`, `answer`, `escalate`, `stop` and
 `worktree_remove` steer and end it; `delete` removes a stopped session. An agent reaches
-only the sessions it started; every other session id, including your own sessions,
-answers `NOT_FOUND`.
+only the sessions it started and the sessions you granted it for talking
+([Sessions and agents talking to each other](session-agent-talk.md)); every other session
+id, including your own sessions, answers `NOT_FOUND`.
+
+**Granted sessions.** `list` marks each session with `via`: `started` (the agent started
+it), `project` (a **Sessions may talk** grant of the project) or `session` (granted in the
+session's **Agent access** dialog). On a granted session only `send` and `read` work; `wait`
+and every other action answer `NOT_FOUND`. A `send` counts against the pair's talk budget
+and answers `TALK_LIMIT` (429) with the wait in seconds when it is used up; the
+message reaches the session fenced under a `[From agent "<name>"]` header. A session's
+message to the agent arrives as a turn of the origin `session-talk`: for SSH, SFTP and
+email it is the `session` class, which gets the same verdicts as your own message (approval
+cards as usual), and the prompt says the turn comes from the session.
 
 - **Launch options.** Every option of the dialog is available to the agent. Unless it
   sets them, a session starts in the mode `yolo` for Codex and `auto` for

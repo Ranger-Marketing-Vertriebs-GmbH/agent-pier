@@ -149,6 +149,24 @@ integration. These grants constrain MCP access, not the host user's OS access:
 native coding processes still have the host permissions described in the pipeline
 and account documentation.
 
+### Talking to agents from sessions
+
+A session with **AgentPier tools** also has three tools to talk to your agents, once you
+grant it ([Sessions and agents talking to each other](session-agent-talk.md)):
+
+- `agents_list`: the agents this session may talk to, with `agentId`, name and `via`
+  (`project` or `session`).
+- `agent_ask` (`agentId`, `question`): asks an agent and waits up to 110 seconds. A later
+  answer arrives in the session as `[From agent "<name>"] Late answer to: …`.
+- `agent_tell` (`agentId`, `message`): tells an agent something without waiting.
+
+Errors: `AGENT_TALK_UNAVAILABLE` (access revoked or agents off), `AGENT_TALK_INVALID`
+(malformed input), `AGENT_TALK_NOT_FOUND` (an agent the session may not talk to) and
+`AGENT_TALK_LIMIT` (the pair budget). The three CLIs get a 150 second tool timeout for
+`agentpier_session`, longer than the ask's wait. The tool bridge runs up to 16 calls side
+by side and honours `notifications/cancelled`; a cancelled ask becomes a late answer.
+These tools are never offered to external OAuth clients.
+
 ### Starting rebuilds from sessions
 
 While [Craft Anything](#managed-craft-anything) is installed, a session with full
