@@ -139,6 +139,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Projektwissen und AgentBus zwischen Sessions ([Dateien](docs/file-explorer.md),
   [Artifacts](docs/artifacts.md), [Projektwissen](docs/memory.md),
   [AgentBus](docs/agentbus-integration.md)).
+- **Sessions und Agenten sprechen miteinander:** eine Coding-Session kann Agenten
+  fragen und ihnen etwas mitteilen, und Agenten können freigegebenen Sessions
+  schreiben, mit Limits ([Anleitung](docs/session-agent-talk.md), auf Englisch).
 - **Fürs Handy gemacht:** Installation als App, Push-Benachrichtigungen sowie
   Wiederherstellung von Zustellung und Uploads
   ([Benachrichtigungen](docs/notifications.md),

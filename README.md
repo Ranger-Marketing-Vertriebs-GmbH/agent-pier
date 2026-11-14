@@ -120,6 +120,9 @@ and agents that work as a team.
   and AgentBus between sessions ([files](docs/file-explorer.md),
   [artifacts](docs/artifacts.md), [memory](docs/memory.md),
   [AgentBus](docs/agentbus-integration.md)).
+- **Sessions and agents talk:** a coding session may ask and tell your agents, and
+  agents may write to granted sessions, within budgets you control
+  ([guide](docs/session-agent-talk.md)).
 - **Phone-first:** install as an app, push notifications, and delivery and upload
   recovery ([notifications](docs/notifications.md), [mobile recovery](docs/mobile-recovery.md)).
 - **Operations:** backups, updates with Stable and Preview channels, an activity log,

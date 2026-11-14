@@ -5,33 +5,34 @@ _(German)_ are not translated yet.
 
 ## Use
 
-| Guide                                                      | What it covers                                               |
-| ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [Inbox](inbox.md)                                          | Everything waiting on you, answered in one place             |
-| [Views](views.md)                                          | Sessions and agent chats side by side in split views         |
-| [Providers and accounts](providers.md)                     | Provider connections, native CLI accounts and model catalogs |
-| [Continue with another account](session-account-switch.md) | Moving a session to another account                          |
-| [Reload and resume](session-reload.md)                     | Restarting a session onto the current CLI and release        |
-| [Code changes in chat](chat-code-changes.md)               | Diffs and file changes shown in the chat                     |
-| [Mobile delivery](mobile-delivery.md) _(German)_           | Sending messages from the phone and recovering them          |
-| [Mobile recovery](mobile-recovery.md)                      | Connection and upload recovery on phones                     |
-| [App and notifications](notifications.md)                  | Installing the app, push notifications and devices           |
-| [File Explorer](file-explorer.md)                          | Browsing, editing, uploading and recovering files            |
-| [Session changes](diff-review.md)                          | Reviewing a session's diff, comments and Send to agent       |
-| [Pipelines](pipelines.md)                                  | Task profiles, review pipelines and runs                     |
-| [Project memory](memory.md)                                | Project knowledge for sessions and agents; the Projects page |
-| [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |
-| [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
-| [Craft Anything](craft.md)                                 | Craft Anything rebuilds of apps and websites as new projects |
-| [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
-| [SSH accesses](ssh-access.md)                              | SSH keys and hosts, Used by, last test and bulk actions      |
-| [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs     |
-| [Secrets](secrets.md)                                      | Tokens for agents and coding sessions, delivered as files    |
-| [GitHub connections](github-agents.md)                     | Tokens for clones and pull requests                          |
-| [Ticket sources](ticket-sources.md)                        | GitHub issues and Plane work items started from a project    |
-| [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and subagents (Agency)     |
-| [Codex context](codex-context.md)                          | Codex context windows and model status                       |
-| [Sandboxed sessions](sandbox.md)                           | The optional nono sandbox for CLI sessions                   |
+| Guide                                                      | What it covers                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Inbox](inbox.md)                                          | Everything waiting on you, answered in one place                    |
+| [Views](views.md)                                          | Sessions and agent chats side by side in split views                |
+| [Providers and accounts](providers.md)                     | Provider connections, native CLI accounts and model catalogs        |
+| [Continue with another account](session-account-switch.md) | Moving a session to another account                                 |
+| [Reload and resume](session-reload.md)                     | Restarting a session onto the current CLI and release               |
+| [Code changes in chat](chat-code-changes.md)               | Diffs and file changes shown in the chat                            |
+| [Mobile delivery](mobile-delivery.md) _(German)_           | Sending messages from the phone and recovering them                 |
+| [Mobile recovery](mobile-recovery.md)                      | Connection and upload recovery on phones                            |
+| [App and notifications](notifications.md)                  | Installing the app, push notifications and devices                  |
+| [File Explorer](file-explorer.md)                          | Browsing, editing, uploading and recovering files                   |
+| [Session changes](diff-review.md)                          | Reviewing a session's diff, comments and Send to agent              |
+| [Pipelines](pipelines.md)                                  | Task profiles, review pipelines and runs                            |
+| [Project memory](memory.md)                                | Project knowledge for sessions and agents; the Projects page        |
+| [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                       |
+| [Sessions and agents talking](session-agent-talk.md)       | Grants, header, budget and late answers between sessions and agents |
+| [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents                    |
+| [Craft Anything](craft.md)                                 | Craft Anything rebuilds of apps and websites as new projects        |
+| [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers             |
+| [SSH accesses](ssh-access.md)                              | SSH keys and hosts, Used by, last test and bulk actions             |
+| [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs            |
+| [Secrets](secrets.md)                                      | Tokens for agents and coding sessions, delivered as files           |
+| [GitHub connections](github-agents.md)                     | Tokens for clones and pull requests                                 |
+| [Ticket sources](ticket-sources.md)                        | GitHub issues and Plane work items started from a project           |
+| [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and subagents (Agency)            |
+| [Codex context](codex-context.md)                          | Codex context windows and model status                              |
+| [Sandboxed sessions](sandbox.md)                           | The optional nono sandbox for CLI sessions                          |
 
 ## Agents
 
