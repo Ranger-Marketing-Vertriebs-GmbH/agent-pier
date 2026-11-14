@@ -32,9 +32,12 @@ let protocol = "2025-03-26";
 const parent = process.ppid;
 const pending = new Set();
 // Calls run side by side, so a waiting agent_ask holds back no other call; at most
-// this many at once, beyond that the bridge stops reading stdin until one ends.
+// this many at once, the next ones wait in a queue (up to maxQueued, beyond that
+// they are refused). stdin is read on meanwhile, so notifications/cancelled always
+// arrives.
 const maxCalls = 16;
-// The calls under way by JSON-RPC id, for notifications/cancelled.
+const maxQueued = 256;
+// The calls under way or queued by JSON-RPC id, for notifications/cancelled.
 const calls = new Map();
 const callKey = (id) => JSON.stringify(id);
 // Above agent_ask's wait of about 110 s, like the CLIs' tool timeout (session-launch.js).
@@ -126,9 +129,16 @@ function parse(line) {
 }
 // Initialization runs before anything else: it sets the protocol version.
 let initialized = Promise.resolve();
-async function handle(message) {
-  const call = message.id !== undefined ? { cancelled: false } : null;
-  if (call) calls.set(callKey(message.id), call);
+const failure = (id) => ({
+  jsonrpc: "2.0",
+  id: id ?? null,
+  error: {
+    code: -32000,
+    message:
+      "AgentPier session access unavailable. Check the session grant and server; retry reads after a restart. Reuse requestId when retrying a start.",
+  },
+});
+async function handle(message, call) {
   let response;
   try {
     if (message.method !== "initialize") await initialized.catch(() => {});
@@ -147,15 +157,7 @@ async function handle(message) {
     if (message.method === "initialize" && response?.result?.protocolVersion)
       protocol = response.result.protocolVersion;
   } catch {
-    response = {
-      jsonrpc: "2.0",
-      id: message.id ?? null,
-      error: {
-        code: -32000,
-        message:
-          "AgentPier session access unavailable. Check the session grant and server; retry reads after a restart. Reuse requestId when retrying a start.",
-      },
-    };
+    response = failure(message.id);
   } finally {
     if (call && calls.get(callKey(message.id)) === call)
       calls.delete(callKey(message.id));
@@ -163,15 +165,37 @@ async function handle(message) {
   if (call && !call.cancelled && response) await send(response);
 }
 const running = new Set();
+const queued = [];
+function start({ message, call, done }) {
+  const task = handle(message, call).catch(() => {});
+  running.add(task);
+  task.finally(() => {
+    running.delete(task);
+    done?.();
+    if (queued.length && running.size < maxCalls) start(queued.shift());
+  });
+  return task;
+}
 async function dispatch(line) {
   const message = parse(line);
   // Only the bridge holds the upstream request; the stateless server has no use for it.
   if (message.method === "notifications/cancelled") return cancel(message);
-  while (running.size >= maxCalls) await Promise.race(running);
-  const task = handle(message).catch(() => {});
-  if (message.method === "initialize") initialized = task;
-  running.add(task);
-  task.finally(() => running.delete(task));
+  const call = message.id !== undefined ? { cancelled: false } : null;
+  if (running.size < maxCalls) {
+    if (call) calls.set(callKey(message.id), call);
+    const task = start({ message, call });
+    if (message.method === "initialize") initialized = task;
+    return;
+  }
+  if (queued.length >= maxQueued) {
+    if (call) await send(failure(message.id));
+    return;
+  }
+  if (call) calls.set(callKey(message.id), call);
+  let done;
+  const finished = new Promise((resolve) => (done = resolve));
+  if (message.method === "initialize") initialized = finished;
+  queued.push({ message, call, done });
 }
 let buffer = "";
 const decoder = new StringDecoder("utf8");
@@ -187,8 +211,8 @@ try {
     }
     if (Buffer.byteLength(buffer) > 131072) throw Error();
   }
-  // Input ended: answer the calls still under way before leaving.
-  await Promise.allSettled([...running]);
+  // Input ended: answer the calls still under way or queued before leaving.
+  while (running.size) await Promise.allSettled([...running]);
 } catch {
   process.stderr.write("AgentPier session transport closed.\n");
   process.exitCode = 1;

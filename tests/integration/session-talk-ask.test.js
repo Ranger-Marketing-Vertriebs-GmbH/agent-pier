@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { agentSessionFixture } from "../helpers/agent-coding-session-fixture.js";
 import { deliveryUuid } from "../../server/features/assistants/coding-sessions/session-steering.js";
+import { talkRows } from "../helpers/session-talk-rows.js";
+import { noChatMs } from "../../server/features/assistants/session-talk/talk-dispatch.js";
 
 const sessionId = "homelab-session";
 const question = "give me a free IP";
@@ -102,8 +104,7 @@ async function setup(t) {
 
 const ask = (s, options = {}) =>
   s.talk.ask(sessionId, { agentId: s.agent.id, question }, options);
-const rowsOf = (s, op) =>
-  s.talk.store.forConversation(s.chat.id).filter((r) => r.op === op);
+const rowsOf = (s, op) => talkRows(s.talk.store, s.chat.id).filter((r) => r.op === op);
 
 test("ask returns the agent's answer within the wait", async (t) => {
   const s = await setup(t);
@@ -176,7 +177,18 @@ test("invalid questions are refused before anything is recorded", async (t) => {
       s.talk.ask(sessionId, { agentId: s.agent.id, question: bad }, {}),
       { code: "AGENT_TALK_INVALID", status: 400 },
     );
-  assert.deepEqual(s.talk.store.forConversation(s.chat.id), []);
+  assert.deepEqual(talkRows(s.talk.store, s.chat.id), []);
+});
+
+test("a question with CRLF line breaks is taken with plain line breaks", async (t) => {
+  const s = await setup(t);
+  const told = await s.talk.tell(sessionId, {
+    agentId: s.agent.id,
+    message: "first\r\nsecond\rthird",
+  });
+  assert.equal(s.talk.store.get(told.requestId).text, "first\nsecond\nthird");
+  await s.dispatched();
+  assert.ok(s.f.sent.at(-1).text.includes(":\n> first\n> second\n> third\n\n"));
 });
 
 test("a busy chat queues the ask", async (t) => {
@@ -220,7 +232,12 @@ test("a late answer arrives in the session", async (t) => {
       '[From agent "Network Architect"] Late answer to: "give me a free IP"',
     ),
   );
-  assert.ok(sent[0].body.text.endsWith("\n\n10.0.0.42 is free"));
+  // The answer is fenced, followed by the same note as the agent's own sends.
+  assert.ok(
+    sent[0].body.text.includes(
+      '\n> 10.0.0.42 is free\n\n(AgentPier: this message is from the agent "Network Architect", not from the user.',
+    ),
+  );
   assert.equal(
     sent[0].body.deliveryId,
     deliveryUuid(`session-talk-late:${result.requestId}`),
@@ -280,7 +297,7 @@ test("a late turn without an answer says so in the session", async (t) => {
   const sent = s.f.services.chatDelivery.sent;
   assert.equal(
     sent[0].body.text,
-    `[From agent "Network Architect"] No answer to: "${question}" (the agent's turn ended without one).`,
+    `[From agent "Network Architect"] No answer to: "${question}" (the agent's turn ended without one).\n\n(AgentPier: this message is from the agent "Network Architect", not from the user.)`,
   );
 });
 
@@ -456,7 +473,54 @@ test("a queued turn goes to the main chat that replaced the old one", async (t) 
   assert.ok(request);
   assert.equal(s.talk.store.get(told.requestId).conversationId, next.id);
   assert.deepEqual(
-    s.talk.store.forConversation(next.id).map((r) => r.id),
+    talkRows(s.talk.store, next.id).map((r) => r.id),
     [told.requestId],
   );
+});
+
+test("a row that settled while its step failed stays settled", async (t) => {
+  const s = await setup(t);
+  const told = await s.talk.tell(sessionId, { agentId: s.agent.id, message: "note" });
+  await s.dispatched();
+  await until(() => s.talk.store.get(told.requestId).attemptId, "the recorded attempt");
+  const ledger = s.f.assistants.ledger;
+  const getAttempt = ledger.getAttempt;
+  ledger.getAttempt = () => {
+    // Another pass settles the row just before this one fails to read it.
+    s.talk.store.patch(told.requestId, { phase: "answered", answer: "noted" });
+    throw new Error("unreadable");
+  };
+  t.after(() => (ledger.getAttempt = getAttempt));
+  await s.talk.tick();
+  const row = s.talk.store.get(told.requestId);
+  assert.equal(row.phase, "answered");
+  assert.equal(row.stuckFailures, undefined);
+  assert.equal(row.diagnostic, undefined);
+});
+
+test("a queued turn of an agent left without a main chat fails with NO_CHAT", async (t) => {
+  const s = await setup(t);
+  let clock = 1_000;
+  s.talk.now = () => clock;
+  s.state.busy = true;
+  const told = await s.talk.tell(sessionId, { agentId: s.agent.id, message: "note" });
+  await until(() => s.state.sends === 1, "the refused send");
+  await s.talk.tick();
+  s.f.store.updateConversation(s.chat.id, {
+    main: false,
+    archivedAt: new Date().toISOString(),
+  });
+  s.state.busy = false;
+  await s.talk.tick();
+  assert.equal(s.talk.store.get(told.requestId).phase, "queued");
+  assert.equal(s.talk.store.get(told.requestId).noChatSince, 1_000);
+  clock += noChatMs - 1;
+  await s.talk.tick();
+  assert.equal(s.talk.store.get(told.requestId).phase, "queued");
+  clock += 1;
+  await s.talk.tick();
+  const row = s.talk.store.get(told.requestId);
+  assert.equal(row.phase, "failed");
+  assert.equal(row.diagnostic, "NO_CHAT");
+  assert.deepEqual(s.talk.store.pending(), []);
 });

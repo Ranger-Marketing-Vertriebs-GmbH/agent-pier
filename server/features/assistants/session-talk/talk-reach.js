@@ -70,3 +70,12 @@ export async function talkSessionsFor(w, assistantId) {
     return [];
   }
 }
+
+/** Whether the session can answer with agent_tell and agent_ask (a live capability). */
+export function sessionHasTools(w, sessionId) {
+  try {
+    return !!w.s.sessionMcp?.grantFor(sessionId);
+  } catch {
+    return false;
+  }
+}

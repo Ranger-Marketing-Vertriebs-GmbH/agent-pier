@@ -24,8 +24,9 @@ const notFound = () =>
 const invalid = () => talkProblem("AGENT_TALK_INVALID", 400, messages.talkInvalid);
 
 // Text the session wrote: not blank, at most 8000 characters, no control
-// characters other than line breaks and tabs.
+// characters other than line breaks and tabs. CRLF (and a lone CR) become "\n".
 function message(text) {
+  if (typeof text === "string") text = text.replace(/\r\n?/g, "\n");
   if (
     typeof text !== "string" ||
     !text.trim() ||
