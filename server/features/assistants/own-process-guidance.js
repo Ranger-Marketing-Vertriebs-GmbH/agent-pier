@@ -39,6 +39,7 @@ export async function ownProcessInputs(
     images: tools && images ? "inline" : false,
     secrets: !!config.secretsGranted?.(assistant),
     codingSessions: (tools && config.codingSessions?.(assistant)) || [],
+    talkProjectIds: (tools && config.talkProjectIds?.(assistant)) || [],
     mailAccounts: (tools && config.mailAccounts?.(assistant)) || [],
     projectCreation: tools && mayCreateProjects(assistant, senderFacing),
     craft: tools && craft && mayCreateProjects(assistant, senderFacing),

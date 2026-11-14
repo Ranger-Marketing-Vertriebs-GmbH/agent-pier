@@ -47,7 +47,7 @@ export function deliveryUuid(key) {
 // The session's activity as the agent sees it: a stopped session has ended.
 const stateOf = (state) => (state === "stopped" ? "ended" : state);
 
-async function activity(w, session) {
+export async function activity(w, session) {
   return stateOf((await w.s.activity.read(session)).state);
 }
 
@@ -57,12 +57,8 @@ export function pendingPrompts(w, sessionId) {
   return all.filter((e) => e.sessionId === sessionId && e.status === "pending").length;
 }
 
-/**
- * send: the agent's prompt into its session through ChatDelivery, at most once per
- * `requestId` (or, without one, per tool call). A message held behind an open
- * prompt answers `pending`; it is delivered once the prompt is answered.
- */
-export async function sendToSession(w, ctx, input, inv) {
+/** A send's text (1-32000 characters) and optional requestId, or INVALID_INPUT. */
+export function checkSend(input) {
   if (
     typeof input.text !== "string" ||
     !input.text.trim() ||
@@ -70,11 +66,25 @@ export async function sendToSession(w, ctx, input, inv) {
     (input.requestId !== undefined && !text(input.requestId, 100))
   )
     throw invalid();
-  const { record, session } = await control(w, ctx.assistantId, input.sessionId);
+}
+
+/** A send's delivery id: once per `requestId`, or without one per tool call. */
+export function sendDeliveryId(ctx, sessionId, input, inv) {
   const callKey =
     input.requestId ??
     `${ctx.hook?.key || ctx.routine?.key || ctx.attemptId}:${inv?.toolCallId}`;
-  const deliveryId = deliveryUuid(`${ctx.assistantId}:${record.sessionId}:${callKey}`);
+  return deliveryUuid(`${ctx.assistantId}:${sessionId}:${callKey}`);
+}
+
+/**
+ * send: the agent's prompt into its session through ChatDelivery, at most once per
+ * `requestId` (or, without one, per tool call). A message held behind an open
+ * prompt answers `pending`; it is delivered once the prompt is answered.
+ */
+export async function sendToSession(w, ctx, input, inv) {
+  checkSend(input);
+  const { record, session } = await control(w, ctx.assistantId, input.sessionId);
+  const deliveryId = sendDeliveryId(ctx, record.sessionId, input, inv);
   // The turn may have ended while the session was read: never send for a stale turn.
   inv?.assertCurrent?.();
   const receipt = await confirmedDelivery(
@@ -129,18 +139,24 @@ function audit(w, record, session, details) {
   }
 }
 
-/**
- * read: the session's newest assistant replies after the message `after` (all of
- * them without it), at most `limit`, each cut to 8000 and together to 24000
- * characters. Untrusted data for the agent.
- */
-export async function readSession(w, ctx, input) {
+/** A read's `after` and `limit`, or INVALID_INPUT. */
+export function readOptions(input) {
   if (input.after !== undefined && !text(input.after, 200)) throw invalid();
-  const limit = integer(input.limit, 1, readBounds.maxLimit, readBounds.limit);
-  const { record, session } = await control(w, ctx.assistantId, input.sessionId);
-  const messages = (await w.s.chat.read(record.sessionId))?.messages ?? [];
-  const from =
-    input.after === undefined ? 0 : messages.findIndex((m) => m?.id === input.after) + 1;
+  return {
+    after: input.after,
+    limit: integer(input.limit, 1, readBounds.maxLimit, readBounds.limit),
+  };
+}
+
+/**
+ * The session's newest assistant replies after the message `after` (all of them
+ * without it), at most `limit`, each cut to 8000 and together to 24000 characters,
+ * with the cursor to read on from. Untrusted data for the agent.
+ */
+export async function readReplies(w, sessionId, input) {
+  const { after, limit } = readOptions(input);
+  const messages = (await w.s.chat.read(sessionId))?.messages ?? [];
+  const from = after === undefined ? 0 : messages.findIndex((m) => m?.id === after) + 1;
   const candidates = messages
     .slice(from)
     .filter(
@@ -163,11 +179,19 @@ export async function readSession(w, ctx, input) {
       truncated: cut.length < m.text.length,
     });
   }
+  return { replies, cursor: replies.at(-1)?.id ?? after ?? null };
+}
+
+/** read: the replies of a session the agent started (readReplies), and its state. */
+export async function readSession(w, ctx, input) {
+  readOptions(input);
+  const { record, session } = await control(w, ctx.assistantId, input.sessionId);
+  const { replies, cursor } = await readReplies(w, record.sessionId, input);
   const state = await activity(w, session);
   w.sessions.store.patch(record.sessionId, { seen: { state, at: w.sessions.now() } });
   return {
     replies,
-    cursor: replies.at(-1)?.id ?? input.after ?? null,
+    cursor,
     pendingPrompts: pendingPrompts(w, record.sessionId),
     state,
   };

@@ -181,3 +181,21 @@ test("a restricted user's Hermes agent runs no subagents and reads no other chat
   assert.equal(own.includes("delegation"), false);
   assert.equal(own.includes("session_search"), false);
 });
+
+test("a Hermes agent's coding session tool names the sessions granted to talk to it", () => {
+  const own = desiredAgent({ id: "a1", runtimeAgentId: "ap-a1", revision: 1 });
+  const files = teamPluginFiles(own, {
+    connection: { url: "http://127.0.0.1:1", token: "k" },
+  });
+  const source = Object.values(files).join("\n");
+  const settings = JSON.parse(files["plugins/agentpier-team/tools.json"]);
+  const tool = settings?.tools?.find((t) => t.name === "agentpier_coding_session");
+  assert.ok(tool, "agentpier_coding_session is registered");
+  assert.match(
+    tool.description,
+    /list also shows coding sessions the owner lets talk to you/,
+  );
+  assert.ok(
+    source.includes("list also shows coding sessions the owner lets talk to you"),
+  );
+});

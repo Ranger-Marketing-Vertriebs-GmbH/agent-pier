@@ -392,6 +392,8 @@ export class AssistantConfig {
       secrets: !!this.secretsGranted?.(assistant),
       // The projects it may start coding sessions on (AgentCodingSessions.projects).
       codingSessions: (nativeReady && this.codingSessions?.(assistant)) || [],
+      // The projects whose coding sessions may talk to it (talk-reach.js).
+      talkProjectIds: (nativeReady && this.talkProjectIds?.(assistant)) || [],
       // Its granted email accounts (AgentMail.accounts), by name and id only.
       mailAccounts: (nativeReady && this.mailAccounts?.(assistant)) || [],
       // Whether it holds agentpier_project (profileTools without senderLockedTools).
