@@ -6,6 +6,7 @@ import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-atta
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
+import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { noteTexts } from "./event-area.js";
 import { formatChatTime } from "../../lib/i18n/index.js";
@@ -48,6 +49,8 @@ export default memo(function AssistantMessage({
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
+  const session =
+    role === "user" && source === "session" && typeof sender?.name === "string";
   // Only the owner's own messages (here or through Telegram) can mention a member.
   const owner =
     role === "user" &&
@@ -64,7 +67,7 @@ export default memo(function AssistantMessage({
         : {},
     [chips],
   );
-  const marked = role === "user" && (source === "telegram" || lead);
+  const marked = role === "user" && (source === "telegram" || lead || session);
   const message = (
     <article
       className={`assistant-message ${role}${streaming ? " streaming" : ""}`}
@@ -89,7 +92,7 @@ export default memo(function AssistantMessage({
       ) : (
         <Speaker
           hidden={role === "user"}
-          name={lead ? sender.name : name}
+          name={lead || session ? sender.name : name}
           timestamp={marked ? 0 : timestamp}
         />
       )}
@@ -120,7 +123,13 @@ export default memo(function AssistantMessage({
       {message}
       <p className="assistant-message-meta" id={metaId}>
         <SourceMeta
-          words={lead ? leadWords(sender.name) : copy.telegramSource}
+          words={
+            session
+              ? sessionWords(sender)
+              : lead
+                ? leadWords(sender.name)
+                : copy.telegramSource
+          }
           timestamp={timestamp}
         />
       </p>
@@ -146,6 +155,15 @@ const mentionChip = ({ members, navigate }) =>
 
 const leadWords = (name) => ({
   via: leadRequestCopy.from(name),
+  at: leadRequestCopy.at,
+  spokenAt: leadRequestCopy.spokenAt,
+});
+
+const sessionWords = ({ name, project, op }) => ({
+  via: (op === "tell" ? sessionTalkCopy.chat.tells : sessionTalkCopy.chat.asks)(
+    name,
+    project || sessionTalkCopy.chat.noProject,
+  ),
   at: leadRequestCopy.at,
   spokenAt: leadRequestCopy.spokenAt,
 });

@@ -13,6 +13,7 @@ import { withRoutineResults } from "./routine-results.js";
 import { areaResult, eventArea } from "./agent-event-area.js";
 import { withMemoryNotes } from "./memory-notes.js";
 import { peerNotes } from "./peer-notes.js";
+import { talkNotes } from "./session-talk/talk-notes.js";
 import { routineMemoryNote, unattendedRemote } from "./routine-run-notes.js";
 import { turnKind } from "./goal-turns.js";
 import { historyTextLimit } from "./history-text.js";
@@ -473,7 +474,13 @@ function withRunNotes(service, conversation, messages, nextBefore) {
     (a) => !unattendedRemote(a),
   );
   const from = nextBefore && messages.length ? messages[0].timestamp : -Infinity;
-  const notes = actionNotes(actions, conversation.id).filter((n) => n.timestamp >= from);
+  const talk = talkNotes(
+    service.workflows?.sessions?.talk?.store?.forConversation(conversation.id),
+    conversation.id,
+  );
+  const notes = [...actionNotes(actions, conversation.id), ...talk].filter(
+    (n) => n.timestamp >= from,
+  );
   if (!notes.length) return messages;
   return [...messages, ...notes]
     .map((m, i) => [m, i])
