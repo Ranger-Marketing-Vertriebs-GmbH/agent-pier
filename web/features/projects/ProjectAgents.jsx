@@ -7,6 +7,7 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import { projectAgentsCopy as copy } from "../../lib/i18n/messages/project-agents.js";
 import { RegisterHint } from "./ProjectRuns.jsx";
+import { projectAgentBody } from "./project-agent-body.js";
 import { leadShareCopy as shareCopy } from "../../lib/i18n/messages/lead-shares.js";
 import { memberGrantDetail, shareDetail } from "../assistants/lead-shares.js";
 import RevokeLeadShare from "../assistants/RevokeLeadShare.jsx";
@@ -42,20 +43,7 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
       const saved = await api(
         `${path(projectId)}/${encodeURIComponent(agent.id)}`,
         "PUT",
-        {
-          expected: {
-            coding: agent.coding,
-            folder: agent.folder,
-            ...(agent.sessions !== undefined && { sessions: agent.sessions }),
-            ...(agent.talk !== undefined && { talk: agent.talk }),
-          },
-          coding,
-          folder,
-          sessions,
-          // Talking needs the project grant; without it the server refuses `talk`.
-          // Sent once the page knows the switch (older servers answer without it).
-          ...((agent.talk !== undefined || talk) && { talk: coding && talk }),
-        },
+        projectAgentBody(agent, { coding, folder, sessions, talk }),
       );
       onSaved({ ...agent, ...saved });
     } catch (e) {

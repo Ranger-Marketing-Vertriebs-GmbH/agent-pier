@@ -59,7 +59,8 @@ export function sessionEntries({ sessions = [], accounts = [], tools = [] } = {}
 /**
  * "<session> · Agent access" for every running coding session that may talk to
  * agents: it opens the session and its Agent access dialog (page action
- * `session-agent-access`, useSessionActions.jsx).
+ * `session-agent-access:<id>`, useSessionActions.jsx), so only that session's hook
+ * takes it, also when it mounts after the navigation.
  */
 export function sessionAgentAccessEntries({ sessions = [] } = {}) {
   const root = bilingual(() => commonCopy.sessions);
@@ -73,7 +74,7 @@ export function sessionAgentAccessEntries({ sessions = [] } = {}) {
         `session:${session.id}:agent-access`,
         { de: `${session.name} · ${label.de}`, en: `${session.name} · ${label.en}` },
         project ? join(root, same(project)) : root,
-        { session: session.id, pending: "session-agent-access" },
+        { session: session.id, pending: `session-agent-access:${session.id}` },
         { icon: "talk", extra: [project, session.tool].filter(Boolean) },
       );
     });

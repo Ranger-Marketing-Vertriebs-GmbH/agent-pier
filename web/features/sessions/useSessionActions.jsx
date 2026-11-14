@@ -6,7 +6,6 @@ import { sshCopy } from "../../lib/i18n/messages/ssh.js";
 import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
 import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { usePageAction } from "../../app/page-action.js";
-import { usePane } from "../../lib/pane-context.js";
 import { talkEligibleSession } from "../session-talk/talk-eligible.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 
@@ -40,15 +39,15 @@ export default function useSessionActions({ session, action, reloadable, openTer
     [sessionIdentity],
   );
   const running = session.status === "running";
-  // Agent access (session-talk) for running coding sessions while agents are on; ⌘K
-  // opens it through the page action, in a split view only from the focused pane.
+  // Agent access (session-talk) for running coding sessions while agents are on. ⌘K
+  // requests `session-agent-access:<id>` before it navigates; the request waits (10 s,
+  // page-action.js) until this very session's hook is mounted and takes it.
   const agentsEnabled = useAssistantFeature().enabled === true;
   const talk = agentsEnabled && talkEligibleSession(session);
-  const focused = usePane()?.focused !== false;
   usePageAction(
-    "session-agent-access",
+    `session-agent-access:${session.id}`,
     () => setAgentSession(sessionIdentity),
-    talk && focused,
+    talk,
   );
   const items = [];
   if (reloadable)
