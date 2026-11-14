@@ -33,7 +33,10 @@ export function talkBudgetRefusal(
   return null;
 }
 
-/** One note per pair and 10-minute window in the agent's main chat. */
+/**
+ * One note per pair and 10-minute window, in `row.conversationId`: the agent's main
+ * chat for a session's message, the sending chat for an agent's send (talk-send.js).
+ */
 export function noteLimit(store, row) {
   const at = store.now();
   const id = `limit:${row.sessionId}:${row.assistantId}:${Math.floor(at / tenMinutes)}`;

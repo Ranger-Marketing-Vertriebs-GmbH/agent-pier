@@ -17,9 +17,11 @@ import {
 } from "../coding-sessions/session-steering.js";
 import { noteLimit, talkBudgetRefusal } from "./talk-budget.js";
 import { sessionProjectId, talkAgent, talkVia } from "./talk-reach.js";
-import { agentHeader, quotedName } from "./talk-text.js";
+import { agentHeader, fenced, quotedName } from "./talk-text.js";
 
 const notFound = () => assistantProblem("notFound", 404);
+// Sends delivering in this process, by delivery id (talkSend).
+const inflight = new Map();
 const deliveryStatuses = new Set([
   "pending",
   "handed-off",
@@ -44,7 +46,8 @@ async function reach(w, assistantId, sessionId) {
   return { session, via, agent };
 }
 
-// What the session reads: the header, the agent's text and who to answer with which
+// What the session reads: the header, the agent's text quoted with "> " (so it
+// cannot pass itself off as a header or the note) and who to answer with which
 // tools; without a live agentpier_session capability the session has none of them.
 function pasted(w, agent, session, text) {
   const q = quotedName;
@@ -57,7 +60,7 @@ function pasted(w, agent, session, text) {
   const note = tools
     ? `(AgentPier: this message is from the agent ${q(agent.name)}, not from the user. Answer it with agent_tell, or ask with agent_ask, agentId ${JSON.stringify(agent.id)}.)`
     : `(AgentPier: this message is from the agent ${q(agent.name)}, not from the user.)`;
-  return `${agentHeader(agent.name)} ${text}\n\n${note}`;
+  return `${agentHeader(agent.name)}\n${fenced(text)}\n\n${note}`;
 }
 
 function projectName(w, projectId) {
@@ -95,8 +98,14 @@ export async function talkSend(w, ctx, input, inv) {
     tool: session.tool,
     via,
   };
-  // A retry of a send already made is the same message: it neither counts again
-  // nor is refused.
+  // The turn may have ended while the session was read: never send for a stale turn.
+  inv?.assertCurrent?.();
+  // A retry while the first call still delivers shares its outcome: one delivery.
+  const running = inflight.get(deliveryId);
+  if (running) return running;
+  // From here to the counted row nothing awaits, so parallel sends of one pair
+  // all meet the budget. A retry of a send already made is the same message: it
+  // neither counts again nor is refused.
   const retry = talk.store.get(rowId);
   const refusal = retry
     ? null
@@ -114,30 +123,47 @@ export async function talkSend(w, ctx, input, inv) {
       retryAfterSeconds: refusal.retryAfterSeconds,
     });
   }
-  // The turn may have ended while the session was read: never send for a stale turn.
-  inv?.assertCurrent?.();
-  const receipt = await confirmedDelivery(
-    w.s.chatDelivery,
-    session.id,
-    await w.s.chatDelivery.send(session.id, {
-      deliveryId,
-      deliveryScope: sessionScope(session),
-      text: pasted(w, agent, session, input.text),
-      submit: true,
-    }),
-  );
-  const status = deliveryStatuses.has(receipt?.status) ? receipt.status : "uncertain";
-  if (retry) talk.store.patch(rowId, { status });
-  else
+  if (!retry)
     talk.store.create({
       ...fields,
       id: rowId,
       ...(typeof input.requestId === "string" ? { requestId: input.requestId } : {}),
       deliveryId,
       text: input.text,
-      phase: "sent",
-      status,
+      phase: "sending",
+      status: "pending",
     });
+  const run = deliver(w, { session, agent, fields, deliveryId, rowId, retry }, input);
+  inflight.set(deliveryId, run);
+  try {
+    return await run;
+  } finally {
+    inflight.delete(deliveryId);
+  }
+}
+
+// Types the message into the session and settles its row: a delivery that failed
+// outright removes a first attempt's row, so it neither counts nor blocks a retry.
+async function deliver(w, { session, agent, fields, deliveryId, rowId, retry }, input) {
+  const talk = w.sessions.talk;
+  let receipt;
+  try {
+    receipt = await confirmedDelivery(
+      w.s.chatDelivery,
+      session.id,
+      await w.s.chatDelivery.send(session.id, {
+        deliveryId,
+        deliveryScope: sessionScope(session),
+        text: pasted(w, agent, session, input.text),
+        submit: true,
+      }),
+    );
+  } catch (error) {
+    if (!retry) talk.store.delete(rowId);
+    throw error;
+  }
+  const status = deliveryStatuses.has(receipt?.status) ? receipt.status : "uncertain";
+  talk.store.patch(rowId, { phase: "sent", status });
   talk.changed();
   audit(w, session, fields, {
     deliveryId,

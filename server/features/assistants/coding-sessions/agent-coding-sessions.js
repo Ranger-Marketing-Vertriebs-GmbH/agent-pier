@@ -20,7 +20,11 @@ import { holdsGoal, tickWakes, wakeEscalation } from "./session-wakes.js";
 import { stillGranted } from "./session-control.js";
 import { SessionTalk } from "../session-talk/session-talk.js";
 import { talkRead, talkSend } from "../session-talk/talk-send.js";
-import { sessionProjectId, talkSessionsFor } from "../session-talk/talk-reach.js";
+import {
+  sessionProjectId,
+  talkSessionsFor,
+  talkVia,
+} from "../session-talk/talk-reach.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -75,12 +79,12 @@ export class AgentCodingSessions {
       options: (ctx) => sessionOptions(this.w, ctx),
       list: (ctx) => this.list(ctx),
       start: (ctx, input) => startSession(this.w, ctx, input),
-      send: (ctx, input, inv) =>
-        this.started(ctx, input)
+      send: async (ctx, input, inv) =>
+        (await this.started(ctx, input))
           ? sendToSession(this.w, ctx, input, inv)
           : talkSend(this.w, ctx, input, inv),
-      read: (ctx, input) =>
-        this.started(ctx, input)
+      read: async (ctx, input) =>
+        (await this.started(ctx, input))
           ? readSession(this.w, ctx, input)
           : talkRead(this.w, ctx, input),
       wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
@@ -227,11 +231,20 @@ export class AgentCodingSessions {
     }
   }
   // Whether the call's session is one the agent started (its own record), not one
-  // it reaches through talk.
-  started(ctx, input) {
+  // it reaches through talk. A session it stopped that the owner resumed and lets
+  // talk to it goes through talk; an ended one without talk stays its own (read).
+  async started(ctx, input) {
     const record =
       typeof input.sessionId === "string" ? this.store.get(input.sessionId) : null;
-    return record?.assistantId === ctx.assistantId;
+    if (record?.assistantId !== ctx.assistantId) return false;
+    if (!record.ended) return true;
+    let session = null;
+    try {
+      session = await this.w.s.sessions.get(record.sessionId);
+    } catch {
+      return true;
+    }
+    return !session || !talkVia(this.w, ctx.assistantId, session);
   }
   // The sessions the agent started, each with its live status ("gone" once removed),
   // then the running sessions it may talk to (`via` project or session grant).
