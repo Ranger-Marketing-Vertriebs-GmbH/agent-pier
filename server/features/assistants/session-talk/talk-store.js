@@ -53,6 +53,9 @@ export class TalkStore {
       .run(next.conversationId ?? null, JSON.stringify(next), id);
     return next;
   }
+  delete(id) {
+    this.db.prepare("DELETE FROM session_talk WHERE id=?").run(id);
+  }
   /** Turns still to deliver, and late answers waiting to settle. */
   pending() {
     return this.db
