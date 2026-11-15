@@ -95,57 +95,6 @@ test("logout addresses only the selected profile and model input cannot replace 
   assert.deepEqual(await accounts.list(), []);
 });
 
-// As OpenClaw 2026.11.3 answers while an agent database it reads is still inspected.
-const refuse = (retryable) => () =>
-  Promise.reject(
-    Object.assign(new Error("refused"), {
-      code: "UNAVAILABLE",
-      answered: true,
-      retryable,
-      retryAfterMs: 1,
-    }),
-  );
-// `refusals[method]`: the answers that method gets before the fixture's own.
-function refusing(runtime, calls, refusals) {
-  const call = runtime.client.call;
-  runtime.client.call = (method, params) =>
-    refusals[method]?.length
-      ? (calls.push({ method, params }), refusals[method].shift()())
-      : call(method, params);
-}
-const count = (calls, method) => calls.filter((c) => c.method === method).length;
-
-test("a logout OpenClaw refuses as retryable is asked again; another refusal is not", async (t) => {
-  const { accounts, runtime, calls } = fixture(t);
-  const [account] = await accounts.list();
-  const refusals = { "models.authLogout": [refuse(false)] };
-  refusing(runtime, calls, refusals);
-  await assert.rejects(accounts.logout(account.id), { code: "UNAVAILABLE" });
-  assert.equal(count(calls, "models.authLogout"), 1);
-  // Five repeats at most: the sixth retryable refusal fails the logout.
-  refusals["models.authLogout"] = Array.from({ length: 6 }, () => refuse(true));
-  await assert.rejects(accounts.logout(account.id), { code: "UNAVAILABLE" });
-  assert.equal(count(calls, "models.authLogout"), 7);
-  refusals["models.authLogout"] = [refuse(true), refuse(true)];
-  await accounts.logout(account.id);
-  assert.equal(count(calls, "models.authLogout"), 10);
-  assert.deepEqual(await accounts.list(), []);
-});
-
-test("the account status and a probe repeat a retryable refusal too", async (t) => {
-  const { accounts, runtime, profiles, calls } = fixture(t);
-  refusing(runtime, calls, {
-    "models.authStatus": [refuse(true)],
-    "models.probe": [refuse(true)],
-  });
-  const [account] = await accounts.list();
-  assert.equal(account.name, "Personal");
-  assert.equal(count(calls, "models.authStatus"), 2);
-  profiles[0].status = "expired";
-  (await accounts.resolve(account.id, "gpt-6-astra")).release();
-  assert.equal(count(calls, "models.probe"), 2);
-});
-
 test("removed account identity remains pinned offline across restart without remaining publicly selectable", async (t) => {
   const { accounts, runtime, dataDir } = fixture(t);
   const [account] = await accounts.list();

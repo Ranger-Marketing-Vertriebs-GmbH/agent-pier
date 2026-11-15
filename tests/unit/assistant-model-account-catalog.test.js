@@ -224,46 +224,21 @@ test("a forced read the Gateway answers while discovery still runs is read again
   assert.deepEqual(logs, ["ChatGPT model list could not be read (PENDING)."]);
 });
 
-test("a read the Gateway answers as superseded and retryable is asked again, a few times", async () => {
-  // OpenClaw 2026.11.2: "prepared model runtime catalog generation was superseded".
-  const superseded = () =>
+test("a refused read fails the refresh; the Gateway client repeats retryable reads", async () => {
+  // A superseded catalog generation (2026.11.2) is asked again inside
+  // GatewayClient.call (gateway-retry.js); what reaches the catalog is final.
+  const { runtime, calls } = gateway([
     Object.assign(Error("superseded"), {
       code: "UNAVAILABLE",
       answered: true,
       retryable: true,
-      retryAfterMs: 0,
-    });
-  const { runtime, calls } = gateway([superseded(), listed([row("gpt-6-astra")])]);
+    }),
+  ]);
   const logs = [];
   const catalog = new ModelAccountCatalog({ runtime, warn: (line) => logs.push(line) });
-  await catalog.refresh({ force: true });
-  assert.deepEqual(
-    calls.map((c) => c.params.refresh),
-    [true, true],
-  );
-  assert.equal(catalog.account(profileId).modelCatalog, "ready");
-  assert.deepEqual(logs, []);
-  // Bounded: one read and five repeats, then the refusal is logged.
-  const again = gateway(Array.from({ length: 7 }, superseded));
-  const bounded = new ModelAccountCatalog({
-    runtime: again.runtime,
-    warn: (line) => logs.push(line),
-  });
-  await assert.rejects(bounded.refresh({ force: true }), { code: "UNAVAILABLE" });
-  assert.equal(again.calls.length, 6);
-  // Neither a refusal the Gateway marks final nor a local failure is repeated.
-  const final = gateway([
-    Object.assign(Error("final"), {
-      code: "UNAVAILABLE",
-      answered: true,
-      retryable: false,
-    }),
-    Object.assign(Error("local"), { code: "UNAVAILABLE", retryable: true }),
-  ]);
-  const once = new ModelAccountCatalog({ runtime: final.runtime, ...quiet });
-  await assert.rejects(once.refresh({ force: true }), /final/);
-  await assert.rejects(once.refresh({ force: true }), /local/);
-  assert.equal(final.calls.length, 2);
+  await assert.rejects(catalog.refresh({ force: true }), { code: "UNAVAILABLE" });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(logs, ["ChatGPT model list could not be read (UNAVAILABLE)."]);
 });
 
 test("a refresh reads again only on the connection it started on", async () => {
