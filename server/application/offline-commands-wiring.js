@@ -1,5 +1,8 @@
 import { PendingRestart } from "../features/assistants/pending-restart.js";
-import { OfflineCommands } from "../features/assistants/runtimes/openclaw/offline-commands.js";
+import {
+  OfflineCommands,
+  stateOwned,
+} from "../features/assistants/runtimes/openclaw/offline-commands.js";
 import { forgetDreamingSession } from "../features/assistants/dreaming-backups.js";
 import { temporaryMember } from "../features/assistants/team-presentation.js";
 
@@ -27,7 +30,18 @@ export function restartWiring(assistants, synchronization, runtime) {
   assistants.offlineCommands = new OfflineCommands({
     supervisor: runtime,
     async forget({ agent, sessions }) {
-      if (!(await forgetDreamingSession(assistants, { runtimeAgentId: agent }, sessions)))
+      let ran;
+      try {
+        ran = await forgetDreamingSession(
+          assistants,
+          { runtimeAgentId: agent },
+          sessions,
+        );
+      } catch (error) {
+        // A Gateway that still owns the state: the queue repeats it shortly.
+        throw Object.assign(error, { stateOwned: stateOwned(error?.stderr) });
+      }
+      if (!ran)
         throw Object.assign(new Error("No runtime installed."), {
           code: "RUNTIME_UNAVAILABLE",
         });

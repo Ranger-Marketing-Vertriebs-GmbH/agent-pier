@@ -5270,6 +5270,7 @@
   "mcp-oauth:mcpOAuthCopy.reasons.provider-error": "de:235b5a3f62d1 en:9986edc519a2",
   "mcp-oauth:mcpOAuthCopy.reasons.redirect-rejected": "de:97315a039b9b en:bae7b0786d69",
   "mcp-oauth:mcpOAuthCopy.reasons.resource-mismatch": "de:c75b48fb01e4 en:5d82669e23d7",
+  "mcp-oauth:mcpOAuthCopy.reasons.runtime-busy": "de:5fae2e0811bd en:e75364202127",
   "mcp-oauth:mcpOAuthCopy.reasons.runtime-unavailable": "de:351d2d46a535 en:a11a86e66453",
   "mcp-oauth:mcpOAuthCopy.reasons.server-unknown": "de:7f297617990e en:4d2b0d1a87f1",
   "mcp-oauth:mcpOAuthCopy.reasons.server_error": "de:0632eebc566f en:116eaf4e3ae1",

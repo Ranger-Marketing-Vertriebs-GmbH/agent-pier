@@ -7,7 +7,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { compilerFor } from "../assistants/runtimes/runtime-for.js";
 import { namePattern } from "./command-resolution.js";
-import { stateOwned } from "../assistants/runtimes/openclaw/offline-commands.js";
 
 export const mcpCliErrorCodes = Object.freeze([
   "runtime-unavailable",
@@ -53,6 +52,10 @@ const leaseLockLine = /\boperation=state\.lease\b.*\bstep=begin\b/;
 // One login and up to two repeats after a redacted authorization URL (see
 // parseLoginOutput): all three are hit by chance about once in eight million.
 const defaultLoginAttempts = 3;
+
+// OpenClaw 2026.10.10 and later beside a Gateway that owns the state, or right after
+// it stopped (src/cli/local-state-owner.ts); OfflineCommands repeats such a call.
+const ownedLine = /exclusive offline state ownership|Cannot admit .* in state root/;
 
 /** Whether the CLI failed only because its lease transaction could not start. */
 export function leaseLocked(stderr) {
@@ -350,7 +353,7 @@ export function createMcpCli({
           Object.assign(failure(command, code, stderr, secrets), {
             busy: leaseLocked(stderr),
             // A Gateway still owns the state (OpenClaw 2026.10.10 and later).
-            stateOwned: stateOwned(stderr),
+            stateOwned: ownedLine.test(stderr),
           }),
         );
       });
