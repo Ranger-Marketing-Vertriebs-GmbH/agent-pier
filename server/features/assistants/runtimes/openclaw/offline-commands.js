@@ -316,8 +316,13 @@ export class OfflineCommands {
       this.supervisor.setState?.({ maintenanceWindow: this.marks > 0 });
   }
   /** Resolves once no command runs and a window's start has settled. */
-  idle() {
-    return Promise.allSettled([this.tail, this.restarting]).then(() => undefined);
+  async idle() {
+    // A window sets `restarting` only once it ran: settle until nothing new began.
+    for (;;) {
+      const { tail, restarting } = this;
+      await Promise.allSettled([tail, restarting]);
+      if (tail === this.tail && restarting === this.restarting) return;
+    }
   }
   close() {
     this.closed = true;
