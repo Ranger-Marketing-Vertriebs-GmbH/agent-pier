@@ -11,6 +11,8 @@ export const assistantRestartCopy = {
     pdfModel: "PDF reading",
     connection: "a provider connection",
     telegram: "a Telegram bot",
+    memoryForget: "removing deleted chats from memory",
+    mcpLogout: "an MCP server sign-out",
   },
   waiting: (labels) => `Waiting for: ${labels}.`,
   waitingFor: {
