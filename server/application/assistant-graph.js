@@ -572,7 +572,7 @@ export function connectAssistantServices(graph) {
     beforeSpawn: async () => {
       // Over whatever a rollback restored: AgentPier's logins stay access-only.
       await graph.assistantModelAccounts.syncAll();
-      await assistants.offlineCommands.drain();
+      await assistants.offlineCommands.beforeSpawn();
       return synchronization.prepare();
     },
     afterReady: async () => {

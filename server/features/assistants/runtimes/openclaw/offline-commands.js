@@ -11,7 +11,7 @@ import { durablePrivate } from "../../runtime-update-snapshot.js";
  * `mcp logout` refuse while a Gateway owns the state ("requires exclusive offline
  * state ownership"). AgentPier then runs them while its own Gateway is stopped:
  *
- * - at every Gateway start, before the spawn (`drain`, the supervisor's beforeSpawn),
+ * - at every Gateway start, before the spawn (`beforeSpawn`),
  *   and directly whenever no Gateway process runs;
  * - a deleted chat's forget is queued durably (`offline-commands.json`) and asks for
  *   a restart soon after a short debounce (`request`: the pending restart, which waits
@@ -117,9 +117,9 @@ export class OfflineCommands {
     const child = this.supervisor.child;
     return (!!child && child.exitCode === null && !child.signalCode) || this.launching();
   }
-  // A start under way: its beforeSpawn drained the queue, its spawn follows.
+  // A start whose beforeSpawn drained the queue: its spawn follows.
   launching() {
-    return !!this.supervisor.starting;
+    return !!this.spawning && this.spawning === this.supervisor.starting;
   }
   /** Whether an offline-only command needs a window now. */
   windowNeeded() {
@@ -184,9 +184,26 @@ export class OfflineCommands {
       return this.window(task);
     });
   }
-  /** Runs every queued forget; the supervisor calls it before each Gateway spawn. */
+  /** Runs every queued forget. */
   drain() {
     return this.locked(() => this.forgets());
+  }
+  /**
+   * The supervisor's beforeSpawn: drains the queue, and until that start settles a
+   * command counts the Gateway it spawns as running (before the spawn, the lock is
+   * free and no child is set yet). Earlier in the start (its MCP logout drain) a
+   * command still runs directly.
+   */
+  async beforeSpawn() {
+    await this.drain();
+    const starting = this.supervisor.starting;
+    if (!starting) return;
+    this.spawning = starting;
+    starting
+      .catch(() => {})
+      .finally(() => {
+        if (this.spawning === starting) this.spawning = null;
+      });
   }
   locked(operation) {
     const result = this.tail.then(operation, operation);

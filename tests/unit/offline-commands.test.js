@@ -312,9 +312,12 @@ test("while a window stops the Gateway, admitted calls are refused at once", asy
 });
 
 test("while a Gateway launch is under way nothing runs beside it", async (t) => {
-  // beforeSpawn drained the queue; the spawn follows.
   const f = commands(t, { running: false });
   f.s.starting = new Promise(() => {});
+  // Before beforeSpawn (the start's MCP logout drain) a command runs directly.
+  assert.equal(await f.queue.run(async () => "early"), "early");
+  // beforeSpawn drained the queue; the spawn follows.
+  await f.queue.beforeSpawn();
   let ran = false;
   await assert.rejects(
     f.queue.run(async () => (ran = true)),
@@ -325,6 +328,9 @@ test("while a Gateway launch is under way nothing runs beside it", async (t) => 
   await sleep(40);
   assert.deepEqual(f.events, [], "queued for the started Gateway's restart");
   assert.deepEqual(f.requests, ["memoryForget"]);
+  // A later start does not inherit it.
+  f.s.starting = null;
+  assert.equal(await f.queue.run(async () => "later"), "later");
 });
 
 test("idle waits for the start of a window that had not begun yet", async (t) => {
