@@ -9,6 +9,7 @@ import {
   DreamingBackups,
   backupHermesMemory,
   backupMemory,
+  sweepNear,
 } from "../../server/features/assistants/dreaming-backups.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
@@ -264,6 +265,17 @@ test("no backup while dreaming is off or outside the window, and an hour change 
   save({ enabled: true, hour: 5, timeZone: "UTC" });
   await backups.run(night(1, 4, 57));
   assert.equal(f.backups(orchid).length, 2);
+});
+
+test("the sweep counts as near in the 15 minutes before its hour, while dreaming is on", () => {
+  const on = { enabled: true, hour: 3, timeZone: "UTC" };
+  const at = (h, m) => new Date(Date.UTC(2026, 10, 1, h, m));
+  assert.equal(sweepNear(at(2, 44), on), false);
+  assert.equal(sweepNear(at(2, 45), on), true);
+  assert.equal(sweepNear(at(2, 59), on), true);
+  assert.equal(sweepNear(at(3, 0), on), false, "under way");
+  assert.equal(sweepNear(at(2, 50), { ...on, enabled: false }), false);
+  assert.equal(sweepNear(at(2, 50), null), false);
 });
 
 test("backups of a removed agent are deleted", async (t) => {

@@ -15,7 +15,9 @@ import { durablePrivate } from "../../runtime-update-snapshot.js";
  *   and directly whenever no Gateway process runs;
  * - a deleted chat's forget is queued durably (`offline-commands.json`) and asks for
  *   a restart soon after a short debounce (`request`: the pending restart, which waits
- *   until no agent is busy), so several deletions share one window;
+ *   until no agent is busy), so several deletions share one window; one still waiting
+ *   after 15 minutes, or when dreaming's nightly sweep is near, restarts at once
+ *   (`force`), busy agents or not;
  * - an owner's MCP sign-in or sign-out (`run`) opens a window at once: the supervisor
  *   stops the Gateway (running turns drain as in any restart), the command runs with
  *   every queued forget, and the Gateway starts again in the background.
@@ -50,12 +52,19 @@ export class OfflineCommands {
    *   `stateOwned` when OpenClaw still saw an owner).
    * - `request(reason)`: asks for a restart soon; false when none was recorded.
    * - `busy()`: whether a window must not start now (maintenance, a restart).
+   * - `force()`: runs the pending restart at once, also beside busy agents.
+   * - `urgent()`: whether dreaming's nightly sweep starts soon.
    */
   constructor({
     supervisor,
     forget,
     request = () => false,
     busy = () => false,
+    force = null,
+    urgent = () => false,
+    now = Date.now,
+    deadlineMs = 15 * 60000,
+    checkMs = 60000,
     debounceMs = 5000,
     retryMs = 60000,
     maxAttempts = 3,
@@ -67,6 +76,11 @@ export class OfflineCommands {
       forgetCommand: forget,
       request,
       busy,
+      force,
+      urgent,
+      now,
+      deadlineMs,
+      checkMs,
       debounceMs,
       retryMs,
       maxAttempts,
@@ -81,7 +95,7 @@ export class OfflineCommands {
     const root = this.supervisor.paths?.root;
     return root ? path.join(root, queueName) : null;
   }
-  /** The queued forgets: `[{ agent, sessions, attempts }]`, one entry per agent. */
+  /** The queued forgets: `[{ agent, sessions, attempts, since }]`, one per agent. */
   queued() {
     try {
       const value = this.file && readJSON(this.file, null);
@@ -116,7 +130,13 @@ export class OfflineCommands {
     const forgets = this.queued();
     const entry = forgets.find((e) => e.agent === agent);
     if (entry) entry.sessions = [...new Set([...entry.sessions, ...sessions])];
-    else forgets.push({ agent, sessions: [...new Set(sessions)], attempts: 0 });
+    else
+      forgets.push({
+        agent,
+        sessions: [...new Set(sessions)],
+        attempts: 0,
+        since: this.now(),
+      });
     this.save(forgets);
     return this.soon();
   }
@@ -140,7 +160,7 @@ export class OfflineCommands {
     if (this.closed || !this.queued().length) return;
     if (!this.windowNeeded()) return this.drain();
     // The pending restart waits until nothing is busy; its start drains the queue.
-    if (this.request("memoryForget")) return;
+    if (this.request("memoryForget")) return void this.watch();
     if (this.busy()) return void this.soon(this.retryMs);
     await this.locked(() => (this.windowNeeded() ? this.window(null) : this.forgets()));
   }
@@ -243,6 +263,34 @@ export class OfflineCommands {
     if (failed.some((e) => e.attempts < this.maxAttempts))
       this.later(this.retryMs * Math.max(...failed.map((e) => e.attempts)));
   }
+  // Once a minute while forgets wait for the pending restart (`overdue`).
+  watch() {
+    if (this.watchTimer || this.closed || !this.force) return;
+    this.watchTimer = setInterval(() => this.overdue().catch(() => {}), this.checkMs);
+    this.watchTimer.unref?.();
+  }
+  /**
+   * Forces the restart once the oldest forget with attempts left waited `deadlineMs`,
+   * or dreaming's sweep is near: busy agents must not keep a deleted chat in
+   * dreaming's copies for hours, nor let a sweep read it first.
+   */
+  async overdue() {
+    const waiting = this.queued().filter((e) => (e.attempts || 0) < this.maxAttempts);
+    if (this.closed || !waiting.length) {
+      clearInterval(this.watchTimer);
+      this.watchTimer = null;
+      return;
+    }
+    const oldest = Math.min(...waiting.map((e) => e.since ?? 0));
+    if (this.forcing || !this.windowNeeded()) return;
+    if (this.now() - oldest < this.deadlineMs && !this.urgent()) return;
+    this.forcing = true;
+    try {
+      await this.force();
+    } finally {
+      this.forcing = false;
+    }
+  }
   later(ms) {
     if (this.closed) return;
     clearTimeout(this.timer);
@@ -262,6 +310,7 @@ export class OfflineCommands {
   }
   close() {
     this.closed = true;
+    clearInterval(this.watchTimer);
     clearTimeout(this.timer);
     this.timer = null;
     return this.idle();
