@@ -311,26 +311,32 @@ test("while a window stops the Gateway, admitted calls are refused at once", asy
   assert.equal(await service.admit(async () => "after"), "after");
 });
 
-test("while a Gateway launch is under way nothing runs beside it", async (t) => {
+test("an owner's command during a Gateway launch waits for it, then opens a window", async (t) => {
   const f = commands(t, { running: false });
-  f.s.starting = new Promise(() => {});
+  let ready;
+  f.s.starting = new Promise((resolve) => (ready = resolve));
   // Before beforeSpawn (the start's MCP logout drain) a command runs directly.
   assert.equal(await f.queue.run(async () => "early"), "early");
   // beforeSpawn drained the queue; the spawn follows.
   await f.queue.beforeSpawn();
-  let ran = false;
-  await assert.rejects(
-    f.queue.run(async () => (ran = true)),
-    (error) => error.code === "RUNTIME_BUSY",
-  );
-  assert.equal(ran, false);
   await f.queue.forget("orchid", ["s-1"]);
   await sleep(40);
   assert.deepEqual(f.events, [], "queued for the started Gateway's restart");
   assert.deepEqual(f.requests, ["memoryForget"]);
-  // A later start does not inherit it.
+  // The provider's redirect arrives while the Gateway it spawned is not ready yet.
+  f.s.child = { exitCode: null };
+  let ran = false;
+  const code = f.queue.run(async () => {
+    f.events.push("code");
+    ran = true;
+    return "connected";
+  });
+  await sleep(20);
+  assert.equal(ran, false, "nothing beside the launching Gateway");
   f.s.starting = null;
-  assert.equal(await f.queue.run(async () => "later"), "later");
+  ready();
+  assert.equal(await code, "connected");
+  assert.deepEqual(f.events.slice(0, 3), ["stop", "code", ["forget", "orchid", ["s-1"]]]);
 });
 
 test("idle waits for the start of a window that had not begun yet", async (t) => {

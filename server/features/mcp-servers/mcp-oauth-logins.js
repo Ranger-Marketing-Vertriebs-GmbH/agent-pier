@@ -306,9 +306,7 @@ export class McpOAuthLogins {
     let current = null;
     try {
       current = login && this.servers.get(login.serverId);
-    } catch {
-      current = null;
-    }
+    } catch {}
     if (
       !login ||
       this.now() - login.startedAt >= pendingLoginMs ||
@@ -334,6 +332,8 @@ export class McpOAuthLogins {
     } finally {
       this.invalidate();
     }
+    // Refused before OpenClaw saw the code: the provider's redirect may come again.
+    if (failed?.code === "runtime-busy") this.pending.set(state, login);
     if (failed && !(await this.tokensSaved(login.name)))
       return { serverId, result: "error", reason: failed?.code || "cli-failed" };
     // A rename or delete queued behind the CLI call logged this login out again.

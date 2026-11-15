@@ -381,3 +381,24 @@ test("a rename queued behind --code leaves the server not ever connected", async
   assert.equal(f.servers.get(f.docs.id).name, "renamed");
   assert.equal(f.servers.oauthMemory(f.docs.id).everConnected, false);
 });
+
+test("a code exchange the agent service refused as busy keeps the login's state", async (t) => {
+  let busy = true;
+  const f = setup(t, {
+    completeLogin: () => {
+      if (busy) throw new McpCliError("runtime-busy", "busy");
+    },
+    status: () => ({}),
+  });
+  await f.oauth.start(f.docs.id, { requestOrigin: local });
+  const first = await f.oauth.complete({ state: "state-1", code: "c" });
+  assert.deepEqual(first, {
+    serverId: f.docs.id,
+    result: "error",
+    reason: "runtime-busy",
+  });
+  // The provider's redirect, loaded again once the service is free, completes it.
+  busy = false;
+  const again = await f.oauth.complete({ state: "state-1", code: "c" });
+  assert.equal(again.result, "connected");
+});
