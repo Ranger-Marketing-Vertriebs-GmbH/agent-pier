@@ -78,6 +78,8 @@ export const mcpOAuthCopy = {
       `The provider rejected the redirect address ${redirect}.`,
     "session-missing": "The login session is no longer valid. Start the login again.",
     "runtime-unavailable": "The agent runtime is not available.",
+    "runtime-busy":
+      "The agent service is being maintained or restarted. Please try again in a moment.",
     "server-unknown":
       "The server is not active yet. Assign it to an agent and wait until the agent runtime is running.",
     "oauth-failed":

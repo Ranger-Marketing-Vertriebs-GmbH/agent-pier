@@ -85,6 +85,8 @@ export const mcpOAuthCopy = {
     "session-missing":
       "Die Anmelde-Session ist nicht mehr gültig. Starte die Anmeldung erneut.",
     "runtime-unavailable": "Die Agenten-Laufzeit ist nicht verfügbar.",
+    "runtime-busy":
+      "Der Agentendienst wird gerade gewartet oder neu gestartet. Bitte gleich erneut versuchen.",
     "server-unknown":
       "Der Server ist noch nicht aktiv. Weise ihn einem Agenten zu und warte, bis die Agenten-Laufzeit läuft.",
     "oauth-failed":

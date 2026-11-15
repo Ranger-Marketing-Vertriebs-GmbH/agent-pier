@@ -8,7 +8,6 @@ import { compilerFor, ownProcess } from "./runtimes/runtime-for.js";
 import { HermesDreams } from "./hermes-dreams.js";
 import { HermesDreamStore } from "./hermes-dream-store.js";
 import { privateFolder } from "./runtime-paths.js";
-import { stateOwned } from "./runtimes/openclaw/offline-commands.js";
 
 /*
  * Copies of each agent's MEMORY.md taken shortly before the night's dreaming run
@@ -240,20 +239,15 @@ export async function forgetDreamingSession(assistants, agent, sessionIds) {
   if (!descriptor?.nodePath || !descriptor?.entryPath || !paths?.root) return false;
   const args = ["memory", "forget", "--agent", agent.runtimeAgentId];
   const sessions = [sessionIds].flat().flatMap((id) => ["--session", id]);
-  try {
-    await promisify(execFile)(
-      descriptor.nodePath,
-      [descriptor.entryPath, ...args, ...sessions, "--json"],
-      {
-        cwd: paths.root,
-        env: compilerFor(agent).environment(paths, descriptor.nodePath),
-        timeout: forgetTimeoutMs,
-        maxBuffer: 4 * 1024 * 1024,
-      },
-    );
-  } catch (error) {
-    // A Gateway that still owns the state (offline-commands.js waits for it).
-    throw Object.assign(error, { stateOwned: stateOwned(error?.stderr) });
-  }
+  await promisify(execFile)(
+    descriptor.nodePath,
+    [descriptor.entryPath, ...args, ...sessions, "--json"],
+    {
+      cwd: paths.root,
+      env: compilerFor(agent).environment(paths, descriptor.nodePath),
+      timeout: forgetTimeoutMs,
+      maxBuffer: 4 * 1024 * 1024,
+    },
+  );
   return true;
 }
