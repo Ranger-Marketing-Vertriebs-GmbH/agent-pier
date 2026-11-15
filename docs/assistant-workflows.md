@@ -641,8 +641,9 @@ owner to switch on **May write** for it. There is no keyword matching, and
 Each run has full context (`lightContext: false`, 300 s timeout) and runs detached
 from the agent's main chat (the person's main AgentPier conversation, which a paired
 Telegram chat also writes into; `sessionTarget: "current"`, as check-ins do), so it never
-interrupts a running turn. OpenClaw commits the result into that conversation once no
-turn runs there: the AgentPier chat shows it as a row of its **Events** area (the
+interrupts a running turn. OpenClaw commits the result into that conversation, since
+2026.11.2 also while a turn runs there (it then sits between that turn's question and
+its answer, and it does not know that answer yet): the AgentPier chat shows it as a row of its **Events** area (the
 `events` of the main chat's history, `web/features/assistants/AgentEventArea.jsx`)
 rather than as a message, together with the SSH and SFTP rows and the memory note of
 that run (`runNotes`, `server/features/assistants/routine-run-notes.js`: an action

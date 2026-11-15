@@ -48,8 +48,9 @@ import { isDeepStrictEqual } from "node:util";
  *
  * @typedef {{ kind: "chat", sessionKey: string } | { kind: "own" } | { kind: "main" }
  *   | { kind: "other" }} RoutineTarget
- *   A specific chat (its runtime session key, the result committed there once no
- *   turn runs in it), a fresh session of its own per run, the agent's main session, or
+ *   A specific chat (its runtime session key, the result committed there, since
+ *   OpenClaw 2026.11.2 also during a running turn), a fresh session of its own per
+ *   run, the agent's main session, or
  *   a target only the runtime knows.
  *
  * @typedef {{ kind: "chat", url?: string } | { kind: "webhook", url: string }

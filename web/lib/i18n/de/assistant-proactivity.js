@@ -7,7 +7,7 @@ export const assistantProactivityCopy = {
     "Zu festen Zeiten liest der Agent seine Unterhaltung und Notizen und entscheidet, ob etwas deine Aufmerksamkeit braucht. Nur dann schreibt er in seinen Chat und du bekommst eine Push-Benachrichtigung.",
   alsoTelegram: "Auch an Telegram senden",
   heartbeatReply:
-    "Meldungen erscheinen im Chat des Agenten, mit „Check-in“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",
+    "Meldungen erscheinen im Chat des Agenten, mit „Check-in“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, kann sie vor dieser Antwort erscheinen und kennt sie noch nicht.",
   interval: "Wie oft",
   intervals: {
     "30m": "Alle 30 Minuten",
