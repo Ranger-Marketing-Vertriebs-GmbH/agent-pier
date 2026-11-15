@@ -88,7 +88,7 @@ export async function reconcileRuns(service) {
       // itself) gave the chat a new lifecycle: its check-ins and routines follow it.
       if (state === "completed" && resetsChat(request.text))
         service.reminders
-          ?.followChat?.(conversation.id)
+          ?.followChat?.(conversation.id, { at: Date.parse(request.createdAt) })
           .catch((e) => console.warn("Chat rebind failed:", e?.message));
       // The chat's first reply lets its agent name it (generated-titles.js).
       if (state === "completed")

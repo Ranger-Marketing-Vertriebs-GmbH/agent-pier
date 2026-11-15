@@ -33,11 +33,14 @@ export const ownsRun = (binding, jobId) =>
 
 /**
  * Re-creates the jobs of every check-in and routine that commit into the
- * conversation, on a runtime that pins the chat (no-op elsewhere). A job with a
- * run under way is left alone: its commit fails, and that failure rebinds it.
- * Callers hold admission. Returns how many jobs were re-created.
+ * conversation, on a runtime that pins the chat (no-op elsewhere). `at`: when the
+ * reset or the refused run happened; a job re-created since then already follows the
+ * chat (`reboundAt`). A job with a run under way is left alone: its commit fails, and
+ * that failure rebinds it. `refused` (`{ jobId, runAtMs }`) is that failure: its job
+ * is rebound even while its refused run still shows as running. Callers hold
+ * admission. Returns how many jobs were re-created.
  */
-export async function followChat(reminders, conversationId) {
+export async function followChat(reminders, conversationId, { at, refused } = {}) {
   const { store } = reminders.assistants;
   const conversation = store.getConversation(conversationId);
   const key = conversation?.runtimeSessionKey;
@@ -46,17 +49,22 @@ export async function followChat(reminders, conversationId) {
   if (!reminders.scheduler(agent).pinsChat?.()) return 0;
   const bindings = reminders.bindings
     .list(agent.id)
-    .filter((b) => kinds.has(b.kind) && b.state === "bound");
+    .filter((b) => kinds.has(b.kind) && b.state === "bound")
+    .filter((b) => !(at <= b.reboundAt));
   if (!bindings.length) return 0;
   const jobs = await reminders.jobs(agent);
   let count = 0;
+  // The refused run itself, still shown as running, or a later run.
+  const running = (job) =>
+    Number.isFinite(job.runState?.runningAtMs) &&
+    !(job.id === refused?.jobId && job.runState.runningAtMs <= refused.runAtMs);
   for (const binding of bindings) {
     const job = reminders.find(binding, jobs);
     if (
       job?.target?.kind !== "chat" ||
       job.target.sessionKey !== key ||
       job.delivery?.kind !== "chat" ||
-      Number.isFinite(job.runState?.runningAtMs)
+      running(job)
     )
       continue;
     await rebindJob(reminders, agent, binding, job);
@@ -86,17 +94,19 @@ export async function rebindJob(reminders, agent, binding, job, patch = {}) {
 
 /**
  * Finishes a re-creation recorded on the binding: removes the old job if it is still
- * listed, adds the new one unless a listing shows it already. `jobs` are the agent's
- * routines as just read. Returns the new routine, or null with none pending.
+ * listed, adds the new one unless a listing shows it already (by its marker; one
+ * without a marker is always added). `jobs` are the agent's routines as just read.
+ * Returns the new routine, or null with none pending.
  */
 export async function finishRebind(reminders, agent, binding, jobs) {
   const pending = binding.rebind;
   if (!pending) return null;
   const scheduler = reminders.scheduler(agent);
-  const listed = jobs.find((j) => j.marker === pending.routine.marker);
-  let next = listed && listed.id !== pending.from ? listed : null;
+  const { marker } = pending.routine;
+  let next = marker && jobs.find((j) => j.marker === marker && j.id !== pending.from);
   if (!next) {
-    if (listed) await scheduler.remove({ id: listed.id });
+    if (jobs.some((j) => j.id === pending.from))
+      await scheduler.remove({ id: pending.from });
     next = await scheduler.add({ routine: pending.routine });
     if (!next?.id) throw Error("The re-created job has no id.");
   }
@@ -105,6 +115,7 @@ export async function finishRebind(reminders, agent, binding, jobs) {
     nativeId: next.id,
     previousNativeIds: [pending.from, ...earlier].slice(0, keptIds),
     rebind: null,
+    reboundAt: Date.now(),
   });
   return next;
 }

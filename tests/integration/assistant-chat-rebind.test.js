@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { routineFixture } from "../helpers/native-routines-fixture.js";
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { reconcileRuns } from "../../server/features/assistants/run-reconciler.js";
+import { finishRebind } from "../../server/features/assistants/chat-rebind.js";
 
 // Check-ins and routines that commit into the main chat follow it across an owner's
 // /reset or /new (chat-rebind.js): OpenClaw 2026.11.2 and later keep the chat as it
@@ -198,4 +199,64 @@ test("a completed /reset or /new turn lets the chat's jobs follow it", async (t)
   }
   await reconcileRuns(service);
   assert.deepEqual(followed, [f.channel.conversationId, f.channel.conversationId]);
+});
+
+test("a refused run still shown as running is rebound; a later run is left alone", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  await f.routines.create(f.id, f.input);
+  const heartbeat = f.job("heartbeat");
+  const routine = f.job("routine");
+  // The refused run of the check-in, and a newer run of the routine, both under way.
+  f.jobs.get(heartbeat.id).state = { runningAtMs: 50 };
+  f.jobs.get(routine.id).state = { runningAtMs: 90 };
+  const refused = { jobId: heartbeat.id, runAtMs: 60 };
+  assert.equal(
+    await f.reminders.followChat(f.channel.conversationId, { at: 60, refused }),
+    1,
+  );
+  assert.notEqual(f.job("heartbeat").id, heartbeat.id);
+  assert.equal(f.job("routine").id, routine.id);
+});
+
+test("a job re-created since the reset or refusal is not re-created again", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  const first = f.job("heartbeat").id;
+  const before = Date.now();
+  assert.equal(await f.reminders.followChat(f.channel.conversationId, { at: before }), 1);
+  const second = f.job("heartbeat").id;
+  // A second refusal or reset report from before that re-creation changes nothing.
+  for (let n = 0; n < 3; n++)
+    assert.equal(
+      await f.reminders.followChat(f.channel.conversationId, { at: before }),
+      0,
+    );
+  assert.equal(f.job("heartbeat").id, second);
+  assert.deepEqual(f.binding("heartbeat").previousNativeIds, [first]);
+  // A later reset re-creates it again.
+  await new Promise((resolve) => setTimeout(resolve, 2));
+  assert.equal(
+    await f.reminders.followChat(f.channel.conversationId, { at: Date.now() }),
+    1,
+  );
+});
+
+test("a pending re-creation without a marker never adopts another job", async () => {
+  const added = [];
+  const patches = [];
+  const reminders = {
+    scheduler: () => ({
+      remove: async () => assert.fail("nothing of its own is listed"),
+      add: async ({ routine }) => (added.push(routine), { id: "job-new" }),
+    }),
+    bindings: { patch: (id, patch) => patches.push(patch) },
+  };
+  const binding = { id: "b", rebind: { from: "job-old", routine: { marker: null } } };
+  // Someone else's job without a marker of AgentPier's.
+  const jobs = [{ id: "job-user", marker: null }];
+  const next = await finishRebind(reminders, {}, binding, jobs);
+  assert.equal(next.id, "job-new");
+  assert.equal(added.length, 1);
+  assert.equal(patches[0].nativeId, "job-new");
 });
