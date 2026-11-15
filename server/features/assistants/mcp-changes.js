@@ -343,7 +343,7 @@ export class McpChanges {
       if (!this.oauth || this.oauth.draining || !this.servers.deferredLogouts().length)
         return;
       const { remaining } = await this.oauth.drain();
-      if (remaining) this.oauth.scheduleDrain(1000);
+      if (remaining) this.oauth.retryDrain();
     } catch {
       // Kept for the background drain.
     }

@@ -177,6 +177,32 @@ test("beside a guarded Gateway a deferred logout asks for a restart instead of t
   assert.deepEqual(f.servers.deferredLogouts(), []);
 });
 
+test("a logout failing at every start asks for a few restarts, later and later", async (t) => {
+  const asked = [];
+  const offline = {
+    window: false,
+    maxAttempts: 3,
+    windowNeeded: () => offline.window,
+    request: (reason) => asked.push(reason) > 0,
+  };
+  const f = setup(t, { logout: new McpCliError("cli-failed", "x") }, { offline });
+  await f.changes.remove(f.docs.id);
+  const delays = [];
+  for (let start = 0; start < 6; start++) {
+    // Each start drains before its spawn and fails; its background retry follows.
+    offline.window = false;
+    await f.changes.drainLogouts();
+    clearTimeout(f.oauth.drainTimer);
+    f.oauth.drainTimer = null;
+    delays.push(f.oauth.drainDelay);
+    offline.window = true;
+    await f.oauth.backgroundDrain();
+  }
+  assert.deepEqual(asked, ["mcpLogout", "mcpLogout", "mcpLogout"], "then the next start");
+  for (let n = 1; n < 4; n++) assert.ok(delays[n] > delays[n - 1], String(delays));
+  assert.equal(f.servers.deferredLogouts().length, 1);
+});
+
 test("a server with an undrained logout for its name and URL is not compiled", async (t) => {
   let broken = true;
   const f = setup(t, {
