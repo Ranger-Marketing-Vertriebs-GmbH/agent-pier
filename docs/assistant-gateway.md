@@ -4620,7 +4620,8 @@ check-in sees the agent's instructions and the conversation, reads MEMORY.md thr
 `memory_get`, reaches the paired chat once with its prefix, appears in the
 conversation, and is in the model input of the owner's next reply. `NO_REPLY` leaves
 no visible message and sends nothing. A check-in due during a running owner turn is
-committed after that turn's answer. A message sent after the job was created reaches
+committed inside that turn, between the owner's question and the answer (OpenClaw
+2026.11.2, openclaw#181506; before, after the answer), and reaches the chat once. A message sent after the job was created reaches
 the next check-in's model input, and after an owner `/reset` and `/new` sent from
 Telegram the same job reads only the new session and commits into it
 (`deliveryStatus: "delivered"`). The

@@ -282,7 +282,9 @@ test(
     assert.deepEqual(await visible(), before, "NO_REPLY leaves no visible message");
     assert.equal(f.service.outbox.all(f.channel.id).length, 1);
 
-    // 3. Due while the owner's turn runs: the result waits for that turn to end.
+    // 3. Due while the owner's turn runs: since OpenClaw 2026.11.2 (openclaw#181506)
+    // the result is committed during that turn, between its question and its answer,
+    // and reaches the conversation and the chat exactly once.
     checkIn = "MIDTURN check-in HEARTBEATCONTRACT";
     const slow = await send("SLOWTURN please think it over");
     await delay(500);
@@ -300,9 +302,15 @@ test(
     );
     assert.deepEqual(
       roles.filter((r) => r !== "other"),
-      ["owner-question", "owner-answer", "check-in"],
-      "the check-in is committed after the running turn, not inside it",
+      ["owner-question", "check-in", "owner-answer"],
+      "the check-in is committed inside the running turn, once",
     );
+    const midTurnDeadline = Date.now() + 10000;
+    const midTurn = () =>
+      f.service.outbox.all(f.channel.id).filter((e) => e.text?.includes("MIDTURN"));
+    while (!midTurn().length && Date.now() < midTurnDeadline) await delay(100);
+    await delay(1000);
+    assert.equal(midTurn().length, 1, "the chat receives the check-in once");
     // 4. After an owner /reset and /new the same job reads the new session and
     // still commits into it: no snapshot of the old one is kept.
     let count = 3;

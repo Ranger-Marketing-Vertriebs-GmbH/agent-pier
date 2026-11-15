@@ -41,8 +41,8 @@ export function checkInPrompt(person) {
  * Proactive check-ins ("heartbeat"): one native routine per opted-in agent with
  * memory. It runs as a routine targeting the agent's main chat: a detached
  * turn with full context (instructions, notes, the conversation's recent tail)
- * whose visible result OpenClaw commits into that conversation once no turn is
- * running there. The run's summary also returns over the reminder webhook
+ * whose visible result OpenClaw commits into that conversation, since 2026.11.2 also
+ * while a turn runs there (between its question and its answer; before, after it). The run's summary also returns over the reminder webhook
  * (completion destination); AgentPier drops NO_REPLY, badges anything else in the
  * chat, sends an `agent-checkin` push notice and, unless the owner switched it
  * off, sends it to the paired Telegram chat too. A pairing change only moves that
@@ -196,7 +196,7 @@ export class NativeHeartbeats {
           enabled: true,
           keepAfterRun: true,
           ...definition,
-          // Commits the visible result into this conversation after any running turn.
+          // Commits the visible result into this conversation, even during a turn.
           target: chatTarget(target.sessionKey),
           wakeNow: true,
           alertOnFailure: false,

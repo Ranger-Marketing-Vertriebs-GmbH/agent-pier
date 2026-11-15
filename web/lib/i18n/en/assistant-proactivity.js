@@ -7,7 +7,7 @@ export const assistantProactivityCopy = {
     "At set times the agent reads its conversation and notes and decides whether something needs your attention. Only then does it write in its chat and you get a push notification.",
   alsoTelegram: "Also send to Telegram",
   heartbeatReply:
-    "Check-ins appear in the agent's chat, marked “Check-in”, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",
+    "Check-ins appear in the agent's chat, marked “Check-in”, so you can reply to them directly. A check-in that comes due while the agent is answering can appear before that answer and does not know it yet.",
   interval: "How often",
   intervals: {
     "30m": "Every 30 minutes",
