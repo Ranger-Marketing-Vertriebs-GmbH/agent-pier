@@ -794,22 +794,26 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
   (`assistant-dreaming-contract`, `assistant-mcp-oauth-contract`,
   `assistant-mcp-oauth-compiled-contract`). The Gateway's `mcp.authLogin` needs a
   browser-origin operator connection. Needs a design decision.
-- **Check-ins after an owner `/reset` or `/new`.** Since 2026.11.2, `cron.add` with
-  `sessionTarget: "current"` stores the creating session's generation
-  (`sourceConversation`: session id and lifecycle revision), and a run refuses to
-  commit into a newer generation of that key ("session rebound for sessionKey …",
-  `deliveryStatus: "not-delivered"`). The run still reads the new session. Found once
-  the order assertion before it passed (`assistant-heartbeat-contract`, step 4);
-  routines that target a chat are likely affected too. Needs a fix (for example,
-  re-create the job when the chat's session id changes).
 
 Resolved on 2026.11.3 (2026-11-15, local macOS arm64 runs):
 
+- **Check-ins and routines after an owner `/reset` or `/new`.** Since 2026.11.2 a
+  job with a chat target records the chat's lifecycle revision at creation
+  (`sourceConversation`, which openclaw#167363 introduced for isolated jobs; 2026.11.2 records it for `current` jobs too); a reset rotates
+  the revision (the session id and compaction keep theirs), and the run then refuses
+  to commit ("session rebound for sessionKey …", `not-delivered`). `cron.update`
+  never records it again, and 2026.11.3 offers no public rebind. Upstream lets jobs
+  follow the chat again in openclaw#199512 (merged 2026-11-15, after 2026.11.3).
+  AgentPier re-creates the affected jobs (`chat-rebind.js`, OpenClaw 2026.11.2 and
+  later only): after a completed `/reset` or `/new` turn, after a refused commit, and
+  when a routine moves to another chat. `assistant-heartbeat-contract` passes fully;
+  `assistant-routine-contract` shows a routine is affected and recovers. Drop the
+  re-creation once the pinned runtime includes openclaw#199512.
 - **Check-ins during a running turn** are committed inside that turn, between the
   owner's question and the answer (openclaw#181506), and reach the chat once. The
   owner accepted the new order: `assistant-heartbeat-contract` expects it, and the
   settings hint, `docs/assistant-workflows.md` and `docs/assistant-gateway.md` no
-  longer promise "after the running turn". Step 3 passes; step 4 fails as above.
+  longer promise "after the running turn". The contract passes.
 - **Scheduler qualification harness.** 2026.11.2 moved the due timer into a
   scheduler actor in the state worker (openclaw#169766). The harness now posts the
   actor's wake on the host's `openclaw.cron.<uuid>` channel
