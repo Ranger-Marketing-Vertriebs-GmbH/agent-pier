@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { BroadcastChannel } from "node:worker_threads";
 import { importOpenClawExports } from "./openclaw-dist-exports.js";
 import { channelFixture } from "./assistant-channel-fixture.js";
 import { assistantRoutineModel } from "./assistant-routine-model.js";
@@ -18,6 +19,25 @@ const {
   path.join(process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME, "app/node_modules/openclaw"),
   ["computeJobNextRunAtMs", "computeJobPreviousRunAtOrBeforeMs", "CronService"],
 );
+// Since OpenClaw 2026.11.2 (openclaw#169766) a scheduler actor in OpenClaw's state
+// worker owns the due timer: its real setTimeout posts a wake on a BroadcastChannel
+// named `openclaw.cron.<uuid>`, whose host side then asks the actor for a
+// `cron.schedulerTick` with the host's `nowMs`. There is no public tick, and the host
+// imports the class from node:worker_threads, so the harness records the host's
+// channel through the shared prototype and posts that wake itself. Internal names,
+// pinned per runtime: docs/assistant-routine-qualification.md.
+const cronChannels = new Set();
+const cronChannel =
+  /^openclaw\.cron\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const { addEventListener: listen, close: closeChannel } = BroadcastChannel.prototype;
+BroadcastChannel.prototype.addEventListener = function (type, ...rest) {
+  if (type === "message" && cronChannel.test(this.name)) cronChannels.add(this);
+  return listen.call(this, type, ...rest);
+};
+BroadcastChannel.prototype.close = function () {
+  cronChannels.delete(this);
+  return closeChannel.call(this);
+};
 const timestamp = (iso) => Date.parse(iso);
 const iso = (ms) => new Date(ms).toISOString();
 const scheduleJob = (tz, expr = "30 2 * * *") => ({
@@ -91,6 +111,9 @@ async function fixture(t, { skipMissedJobs = false } = {}) {
     native,
     reminders;
   const timers = new Map();
+  // Scheduler-owned work (runSchedulerOwned): the wake's tick and the runs it launches.
+  const owned = new Set();
+  let ownedStarted = 0;
   f.store.updateAssistant(id, { capabilities: { memory: false, reminders: true } }, 1);
   f.assistants.admit = (fn) => Promise.resolve().then(fn);
   f.assistants.requireReady = () => {};
@@ -140,6 +163,16 @@ async function fixture(t, { skipMissedJobs = false } = {}) {
       storePath: path.join(f.dataDir, "native-cron", "jobs.json"),
       defaultAgentId: f.store.getAssistant(id).runtimeAgentId,
       log: { info() {}, warn() {}, error() {}, debug() {} },
+      runSchedulerOwned: (run) => {
+        const work = Promise.resolve().then(run);
+        ownedStarted += 1;
+        owned.add(work);
+        work.then(
+          () => owned.delete(work),
+          () => owned.delete(work),
+        );
+        return work;
+      },
       onEvent: (event) => events.push(event),
       runIsolatedAgentJob: async ({ job, message, onExecutionStarted }) => {
         onExecutionStarted?.();
@@ -211,10 +244,24 @@ async function fixture(t, { skipMissedJobs = false } = {}) {
       native = makeNative();
       await native.start();
     },
+    // The actor's wake, as its timer posts it; resolves once the tick and every run
+    // it launched settled.
     tick: async () => {
-      const timer = [...timers.values()].find((entry) => entry.id.endsWith(":due"));
-      assert.ok(timer, "native scheduler must have armed its due timer");
-      await timer.run();
+      const [host, ...others] = cronChannels;
+      assert.ok(host && !others.length, "native scheduler must have started its actor");
+      const before = ownedStarted;
+      const wake = new BroadcastChannel(host.name);
+      wake.postMessage({ type: "cron.schedulerWake" });
+      wake.close();
+      const deadline = Date.now() + 5000;
+      while (ownedStarted === before) {
+        assert.ok(Date.now() < deadline, "native scheduler must answer its wake");
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      while (owned.size) {
+        await Promise.allSettled([...owned]);
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     },
     deliver: async () => {
       for (const event of events.filter((entry) => entry.action === "finished")) {

@@ -61,6 +61,18 @@ driver. Advancing that clock does not wait thirty days or two minutes and does
 not replace native schedule computation. The suite checks native persisted state
 by creating fresh service instances against the same disposable store.
 
+Since OpenClaw 2026.11.2 (openclaw#169766) the due timer belongs to a scheduler
+actor in OpenClaw's state worker, not to the injected timer driver. When its real
+timer fires, the actor posts a wake on a `BroadcastChannel` named
+`openclaw.cron.<uuid>`, and the host answers it with a `cron.schedulerTick` that
+carries the host's `nowMs`. OpenClaw has no public tick, so the harness records the
+host's channel through the shared `BroadcastChannel` prototype and posts that wake
+itself. It then waits for the tick and every run it launched through the
+`runSchedulerOwned` dependency. These are internal names: a pin bump that renames
+the channel, the wake or the dependency fails the harness with "must have started
+its actor" or "must answer its wake", and the helper then needs the new names. On
+2026.11.3 all nine subtests pass with unchanged expectations.
+
 All writable state, HOME, configuration, channels and bindings are disposable.
 The HTTP model and Telegram client are local fixtures. The native job execution
 callback contacts the fixture model; completion events are fed directly to the
