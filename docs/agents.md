@@ -827,8 +827,12 @@ word for word. A busy agent still dreams that night.
   agent's next chat reads them.
 - **Deleting a chat** removes OpenClaw's archived copy of its transcript and then
   removes it from dreaming's copies, so later nights no longer read it; notes already
-  written from it stay. If the removal from dreaming's copies fails, or AgentPier
-  stops before it runs, it is not tried again and those copies keep that chat.
+  written from it stay. Since OpenClaw 2026.10.10 that removal needs a short restart
+  of the agent service: it waits until no agent is working, but at most 15 minutes,
+  and runs before the night's dreaming when you delete a chat shortly before the
+  dreaming hour; running agent work is then interrupted. If AgentPier stops first, it
+  runs at the next start. If it fails, it is tried in two more restarts and then at
+  each start.
 - The data directory must not sit behind a symbolic link, or dreaming writes nothing.
 
 Server details: [Dreaming](assistant-gateway.md#dreaming).
