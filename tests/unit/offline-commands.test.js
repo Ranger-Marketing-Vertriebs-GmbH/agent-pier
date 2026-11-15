@@ -9,6 +9,8 @@ import {
   queueName,
   stateOwned,
 } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
+import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
+import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 
 // A RuntimeSupervisor stand-in: a running Gateway child until stopped.
 function supervisor(
@@ -279,4 +281,32 @@ test("a forget runs before dreaming's nightly sweep reads the chat", async (t) =
   near = true;
   await f.queue.overdue();
   assert.deepEqual(forced, ["now"]);
+});
+
+test("while a window stops the Gateway, admitted calls are refused at once", async (t) => {
+  const f = commands(t);
+  const store = new AssistantStore({ dataDir: f.root });
+  const runtime = { on() {}, off() {}, close: async () => {}, setState() {} };
+  const service = new AssistantService({
+    store,
+    runtime,
+    models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
+    config: { apply: async () => {}, reset() {} },
+  });
+  t.after(() => service.close());
+  service.offlineCommands = f.queue;
+  // An owner's sign-in holds admission while its window stops the Gateway; the stop
+  // waits for a turn whose tool call needs admission.
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  f.s.stop = async () => {
+    const call = service.admit(async () => "tool");
+    await assert.rejects(call, (error) => error.status === 503);
+    release();
+    f.s.child = null;
+  };
+  const login = service.admit(() => f.queue.run(async () => "url"));
+  await held;
+  assert.equal(await login, "url");
+  assert.equal(await service.admit(async () => "after"), "after");
 });
