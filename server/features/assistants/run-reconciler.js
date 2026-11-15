@@ -17,6 +17,9 @@ function timedOut(service, runId, result) {
     typeof result.timeoutPhase === "string"
   );
 }
+// OpenClaw's own commands that start the chat's next lifecycle (`/new <model>` too).
+const resetsChat = (text) =>
+  typeof text === "string" && /^\/(?:reset|new)(?:\s|$)/i.test(text.trim());
 export async function reconcileRuns(service) {
   // The shared host, or a Hermes agent's own set: each run asks the runtime of its
   // chat's session, and only while that runtime takes calls.
@@ -81,6 +84,12 @@ export async function reconcileRuns(service) {
       await service.history(conversation.id);
       // A long member task chat is reported to its lead (member-long-chats.js).
       if (state) service.teams?.memberLongChats?.check(conversation.id).catch(() => {});
+      // OpenClaw's `/reset` or `/new` (from Telegram; the web chat answers both
+      // itself) gave the chat a new lifecycle: its check-ins and routines follow it.
+      if (state === "completed" && resetsChat(request.text))
+        service.reminders
+          ?.followChat?.(conversation.id)
+          .catch((e) => console.warn("Chat rebind failed:", e?.message));
       // The chat's first reply lets its agent name it (generated-titles.js).
       if (state === "completed")
         titleAfterReply(service, conversation, request, {

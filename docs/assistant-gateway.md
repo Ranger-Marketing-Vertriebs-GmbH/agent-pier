@@ -4564,13 +4564,22 @@ sync opens it when the agent has none yet):
   that reads the conversation's recent tail and the agent's instructions
   (`lightContext: false`), then commits its visible result into that conversation.
   Each run reads the conversation as it is then, not as it was when the job was
-  created, and after a `/reset` or `/new` sent from the owner's Telegram chat it
-  reads and commits into the new session, so the job is never recreated for that.
-  In the web chat AgentPier answers both itself: `/new` opens a separate chat and
-  `/reset` is refused, so neither reaches the Gateway. OpenClaw waits for a running
-  turn there to end before it commits, so a check-in that comes due while the
-  owner's turn runs appears after that turn's answer, never inside it; the run
-  itself does not wait, so it may not know that answer yet. The owner's next
+  created. In the web chat AgentPier answers `/reset` and `/new` itself: `/new` opens
+  a separate chat and `/reset` is refused, so neither reaches the Gateway. Sent from
+  the owner's Telegram chat they start the conversation's next lifecycle (same
+  session id, new lifecycle revision). OpenClaw 2026.11.2 and later record the
+  conversation's lifecycle when a job with a chat target is created and refuse to
+  commit into a later one ("session rebound for sessionKey …", `not-delivered`), so
+  AgentPier re-creates the check-in job and every routine job that commits into
+  that conversation (`chat-rebind.js`): once the command's turn completed (the run
+  reconciler), and, for a reset that reached the Gateway another way, once such a
+  refusal comes back. The binding keeps its id, its earlier job ids and their run
+  history. 2026.10.9 reads the conversation at each run and needs none of this;
+  upstream lets jobs follow the conversation again in openclaw#199512 (merged
+  2026-11-15, not yet released). Since 2026.11.2 OpenClaw commits a check-in even
+  while a turn runs there (openclaw#181506), so one that comes due during the
+  owner's turn appears between that turn's question and its answer; it does not
+  know that answer yet. The owner's next
   message, in AgentPier or on Telegram, has the check-in in its context.
 - AgentPier handles a check-in only when the completion event reports the commit
   into the conversation as `delivered`; a check-in that did not reach the
@@ -4622,11 +4631,13 @@ conversation, and is in the model input of the owner's next reply. `NO_REPLY` le
 no visible message and sends nothing. A check-in due during a running owner turn is
 committed inside that turn, between the owner's question and the answer (OpenClaw
 2026.11.2, openclaw#181506; before, after the answer), and reaches the chat once. A message sent after the job was created reaches
-the next check-in's model input, and after an owner `/reset` and `/new` sent from
-Telegram the same job reads only the new session and commits into it
-(`deliveryStatus: "delivered"`); on 2026.11.3 this step still fails (the job keeps
-the generation of the session that created it, see
-`docs/assistant-release-qualification.md`). The
+the next check-in's model input. After an owner `/reset` sent from Telegram,
+AgentPier's re-creation (as after the command's turn) lets the next check-in read only
+the new session and commit into it (`deliveryStatus: "delivered"`); after a `/new`
+without that step the first check-in is refused ("session rebound"), the refusal
+re-creates the job and the next check-in commits. The
+`assistant-routine-contract` checks the same refusal and re-creation for a routine,
+and that its run history goes on. The
 agent's native heartbeat job stays disabled, and switching off removes the job.
 
 ### Recall across conversations is not offered yet

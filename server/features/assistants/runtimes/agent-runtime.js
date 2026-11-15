@@ -228,6 +228,9 @@
  *   - status(): `{ enabled }`, whether the scheduler runs routines at all.
  *   - runOf(sessionKey): synchronously, the routine run a runtime session key
  *     belongs to (`{ agentId, routineId, runId, routineSession }`), or null.
+ *   - pinsChat(): optional, synchronously, whether a chat target keeps the chat as
+ *     it was when the routine was created, so a reset needs a new routine
+ *     (../chat-rebind.js; OpenClaw 2026.11.2 and later). Absent means no.
  *   - on(connection), as sessions.on.
  * - skills: per-agent skill status and eligibility
  *   - status({ agentId, refresh }): `{ skills: [{ name, source, eligible, … }] }`

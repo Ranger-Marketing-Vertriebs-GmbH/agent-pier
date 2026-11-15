@@ -649,7 +649,11 @@ rather than as a message, together with the SSH and SFTP rows and the memory not
 that run (`runNotes`, `server/features/assistants/routine-run-notes.js`: an action
 row names its routine as `origin: { kind: "routine", bindingId }` and joins the result
 whose run covers it, from `runAtMs` to the record; a hook's rows stay with its event), a later turn can refer to it, and an `agent-routine` push
-notice opens the chat. With
+notice opens the chat. After an owner `/reset` or `/new` from Telegram the routine
+keeps committing into that chat: OpenClaw 2026.11.2 and later keep the chat as it
+was when the job was created, so AgentPier re-creates the job with the same fields
+(`server/features/assistants/chat-rebind.js`); the routine keeps its id and its run
+history. With
 **Also send to Telegram** on, the result also goes to the paired Telegram chat, split
 into several messages when it is long. OpenClaw's completion
 webhook carries at most 2,000 characters of the result (its run `summary`, cut with
