@@ -424,6 +424,46 @@ includes OpenClaw's Doctor migration, without a new registration or authorizatio
 See the
 [release qualification](assistant-release-qualification.md#openclaw-2026103--2026107-2026-10-24).
 
+## OpenClaw 2026.10.10 and later: login and logout offline only
+
+Since 2026.10.10 (upstream #168135) `openclaw mcp login` (also with `--code`),
+`mcp logout` and `mcp probe` refuse while a Gateway owns the state: exit `1` with
+`Cannot admit … This operation requires exclusive offline state ownership. No local
+mutation was attempted.` (`src/cli/local-state-owner.ts`, `onForeignOwner:
+"refuse"`, unchanged in 2026.11.5-beta.3). `mcp status` is not guarded. The
+Gateway's `mcp.authLogin` RPC needs a browser-origin Control UI client, which
+AgentPier's backend connection is not, so AgentPier runs each step in a
+[maintenance window](assistant-gateway.md#offline-only-commands): the supervisor
+stops the Gateway, the CLI runs on its private state, and the Gateway starts again.
+
+The two-step flow keeps working across that restart:
+
+1. **Start.** `mcp login <name>` runs in a window. AgentPier's listener still holds
+   the redirect port, so the CLI prints the URL and exits as in (a); the pending
+   authorization (verifier, client, state) is stored in `state/openclaw.sqlite` and
+   survives the Gateway's restart. The request answers with the URL while the
+   Gateway starts again in the background.
+2. **Browser.** The owner authorizes at the provider; this needs no Gateway.
+3. **Callback.** `mcp login <name> --code=<code>` runs in a second window, then the
+   Gateway starts with the new tokens. That start also lifts the failed-start backoff
+   of (b), so the post-login nudge is no longer needed (it is skipped while the
+   Gateway is not ready yet).
+
+A logout (owner, rename, URL change, delete, AgentPier's own login replacing
+OpenClaw's) runs in a window too; a deferred logout retried in the background asks for
+the pending restart instead, and the start drains it before it compiles, as before.
+
+The hand-run contract asserts the refusal beside the running Gateway once, then runs
+every login and logout in a window (the harness patches the live `mcp` section and
+tool lists back after each start, which its non-native start does not compile), and
+groups steps into one window where the flow allows. The startup-backoff check after a
+re-login only holds without a window. The compiled contract wires `OfflineCommands`
+as the application does; each route call waits for the window's start.
+
+Once a release ships the Gateway's `mcp.authLogout` (upstream #188824, on upstream
+`main`, not in 2026.11.3 or 2026.11.5-beta.3), the logout can use that RPC
+(`operator.admin`) without a window; the login keeps the window.
+
 ## Compiled path
 
 The compiled contract runs one server `docs` (logged in) and one server `spare`
@@ -443,7 +483,8 @@ authorization server:
   with `code` and `state` answers `303` to `/accounts?oauth=connected&server=<id>` (the client opens it as **Connections › MCP servers**),
   and replaying it answers `400 state-invalid`. The list reads "connected" with
   `oauthExpiresAt`, OpenClaw `authorized`, and the post-login nudge set
-  `mcp.sessionIdleTtlMs` to `0`. The next turn, inside the backoff window of the
+  `mcp.sessionIdleTtlMs` to `0` (since 2026.10.10 the login's window restarted the
+  Gateway instead, which lifts the backoff too). The next turn, inside the backoff window of the
   failed one, is offered `docs__echo` and calls it.
 - **Refresh.** The first token is stale at once (31 s lifetime against the 30 s
   skew); the turn after the login refreshes it unattended. After a server-side
@@ -456,8 +497,9 @@ authorization server:
   turn has no tools.
 - **Rename.** After a second login, `PUT` renames `docs` to `renamed`: the logout
   under the old name runs first, `renamed` holds no login, and renaming back finds
-  none for `docs` either (OpenClaw alone keeps the orphan, see (e)). No Gateway
-  restart happened up to here.
+  none for `docs` either (OpenClaw alone keeps the orphan, see (e)). Before
+  2026.10.10 no Gateway restart happened up to here; since then each login step and
+  logout had its window.
 - **Deferred logout drained at the start.** After a third login the Gateway stops
   and the wrapper's logouts fail as a timed-out CLI would. A rename answers with
   `oauthWarning.code: "oauth-logout-deferred"`; after renaming back, `docs` (same
