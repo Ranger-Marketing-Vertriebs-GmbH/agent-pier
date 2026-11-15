@@ -51,3 +51,43 @@ test("other failures throw at once; retries and the deadline bound the rest", as
   await assert.rejects(retryingCall(always, { sleep, now: () => 100, deadline: 105 }));
   assert.equal(calls, 1);
 });
+
+test("a refusal without a usable wait waits the minimum, never a tight loop", async () => {
+  for (const retryAfterMs of [undefined, 0, Number.NaN, Infinity, -5]) {
+    const waits = [];
+    let calls = 0;
+    await retryingCall(
+      async () => {
+        if (++calls < 2) throw refusal({ answered: true, retryable: true, retryAfterMs });
+        return "done";
+      },
+      { sleep: async (ms) => waits.push(ms) },
+    );
+    assert.deepEqual(waits, [250], String(retryAfterMs));
+  }
+});
+
+test("a wait that fits the deadline runs; the next one past it does not", async () => {
+  let clock = 0;
+  const waits = [];
+  let calls = 0;
+  await assert.rejects(
+    retryingCall(
+      async () => {
+        calls++;
+        throw refusal({ answered: true, retryable: true, retryAfterMs: 1000 });
+      },
+      {
+        now: () => clock,
+        deadline: 1500,
+        sleep: async (ms) => {
+          waits.push(ms);
+          clock += ms;
+        },
+      },
+    ),
+    { code: "UNAVAILABLE" },
+  );
+  assert.deepEqual(waits, [1000]);
+  assert.equal(calls, 2);
+});
