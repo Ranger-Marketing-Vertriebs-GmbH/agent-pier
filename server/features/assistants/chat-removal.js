@@ -226,7 +226,13 @@ export async function deleteNativeSession(assistants, conversation) {
   if (sessionIds.size && agent && !owner) {
     const queue = assistants.offlineCommands;
     const ids = [...sessionIds];
-    const queued = queue?.forget(agent.runtimeAgentId, ids);
+    let queued;
+    try {
+      queued = queue?.forget(agent.runtimeAgentId, ids);
+    } catch (error) {
+      // The queue could not be written (a full disk): reported below, like a failure.
+      queued = Promise.reject(error);
+    }
     queued?.catch(() => {}); // reported by the chain below
     assistants.dreamingForgets = (assistants.dreamingForgets || Promise.resolve())
       .then(() => queued ?? forgetDreamingSession(assistants, agent, ids))
