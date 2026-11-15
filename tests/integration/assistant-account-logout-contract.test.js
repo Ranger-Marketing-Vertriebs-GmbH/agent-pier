@@ -123,12 +123,43 @@ test(
     await maintenance.setCron(true);
     const call = runtime.client.call.bind(runtime.client);
     let cronEnabledAtLogout;
+    // The logout answers a bare 503 for any failure inside its maintenance: the trail
+    // names the step, the refused calls and the Gateway's states (synthetic data only).
+    const trail = [];
+    const note = (step, error) =>
+      trail.push(
+        `${step}: ${error?.status ?? ""} ${error?.code ?? ""} ${error?.message}`,
+      );
     runtime.client.call = async (method, ...args) => {
       if (method === "models.authLogout")
         cronEnabledAtLogout = (await call("cron.status", {})).enabled;
-      return call(method, ...args);
+      return call(method, ...args).catch((error) => {
+        note(method, error);
+        throw error;
+      });
     };
-    await assistants.logoutAccount(accounts, accountId);
+    for (const [object, names] of [
+      [maintenance, ["enter", "setCron", "blockers", "quiesce"]],
+      [sync, ["prepare", "pauseBlocked"]],
+      [accounts, ["logout"]],
+      [reminders, ["disable"]],
+      [runtime, ["stop", "start"]],
+    ])
+      for (const name of names) {
+        const step = object[name].bind(object);
+        object[name] = (...args) =>
+          step(...args).catch((error) => {
+            note(name, error);
+            throw error;
+          });
+      }
+    runtime.on("status", ({ availability }) => {
+      if (trail.at(-1) !== availability) trail.push(availability);
+    });
+    await assistants.logoutAccount(accounts, accountId).catch((error) => {
+      t.diagnostic(`logout trail ${JSON.stringify(trail)}`);
+      throw error;
+    });
     const checkPin = async () => {
       const native = await runtime.client.call("config.get", {});
       const entries = native.config.agents.entries || native.config.agents.list;
