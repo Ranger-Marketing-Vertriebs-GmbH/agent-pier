@@ -9,6 +9,12 @@ import {
 } from "../../server/features/assistants/chat-removal.js";
 import { dreamingSection } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/dreaming.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
+import {
+  OfflineCommands,
+  offlineOnly,
+  queueName,
+} from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
+import { forgetDreamingSession } from "../../server/features/assistants/dreaming-backups.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
   changed,
@@ -268,18 +274,20 @@ test(
       `archived transcript rows of the deleted chat in openclaw-agent.sqlite: ${archived}`,
     );
 
-    // 3. memory-core's own deletion of a chat's derived artifacts.
-    const forgot = JSON.parse(
-      await f.cli([
-        "memory",
-        "forget",
-        "--agent",
-        orchid.runtimeAgentId,
-        "--session",
-        ids.gone,
-        "--json",
-      ]),
-    );
+    // 3. memory-core's own deletion of a chat's derived artifacts. Since 2026.10.10
+    // only while no Gateway owns the state: in a maintenance window.
+    const forget = [
+      "memory",
+      "forget",
+      "--agent",
+      orchid.runtimeAgentId,
+      "--session",
+      ids.gone,
+      "--json",
+    ];
+    if (offlineOnly(f.runtime.runtime.version))
+      await assert.rejects(f.cli(forget), /exclusive offline state ownership/);
+    const forgot = JSON.parse(await f.offline(() => f.cli(forget)));
     t.diagnostic(
       `openclaw memory forget --session <deleted chat>: ${JSON.stringify(forgot)}`,
     );
@@ -293,7 +301,8 @@ test(
     };
     assert.deepEqual(hasGone(), [false, false], "forget removes corpus lines and state");
     await f.turn(orchid, "Tomatoes need water daily DREAMKEEPTHREE.");
-    assert.equal((await f.forceRun(job.id)).status, "ok");
+    // The window restarted the Gateway; the job is read again.
+    assert.equal((await f.forceRun((await f.job()).id)).status, "ok");
     await f.settle();
     assert.match(f.corpus(orchid), /DREAMKEEPTHREE/);
     assert.deepEqual(
@@ -381,22 +390,36 @@ test(
     assert.match(f.corpus(orchid), /DREAMORCHID/);
     assert.match(f.corpus(fern), /DREAMFERN/);
 
-    // Deleted as AgentPier deletes a chat: the session, its archive, then dreaming.
+    // Deleted as AgentPier deletes a chat: the session, its archive, then dreaming,
+    // queued for a maintenance window (offline-commands.js; without a pending restart
+    // the queue opens its own window).
     const assistants = {
       runtime: f.runtime,
       store: f.store,
       ledger: { forgetTexts() {} },
     };
+    assistants.offlineCommands = new OfflineCommands({
+      supervisor: f.runtime,
+      forget: ({ agent, sessions }) =>
+        forgetDreamingSession(assistants, { runtimeAgentId: agent }, sessions),
+    });
+    t.after(() => assistants.offlineCommands.close());
     const conversation = f.store.saveConversation({
       assistantId: orchid.id,
       runtimeSessionKey: chat,
     });
+    const generationBefore = f.runtime.generation;
     assert.equal(await deleteNativeSession(assistants, conversation), true);
     await assistants.dreamingForgets;
+    await assistants.offlineCommands.flush();
+    const windowed = offlineOnly(f.runtime.runtime.version);
+    assert.equal(f.runtime.generation !== generationBefore, windowed, "a window ran");
+    assert.equal(fs.existsSync(path.join(f.runtime.paths.root, queueName)), false);
+    if (windowed) await f.restore(dreamingSection(next));
     assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/);
     assert.match(f.corpus(fern), /DREAMFERN/, "another agent's corpus stays");
     await f.turn(orchid, "Tomatoes need water daily DREAMORCHIDTWO.");
-    assert.equal((await f.forceRun(moved.id)).status, "ok");
+    assert.equal((await f.forceRun((await f.job()).id)).status, "ok");
     await f.settle();
     assert.match(f.corpus(orchid), /DREAMORCHIDTWO/);
     assert.doesNotMatch(
