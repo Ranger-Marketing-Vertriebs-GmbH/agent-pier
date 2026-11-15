@@ -46,8 +46,8 @@ export function offlineOnly(version) {
 
 export class OfflineCommands {
   /**
-   * - `supervisor`: the RuntimeSupervisor (`runtime`, `child`, `paths`, `stop`,
-   *   `start`, `setState`, `closed`).
+   * - `supervisor`: the RuntimeSupervisor (`runtime`, `child`, `starting`, `paths`,
+   *   `stop`, `start`, `setState`, `closed`).
    * - `forget({ agent, sessions })`: runs `openclaw memory forget` (rejects with
    *   `stateOwned` when OpenClaw still saw an owner).
    * - `request(reason)`: asks for a restart soon; false when none was recorded.
@@ -115,7 +115,11 @@ export class OfflineCommands {
   /** Whether a Gateway process runs (or still drains) now. */
   online() {
     const child = this.supervisor.child;
-    return !!child && child.exitCode === null && !child.signalCode;
+    return (!!child && child.exitCode === null && !child.signalCode) || this.launching();
+  }
+  // A start under way: its beforeSpawn drained the queue, its spawn follows.
+  launching() {
+    return !!this.supervisor.starting;
   }
   /** Whether an offline-only command needs a window now. */
   windowNeeded() {
@@ -161,7 +165,7 @@ export class OfflineCommands {
     if (!this.windowNeeded()) return this.drain();
     // The pending restart waits until nothing is busy; its start drains the queue.
     if (this.request("memoryForget")) return void this.watch();
-    if (this.busy()) return void this.soon(this.retryMs);
+    if (this.busy() || this.launching()) return void this.soon(this.retryMs);
     await this.locked(() => (this.windowNeeded() ? this.window(null) : this.forgets()));
   }
   /**
@@ -173,7 +177,7 @@ export class OfflineCommands {
     if (!this.guarded()) return task();
     return this.locked(() => {
       if (!this.online()) return this.attempt(task);
-      if (this.busy() || this.closed)
+      if (this.busy() || this.closed || this.launching())
         throw Object.assign(new Error("The agent service is busy."), {
           code: "RUNTIME_BUSY",
         });

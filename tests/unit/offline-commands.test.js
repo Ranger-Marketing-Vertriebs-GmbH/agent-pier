@@ -310,3 +310,19 @@ test("while a window stops the Gateway, admitted calls are refused at once", asy
   assert.equal(await login, "url");
   assert.equal(await service.admit(async () => "after"), "after");
 });
+
+test("while a Gateway launch is under way nothing runs beside it", async (t) => {
+  // beforeSpawn drained the queue; the spawn follows.
+  const f = commands(t, { running: false });
+  f.s.starting = new Promise(() => {});
+  let ran = false;
+  await assert.rejects(
+    f.queue.run(async () => (ran = true)),
+    (error) => error.code === "RUNTIME_BUSY",
+  );
+  assert.equal(ran, false);
+  await f.queue.forget("orchid", ["s-1"]);
+  await sleep(40);
+  assert.deepEqual(f.events, [], "queued for the started Gateway's restart");
+  assert.deepEqual(f.requests, ["memoryForget"]);
+});
