@@ -785,7 +785,7 @@ admission, attachments, ChatGPT model list, symlinked dreaming, multi-chat, nati
 write, SSH, team coding, voice reminder, owner run, routine failure
 and shell abort contracts. On 2026.11.3 (2026-11-15, all 64 files of the
 `native-contracts` job, macOS arm64): 124 tests, 115 passed, 9 failed, 0 skipped; no
-new failure. Still failing:
+new failure. Still failing after the follow-up fixes:
 
 - **Offline-only CLI commands.** `openclaw memory forget` and `openclaw mcp
 login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
@@ -794,14 +794,35 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
   (`assistant-dreaming-contract`, `assistant-mcp-oauth-contract`,
   `assistant-mcp-oauth-compiled-contract`). The Gateway's `mcp.authLogin` needs a
   browser-origin operator connection. Needs a design decision.
-- **Check-ins during a running turn** are committed inside that turn
-  (`assistant-heartbeat-contract`).
-- **Scheduler qualification harness.** 2026.11.2's `CronService` no longer arms the
-  `cron:<store>:due` timer the harness drives (`assistant-schedule-qualification`).
-- **Work goals.** After the completion run the goal store still counts a running
-  process (`assistant-work-goals-contract`).
-- **Shadowed skills.** After a planted workspace skill is removed, the re-apply does
-  not restore the bundled one within 20 s (`assistant-skills-contract`).
+- **Check-ins after an owner `/reset` or `/new`.** Since 2026.11.2, `cron.add` with
+  `sessionTarget: "current"` stores the creating session's generation
+  (`sourceConversation`: session id and lifecycle revision), and a run refuses to
+  commit into a newer generation of that key ("session rebound for sessionKey …",
+  `deliveryStatus: "not-delivered"`). The run still reads the new session. Found once
+  the order assertion before it passed (`assistant-heartbeat-contract`, step 4);
+  routines that target a chat are likely affected too. Needs a fix (for example,
+  re-create the job when the chat's session id changes).
+
+Resolved on 2026.11.3 (2026-11-15, local macOS arm64 runs):
+
+- **Check-ins during a running turn** are committed inside that turn, between the
+  owner's question and the answer (openclaw#181506), and reach the chat once. The
+  owner accepted the new order: `assistant-heartbeat-contract` expects it, and the
+  settings hint, `docs/assistant-workflows.md` and `docs/assistant-gateway.md` no
+  longer promise "after the running turn". Step 3 passes; step 4 fails as above.
+- **Scheduler qualification harness.** 2026.11.2 moved the due timer into a
+  scheduler actor in the state worker (openclaw#169766). The harness now posts the
+  actor's wake on the host's `openclaw.cron.<uuid>` channel
+  (`docs/assistant-routine-qualification.md`); `assistant-schedule-qualification`
+  passes 9 of 9 with unchanged expectations.
+- **Work goals.** 2026.11.3 stamps the framed exec completion prompt with the time
+  envelope, and 2026.11.5 replaces the framing with an `[OpenClaw exec completion]`
+  header; `exec-processes.js` reads both in event turns, so the completion ends its
+  process. `assistant-work-goals-contract` passes.
+- **Shadowed skills.** 2026.11.3 rescans skill folders about once a minute instead
+  of watching them (openclaw#170341). `verifySkills` asks `skills.status` with
+  `refresh: true`, sent only to 2026.11.3 and later (2026.10.9 refuses unknown
+  parameters). `assistant-skills-contract` passes (9.1 s).
 
 Fixed in 2026.11.3: `chat.history`'s `sessionInfo` carries `totalTokens` after a turn
 again (2026.11.2 reported `totalTokensFresh: false` without it, so the long-chat hint
