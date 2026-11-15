@@ -69,8 +69,8 @@ test("runtime selection rejects symlinked executable ancestors", async (t) => {
   await assert.rejects(selectedAssistantRuntime({ dataDir }), /unsafe/i);
 });
 
-test("the manifest pins OpenClaw 2026.11.2 and its predecessors as rollback targets", () => {
-  assert.equal(runtimeManifest.version, "2026.11.2");
+test("the manifest pins OpenClaw 2026.11.3 and its predecessors as rollback targets", () => {
+  assert.equal(runtimeManifest.version, "2026.11.3");
   assert.deepEqual(runtimeManifest.rollbackTargets, [
     "2026.10.9",
     "2026.10.7",
