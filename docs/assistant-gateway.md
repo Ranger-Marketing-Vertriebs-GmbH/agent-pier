@@ -2572,17 +2572,25 @@ wired in `server/application/offline-commands-wiring.js`):
 
 - **Every Gateway start** runs the queued commands before the spawn (the
   supervisor's `beforeSpawn`), and whenever no Gateway process runs (stopped,
-  failed, between two launches) a command runs directly. While OpenClaw still sees
-  the stopped Gateway's lock, a refused command is repeated for up to about 8 s.
+  failed, between two launches) a command runs directly. A launch under way counts
+  as running: its queue was drained before the spawn, so a forget waits for the next
+  window and an owner's command is refused as busy. While OpenClaw still sees the
+  stopped Gateway's lock, a refused command is repeated for up to about 8 s.
 - **Deleting a chat** removes it from the UI at once, as before. Its forget is
-  queued durably in `assistants/offline-commands.json` (one entry per agent; later
+  queued durably in `assistants/offline-commands.json` before the delete answers
+  (one entry per agent with the time of its first deletion, `since`; later
   deletions join it) and, after a 5 s debounce, asks for a
   [pending restart](#pending-restart) with the reason **removing deleted chats from
   memory**. That restart waits until no agent is busy (or for **Restart now**) and
-  its start runs the queue. A forget still queued when AgentPier stops runs at the
-  next start. A forget that fails stays queued; it asks for up to two more restarts
-  (after 1 and 2 minutes) and then waits for the next start. Failures are logged
-  without content.
+  its start runs the queue. Busy agents hold it for at most 15 minutes: checked once
+  a minute, a forget waiting that long, or any forget in the 15 minutes before the
+  [dreaming](#dreaming) hour while dreaming is on, runs the pending restart at once,
+  as **Restart now** does (running turns drain, then are interrupted). memory-core's
+  sweep runs inside the Gateway with no hook to skip a session, so the forget must run
+  before it. A forget still queued when AgentPier stops runs at the next start. A
+  forget that fails stays queued; it asks for up to two more restarts (after 1 and 2
+  minutes) and then waits for the next start, and is never forced again. Failures are
+  logged without content.
 - **An owner's MCP sign-in, its code exchange and sign-out** (OpenClaw's own OAuth
   logins, see [MCP servers](#mcp-servers)) open a window at once: the supervisor
   stops the Gateway (running turns drain for up to 60 s, as in any restart), the
@@ -2590,8 +2598,14 @@ wired in `server/application/offline-commands-wiring.js`):
   background. The request answers as soon as the command ran; the start does not
   hold it, since that start drains deferred logouts itself. A deferred logout that
   is retried in the background asks for the pending restart (**an MCP server
-  sign-out**) instead of a window of its own. While maintenance, a restart or an
-  update runs, a window is refused with `409 runtime-busy`.
+  sign-out**) instead of a window of its own, with the usual backoff (1 s doubling
+  to 10 minutes) across starts and for at most three restarts until the queue is
+  empty; then it waits for the next start. While maintenance, a restart, an update
+  or a Gateway launch runs, a window is refused with `409 runtime-busy`. Such a
+  command may hold admission (an OAuth server edit, a sign-in), so while the window's
+  stop drains the turns, every admitted call is refused at once with 503, as in
+  maintenance, instead of waiting for the command and holding the stop up to its
+  kill.
 - **A Gateway that does not come back** is left to the supervisor: the window's
   start is an automatic one, so a failed start is retried with the supervisor's
   backoff, as after a crash. Commands that failed stay queued (forgets) or report
@@ -4631,8 +4645,12 @@ sync opens it when the agent has none yet):
   AgentPier re-creates the check-in job and every routine job that commits into
   that conversation (`chat-rebind.js`): once the command's turn completed (the run
   reconciler), and, for a reset that reached the Gateway another way, once such a
-  refusal comes back. The binding keeps its id, its earlier job ids and their run
-  history. 2026.10.9 reads the conversation at each run and needs none of this;
+  refusal comes back. A job re-created since that command or refused run is left
+  alone (`reboundAt`), so repeated reports re-create each job once; the refused job
+  is re-created even while its refused run still shows as running (OpenClaw 2026.11.3
+  clears `runningAtMs` before it sends the completion webhook), while a job with a
+  newer run under way waits for that run's refusal. The binding keeps its id, its
+  earlier job ids (the last eight) and their run history. 2026.10.9 reads the conversation at each run and needs none of this;
   upstream lets jobs follow the conversation again in openclaw#199512 (merged
   2026-11-15, not yet released). Since 2026.11.2 OpenClaw commits a check-in even
   while a turn runs there (openclaw#181506), so one that comes due during the
@@ -4820,7 +4838,9 @@ setting and clears what was pending.
   `openclaw memory forget --agent <runtimeAgentId> --session <sessionId> …`
   (`forgetDreamingSession`), dreaming on or off, since earlier nights may have read
   the chat. Since OpenClaw 2026.10.10 it runs only while no Gateway owns the state:
-  it is queued durably and runs in a [maintenance window](#offline-only-commands). It names every session id the chat's key had: the live one and those
+  it is queued durably and runs in a [maintenance window](#offline-only-commands)
+  within 15 minutes, busy agents or not, and before the night's sweep when the chat
+  is deleted shortly before it. It names every session id the chat's key had: the live one and those
   OpenClaw's transcript archives still record for the key (`archivedSessionIds` in
   `transcript-archives.js`, read before the purge removes them), so a reset's earlier
   ids go too. It removes the session from the corpus, seen hashes and short-term
