@@ -2572,25 +2572,30 @@ wired in `server/application/offline-commands-wiring.js`):
 
 - **Every Gateway start** runs the queued commands before the spawn (the
   supervisor's `beforeSpawn`), and whenever no Gateway process runs (stopped,
-  failed, between two launches) a command runs directly. A launch under way counts
-  as running: its queue was drained before the spawn, so a forget waits for the next
-  window and an owner's command is refused as busy. While OpenClaw still sees the
+  failed, between two launches) a command runs directly. A launch past its
+  `beforeSpawn` counts as running: its queue was drained before the spawn, so a
+  forget waits for the next window, and an owner's command (the code exchange right
+  after a sign-in's window) waits for that start to settle and then opens its own
+  window. While OpenClaw still sees the
   stopped Gateway's lock, a refused command is repeated for up to about 8 s.
 - **Deleting a chat** removes it from the UI at once, as before. Its forget is
   queued durably in `assistants/offline-commands.json` before the delete answers
   (one entry per agent with the time of its first deletion, `since`; later
-  deletions join it) and, after a 5 s debounce, asks for a
+  deletions join it and get its attempts again, and a new `since` when it had used
+  them up) and, after a 5 s debounce, asks for a
   [pending restart](#pending-restart) with the reason **removing deleted chats from
   memory**. That restart waits until no agent is busy (or for **Restart now**) and
   its start runs the queue. Busy agents hold it for at most 15 minutes: checked once
   a minute, a forget waiting that long, or any forget in the 15 minutes before the
   [dreaming](#dreaming) hour while dreaming is on, runs the pending restart at once,
-  as **Restart now** does (running turns drain, then are interrupted). memory-core's
+  as **Restart now** does (running turns drain, then are interrupted), but never
+  beside a window that runs. memory-core's
   sweep runs inside the Gateway with no hook to skip a session, so the forget must run
   before it. A forget still queued when AgentPier stops runs at the next start. A
   forget that fails stays queued; it asks for up to two more restarts (after 1 and 2
-  minutes) and then waits for the next start, and is never forced again. Failures are
-  logged without content.
+  minutes, forced only once that retry is due) and then waits for the next start,
+  and is never forced again. A forget the queue cannot write (a full disk) is logged
+  and lost; the deletion stands. Failures are logged without content.
 - **An owner's MCP sign-in, its code exchange and sign-out** (OpenClaw's own OAuth
   logins, see [MCP servers](#mcp-servers)) open a window at once: the supervisor
   stops the Gateway (running turns drain for up to 60 s, as in any restart), the
@@ -2600,12 +2605,15 @@ wired in `server/application/offline-commands-wiring.js`):
   is retried in the background asks for the pending restart (**an MCP server
   sign-out**) instead of a window of its own, with the usual backoff (1 s doubling
   to 10 minutes) across starts and for at most three restarts until the queue is
-  empty; then it waits for the next start. While maintenance, a restart, an update
-  or a Gateway launch runs, a window is refused with `409 runtime-busy`. Such a
+  empty or another logout is deferred; then it waits for the next start. While
+  maintenance, a restart or an update runs, a window is refused with
+  `409 runtime-busy`; a code exchange refused so keeps its login, and loading the
+  provider's redirect again completes it. Such a
   command may hold admission (an OAuth server edit, a sign-in), so while the window's
   stop drains the turns, every admitted call is refused at once with 503, as in
   maintenance, instead of waiting for the command and holding the stop up to its
-  kill.
+  kill. A call that was already waiting for admission before the window opened
+  still waits.
 - **A Gateway that does not come back** is left to the supervisor: the window's
   start is an automatic one, so a failed start is retried with the supervisor's
   backoff, as after a crash. Commands that failed stay queued (forgets) or report
