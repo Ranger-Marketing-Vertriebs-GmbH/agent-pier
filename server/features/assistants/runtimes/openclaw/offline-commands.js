@@ -190,9 +190,12 @@ export class OfflineCommands {
     return result;
   }
   // Under the lock: stop, run, start again. The start is not awaited: it drains (and
-  // its MCP logouts take their own locks), and the caller may hold such a lock.
+  // its MCP logouts take their own locks), and the caller may hold such a lock. Until
+  // the start, `windowOpen` refuses admitted calls at once (AssistantService.admit):
+  // the caller may hold admission while the stop waits for turns that need it.
   async window(task) {
     this.mark(1);
+    this.windowOpen = true;
     let outcome = {};
     try {
       await this.supervisor.stop();
@@ -200,7 +203,11 @@ export class OfflineCommands {
     } catch (error) {
       outcome = { error };
     }
-    await this.forgets();
+    try {
+      await this.forgets();
+    } finally {
+      this.windowOpen = false;
+    }
     if (this.supervisor.closed) this.mark(-1);
     else
       this.restarting = this.supervisor

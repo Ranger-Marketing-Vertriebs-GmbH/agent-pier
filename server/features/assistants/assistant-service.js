@@ -413,6 +413,10 @@ export class AssistantService {
     }
   }
   admit(operation) {
+    // A maintenance window may hold admission while its stop drains turns whose tool
+    // calls would wait here for it (offline-commands.js): refused at once instead.
+    if (this.offlineCommands?.windowOpen)
+      return Promise.reject(assistantProblem("unavailable", 503));
     return this.serialize("admission", () => {
       if (this.closed || this.recovering || this.maintenance)
         throw assistantProblem("unavailable", 503);
