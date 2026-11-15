@@ -230,8 +230,10 @@
  *     belongs to (`{ agentId, routineId, runId, routineSession }`), or null.
  *   - on(connection), as sessions.on.
  * - skills: per-agent skill status and eligibility
- *   - status({ agentId }): `{ skills: [{ name, source, eligible, … }] }` for the
- *     agent's workspace, or the bundled and host-wide skills without one; rejects
+ *   - status({ agentId, refresh }): `{ skills: [{ name, source, eligible, … }] }`
+ *     for the agent's workspace, or the bundled and host-wide skills without one,
+ *     after a rescan of the skill folders with `refresh` where the runtime offers
+ *     one (OpenClaw 2026.11.3 and later; elsewhere it is ignored); rejects
  *     while unreachable. unknownAgent(error): synchronously, whether the runtime
  *     refused it for an agent it has not created yet. An entry may name its
  *     `origin`: "bundled", "catalog" (AgentPier's catalog copy), "builtIn"

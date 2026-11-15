@@ -87,7 +87,8 @@ export class AssistantConfig {
   async verifySkills(assistant, names) {
     if (!names.length) return { skills: [], complete: true };
     const report = await runtimeFor(assistant, this.runtime)
-      .skills.status({ agentId: assistant.runtimeAgentId })
+      // A rescan first: a deleted custom skill no longer shadows the bundled one.
+      .skills.status({ agentId: assistant.runtimeAgentId, refresh: true })
       .catch(() => null);
     if (!Array.isArray(report?.skills)) return { skills: [], complete: false };
     // A catalog that cannot be read names no skill: none of its copies compiles.
