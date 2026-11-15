@@ -77,8 +77,8 @@ owner's switch on, and a third pins it on the rollback targets (see the
 - `tests/integration/assistant-dreaming-contract.test.js`: the compiled default
   schedules no sweep; switched on, a forced sweep takes each agent's own chats into
   its own `memory/.dreams/` corpus and dream notes only; a run rewrites its ingestion
-  state wholesale, and a deleted chat, or one removed with `openclaw memory forget`,
-  stays out of later runs; an hour change applies live during a running turn without
+  state wholesale, and a deleted chat, or one removed with `openclaw memory forget`
+  (in a maintenance window since 2026.10.10), stays out of later runs; an hour change applies live during a running turn without
   a Gateway restart.
 - `tests/integration/assistant-dreaming-scope-contract.test.js`: no per-agent lever
   keeps a temporary member out of the sweep; a shared agent dreams over every chat
@@ -97,7 +97,12 @@ The archived transcript copy OpenClaw keeps after a deletion
 (`session_transcript_archives` and the `.jsonl.deleted.*` files) is purged before the
 forget runs; `assistant-chat-deletion-contract.test.js` covers that purge. The
 session ids the archives name for the chat's key are read before it, and the forget
-names each (`assistant-dreaming-forget.test.js`). Not covered: a `memory forget` that
-fails or is lost, which is not retried.
+names each (`assistant-dreaming-forget.test.js`). Since OpenClaw 2026.10.10 the forget
+refuses beside a running Gateway; the dreaming contract checks that refusal, runs the
+hand-run forget in a window (`f.offline`) and the deletion through AgentPier's queue
+(`OfflineCommands`), which stops the Gateway, forgets and starts it again (see
+[Offline-only commands](assistant-gateway.md#offline-only-commands)). Queue
+durability, batching, retries and the 2026.10.9 direct path are unit-tested
+(`tests/unit/offline-commands.test.js`).
 Cross-conversation recall (transcript indexing) is not offered and has no contract
 here.

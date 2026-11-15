@@ -236,7 +236,8 @@ directly.
   dependency lock (`runtime-lock/`), installation (`runtime-install.js`,
   `runtime-provisioning.js`), the Doctor migration (`runtime-doctor.js`), the
   supervisor (`runtime-supervisor.js`, with `gateway-log.js` and
-  `gateway-ownership.js`) and the Gateway transport (`gateway-client.js`,
+  `gateway-ownership.js`), the maintenance window for OpenClaw's offline-only CLI
+  commands (`offline-commands.js`) and the Gateway transport (`gateway-client.js`,
   `gateway-protocol.js`, `gateway-tls.js`). The compiler writes locked paths and AgentPier-owned
   settings, plus only the allow-listed overrides from the advanced settings
   (`advanced-config.js`). The same directory holds agent profiles and conversations,

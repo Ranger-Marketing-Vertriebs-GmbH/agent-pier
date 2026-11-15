@@ -2503,7 +2503,10 @@ restart:
   fallback model while an agent reads PDFs, a browser installed or removed after the
   start;
 - a model connection agents use: another endpoint, name or other non-key setting;
-- an agent's own Telegram bot: connecting one, a person added, a first speech key.
+- an agent's own Telegram bot: connecting one, a person added, a first speech key;
+- OpenClaw's [offline-only commands](#offline-only-commands): a deleted chat's
+  dreaming forget (**removing deleted chats from memory**) and an MCP logout that
+  waits (**an MCP server sign-out**).
 
 Revocations keep the immediate restart: deleting a connection agents use, a new or
 removed key on it, removing an agent's bot, replacing its token, and changing or
@@ -2554,6 +2557,59 @@ OpenClaw settings that need a restart still ask for confirmation and are refused
 while agents are busy. With the Gateway stopped, every save is stored and compiled
 at the next start. Rotating the OpenRouter key that Perplexity uses takes effect at
 the next Gateway start.
+
+### Offline-only commands
+
+Since OpenClaw 2026.10.10 (upstream #168135 and #168471) `openclaw memory forget`,
+`openclaw mcp login` (also with `--code`), `mcp logout` and `mcp probe` refuse while
+a Gateway owns the state: "requires exclusive offline state ownership"
+(`src/cli/local-state-owner.ts`). This is deliberate upstream; `mcp status` stays
+allowed. The Gateway offers no replacement AgentPier can use: `mcp.authLogin` needs
+a browser-origin Control UI client, there is no forget RPC, and `sessions.delete`
+does not forget memory. AgentPier therefore runs these commands in a short
+maintenance window of its own Gateway (`runtimes/openclaw/offline-commands.js`,
+wired in `server/application/offline-commands-wiring.js`):
+
+- **Every Gateway start** runs the queued commands before the spawn (the
+  supervisor's `beforeSpawn`), and whenever no Gateway process runs (stopped,
+  failed, between two launches) a command runs directly. While OpenClaw still sees
+  the stopped Gateway's lock, a refused command is repeated for up to about 8 s.
+- **Deleting a chat** removes it from the UI at once, as before. Its forget is
+  queued durably in `assistants/offline-commands.json` (one entry per agent; later
+  deletions join it) and, after a 5 s debounce, asks for a
+  [pending restart](#pending-restart) with the reason **removing deleted chats from
+  memory**. That restart waits until no agent is busy (or for **Restart now**) and
+  its start runs the queue. A forget still queued when AgentPier stops runs at the
+  next start. A forget that fails stays queued; it asks for up to two more restarts
+  (after 1 and 2 minutes) and then waits for the next start. Failures are logged
+  without content.
+- **An owner's MCP sign-in, its code exchange and sign-out** (OpenClaw's own OAuth
+  logins, see [MCP servers](#mcp-servers)) open a window at once: the supervisor
+  stops the Gateway (running turns drain for up to 60 s, as in any restart), the
+  command runs with every queued forget, and the Gateway starts again in the
+  background. The request answers as soon as the command ran; the start does not
+  hold it, since that start drains deferred logouts itself. A deferred logout that
+  is retried in the background asks for the pending restart (**an MCP server
+  sign-out**) instead of a window of its own. While maintenance, a restart or an
+  update runs, a window is refused with `409 runtime-busy`.
+- **A Gateway that does not come back** is left to the supervisor: the window's
+  start is an automatic one, so a failed start is retried with the supervisor's
+  backoff, as after a crash. Commands that failed stay queued (forgets) or report
+  their error (MCP).
+
+During a window, and while a pending restart for these reasons runs, the runtime
+view carries `maintenanceWindow: true`; the agent header, the sidebar, the agents
+overview and **Agents › Runtime** read **Maintenance** instead of "Stopped" or
+"Starting". The state reaches the browser through the agent list's live topic like
+every runtime status. Nothing beyond a normal Gateway restart is lost: turns that
+run are drained by OpenClaw before it exits and reconciled after the start, as after
+the pending restart.
+
+On OpenClaw 2026.10.9 and older (the rollback target) every command runs directly,
+as before; a queue left by a newer runtime still runs at the next start. Once a
+release ships the Gateway's `mcp.authLogout` (upstream #188824, on `main` only, not
+in 2026.11.3 or 2026.11.5-beta.3), the logout can move to that RPC and needs no
+window; the login and the forget still do.
 
 ### Unavailable states
 
@@ -3444,7 +3500,8 @@ environment. Because AgentPier's listener holds the redirect port, the CLI print
 authorization URL and exits; the browser opens it. The provider redirects to the
 callback, which accepts only the unguessable, single-use `state` of a login the owner
 started in the last 10 minutes, runs `openclaw mcp login <name> --code <code>`, and
-returns to **Connections › MCP servers** with the result. Codes and tokens are never logged or
+returns to **Connections › MCP servers** with the result. Since OpenClaw 2026.10.10
+both steps run in a [maintenance window](#offline-only-commands). Codes and tokens are never logged or
 returned. After a successful login AgentPier makes one hot `mcp` change
 (`mcp.sessionIdleTtlMs` toggles between unset and `0`, which mean the same): a turn
 that tried the server without credentials backs it off for up to 10 minutes, and
@@ -3471,7 +3528,8 @@ after a login or logout):
 A bound server without a valid login is left out of the agent's tools; the turn
 runs on without them.
 
-**Logout, rename and delete.** **Log out** runs `openclaw mcp logout <name>`.
+**Logout, rename and delete.** **Log out** runs `openclaw mcp logout <name>` (since
+OpenClaw 2026.10.10 in a [maintenance window](#offline-only-commands)).
 OpenClaw keys a login by server name and URL, so a rename, a URL change, a switch to
 headers and a delete first log out under the old name and URL; the edit is saved
 afterwards. Such a logout never blocks the edit: when it fails, AgentPier records
@@ -4761,17 +4819,18 @@ setting and clears what was pending.
 - **Deleted chats.** Deleting a chat runs
   `openclaw memory forget --agent <runtimeAgentId> --session <sessionId> …`
   (`forgetDreamingSession`), dreaming on or off, since earlier nights may have read
-  the chat. It names every session id the chat's key had: the live one and those
+  the chat. Since OpenClaw 2026.10.10 it runs only while no Gateway owns the state:
+  it is queued durably and runs in a [maintenance window](#offline-only-commands). It names every session id the chat's key had: the live one and those
   OpenClaw's transcript archives still record for the key (`archivedSessionIds` in
   `transcript-archives.js`, read before the purge removes them), so a reset's earlier
   ids go too. It removes the session from the corpus, seen hashes and short-term
   entries and keeps it out of later sweeps; notes
   already distilled from it stay. The forgets run one after another in the background,
   outside admission; maintenance (restore, update) and AgentPier's shutdown wait for the
-  queue. A forget that
-  fails (for example a 10 s wait for memory-core's workspace lock during a sweep), or
-  that is lost because AgentPier stops before it runs, is logged without content and
-  not retried: that chat's corpus lines stay. The forget runs after the deletion has
+  one running. The queue is durable: a forget not yet run when AgentPier stops runs at
+  the next Gateway start. A forget that fails (for example a 10 s wait for
+  memory-core's workspace lock during a sweep) is logged without content and stays
+  queued; it is retried in up to two more windows and then at each start. The forget runs after the deletion has
   purged OpenClaw's transcript archive (the `<session id>.jsonl.deleted.*` files and
   the `session_transcript_archives` rows, `transcript-archives.js`, see Delete under
   [Several chats per agent](#several-chats-per-agent)); a purge that fails is retried at the next Gateway

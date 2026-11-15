@@ -779,13 +779,13 @@ framed prompt as its projection again; each turn's model input ends with a separ
 "OpenClaw runtime context" user message (the scripted model servers skip it,
 `tests/helpers/openclaw-model-input.js`).
 
-**Open (blocks the bump).** Local macOS arm64 run of all 62 native contract files on
+**Qualification on 2026.11.2 and 2026.11.3.** Local macOS arm64 run of all 62 native contract files on
 2026.11.2 before the fixes: 122 tests, 97 passed, 25 failed. Fixed or adapted since:
 admission, attachments, ChatGPT model list, symlinked dreaming, multi-chat, native
 write, SSH, team coding, voice reminder, owner run, routine failure
 and shell abort contracts. On 2026.11.3 (2026-11-15, all 64 files of the
 `native-contracts` job, macOS arm64): 124 tests, 115 passed, 9 failed, 0 skipped; no
-new failure. Still failing after the follow-up fixes:
+new failure. The remaining failure that needed AgentPier work:
 
 - **Offline-only CLI commands.** `openclaw memory forget` and `openclaw mcp
 login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
@@ -793,7 +793,11 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
   corpus, and MCP OAuth sign-in and sign-out fail
   (`assistant-dreaming-contract`, `assistant-mcp-oauth-contract`,
   `assistant-mcp-oauth-compiled-contract`). The Gateway's `mcp.authLogin` needs a
-  browser-origin operator connection. Needs a design decision.
+  browser-origin operator connection. **Resolved** by an AgentPier maintenance window
+  ([Offline-only commands](assistant-gateway.md#offline-only-commands)): on
+  2026.11.3 (2026-11-15, macOS arm64) the dreaming contract passes 3 of 3 and the
+  hand-run MCP OAuth contract 2 of 2 (7 windows in the first test), the compiled MCP
+  OAuth contract 1 of 1.
 
 Resolved on 2026.11.3 (2026-11-15, local macOS arm64 runs):
 
