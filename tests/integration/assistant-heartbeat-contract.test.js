@@ -178,12 +178,11 @@ test(
     // The binding's job: a reset of the chat gives it a new one (chat-rebind.js).
     const bindingId = reminders.bindings.list(id).find((b) => b.nativeId === job.id).id;
     const jobId = () => reminders.bindings.get(bindingId).nativeId;
-    const finished = async (count) => {
+    const finished = async (count, id = jobId()) => {
       const deadline = Date.now() + 90000;
       while (Date.now() < deadline) {
-        const entries = (
-          await runtime.client.call("cron.runs", { id: jobId(), limit: 20 }, long)
-        ).entries;
+        const entries = (await runtime.client.call("cron.runs", { id, limit: 20 }, long))
+          .entries;
         if (entries.filter((e) => e.action === "finished").length >= count)
           return entries;
         await delay(250);
@@ -355,7 +354,8 @@ test(
     const sentBefore = f.service.outbox.all(f.channel.id).length;
     checkIn = "AFTERNEWTOKEN refused check-in HEARTBEATCONTRACT";
     await force();
-    const [refused] = await finished(2);
+    // Read on the job that ran: the refusal may re-create it before this returns.
+    const [refused] = await finished(2, stale);
     assert.equal(refused.deliveryStatus, "not-delivered");
     assert.match(refused.deliveryError, /^session rebound for sessionKey/);
     const rebindDeadline = Date.now() + 15000;
