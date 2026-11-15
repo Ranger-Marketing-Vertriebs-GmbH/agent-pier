@@ -250,6 +250,25 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
         maxBuffer: 4 * 1024 * 1024,
       })
     ).stdout;
+  // What this fixture's start does not compile (the provider and each agent's own
+  // settings, dreaming), applied again after a restart such as a maintenance window.
+  async function restore(section) {
+    config.reset();
+    for (const agent of store.listAssistants()) await config.apply(agent.id);
+    if (section) await dreaming(section);
+  }
+  // OpenClaw 2026.10.10 and later run `memory forget` only while no Gateway owns the
+  // state: `work` runs in a window, as AgentPier's offline-commands.js runs it.
+  async function offline(work) {
+    const live = (await effective()).plugins?.entries?.["memory-core"]?.config?.dreaming;
+    await runtime.stop();
+    try {
+      return await work();
+    } finally {
+      await runtime.start();
+      await restore(live);
+    }
+  }
   const sessions = async (agent) =>
     (await call("sessions.list", { agentId: agent.runtimeAgentId, limit: 200 })).sessions;
   return {
@@ -281,5 +300,7 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
     pluginState,
     ingestion,
     cli,
+    offline,
+    restore,
   };
 }

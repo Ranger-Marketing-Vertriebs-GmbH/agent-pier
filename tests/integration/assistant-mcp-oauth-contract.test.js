@@ -1,31 +1,21 @@
 import test from "node:test";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs";
-import net from "node:net";
-import os from "node:os";
 import path from "node:path";
-import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
   authorize,
   exchanged,
   oauthMcpServer,
 } from "../helpers/mcp-oauth-test-server.js";
-import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
 import {
-  createMcpCli,
-  defaultBusyRetryDelaysMs,
-  leaseLocked,
-  parseLoginOutput,
-} from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
-import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+  harness as cliHarness,
+  holdPort,
+  sleep,
+} from "../helpers/mcp-oauth-cli-harness.js";
+import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
+import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
 
 // Uses scripts/provision-assistant-contracts.mjs; see docs/mcp-oauth-qualification.md.
 const installed = process.env.AGENTPIER_MCP_CONTRACT_RUNTIME;
@@ -36,208 +26,7 @@ const options = {
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
   timeout: contractTimeout(300000),
 };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const mcpTools = (offered) => offered.filter((n) => n.includes("__")).sort();
-
-/** Holds a loopback port, as AgentPier's own listener holds the redirect port. */
-async function holdPort() {
-  const server = net.createServer();
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  return {
-    port: server.address().port,
-    close: () => new Promise((r) => server.close(r)),
-  };
-}
-
-/** A Gateway with one agent on the deterministic model, and the OpenClaw CLI. */
-async function harness(t) {
-  assert.ok(path.isAbsolute(installed) && path.isAbsolute(contractDir));
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-oauth-"));
-  const store = new AssistantStore({ dataDir });
-  const tool = { name: "none", arguments: {} };
-  const model = await assistantModelServer({ tool });
-  const fixture = { connectionId: "fixture", modelId: "fixture-model" };
-  const agent = store.createAssistant({
-    name: "Bound",
-    instructions: "Use the tool.",
-    model: fixture,
-  });
-  let selected;
-  const runtime = new RuntimeSupervisor({
-    dataDir,
-    install: async () => {
-      selected = await selectedAssistantRuntime({ dataDir: contractDir });
-      assert.ok(path.resolve(selected.nodePath).startsWith(installed + path.sep));
-      return selected;
-    },
-  });
-  // Each step runs even when an earlier one throws.
-  t.after(async () => {
-    try {
-      await runtime.close();
-    } finally {
-      try {
-        await model.close();
-      } finally {
-        try {
-          store.close();
-        } finally {
-          fs.rmSync(dataDir, { recursive: true, force: true });
-        }
-      }
-    }
-  });
-  await runtime.start();
-  const config = new AssistantConfig({
-    store,
-    workspaces: runtime.paths.workspaces,
-    runtime,
-    hostCapacity: () => 4,
-    models: {
-      resolve: () => ({
-        providerId: "fixture",
-        modelRef: "fixture/fixture-model",
-        provider: {
-          baseUrl: model.url,
-          api: "openai-completions",
-          apiKey: "fixture-key",
-          models: [
-            {
-              id: "fixture-model",
-              name: "Fixture",
-              input: ["text"],
-              contextWindow: 32768,
-              maxTokens: 4096,
-            },
-          ],
-        },
-        release() {},
-      }),
-    },
-  });
-  config.nativeReady = () => true;
-  config.writeGuard = () => false;
-  await config.apply(agent.id);
-  // One turn on a new session; returns the tools offered and the last tool result.
-  async function turn(call, label) {
-    Object.assign(tool, call ?? { name: "none", arguments: {} });
-    const from = model.requests.length;
-    const session = await createGatewaySession(runtime.client, {
-      agentId: agent.runtimeAgentId,
-      label,
-    });
-    const sent = await runtime.client.call("sessions.send", {
-      key: session.key,
-      message: "Use the tool.",
-      idempotencyKey: label,
-    });
-    const done = await runtime.client.call(
-      "agent.wait",
-      { runId: sent.runId, timeoutMs: 60000 },
-      { timeoutMs: 65000 },
-    );
-    assert.equal(done.status, "ok", label);
-    const requests = model.requests.slice(from);
-    const result = requests
-      .flatMap((r) => r.messages || [])
-      .filter((m) => m.role === "tool")
-      .map((m) => String(m.content))
-      .at(-1);
-    const offered = mcpTools((requests[0]?.tools ?? []).map((d) => d.function.name));
-    t.diagnostic(`${label} offered=${JSON.stringify(offered)} result=${result}`);
-    return { offered, result };
-  }
-
-  // The Gateway's own environment; the CLI then reads and writes its private state.
-  const token = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway.auth
-    .token;
-  // With OPENCLAW_DEBUG like createMcpCli: 2026.10 prints "Reason:" only then.
-  const gatewayEnv = runtimeEnvironment(runtime.paths, selected.nodePath, token);
-  gatewayEnv.OPENCLAW_DEBUG = "1";
-  // Like createMcpCli: a call whose lease transaction could not start while the
-  // Gateway wrote the shared state database did nothing and is repeated.
-  async function cli(args, env = gatewayEnv) {
-    for (let attempt = 0; ; attempt++) {
-      const run = await cliOnce(args, env);
-      if (run.code === 0 || !leaseLocked(run.stderr)) return run;
-      if (attempt >= defaultBusyRetryDelaysMs.length) return run;
-      await sleep(defaultBusyRetryDelaysMs[attempt]);
-    }
-  }
-  function cliOnce(args, env) {
-    const started = Date.now();
-    return new Promise((resolve) => {
-      execFile(
-        selected.nodePath,
-        [selected.entryPath, ...args],
-        { env, cwd: runtime.paths.root, timeout: contractTimeout(90000) },
-        (error, stdout, stderr) => {
-          const run = {
-            code: error ? (error.code ?? null) : 0,
-            signal: error?.signal ?? null,
-            stdout,
-            stderr,
-            ms: Date.now() - started,
-          };
-          t.diagnostic(`cli ${args.join(" ")} -> ${JSON.stringify(run)}`);
-          resolve(run);
-        },
-      );
-    });
-  }
-  async function status(name, env) {
-    const run = await cli(["mcp", "status", "--json"], env);
-    assert.equal(run.code, 0, run.stderr);
-    const parsed = JSON.parse(run.stdout);
-    return { parsed, server: parsed.servers.find((s) => s.name === name) };
-  }
-  const allow = (entries) =>
-    patchConfig(runtime.client, (current) => {
-      const own = (list) => list.filter((n) => n !== "bundle-mcp" && !n.includes("__"));
-      const entry = current.agents.entries[agent.runtimeAgentId];
-      return {
-        patch: {
-          tools: { allow: [...own(current.tools.allow), "bundle-mcp"] },
-          agents: {
-            entries: {
-              [agent.runtimeAgentId]: {
-                tools: { allow: [...own(entry.tools.allow), ...entries] },
-              },
-            },
-          },
-        },
-        replacePaths: [
-          "tools.allow",
-          `agents.entries.${agent.runtimeAgentId}.tools.allow`,
-        ],
-      };
-    });
-  const servers = (patch, replace = []) =>
-    patchConfig(runtime.client, () => ({
-      patch: { mcp: { servers: patch } },
-      replacePaths: replace,
-    }));
-  /**
-   * `openclaw mcp login <name>` with its redirect port taken: `{ run, url }`. OpenClaw's
-   * console redaction masks about one PKCE challenge in 200; like createMcpCli's
-   * startLogin, such a login is repeated (twice at most) instead of handing out a
-   * URL whose challenge no longer matches the verifier.
-   */
-  async function login(name, env) {
-    for (let attempt = 1; ; attempt++) {
-      const run = await cli(["mcp", "login", name], env);
-      assert.equal(run.code, 0, run.stderr);
-      const parsed = parseLoginOutput(run.stdout, name);
-      if (parsed?.redacted && attempt < 3) {
-        t.diagnostic(`login ${name}: redacted authorization URL, attempt ${attempt}`);
-        continue;
-      }
-      assert.ok(parsed?.authorizationUrl, run.stdout);
-      return { run, url: new URL(parsed.authorizationUrl) };
-    }
-  }
-  return { dataDir, runtime, turn, cli, login, status, allow, servers, gatewayEnv };
-}
+const harness = (t) => cliHarness(t, { installed, contractDir });
 
 test(
   "OpenClaw MCP OAuth: login prints the URL, --code completes, tokens refresh",
@@ -247,8 +36,8 @@ test(
     t.after(() => oauth.close());
     const held = await holdPort();
     t.after(() => held.close());
-    const { runtime, turn, cli, login, status, allow, servers, gatewayEnv } =
-      await harness(t);
+    const h = await harness(t);
+    const { runtime, turn, cli, login, status, allow, servers, gatewayEnv } = h;
     const client = runtime.client;
     const generation = runtime.generation;
     const redirectUrl = `http://127.0.0.1:${held.port}/api/mcp-servers/oauth/callback`;
@@ -302,6 +91,14 @@ test(
       state: "unauthenticated",
     });
 
+    // Since 2026.10.10 a login beside the running Gateway is refused; the harness
+    // then runs it in a maintenance window, as AgentPier does (offline-commands.js).
+    if (h.windows.windowed) {
+      const refused = await h.direct(["mcp", "login", "docs"]);
+      assert.equal(refused.code, 1);
+      assert.match(refused.stderr, /exclusive offline state ownership/);
+    }
+
     // (a) Login with the redirect port held prints the URL and exits at once.
     // Not stderr: like createMcpCli; OpenClaw may log its WAL upkeep there.
     const { run: started, url: authorizationUrl } = await login("docs");
@@ -341,9 +138,22 @@ test(
     const callback = await authorize(oauth, authorizationUrl, redirectUrl);
     assert.equal(callback.searchParams.get("state"), query.get("state"));
     const code = callback.searchParams.get("code");
-    const exchangedFrom = Date.now();
-    const done = await cli(["mcp", "login", "docs", "--code", code]);
-    const exchangedTo = Date.now();
+    // One window for the exchange and the two repeats below.
+    const [exchangedFrom, done, exchangedTo, reused, hidden] = await h.offline(
+      async () => {
+        const from = Date.now();
+        const first = await cli(["mcp", "login", "docs", "--code", code]);
+        const to = Date.now();
+        const { OPENCLAW_DEBUG: _debug, ...quiet } = gatewayEnv;
+        return [
+          from,
+          first,
+          to,
+          await cli(["mcp", "login", "docs", "--code", code]),
+          await cli(["mcp", "login", "docs", "--code", code], quiet),
+        ];
+      },
+    );
     assert.equal(done.code, 0, done.stderr);
     assert.equal(done.stdout, 'MCP OAuth credentials saved for "docs".\n');
     exchanged(oauth);
@@ -364,12 +174,9 @@ test(
       state: "authorized",
     });
     // Once completed, the session is gone: a second --code fails at once.
-    const reused = await cli(["mcp", "login", "docs", "--code", code]);
     assert.equal(reused.code, 1);
     assert.match(reused.stderr, /Missing MCP OAuth authorization session/);
     // Without it only "The CLI command failed." and a doctor hint: nothing to classify.
-    const { OPENCLAW_DEBUG: _debug, ...quiet } = gatewayEnv;
-    const hidden = await cli(["mcp", "login", "docs", "--code", code], quiet);
     assert.equal(hidden.code, 1);
     assert.doesNotMatch(hidden.stderr, /Reason:/);
 
@@ -417,16 +224,13 @@ test(
 
     // A new login right after a failed start: the server stays backed off for the
     // next turn until an `mcp` config change resets the backoff.
+    // Since 2026.10.10 the login's window restarts the Gateway, which lifts it too.
     oauth.state.refreshRevoked = false;
-    const relogin = await login("docs");
-    const recallback = await authorize(oauth, relogin.url, redirectUrl);
-    const redone = await cli([
-      "mcp",
-      "login",
-      "docs",
-      "--code",
-      recallback.searchParams.get("code"),
-    ]);
+    const redone = await h.offline(async () => {
+      const relogin = await login("docs");
+      const recallback = await authorize(oauth, relogin.url, redirectUrl);
+      return cli(["mcp", "login", "docs", "--code", recallback.searchParams.get("code")]);
+    });
     assert.equal(redone.code, 0, redone.stderr);
     exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
@@ -435,9 +239,10 @@ test(
     // a slow runner (AGENTPIER_CONTRACT_TIME_SCALE) may need longer for the login.
     const inWindow = Date.now() - failedStart < 20000 || !(contractTimeout(1) > 1);
     const relogged = (await turn(null, "relogin-backed-off")).offered;
-    assert.deepEqual(relogged, inWindow ? [] : relogged, "the backoff holds the server");
+    const backedOff = inWindow && !h.windows.windowed;
+    assert.deepEqual(relogged, backedOff ? [] : relogged, "the backoff holds the server");
     // AgentPier's reset after a login (McpOAuthLogins.resetBackoff): unset -> 0.
-    await patchConfig(client, (config) => ({
+    await patchConfig(runtime.client, (config) => ({
       patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) } },
     }));
     assert.deepEqual((await turn(null, "relogin-reset")).offered, ["docs__echo"]);
@@ -473,7 +278,7 @@ test(
     assert.ok(["unauthenticated", "pending-authorization"].includes(cleared), cleared);
     // A turn after the logout settles it: the start without a token records the
     // challenge, `pending-authorization` without any flag (as a server never logged in).
-    await patchConfig(client, (config) => ({
+    await patchConfig(runtime.client, (config) => ({
       patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) } },
     }));
     assert.deepEqual((await turn(null, "logged-out")).offered, []);
@@ -483,15 +288,17 @@ test(
     });
 
     // (e) Log in again, then rename and change the URL: both orphan the login.
-    const third = await login("docs");
-    const thirdCallback = await authorize(oauth, third.url, redirectUrl);
-    const thirdDone = await cli([
-      "mcp",
-      "login",
-      "docs",
-      "--code",
-      thirdCallback.searchParams.get("code"),
-    ]);
+    const thirdDone = await h.offline(async () => {
+      const third = await login("docs");
+      const thirdCallback = await authorize(oauth, third.url, redirectUrl);
+      return cli([
+        "mcp",
+        "login",
+        "docs",
+        "--code",
+        thirdCallback.searchParams.get("code"),
+      ]);
+    });
     assert.equal(thirdDone.code, 0, thirdDone.stderr);
     exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
@@ -509,18 +316,21 @@ test(
       runtime: { ...runtime.runtime, cwd: runtime.paths.root },
       environment: gatewayEnv,
     });
-    await own.logout("docs", { server: docs });
+    if (h.windows.windowed) await h.offline(() => own.logout("docs", { server: docs }));
+    else await own.logout("docs", { server: docs });
     await servers({ renamed: null, docs }, ["mcp.servers.renamed"]);
     assert.equal((await state("docs")).state, "unauthenticated", "orphan cleared");
-    const fourth = await login("docs");
-    const fourthCallback = await authorize(oauth, fourth.url, redirectUrl);
-    const fourthDone = await cli([
-      "mcp",
-      "login",
-      "docs",
-      "--code",
-      fourthCallback.searchParams.get("code"),
-    ]);
+    const fourthDone = await h.offline(async () => {
+      const fourth = await login("docs");
+      const fourthCallback = await authorize(oauth, fourth.url, redirectUrl);
+      return cli([
+        "mcp",
+        "login",
+        "docs",
+        "--code",
+        fourthCallback.searchParams.get("code"),
+      ]);
+    });
     assert.equal(fourthDone.code, 0, fourthDone.stderr);
     exchanged(oauth);
 
@@ -543,7 +353,9 @@ test(
       path: path.join(gatewayEnv.HOME, ".openclaw", "openclaw.json"),
       servers: [],
     });
-    assert.equal(runtime.generation, generation, "no restart");
+    // Before 2026.10.10 nothing restarts; since then one window per sign-in step.
+    if (!h.windows.windowed) assert.equal(runtime.generation, generation, "no restart");
+    else t.diagnostic(`maintenance windows: ${h.windows.count}`);
     await runtime.close();
     assert.equal((await state("docs", minimal)).state, "authorized");
     // `login` on a server with a refresh token refreshes and prints no URL.
