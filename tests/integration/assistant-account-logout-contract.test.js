@@ -156,6 +156,19 @@ test(
     runtime.on("status", ({ availability }) => {
       if (trail.at(-1) !== availability) trail.push(availability);
     });
+    // The Gateway's own refusals, which the client reduces to a code.
+    runtime.client.ws.on("message", (bytes) => {
+      try {
+        const frame = JSON.parse(String(bytes));
+        if (frame.type !== "res" || frame.ok !== false) return;
+        const { code, retryable, retryAfterMs, details, message } = frame.error || {};
+        trail.push(
+          `refused: ${JSON.stringify({ code, retryable, retryAfterMs, details: details?.code, message: String(message).slice(0, 300) })}`,
+        );
+      } catch {
+        /* Not JSON. */
+      }
+    });
     await assistants.logoutAccount(accounts, accountId).catch((error) => {
       t.diagnostic(`logout trail ${JSON.stringify(trail)}`);
       throw error;

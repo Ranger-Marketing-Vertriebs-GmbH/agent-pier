@@ -762,7 +762,10 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   timed-out command still ends its process.
 - **Model list.** A forced `models.list` right after an auth profile change answers a
   retryable `UNAVAILABLE` ("catalog generation was superseded");
-  `model-account-catalog.js` asks again up to five times within its read budget.
+  `model-account-catalog.js` asks again up to five times within its read budget
+  (`retryable-calls.js`). The account status, probe and logout calls of
+  `model-accounts.js` repeat such an answer the same way: a CI run on 2026.11.3 saw
+  `models.authLogout` refused with `UNAVAILABLE` (see the logout contract's trail).
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

@@ -95,6 +95,32 @@ test("logout addresses only the selected profile and model input cannot replace 
   assert.deepEqual(await accounts.list(), []);
 });
 
+test("a logout OpenClaw refuses as retryable is asked again; another refusal is not", async (t) => {
+  const { accounts, runtime, calls } = fixture(t);
+  const [account] = await accounts.list();
+  const call = runtime.client.call;
+  // As OpenClaw 2026.11.3 answers while an agent database it reads is still inspected.
+  const refuse = (retryable) => () =>
+    Promise.reject(
+      Object.assign(new Error("refused"), {
+        code: "UNAVAILABLE",
+        answered: true,
+        retryable,
+        retryAfterMs: 1,
+      }),
+    );
+  let refusals = [refuse(false)];
+  runtime.client.call = (method, params) =>
+    method === "models.authLogout" && refusals.length
+      ? (calls.push({ method, params }), refusals.shift()())
+      : call(method, params);
+  await assert.rejects(accounts.logout(account.id), { code: "UNAVAILABLE" });
+  assert.equal(calls.filter((c) => c.method === "models.authLogout").length, 1);
+  refusals = [refuse(true), refuse(true)];
+  await accounts.logout(account.id);
+  assert.equal(calls.filter((c) => c.method === "models.authLogout").length, 4);
+  assert.deepEqual(await accounts.list(), []);
+});
 test("removed account identity remains pinned offline across restart without remaining publicly selectable", async (t) => {
   const { accounts, runtime, dataDir } = fixture(t);
   const [account] = await accounts.list();

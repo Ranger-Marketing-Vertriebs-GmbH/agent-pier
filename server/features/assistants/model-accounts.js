@@ -9,6 +9,7 @@ import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { moveAccount } from "./model-account-move.js";
 import { scrubBackupProfile } from "./runtime-update-scrub.js";
 import { CodexCatalog } from "../model-logins/codex-catalog.js";
+import { retryingCall } from "./retryable-calls.js";
 // Account ids keep their first prefix: agents' saved selections name them.
 export const accountIdOf = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
@@ -161,7 +162,7 @@ export class AssistantModelAccounts {
       (r) => !heldIds.has(r.profileId) && r.holder !== "agentpier",
     );
     if (hostReady(this.runtime)) {
-      const result = await this.port().status({ timeoutMs: 60000 });
+      const result = await retryingCall(() => this.port().status({ timeoutMs: 60000 }));
       const profiles =
         result.providers?.find((p) => p.provider === "openai")?.profiles || [];
       native = profiles
@@ -258,12 +259,14 @@ export class AssistantModelAccounts {
       return { status };
     }
     this.requireReady();
-    const result = await this.port().probe({
-      provider: "openai",
-      profileId: record.profileId,
-      probeTimeoutMs: 15000,
-      timeoutMs: 20000,
-    });
+    const result = await retryingCall(() =>
+      this.port().probe({
+        provider: "openai",
+        profileId: record.profileId,
+        probeTimeoutMs: 15000,
+        timeoutMs: 20000,
+      }),
+    );
     await this.list();
     return {
       status: ["ok", "auth", "rate_limit", "billing", "timeout", "no_model"].includes(
@@ -290,11 +293,16 @@ export class AssistantModelAccounts {
     this.requireReady();
     // Before revocation: an update backup must never resurrect this profile.
     destroyBackupKeys(path.dirname(this.file));
-    await this.port().logout({
-      provider: "openai",
-      profileIds: [record.profileId],
-      timeoutMs: 60000,
-    });
+    // A retryable refusal removed nothing (retryable-calls.js): OpenClaw 2026.11.3
+    // reads every agent's sessions here, and refuses while a database it inspects in
+    // the background is not admitted yet.
+    await retryingCall(() =>
+      this.port().logout({
+        provider: "openai",
+        profileIds: [record.profileId],
+        timeoutMs: 60000,
+      }),
+    );
     return this.list();
   }
   /** Moves a login OpenClaw holds to AgentPier, on the owner's request. */
