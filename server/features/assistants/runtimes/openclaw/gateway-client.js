@@ -81,6 +81,8 @@ export class GatewayClient extends EventEmitter {
     this.close();
     const handshake = { connected: false, secured: false };
     const ws = (this.ws = pinnedSocket(this.url, this.certPath, handshake));
+    // Ends the waits of repeated requests once this connection closes.
+    const lifetime = (this.lifetime = new AbortController());
     await new Promise((resolve, reject) => {
       let challenged = false;
       // close() ends a pending connect at once, e.g. when the Gateway process exits.
@@ -105,6 +107,7 @@ export class GatewayClient extends EventEmitter {
       };
       ws.on("error", fail);
       ws.on("close", () => {
+        lifetime.abort();
         if (this.ws !== ws) return;
         fail();
         this.ready = false;
@@ -209,10 +212,16 @@ export class GatewayClient extends EventEmitter {
   // A refusal that cannot have run anything is asked again (gateway-retry.js).
   call(method, params = {}, options = {}) {
     if (!this.ready) return Promise.reject(gatewayError());
+    // Repeats only on this connection, while it is ready (see gateway-retry.js).
+    const { ws, lifetime } = this;
     return repeating(
       method,
       (timeoutMs) => this.request(method, params, { ...options, timeoutMs }),
-      { timeoutMs: options.timeoutMs ?? this.timeoutMs },
+      {
+        timeoutMs: options.timeoutMs ?? this.timeoutMs,
+        current: () => this.ready && this.ws === ws,
+        signal: lifetime?.signal,
+      },
     );
   }
   // `onLate(ok, payload)`: the answer to a request that timed out, if one arrives on
@@ -365,6 +374,7 @@ export class GatewayClient extends EventEmitter {
     this.pending.clear();
   }
   close() {
+    this.lifetime?.abort();
     const abort = this.abortConnect;
     this.abortConnect = null;
     abort?.();

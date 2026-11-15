@@ -31,8 +31,11 @@ export function configWrite(client, write) {
 // Gateway asks for, never in a tight loop, within `maxWaitMs` in all. A wait the
 // bound cannot cover fails at once with `configBusy` (code CONFIG_BUSY).
 export const configRetryLimitMs = 60000;
+// A refusal before dispatch (a Gateway draining for a restart) was already repeated
+// by GatewayClient.call within its timeout (gateway-retry.js) and is passed on.
 const refusedForNow = (error) =>
   error?.answered === true &&
+  error.beforeDispatch !== true &&
   error.code === "UNAVAILABLE" &&
   error.retryable === true &&
   Number.isFinite(error.retryAfterMs);
