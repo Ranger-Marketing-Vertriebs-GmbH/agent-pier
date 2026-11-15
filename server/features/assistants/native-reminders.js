@@ -585,10 +585,12 @@ export class NativeReminders {
   reboundChat(binding, event) {
     const id = binding.target?.conversationId;
     if (sessionRebound(event) && id)
-      this.followChat(id).catch((e) => console.warn("Chat rebind failed:", e?.message));
+      this.followChat(id, { at: event.runAtMs, refused: event }).catch((e) =>
+        console.warn("Chat rebind failed:", e?.message),
+      );
   }
-  followChat(conversationId) {
-    return this.assistants.admit(() => followChat(this, conversationId));
+  followChat(conversationId, options) {
+    return this.assistants.admit(() => followChat(this, conversationId, options));
   }
   invoke(invocation, input) {
     return invokeReminder(this, invocation, input);
