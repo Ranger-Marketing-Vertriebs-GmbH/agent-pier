@@ -171,11 +171,14 @@ export class OfflineCommands {
   /**
    * Runs `task` (an offline-only CLI call) where OpenClaw accepts it: directly on an
    * older runtime, under the queue's lock while no Gateway runs, else in a window.
-   * Refuses with code RUNTIME_BUSY while maintenance or a restart is under way.
+   * A launch past its beforeSpawn (a window's own start) is waited for first; that
+   * start needs the lock no more. Refuses with code RUNTIME_BUSY while maintenance or
+   * a restart is under way.
    */
   run(task) {
     if (!this.guarded()) return task();
-    return this.locked(() => {
+    return this.locked(async () => {
+      if (this.launching()) await this.supervisor.starting.catch(() => {});
       if (!this.online()) return this.attempt(task);
       if (this.busy() || this.closed || this.launching())
         throw Object.assign(new Error("The agent service is busy."), {
