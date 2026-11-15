@@ -768,7 +768,9 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   plugin or config operation while another holds the state lease
   (`details.mutationAccepted: false`). `GatewayClient.call` sends such a request again,
   and a retryable `models.list`, `models.authStatus` or `models.probe`, within the
-  caller's timeout. Other retryable refusals are not repeated: OpenClaw may have acted
+  caller's timeout: only on the connection that answered, never once it closed, and a
+  probe or a write only with three quarters of its own timeout left. `live-patch.js`
+  repeats only the `config.patch` rate limit. Other retryable refusals are not repeated: OpenClaw may have acted
   before them (a `models.authLogout` that removed the profiles and then met an agent
   database still being inspected answers retryable too).
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway

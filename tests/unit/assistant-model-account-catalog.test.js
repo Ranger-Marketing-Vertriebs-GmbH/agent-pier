@@ -416,3 +416,26 @@ test("a sign-in during a page's background read still forces a rediscovery", asy
     { modelId: "gpt-6-sol", label: "GPT-6-SOL" },
   ]);
 });
+
+test("each read's timeout, client repeats included, ends within the read budget", async (t) => {
+  // A Gateway still discovering spends every read's whole timeout (as the client's
+  // repeats of a refused read may, gateway-retry.js) and then answers "pending".
+  let clock = 1_000_000;
+  t.mock.method(Date, "now", () => clock);
+  const timeouts = [];
+  const runtime = {
+    client: {
+      ready: true,
+      call: async (method, params, { timeoutMs }) => {
+        timeouts.push({ at: clock, timeoutMs });
+        clock += timeoutMs;
+        return listed([], { pendingProviders: ["openai"] });
+      },
+    },
+  };
+  const catalog = new ModelAccountCatalog({ runtime, ...quiet });
+  await assert.rejects(catalog.refresh({ force: true }), { code: "PENDING" });
+  assert.ok(timeouts.length >= 2);
+  assert.ok(timeouts.every(({ timeoutMs }) => timeoutMs <= 60_000));
+  assert.ok(clock - 1_000_000 <= 120_000, `${clock - 1_000_000} ms`);
+});
