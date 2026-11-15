@@ -126,16 +126,13 @@ export class McpOAuthLogins {
     });
     return result;
   }
-
   invalidate() {
     this.cache = null;
   }
-
   /** Whether the running Gateway compiled `name` (the CLI reads its config). */
   compiled(name) {
     return !!this.runtime?.mcp?.servers?.includes(name);
   }
-
   /** The unredacted definition of server `id` (throws 404 like the store). */
   definition(id) {
     this.servers.get(id);
@@ -195,16 +192,14 @@ export class McpOAuthLogins {
   }
 
   /**
-   * After a runtime update rollback restored OpenClaw's state of `since` (the
-   * snapshot time): every login cleared since then is logged out again before the
-   * Gateway starts. Each becomes a deferred logout, which keeps a server with that
-   * name and URL uncompiled until the drain cleared it. Without a known snapshot
-   * time every remembered logout is repeated.
+   * After a runtime update rollback restored OpenClaw's state of `since` (the snapshot
+   * time; without one, every remembered logout): each login cleared since then becomes
+   * a deferred logout again, which keeps a server with that name and URL uncompiled
+   * until the drain cleared it before the Gateway starts.
    */
   afterRollback(since) {
     const from = Number.isSafeInteger(since) ? since : 0;
-    for (const target of this.servers.logoutsSince(from))
-      this.servers.deferLogout(target);
+    for (const target of this.servers.logoutsSince(from)) this.defer(target);
     this.invalidate();
     if (this.servers.deferredLogouts().length) this.scheduleDrain(0);
   }
@@ -423,7 +418,7 @@ export class McpOAuthLogins {
       this.warn(
         `An MCP server's OAuth login could not be removed yet (${error?.code || "ERROR"}); retrying later.`,
       );
-      this.servers.deferLogout(before);
+      this.defer(before);
       this.scheduleDrain(firstDrainMs);
       return { deferred: true };
     } finally {
@@ -502,6 +497,11 @@ export class McpOAuthLogins {
       }
     }
     if (result.remaining) this.retryDrain();
+  }
+  // A new deferred logout may ask for restarts again (backgroundDrain).
+  defer(target) {
+    this.servers.deferLogout(target);
+    this.restarts = 0;
   }
   /** The backoff's next drain (`scheduleDrain`). */
   retryDrain() {
