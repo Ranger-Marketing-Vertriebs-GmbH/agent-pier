@@ -4624,7 +4624,9 @@ committed inside that turn, between the owner's question and the answer (OpenCla
 2026.11.2, openclaw#181506; before, after the answer), and reaches the chat once. A message sent after the job was created reaches
 the next check-in's model input, and after an owner `/reset` and `/new` sent from
 Telegram the same job reads only the new session and commits into it
-(`deliveryStatus: "delivered"`). The
+(`deliveryStatus: "delivered"`); on 2026.11.3 this step still fails (the job keeps
+the generation of the session that created it, see
+`docs/assistant-release-qualification.md`). The
 agent's native heartbeat job stays disabled, and switching off removes the job.
 
 ### Recall across conversations is not offered yet
