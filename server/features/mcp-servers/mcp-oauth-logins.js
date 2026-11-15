@@ -112,6 +112,7 @@ export class McpOAuthLogins {
     this.pending = new Map(); // state -> { serverId, name, state, startedAt }
     this.queues = new Map(); // name -> tail of its serialized CLI calls
     this.cache = null; // { at, promise }
+    this.restarts = 0; // restarts asked for (backgroundDrain)
   }
 
   /** Runs `operation` after every earlier CLI call for `name`. */
@@ -433,10 +434,10 @@ export class McpOAuthLogins {
   }
 
   /**
-   * Retries logouts that failed before, one after another. It stops at the first
-   * timeout or missing runtime, so a broken CLI costs one timeout, not one per
-   * entry. Returns `{ remaining, freed }`: `freed` when a cleared entry matched a
-   * current OAuth server, which then compiles again with the next apply.
+   * Retries logouts that failed before, one after another, until the first timeout or
+   * missing runtime (a broken CLI costs one timeout). Returns `{ remaining, freed }`:
+   * `freed` when a cleared entry matched a current OAuth server, which then compiles
+   * again with the next apply. An empty queue resets the backoff and restart count.
    */
   async drain() {
     let freed = false;
@@ -460,25 +461,30 @@ export class McpOAuthLogins {
         this.invalidate();
       }
     }
-    return { remaining: this.servers.deferredLogouts().length, freed };
+    const remaining = this.servers.deferredLogouts().length;
+    if (!remaining) this.drainDelay = this.restarts = 0;
+    return { remaining, freed };
   }
 
   /**
    * Drains in the background, outside the admission lock: serialized, retried with
-   * a backoff from one second to ten minutes while entries remain. A drain that
-   * frees a current server calls `onFreed()` so the next apply compiles it.
+   * a backoff from one second to ten minutes while entries remain (`retryDrain`). A
+   * drain that frees a current server calls `onFreed()` so the next apply compiles it.
    */
   scheduleDrain(delay = 0) {
     if (this.closed || this.drainTimer || this.draining) return;
     this.drainTimer = setTimeout(() => this.backgroundDrain(), delay);
     this.drainTimer.unref?.();
   }
-
   async backgroundDrain() {
     this.drainTimer = null;
     if (this.closed) return;
     // OpenClaw 2026.10.10+: the pending restart's start drains (offline-commands.js).
-    if (this.offline?.windowNeeded() && this.offline.request("mcpLogout")) return;
+    // A logout failing at every start asks for a few, then waits for the next start.
+    if (this.offline?.windowNeeded()) {
+      if (this.restarts >= this.offline.maxAttempts) return;
+      if (this.offline.request("mcpLogout")) return void this.restarts++;
+    }
     this.draining = true;
     let result = { remaining: 1, freed: false };
     try {
@@ -495,15 +501,14 @@ export class McpOAuthLogins {
         // The next apply or start compiles it.
       }
     }
-    if (!result.remaining) {
-      this.drainDelay = firstDrainMs;
-      return;
-    }
+    if (result.remaining) this.retryDrain();
+  }
+  /** The backoff's next drain (`scheduleDrain`). */
+  retryDrain() {
     const delay = this.drainDelay || firstDrainMs;
     this.drainDelay = Math.min(lastDrainMs, delay * 2);
     this.scheduleDrain(delay);
   }
-
   close() {
     this.closed = true;
     clearTimeout(this.drainTimer);
