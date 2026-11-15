@@ -120,3 +120,15 @@ test("a chat without any session id left runs no forget", async (t) => {
   await f.assistants.dreamingForgets;
   assert.deepEqual(f.forgotten(), []);
 });
+
+test("a deleted chat's forget is queued before the delete returns", async (t) => {
+  const f = fixture(t, { describe: "s-live" });
+  const queued = [];
+  f.assistants.offlineCommands = {
+    forget: (agent, sessions) => (queued.push([agent, sessions]), Promise.resolve()),
+  };
+  // An earlier forget that has not settled (AgentPier may stop before it does).
+  f.assistants.dreamingForgets = new Promise(() => {});
+  assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
+  assert.deepEqual(queued, [[f.agent.runtimeAgentId, ["s-live"]]]);
+});

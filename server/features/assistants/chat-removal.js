@@ -222,16 +222,14 @@ export async function deleteNativeSession(assistants, conversation) {
   // Dreaming's copies of the chat go too, dreaming on or off: earlier nights may have
   // read it. In the background, never under admission; a failure is logged without
   // content and leaves the deletion standing. The offline commands queue it durably
-  // and run it while no Gateway owns the state (offline-commands.js).
+  // at once and run it while no Gateway owns the state (offline-commands.js).
   if (sessionIds.size && agent && !owner) {
     const queue = assistants.offlineCommands;
     const ids = [...sessionIds];
+    const queued = queue?.forget(agent.runtimeAgentId, ids);
+    queued?.catch(() => {}); // reported by the chain below
     assistants.dreamingForgets = (assistants.dreamingForgets || Promise.resolve())
-      .then(() =>
-        queue
-          ? queue.forget(agent.runtimeAgentId, ids)
-          : forgetDreamingSession(assistants, agent, ids),
-      )
+      .then(() => queued ?? forgetDreamingSession(assistants, agent, ids))
       .catch(() =>
         console.warn("AgentPier could not remove a deleted chat from dreaming."),
       );
