@@ -352,3 +352,55 @@ test("idle waits for the start of a window that had not begun yet", async (t) =>
   assert.equal(started, true);
   assert.equal(await login, "url");
 });
+
+test("a deletion joining a forget that used its attempts is forced again", async (t) => {
+  let clock = 1000;
+  const forced = [];
+  const f = commands(t, { now: () => clock, force: async () => forced.push(clock) });
+  await f.queue.forget("orchid", ["s-1"]);
+  const queue = JSON.parse(fs.readFileSync(file(f.root), "utf8"));
+  queue.forgets[0].attempts = 3;
+  fs.writeFileSync(file(f.root), JSON.stringify(queue));
+  clock += 60 * 60000;
+  await f.queue.forget("orchid", ["s-2"]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file(f.root), "utf8")).forgets, [
+    { agent: "orchid", sessions: ["s-1", "s-2"], attempts: 0, since: clock },
+  ]);
+  await f.queue.overdue();
+  assert.deepEqual(forced, [], "its own 15 minutes");
+  clock += 15 * 60000;
+  await f.queue.overdue();
+  assert.deepEqual(forced, [clock]);
+});
+
+test("a forced forget that failed waits for its retry, and no window overlaps", async (t) => {
+  let clock = 1000;
+  const forced = [];
+  const f = commands(t, {
+    now: () => clock,
+    force: async () => forced.push(clock),
+    retryMs: 60000,
+    forget: () => {
+      throw Object.assign(new Error("locked"), { code: "ETIMEDOUT" });
+    },
+  });
+  await f.queue.forget("orchid", ["s-1"]);
+  clock += 15 * 60000;
+  await f.queue.overdue();
+  assert.equal(forced.length, 1);
+  // The forced restart's start ran it, and it failed: retried after a minute.
+  f.s.child = null;
+  await f.queue.drain();
+  f.s.child = { exitCode: null };
+  clock += 30000;
+  await f.queue.overdue();
+  assert.equal(forced.length, 1, "not before its retry");
+  clock += 30000;
+  // An owner's window under way: no forced restart beside it.
+  f.queue.windowOpen = true;
+  await f.queue.overdue();
+  assert.equal(forced.length, 1);
+  f.queue.windowOpen = false;
+  await f.queue.overdue();
+  assert.equal(forced.length, 2);
+});

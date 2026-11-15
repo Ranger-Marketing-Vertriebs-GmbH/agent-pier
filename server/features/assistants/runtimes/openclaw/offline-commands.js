@@ -133,8 +133,13 @@ export class OfflineCommands {
   forget(agent, sessions) {
     const forgets = this.queued();
     const entry = forgets.find((e) => e.agent === agent);
-    if (entry) entry.sessions = [...new Set([...entry.sessions, ...sessions])];
-    else
+    if (entry) {
+      entry.sessions = [...new Set([...entry.sessions, ...sessions])];
+      // A new deletion gets its attempts and its deadline again; an entry still in
+      // its attempts keeps the older deadline.
+      if (entry.attempts >= this.maxAttempts) entry.since = this.now();
+      entry.attempts = 0;
+    } else
       forgets.push({
         agent,
         sessions: [...new Set(sessions)],
@@ -313,7 +318,9 @@ export class OfflineCommands {
       return;
     }
     const oldest = Math.min(...waiting.map((e) => e.since ?? 0));
-    if (this.forcing || !this.windowNeeded()) return;
+    // Not beside a window or drain, nor before a failed forget's retry is due.
+    if (this.forcing || this.marks > 0 || this.windowOpen || !this.windowNeeded()) return;
+    if (this.now() < (this.retryAt ?? 0)) return;
     if (this.now() - oldest < this.deadlineMs && !this.urgent()) return;
     this.forcing = true;
     try {
@@ -324,6 +331,7 @@ export class OfflineCommands {
   }
   later(ms) {
     if (this.closed) return;
+    this.retryAt = this.now() + ms;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.ask().catch(() => {}), ms);
     this.timer.unref?.();
