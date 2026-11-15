@@ -402,3 +402,28 @@ test("a code exchange the agent service refused as busy keeps the login's state"
   const again = await f.oauth.complete({ state: "state-1", code: "c" });
   assert.equal(again.result, "connected");
 });
+
+test("a new deferred logout may ask for restarts again", async (t) => {
+  const asked = [];
+  const offline = {
+    window: true,
+    maxAttempts: 3,
+    windowNeeded: () => offline.window,
+    request: (reason) => asked.push(reason) > 0,
+  };
+  const f = setup(t, { logout: new McpCliError("cli-failed", "x") }, { offline });
+  await f.changes.remove(f.docs.id);
+  for (let n = 0; n < 4; n++) await f.oauth.backgroundDrain();
+  assert.equal(asked.length, 3);
+  const other = f.servers.create({
+    name: "other",
+    transport: "http",
+    url: "https://other.example.com/mcp",
+    auth: "oauth",
+  });
+  await f.changes.remove(other.id);
+  clearTimeout(f.oauth.drainTimer);
+  f.oauth.drainTimer = null;
+  await f.oauth.backgroundDrain();
+  assert.equal(asked.length, 4);
+});
