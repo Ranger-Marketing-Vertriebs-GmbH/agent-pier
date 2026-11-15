@@ -9,21 +9,9 @@ import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { moveAccount } from "./model-account-move.js";
 import { scrubBackupProfile } from "./runtime-update-scrub.js";
 import { CodexCatalog } from "../model-logins/codex-catalog.js";
-import { retryingCall } from "./retryable-calls.js";
 // Account ids keep their first prefix: agents' saved selections name them.
 export const accountIdOf = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
-// One account call, its retryable refusals included (retryable-calls.js), ends
-// within this long; each attempt gets what is left, up to its own timeout.
-const callBudgetMs = 90000;
-const probeBudgetMs = 30000;
-function boundedCall(call, timeoutMs, budgetMs = callBudgetMs) {
-  const deadline = Date.now() + budgetMs;
-  return retryingCall(
-    () => call(Math.max(1, Math.min(timeoutMs, deadline - Date.now()))),
-    { deadline },
-  );
-}
 const signedIn = (status) => ["ok", "expiring"].includes(status);
 // Store refusals that only mean OpenClaw has not been set up (yet): nothing to write.
 const absent = new Set(["STORE_MISSING"]);
@@ -173,10 +161,7 @@ export class AssistantModelAccounts {
       (r) => !heldIds.has(r.profileId) && r.holder !== "agentpier",
     );
     if (hostReady(this.runtime)) {
-      const result = await boundedCall(
-        (timeoutMs) => this.port().status({ timeoutMs }),
-        60000,
-      );
+      const result = await this.port().status({ timeoutMs: 60000 });
       const profiles =
         result.providers?.find((p) => p.provider === "openai")?.profiles || [];
       native = profiles
@@ -273,17 +258,12 @@ export class AssistantModelAccounts {
       return { status };
     }
     this.requireReady();
-    const result = await boundedCall(
-      (timeoutMs) =>
-        this.port().probe({
-          provider: "openai",
-          profileId: record.profileId,
-          probeTimeoutMs: 15000,
-          timeoutMs,
-        }),
-      20000,
-      probeBudgetMs,
-    );
+    const result = await this.port().probe({
+      provider: "openai",
+      profileId: record.profileId,
+      probeTimeoutMs: 15000,
+      timeoutMs: 20000,
+    });
     await this.list();
     return {
       status: ["ok", "auth", "rate_limit", "billing", "timeout", "no_model"].includes(
@@ -310,18 +290,11 @@ export class AssistantModelAccounts {
     this.requireReady();
     // Before revocation: an update backup must never resurrect this profile.
     destroyBackupKeys(path.dirname(this.file));
-    // A retryable refusal removed nothing (retryable-calls.js): OpenClaw 2026.11.3
-    // reads every agent's sessions here, and refuses while a database it inspects in
-    // the background is not admitted yet.
-    await boundedCall(
-      (timeoutMs) =>
-        this.port().logout({
-          provider: "openai",
-          profileIds: [record.profileId],
-          timeoutMs,
-        }),
-      60000,
-    );
+    await this.port().logout({
+      provider: "openai",
+      profileIds: [record.profileId],
+      timeoutMs: 60000,
+    });
     return this.list();
   }
   /** Moves a login OpenClaw holds to AgentPier, on the owner's request. */

@@ -7,7 +7,14 @@ import { issueGatewayCertificate } from "../../server/features/assistants/runtim
 
 // Mirrors the managed Gateway transport: loopback WSS with a certificate whose
 // public half is written to a private file that the client pins.
-export async function gatewayFixture({ token = "fixture", delay = 0, features } = {}) {
+// `refusals[method]`: errors the method answers first, one per request, before its
+// normal answer.
+export async function gatewayFixture({
+  token = "fixture",
+  delay = 0,
+  features,
+  refusals = {},
+} = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-gateway-tls-"));
   const { cert, key } = issueGatewayCertificate();
   const certPath = path.join(directory, "gateway-cert.pem");
@@ -28,6 +35,11 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
       const req = JSON.parse(bytes);
       calls.push(req);
       if (req.method === "pending") return;
+      if (refusals[req.method]?.length) {
+        const error = refusals[req.method].shift();
+        ws.send(JSON.stringify({ type: "res", id: req.id, ok: false, error }));
+        return;
+      }
       const ok =
         !["stale", "busy", "rateLimited", "refused", "titleFailed", "degraded"].includes(
           req.method,

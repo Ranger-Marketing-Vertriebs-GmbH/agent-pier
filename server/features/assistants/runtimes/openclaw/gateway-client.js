@@ -6,6 +6,7 @@ import https from "node:https";
 import WebSocket from "ws";
 import { gatewayHandshake, gatewayError } from "./gateway-protocol.js";
 import { readGatewayPin } from "./gateway-tls.js";
+import { refusedBeforeDispatch, repeating } from "./gateway-retry.js";
 
 // The token is a bearer secret, so only a Gateway holding the private key of the
 // certificate in our private runtime folder may receive it. The pin is re-read on
@@ -145,6 +146,8 @@ export class GatewayClient extends EventEmitter {
                   // How long the Gateway asks a retryable refusal to wait, such as
                   // its control-plane write budget (30 config.patch a minute per
                   // connection, OpenClaw 2026.10).
+                  // Refused before dispatch: repeating it cannot run it twice.
+                  ...(refusedBeforeDispatch(frame.error) ? { beforeDispatch: true } : {}),
                   ...(Number.isFinite(frame.error?.retryAfterMs) &&
                   frame.error.retryAfterMs >= 0
                     ? { retryAfterMs: frame.error.retryAfterMs }
@@ -203,9 +206,14 @@ export class GatewayClient extends EventEmitter {
       });
     });
   }
+  // A refusal that cannot have run anything is asked again (gateway-retry.js).
   call(method, params = {}, options = {}) {
     if (!this.ready) return Promise.reject(gatewayError());
-    return this.request(method, params, options);
+    return repeating(
+      method,
+      (timeoutMs) => this.request(method, params, { ...options, timeoutMs }),
+      { timeoutMs: options.timeoutMs ?? this.timeoutMs },
+    );
   }
   // `onLate(ok, payload)`: the answer to a request that timed out, if one arrives on
   // the same connection within `lateMs` (a sessions.send acknowledged late proves its

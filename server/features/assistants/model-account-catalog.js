@@ -1,4 +1,3 @@
-import { retryingCall } from "./retryable-calls.js";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // The model IDs a ChatGPT account can pin: resolve() turns one into
 // `openai/<modelId>@<profileId>`, so only bare IDs survive.
@@ -17,8 +16,8 @@ const callTimeoutMs = 60_000;
 const pendingReads = 24;
 // OpenClaw 2026.11.2 answers a read that a newer catalog generation superseded (as
 // one does right after an auth profile change) with a retryable UNAVAILABLE that
-// did nothing; it is asked again, a few times and within the read budget
-// (retryable-calls.js).
+// did nothing; the Gateway client asks again within the call's timeout, which ends
+// with the read budget (gateway-retry.js).
 
 /**
  * The Gateway's `models.list` answer for the `openai` provider, reduced to what
@@ -155,15 +154,11 @@ export class ModelAccountCatalog {
     const models = runtimeFor(null, this.runtime).models.on(hostConnection(this.runtime));
     const deadline = Date.now() + readBudgetMs;
     const read = (refresh) =>
-      retryingCall(
-        () =>
-          models.catalog({
-            provider: "openai",
-            refresh,
-            timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())),
-          }),
-        { deadline },
-      );
+      models.catalog({
+        provider: "openai",
+        refresh,
+        timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())),
+      });
     this.#forced = force;
     this.#inflight = (async () => {
       try {
