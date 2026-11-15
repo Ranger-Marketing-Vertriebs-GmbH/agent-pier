@@ -3,13 +3,17 @@ import {
   OfflineCommands,
   stateOwned,
 } from "../features/assistants/runtimes/openclaw/offline-commands.js";
-import { forgetDreamingSession } from "../features/assistants/dreaming-backups.js";
+import {
+  forgetDreamingSession,
+  sweepNear,
+} from "../features/assistants/dreaming-backups.js";
 import { temporaryMember } from "../features/assistants/team-presentation.js";
 
 /**
  * The pending restart (pending-restart.js) and OpenClaw's offline-only CLI commands
  * (offline-commands.js) as the assistant graph wires them: queued forgets ask for the
- * pending restart, which waits until no agent is busy and interrupts every agent; no
+ * pending restart, which waits until no agent is busy and interrupts every agent, or
+ * runs at once (as "Restart now") after 15 minutes or before dreaming's sweep; no
  * window starts while maintenance, a restart or an update runs. The supervisor's
  * beforeSpawn drains the queue at every Gateway start.
  */
@@ -47,6 +51,12 @@ export function restartWiring(assistants, synchronization, runtime) {
         });
     },
     request: (reason) => !!assistants.pendingRestart?.request(reason, affected()),
+    force() {
+      const pending = assistants.pendingRestart;
+      pending?.request("memoryForget", affected());
+      return pending?.restartNow();
+    },
+    urgent: () => sweepNear(new Date(), assistants.dreaming?.settings?.get()),
     busy: () =>
       !!(
         assistants.maintenance ||

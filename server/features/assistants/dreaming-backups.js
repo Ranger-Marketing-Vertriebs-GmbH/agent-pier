@@ -132,18 +132,25 @@ export const localTime = (date, timeZone) =>
       .formatToParts(date)
       .map(({ type, value }) => [type, Number(value)]),
   );
-// Whether `now` lies in the `windowMinutes` before `hour` in `timeZone`. On the night
-// the clock springs forward to `hour` (02:00 -> 03:00), the minutes before the jump.
-function inWindow(now, hour, timeZone) {
+// Whether `now` lies in the `minutes` before `hour` in `timeZone`. On the night the
+// clock springs forward to `hour` (02:00 -> 03:00), the minutes before the jump.
+function inWindow(now, hour, timeZone, minutes = windowMinutes) {
   const local = localTime(now, timeZone);
   const ahead = (hour * 60 - (local.hour * 60 + local.minute) + 1440) % 1440;
-  if (ahead > 0 && ahead <= windowMinutes) return true;
+  if (ahead > 0 && ahead <= minutes) return true;
   if (local.hour === hour) return false;
-  for (let k = 1; k <= windowMinutes; k++)
+  for (let k = 1; k <= minutes; k++)
     if (localTime(new Date(now.getTime() + k * 60000), timeZone).hour === hour)
       return true;
   return false;
 }
+
+/**
+ * Whether OpenClaw's nightly sweep of the dreaming `settings` starts within `minutes`
+ * of `now`: queued forgets of deleted chats then run first (offline-commands.js).
+ */
+export const sweepNear = (now, settings, minutes = 15) =>
+  !!settings?.enabled && inWindow(now, settings.hour, settings.timeZone, minutes);
 
 /**
  * A one-minute tick. It first applies a dreaming change the running Gateway has not

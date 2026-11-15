@@ -59,6 +59,9 @@ function commands(t, options = {}) {
       return options.request ?? true;
     },
     busy: () => !!options.busy,
+    force: options.force,
+    urgent: options.urgent,
+    now: options.now ?? (() => 1000),
     debounceMs: options.debounceMs ?? 10,
     retryMs: options.retryMs ?? 60000,
     ownershipWaitMs: [1, 1],
@@ -92,8 +95,8 @@ test("a forget beside a guarded Gateway is queued durably and asks for one resta
   await f.queue.forget("fern", ["s-3"]);
   assert.deepEqual(f.events, [], "nothing runs beside the Gateway");
   assert.deepEqual(JSON.parse(fs.readFileSync(file(f.root), "utf8")).forgets, [
-    { agent: "orchid", sessions: ["s-1", "s-2"], attempts: 0 },
-    { agent: "fern", sessions: ["s-3"], attempts: 0 },
+    { agent: "orchid", sessions: ["s-1", "s-2"], attempts: 0, since: 1000 },
+    { agent: "fern", sessions: ["s-3"], attempts: 0, since: 1000 },
   ]);
   await sleep(40);
   assert.deepEqual(f.requests, ["memoryForget"], "one debounced request");
@@ -230,7 +233,7 @@ test("a failed command stays queued, and a Gateway that does not come back is th
   // The start was handed to the supervisor (automatic: its own backoff restarts).
   assert.deepEqual(f.events.at(-1), ["start", { automatic: true }]);
   assert.deepEqual(JSON.parse(fs.readFileSync(file(f.root), "utf8")).forgets, [
-    { agent: "orchid", sessions: ["s-1"], attempts: 1 },
+    { agent: "orchid", sessions: ["s-1"], attempts: 1, since: 1000 },
   ]);
   assert.match(f.warnings[0], /could not remove a deleted chat from dreaming: ETIMEDOUT/);
   assert.deepEqual(f.s.states.at(-1), { maintenanceWindow: false });
@@ -238,4 +241,42 @@ test("a failed command stays queued, and a Gateway that does not come back is th
   await sleep(100);
   const attempts = JSON.parse(fs.readFileSync(file(f.root), "utf8")).forgets[0].attempts;
   assert.equal(attempts, 3);
+});
+
+test("a forget waiting 15 minutes for idle agents restarts the Gateway at once", async (t) => {
+  let clock = 1000;
+  const forced = [];
+  const f = commands(t, { now: () => clock, force: async () => forced.push(clock) });
+  await f.queue.forget("orchid", ["s-1"]);
+  await f.queue.flush();
+  assert.deepEqual(f.requests, ["memoryForget"], "the pending restart waits for idle");
+  clock += 14 * 60000;
+  await f.queue.overdue();
+  assert.deepEqual(forced, [], "not yet");
+  // A later deletion keeps the first one's deadline.
+  await f.queue.forget("orchid", ["s-2"]);
+  clock += 60000;
+  await f.queue.overdue();
+  assert.deepEqual(forced, [clock], "busy agents no longer hold it");
+  assert.ok(f.queue.watchTimer, "checked once a minute while forgets wait");
+  // A forget that has used its attempts waits for the next start, never forced.
+  const queue = JSON.parse(fs.readFileSync(file(f.root), "utf8"));
+  queue.forgets[0].attempts = 3;
+  fs.writeFileSync(file(f.root), JSON.stringify(queue));
+  await f.queue.overdue();
+  assert.equal(forced.length, 1);
+  assert.equal(f.queue.watchTimer, null);
+});
+
+test("a forget runs before dreaming's nightly sweep reads the chat", async (t) => {
+  let near = false;
+  const forced = [];
+  const f = commands(t, { urgent: () => near, force: async () => forced.push("now") });
+  await f.queue.forget("orchid", ["s-1"]);
+  await f.queue.flush();
+  await f.queue.overdue();
+  assert.deepEqual(forced, []);
+  near = true;
+  await f.queue.overdue();
+  assert.deepEqual(forced, ["now"]);
 });
