@@ -10,6 +10,7 @@ import { runWarnings } from "./routine-results.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 import { hostReady, routineRunOf } from "./runtimes/runtime-for.js";
 import { chatTarget, sameRun } from "./routine-definition.js";
+import { finishRebinds, rebindJob } from "./chat-rebind.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
@@ -438,7 +439,12 @@ export class NativeRoutines extends NativeReminders {
       .filter((b) => b.kind === "routine" && b.state === "bound" && b.definition);
     if (!routines.length) return;
     const agent = this.agent(id);
-    const jobs = await this.jobs(agent);
+    let jobs = await this.jobs(agent);
+    // A re-creation a lost Gateway left half done (chat-rebind.js) is finished first.
+    if (routines.some((b) => b.rebind)) {
+      await finishRebinds(this, agent, jobs);
+      jobs = await this.jobs(agent);
+    }
     const connection = await this.start();
     let changed = false;
     for (const binding of routines) {
@@ -464,7 +470,14 @@ export class NativeRoutines extends NativeReminders {
         `${connection.url}/complete/${binding.id}`,
       );
       if (sameRun(job, want)) continue;
-      await this.scheduler(agent).update({ id: job.id, patch: want });
+      // A job that pins its chat (chat-rebind.js) is re-created for another chat.
+      if (
+        this.scheduler(agent).pinsChat?.() &&
+        job.target?.kind === "chat" &&
+        job.target.sessionKey !== want.target.sessionKey
+      )
+        await rebindJob(this, agent, this.bindings.get(binding.id), job, want);
+      else await this.scheduler(agent).update({ id: job.id, patch: want });
       changed = true;
     }
     if (changed) this.assistants.changed();

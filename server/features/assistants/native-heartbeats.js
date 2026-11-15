@@ -16,6 +16,7 @@ import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
 import { isShared } from "../users/user-access.js";
 import { hostReady, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import { chatTarget, reminderMarker, routineSchedule } from "./routine-definition.js";
+import { finishRebinds, ownsRun } from "./chat-rebind.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
@@ -129,7 +130,12 @@ export class NativeHeartbeats {
     const want = this.wanted(agent);
     const existing = this.current(id);
     if (!want && !existing.length) return;
-    const jobs = await this.reminders.jobs(agent);
+    let jobs = await this.reminders.jobs(agent);
+    // A re-creation a lost Gateway left half done (chat-rebind.js) is finished first.
+    if (existing.some((b) => b.rebind)) {
+      await finishRebinds(this.reminders, agent, jobs);
+      jobs = await this.reminders.jobs(agent);
+    }
     let keep = null;
     for (const binding of existing) {
       const job = this.reminders.find(binding, jobs);
@@ -261,14 +267,15 @@ export class NativeHeartbeats {
     }
     if (
       !event ||
-      !binding.nativeId ||
-      event.jobId !== binding.nativeId ||
+      !ownsRun(binding, event.jobId) ||
       !Number.isSafeInteger(event.runAtMs) ||
       event.runAtMs < 0 ||
       !["ok", "error"].includes(event.status)
     )
       throw assistantProblem("invalid", 403);
     if (!this.accepts(binding)) return;
+    // A reset of the chat refused its commit: the next check-in goes to the new one.
+    this.reminders.reboundChat(binding, event);
     if (event.status !== "ok") return this.failed(binding, event);
     if (typeof event.summary !== "string" || silent(event.summary)) return;
     // Only a check-in committed to the conversation counts: an owner's reply must

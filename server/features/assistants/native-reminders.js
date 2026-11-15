@@ -18,6 +18,7 @@ import {
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
 import { runtimeFor } from "./runtimes/runtime-for.js";
+import { bindingRuns, followChat, ownsRun, sessionRebound } from "./chat-rebind.js";
 import {
   offeredSchedule,
   reminderMarker,
@@ -393,11 +394,8 @@ export class NativeReminders {
       const binding = this.owned(id, bindingId);
       if (!binding.nativeId) return { entries: [] };
       const agent = this.assistants.store.getAssistant(id);
-      const result = await this.scheduler(agent).runs({
-        id: binding.nativeId,
-        limit: 20,
-      });
-      return { entries: (result.entries || []).map(runEntry) };
+      const entries = await bindingRuns(this.scheduler(agent), binding);
+      return { entries: entries.map(runEntry) };
     });
   }
   /** Telegram outbox entries: only while the binding still delivers to that chat. */
@@ -431,13 +429,13 @@ export class NativeReminders {
     if (!this.accepts(binding)) return;
     if (
       !event ||
-      !binding.nativeId ||
-      event.jobId !== binding.nativeId ||
+      !ownsRun(binding, event.jobId) ||
       !Number.isSafeInteger(event.runAtMs) ||
       event.runAtMs < 0 ||
       !["ok", "error"].includes(event.status)
     )
       throw assistantProblem("invalid", 403);
+    this.reboundChat(binding, event);
     const key = `native-reminder:${event.jobId}:${event.runAtMs}`;
     const ok = event.status === "ok";
     if (ok) textValue(event.summary, 65536);
@@ -582,6 +580,15 @@ export class NativeReminders {
       if (job?.enabled)
         await this.scheduler(agent).update({ id: job.id, patch: { enabled: false } });
     }
+  }
+  /** Re-creates the chat's jobs once a reset refused a run's commit (chat-rebind.js). */
+  reboundChat(binding, event) {
+    const id = binding.target?.conversationId;
+    if (sessionRebound(event) && id)
+      this.followChat(id).catch((e) => console.warn("Chat rebind failed:", e?.message));
+  }
+  followChat(conversationId) {
+    return this.assistants.admit(() => followChat(this, conversationId));
   }
   invoke(invocation, input) {
     return invokeReminder(this, invocation, input);

@@ -1,3 +1,4 @@
+import { atLeast } from "../../../tools/cli-version.js";
 import { assistantProblem } from "../../assistant-validation.js";
 import { boundPort } from "./openclaw-agents.js";
 import {
@@ -20,11 +21,21 @@ const maxJobs = 10000;
  * run's outcome, the scheduler status and the session keys of routine runs.
  */
 export const openClawRoutines = (supervisor, clientOf) =>
-  boundPort(routinesOver, supervisor, clientOf);
+  boundPort(
+    (current) => routinesOver(current, () => supervisor.status?.()?.version),
+    supervisor,
+    clientOf,
+  );
 
-function routinesOver(current) {
+// From 2026.11.2 a job with a chat target records the chat's lifecycle revision when
+// it is created and commits into no later one (../../chat-rebind.js).
+export const chatPinRuntime = "2026.11.2";
+
+function routinesOver(current, version) {
   const call = async (...args) => current().call(...args);
   return {
+    // Whether a chat target keeps the chat as it was when the job was created.
+    pinsChat: () => atLeast(version(), chatPinRuntime),
     // Every routine of `agentId` (every agent's without one), disabled ones included.
     async list({ agentId } = {}) {
       const jobs = [];

@@ -442,8 +442,41 @@ test(
       "web_fetch",
     ]);
 
+    // An owner /reset from Telegram starts the chat's next lifecycle. OpenClaw
+    // 2026.11.2 and later keep the chat as it was when the job was created and
+    // refuse to commit into a later one; that refusal re-creates the job
+    // (chat-rebind.js), and the next run commits into the chat again.
+    const reset = await runtime.client.call(
+      "sessions.send",
+      { key: session.key, message: "/reset", idempotencyKey: randomUUID() },
+      long,
+    );
+    await runtime.client.call(
+      "agent.wait",
+      { runId: reset.runId, timeoutMs: 60000 },
+      { timeoutMs: 65000 },
+    );
+    const completed = async (count) => {
+      const until = Date.now() + 90000;
+      while (completions.length < count && Date.now() < until) await delay(200);
+      assert.equal(completions.length, count, "the run completed");
+      return completions.at(-1);
+    };
+    const stale = reminders.bindings.get(routine.id).nativeId;
+    const seen = completions.length;
+    await routines.trigger(id, routine.id, { eventId: "contract-3" });
+    const refused = await completed(seen + 1);
+    assert.equal(refused.deliveryStatus, "not-delivered");
+    assert.match(refused.deliveryError, /^session rebound for sessionKey/);
+    const rebound = Date.now() + 15000;
+    while (reminders.bindings.get(routine.id).nativeId === stale && Date.now() < rebound)
+      await delay(100);
+    assert.notEqual(reminders.bindings.get(routine.id).nativeId, stale, "re-created");
+    await routines.trigger(id, routine.id, { eventId: "contract-4" });
+    assert.equal((await completed(seen + 2)).deliveryStatus, "delivered");
+    // The run history goes on across the re-creation.
     const runs = await routines.runs(id, routine.id);
-    assert.equal(runs.entries.filter((r) => r.status === "ok").length, 2);
+    assert.equal(runs.entries.filter((r) => r.status === "ok").length, 4);
     await routines.remove(id, routine.id);
     assert.equal((await routines.list(id)).routines.length, 0);
   },
