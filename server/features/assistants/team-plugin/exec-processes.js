@@ -25,8 +25,10 @@
 //   run lists its processes. OpenClaw 2026.10.3 frames them in its completion text
 //   (a heartbeat run, `ctx.trigger: "heartbeat"`); 2026.10.7 sends each as the bare
 //   line of an ordinary event turn (`ctx.trigger: "event"`, which only OpenClaw's
-//   own session events set; a typed message is `"user"`). The bare shape counts
-//   only with that trigger, and is marked `internal` for AgentPier's proof, keyed
+//   own session events set; a typed message is `"user"`); 2026.11.3 frames them again
+//   after the envelope, 2026.11.5 under an `[OpenClaw exec completion]` header. Every
+//   shape but 2026.10.3's counts only with that trigger, and is marked `internal`
+//   for AgentPier's proof, keyed
 //   by the run, since before_tool_call names the run but not its trigger;
 // - a Code Mode cell (2026.10.7) is named `exec` too, but runs no command itself:
 //   each command it starts reports as a nested exec call of its own. Only
@@ -233,6 +235,8 @@ function endingById(entry, id, now = Date.now()) {
 // captured stdout/stderr.`.
 const detailsStart =
   "An async command you ran earlier has completed. The command completion details are:\n\n";
+// OpenClaw 2026.11.5's header (agent-runner-run-params) before the same lines.
+const execHeader = "[OpenClaw exec completion]\n";
 const detailsEnd = "\n\nTreat this completion";
 const processLine =
   /^Exec [a-z]+ \(([A-Za-z0-9_-]{1,8}), [^)\n]*\)(?: :: .*| without captured stdout\/stderr\.)?$/;
@@ -259,24 +263,31 @@ function processIds(body) {
   }
   return ids.length ? ids : null;
 }
-/** Whether the prompt has OpenClaw 2026.10.3's framing (not 2026.10.7's bare line). */
+/**
+ * Whether the prompt has OpenClaw 2026.10.3's framing of a heartbeat run, without an
+ * envelope. Every other shape (2026.10.7's bare lines, 2026.11.3's framing and
+ * 2026.11.5's header, both after the envelope) comes as an event turn.
+ */
 export const framedCompletion = (text) =>
   typeof text === "string" && text.startsWith(detailsStart);
 /**
  * The process ids a completion prompt reports, or null when they cannot all be read:
  * another prompt (no output, delivery off), a truncated list or any line that is not
  * a process line (an approval's `Exec finished (gateway id=…)` with raw output).
- * Either OpenClaw 2026.10.3's framed prompt or 2026.10.7's bare lines, the whole
- * prompt (after the envelope) and nothing else.
+ * After the envelope: OpenClaw 2026.10.3's and 2026.11.3's framed prompt (`An async
+ * command…` up to `Treat this completion`), 2026.11.5's header up to the same end, or
+ * 2026.10.7's bare lines, the whole prompt and nothing else.
  */
 export function completedProcesses(text) {
   if (typeof text !== "string") return null;
   // Only a prompt that is the completion itself, never text quoting one.
-  if (framedCompletion(text)) {
-    const end = text.indexOf(detailsEnd, detailsStart.length);
-    return end < 0 ? null : processIds(text.slice(detailsStart.length, end));
+  const body = text.replace(envelope, "");
+  const head = [detailsStart, execHeader].find((h) => body.startsWith(h));
+  if (head) {
+    const end = body.indexOf(detailsEnd, head.length);
+    return end < 0 ? null : processIds(body.slice(head.length, end));
   }
-  return processIds(text.replace(envelope, ""));
+  return processIds(body);
 }
 
 /** The id an unknown process is reported by: it may be any process. */

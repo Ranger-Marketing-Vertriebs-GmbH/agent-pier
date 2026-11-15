@@ -305,6 +305,39 @@ test("a bare completion counts only in an event turn, marked internal for its ru
   assert.equal(g.proof("s", "c1").completion, null);
 });
 
+test("2026.11.3's stamped framed prompt and 2026.11.5's header count in an event turn", (t) => {
+  const g = gateway(t);
+  const tail =
+    "\n\nTreat this completion as an internal continuation. Reply NO_REPLY only.";
+  // Verbatim from 2026.11.3 (probe), and 2026.11.5-beta.3's header around the lines.
+  const v113 = `[Sun 2026-11-15 14:16 GMT+1] An async command you ran earlier has completed. The command completion details are:\n\nExec completed (lucky-tr, code 0) :: SLEPT${tail}`;
+  const v115 = `[Sun 2026-11-15 14:16 GMT+1] [OpenClaw exec completion]\nExec completed (lucky-tr, code 0) :: SLEPT\nExec failed (cool-nud, code 1)${tail}`;
+  assert.deepEqual(completedProcesses(v113), ["lucky-tr"]);
+  assert.deepEqual(completedProcesses(v115), ["lucky-tr", "cool-nud"]);
+  assert.deepEqual(completedProcesses(v115.replace(/^\[[^\]]+\] /, "")), [
+    "lucky-tr",
+    "cool-nud",
+  ]);
+  for (const text of [v113.replace(tail, ""), v115.replace("\nExec", "\nrm -rf\nExec")])
+    assert.equal(completedProcesses(text), null);
+  g.background("s", "owner", "lucky-tram");
+  for (const trigger of ["user", "heartbeat"]) {
+    g.emit(
+      "llm_input",
+      { runId: `r-${trigger}`, prompt: v113 },
+      { sessionKey: "s", trigger },
+    );
+    assert.equal(g.proof("s", `r-${trigger}`).completion, null, trigger);
+  }
+  g.emit(
+    "llm_input",
+    { runId: "c1", prompt: v113 },
+    { sessionKey: "s", trigger: "event" },
+  );
+  assert.deepEqual(g.proof("s", "c1").completion.ids, ["lucky-tr"]);
+  assert.equal(execRecord().sessions.get("s").processes[0].endedAt > 0, true);
+});
+
 test("a foreground command that failed, timed out or was denied left nothing running", (t) => {
   const g = gateway(t);
   const ended = (status, extra = {}) => ({
