@@ -146,6 +146,37 @@ test("deferred logouts drain in the background and before a login reuses the nam
   assert.deepEqual(f.servers.deferredLogouts(), []);
 });
 
+test("beside a guarded Gateway a deferred logout asks for a restart instead of the CLI", async (t) => {
+  const asked = [];
+  const offline = {
+    window: true,
+    windowNeeded: () => offline.window,
+    request: (reason) => asked.push(reason) > 0,
+  };
+  let broken = true;
+  const f = setup(
+    t,
+    {
+      logout: () => {
+        if (broken) throw new McpCliError("cli-failed", "x");
+      },
+    },
+    { offline },
+  );
+  await f.changes.remove(f.docs.id);
+  assert.equal(f.servers.deferredLogouts().length, 1);
+  broken = false;
+  const calls = f.cli.calls.length;
+  await f.oauth.backgroundDrain();
+  assert.deepEqual(asked, ["mcpLogout"]);
+  assert.equal(f.cli.calls.length, calls, "no CLI beside the Gateway");
+  assert.equal(f.servers.deferredLogouts().length, 1, "the restart's start drains it");
+  // Without a running Gateway (the start before its spawn) the drain runs the CLI.
+  offline.window = false;
+  await f.oauth.drain();
+  assert.deepEqual(f.servers.deferredLogouts(), []);
+});
+
 test("a server with an undrained logout for its name and URL is not compiled", async (t) => {
   let broken = true;
   const f = setup(t, {

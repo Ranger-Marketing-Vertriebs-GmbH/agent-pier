@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { compilerFor } from "../assistants/runtimes/runtime-for.js";
 import { namePattern } from "./command-resolution.js";
+import { stateOwned } from "../assistants/runtimes/openclaw/offline-commands.js";
 
 export const mcpCliErrorCodes = Object.freeze([
   "runtime-unavailable",
@@ -20,6 +21,7 @@ export const mcpCliErrorCodes = Object.freeze([
   "redirect-rejected",
   "session-missing",
   "server-unknown",
+  "runtime-busy",
 ]);
 
 export class McpCliError extends Error {
@@ -261,11 +263,14 @@ export function oauthStatus(
 /**
  * A wrapper around the OpenClaw MCP CLI. `runtime` ({ nodePath, entryPath, cwd? })
  * and `environment` may be functions resolved per call; a missing runtime fails
- * with `runtime-unavailable`.
+ * with `runtime-unavailable`. `offline(task)` runs each login and logout where
+ * OpenClaw accepts it (OfflineCommands.run: a maintenance window since 2026.10.10);
+ * status needs none.
  */
 export function createMcpCli({
   runtime,
   environment,
+  offline = null,
   timeoutMs = defaultTimeoutMs,
   maxOutputBytes = defaultMaxOutputBytes,
   busyRetryDelaysMs = defaultBusyRetryDelaysMs,
@@ -344,13 +349,23 @@ export function createMcpCli({
         reject(
           Object.assign(failure(command, code, stderr, secrets), {
             busy: leaseLocked(stderr),
+            // A Gateway still owns the state (OpenClaw 2026.10.10 and later).
+            stateOwned: stateOwned(stderr),
           }),
         );
       });
     });
   }
 
-  return {
+  const windowed = (task) =>
+    offline
+      ? offline(task).catch((error) => {
+          if (error?.code !== "RUNTIME_BUSY") throw error;
+          throw new McpCliError("runtime-busy", "The agent service is busy.");
+        })
+      : task();
+
+  const cli = {
     async startLogin(name) {
       checkedName(name);
       // A redacted URL is useless: a new `login` replaces the session with a fresh
@@ -440,6 +455,12 @@ export function createMcpCli({
         throw new McpCliError("cli-failed", "OpenClaw MCP status printed no valid JSON.");
       return parsed;
     },
+  };
+  return {
+    ...cli,
+    startLogin: (name) => windowed(() => cli.startLogin(name)),
+    completeLogin: (name, code) => windowed(() => cli.completeLogin(name, code)),
+    logout: (name, options) => windowed(() => cli.logout(name, options)),
   };
 }
 

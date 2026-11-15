@@ -212,6 +212,11 @@ else if (resources[mode]) {
   );
 else if (mode === "fail-session")
   fail("Reason: Missing MCP OAuth authorization session. Run the login flow again.");
+else if (mode === "owned")
+  // OpenClaw 2026.10.10 and later beside a running Gateway (local-state-owner.ts).
+  fail(
+    "Reason: Cannot admit mcp.login for docs in state root /tmp/state: This operation requires exclusive offline state ownership. No local mutation was attempted.",
+  );
 else if (mode === "fail-unknown")
   fail(`No MCP server named "${name}" in /tmp/openclaw.json. Run openclaw mcp list.`);
 else if (command === "status") {

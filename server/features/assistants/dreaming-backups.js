@@ -8,6 +8,7 @@ import { compilerFor, ownProcess } from "./runtimes/runtime-for.js";
 import { HermesDreams } from "./hermes-dreams.js";
 import { HermesDreamStore } from "./hermes-dream-store.js";
 import { privateFolder } from "./runtime-paths.js";
+import { stateOwned } from "./runtimes/openclaw/offline-commands.js";
 
 /*
  * Copies of each agent's MEMORY.md taken shortly before the night's dreaming run
@@ -231,22 +232,28 @@ export class DreamingBackups {
  * dreaming's copies (corpus lines, seen hashes, short-term entries) with the
  * runtime's own `openclaw memory forget`, which also finds a session already deleted
  * from its archive. True once it succeeded; false while no runtime is installed.
- * Notes distilled from it earlier stay.
+ * Notes distilled from it earlier stay. Since OpenClaw 2026.10.10 it runs only while
+ * no Gateway owns the state: chat-removal.js queues it in offline-commands.js.
  */
 export async function forgetDreamingSession(assistants, agent, sessionIds) {
   const { runtime: descriptor, paths } = assistants.runtime || {};
   if (!descriptor?.nodePath || !descriptor?.entryPath || !paths?.root) return false;
   const args = ["memory", "forget", "--agent", agent.runtimeAgentId];
   const sessions = [sessionIds].flat().flatMap((id) => ["--session", id]);
-  await promisify(execFile)(
-    descriptor.nodePath,
-    [descriptor.entryPath, ...args, ...sessions, "--json"],
-    {
-      cwd: paths.root,
-      env: compilerFor(agent).environment(paths, descriptor.nodePath),
-      timeout: forgetTimeoutMs,
-      maxBuffer: 4 * 1024 * 1024,
-    },
-  );
+  try {
+    await promisify(execFile)(
+      descriptor.nodePath,
+      [descriptor.entryPath, ...args, ...sessions, "--json"],
+      {
+        cwd: paths.root,
+        env: compilerFor(agent).environment(paths, descriptor.nodePath),
+        timeout: forgetTimeoutMs,
+        maxBuffer: 4 * 1024 * 1024,
+      },
+    );
+  } catch (error) {
+    // A Gateway that still owns the state (offline-commands.js waits for it).
+    throw Object.assign(error, { stateOwned: stateOwned(error?.stderr) });
+  }
   return true;
 }

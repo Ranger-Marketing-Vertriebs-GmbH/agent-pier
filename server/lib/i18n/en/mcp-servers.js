@@ -40,6 +40,8 @@ export const mcpServers = Object.freeze({
   oauthSessionMissing: "The login session is no longer valid. Start the login again.",
   oauthCliTimeout: "The login did not answer in time. Please try again.",
   oauthRuntimeUnavailable: "The assistant runtime is not available.",
+  oauthRuntimeBusy:
+    "The agent service is being maintained or restarted. Please try again in a moment.",
   oauthLoginFailed: "The OAuth login failed. Please try again.",
   oauthLogoutFailed: "The server's OAuth login could not be removed. Please try again.",
   oauthLogoutDeferred:

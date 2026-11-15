@@ -296,6 +296,35 @@ test("logout clears credentials", async (t) => {
   assert.deepEqual(recorded().argv, ["mcp", "logout", "docs"]);
 });
 
+test("logins and logouts run through the offline hook; status does not", async (t) => {
+  const ran = [];
+  const offline = (task) => {
+    ran.push("window");
+    return task();
+  };
+  const { cli, recorded } = setup(t, "ok", { offline });
+  await cli.logout("docs");
+  assert.deepEqual(recorded().argv, ["mcp", "logout", "docs"]);
+  await cli.startLogin("docs");
+  await cli.status();
+  assert.deepEqual(ran, ["window", "window"]);
+  const busy = setup(t, "ok", {
+    offline: () =>
+      Promise.reject(Object.assign(new Error("busy"), { code: "RUNTIME_BUSY" })),
+  });
+  await rejects(busy.cli.logout("docs"), "runtime-busy");
+});
+
+test("a refusal beside a running Gateway is marked as owned state", async (t) => {
+  const { cli } = setup(t, "owned");
+  await assert.rejects(cli.logout("docs"), (error) => {
+    assert.equal(error.code, "cli-failed");
+    assert.equal(error.stateOwned, true);
+    assert.equal(error.busy, false);
+    return true;
+  });
+});
+
 test("logout with a server definition reads a private one-server config", async (t) => {
   const { cli, recorded } = setup(t);
   const server = { url: "https://mcp.example.com/v1", transport: "streamable-http" };

@@ -63,6 +63,8 @@ export class AssistantMaintenance {
         a.reconciling,
         this.s.assistantTeams?.scheduler.running,
         a.workflows?.running,
+        // A maintenance window of OpenClaw's offline-only commands, its start too.
+        a.offlineCommands?.idle(),
       ].filter(Boolean),
     );
     if (this.intent && hostReady(this.s.assistantRuntime)) await this.setCron(false);
@@ -79,6 +81,7 @@ export class AssistantMaintenance {
         ...(this.s.assistantReminders?.webhook.jobs || []),
         // Queued dreaming forgets write workspaces and state (chat-removal.js).
         a.dreamingForgets,
+        a.offlineCommands?.idle(),
       ].filter(Boolean),
     );
     await this.s.assistantChannels.queue?.catch(() => {});

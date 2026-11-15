@@ -12,6 +12,9 @@ export const pendingRestartReasons = [
   "pdfModel",
   "connection",
   "telegram",
+  // OpenClaw's offline-only commands (offline-commands.js): their start runs them.
+  "memoryForget",
+  "mcpLogout",
 ];
 
 /**

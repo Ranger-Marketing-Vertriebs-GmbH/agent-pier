@@ -20,7 +20,7 @@ const statusTtlMs = 10 * 1000;
 const firstDrainMs = 1000;
 const lastDrainMs = 10 * 60 * 1000;
 // Failures that would fail every further logout the same way.
-const stalls = new Set(["cli-timeout", "runtime-unavailable"]);
+const stalls = new Set(["cli-timeout", "runtime-unavailable", "runtime-busy"]);
 // Provider errors (RFC 6749 4.1.2.1) passed through as they are; others are generic.
 export const providerErrors = new Set([
   "access_denied",
@@ -51,6 +51,8 @@ function cliFailure(error, redirect) {
       return failure(messages.oauthNotCompiled, "not-compiled", 409);
     case "runtime-unavailable":
       return failure(messages.oauthRuntimeUnavailable, error.code, 503);
+    case "runtime-busy":
+      return failure(messages.oauthRuntimeBusy, error.code, 409);
     default:
       return failure(messages.oauthLoginFailed, error?.code || "cli-failed", 502);
   }
@@ -91,30 +93,21 @@ export class McpOAuthLogins {
    * - `remoteUrl()`: the configured HTTPS remote origin, if any.
    * - `reapply()`: applies the store now (called while admitted).
    * - `onFreed()`: applies the store after a background drain freed a server.
+   * - `offline`: OfflineCommands; while a guarded Gateway runs, a background drain
+   *   asks for its restart (whose start drains) instead of a window of its own.
    */
-  constructor({
-    cli,
-    servers,
-    runtime,
-    admit = (operation) => operation(),
-    redirectUrl = () => runtime?.mcp?.redirectUrl ?? null,
-    remoteUrl = () => null,
-    reapply = null,
-    onFreed = null,
-    now = Date.now,
-    warn = console.warn,
-  }) {
+  constructor(options) {
+    const given = Object.entries(options).filter(([, value]) => value !== undefined);
     Object.assign(this, {
-      cli,
-      servers,
-      runtime,
-      admit,
-      redirectUrl,
-      remoteUrl,
-      reapply,
-      onFreed,
-      now,
-      warn,
+      admit: (operation) => operation(),
+      redirectUrl: () => options.runtime?.mcp?.redirectUrl ?? null,
+      remoteUrl: () => null,
+      reapply: null,
+      onFreed: null,
+      offline: null,
+      now: Date.now,
+      warn: console.warn,
+      ...Object.fromEntries(given),
     });
     this.pending = new Map(); // state -> { serverId, name, state, startedAt }
     this.queues = new Map(); // name -> tail of its serialized CLI calls
@@ -484,6 +477,8 @@ export class McpOAuthLogins {
   async backgroundDrain() {
     this.drainTimer = null;
     if (this.closed) return;
+    // OpenClaw 2026.10.10+: the pending restart's start drains (offline-commands.js).
+    if (this.offline?.windowNeeded() && this.offline.request("mcpLogout")) return;
     this.draining = true;
     let result = { remaining: 1, freed: false };
     try {

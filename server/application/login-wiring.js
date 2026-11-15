@@ -9,7 +9,10 @@ import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
 import { McpOAuthHolders } from "../features/mcp-servers/mcp-oauth-holders.js";
 import { AgentPierMcpOAuth } from "../features/mcp-servers/mcp-oauth-agentpier.js";
 import { mcpRoute } from "../features/mcp-servers/mcp-proxy.js";
-import { supervisorMcpCli } from "../features/mcp-servers/openclaw-mcp-cli.js";
+import {
+  supervisorMcpCli,
+  sweepLogoutConfigs,
+} from "../features/mcp-servers/openclaw-mcp-cli.js";
 
 // The logins AgentPier holds for the runtimes (ChatGPT, MCP OAuth) and the loopback
 // proxy through which the runtimes use them, as the assistant graph wires them.
@@ -56,8 +59,13 @@ export function mcpOAuthServices({
   remoteUrl,
   reapply,
 }) {
+  // Logout configs a killed CLI run left behind (they can name a server URL).
+  sweepLogoutConfigs(runtime.paths.state);
+  // OpenClaw 2026.10.10 and later sign in and out only in a maintenance window.
+  const offline = assistants.offlineCommands;
   const legacy = new McpOAuthLogins({
-    cli: supervisorMcpCli(runtime),
+    cli: supervisorMcpCli(runtime, { offline: offline && ((task) => offline.run(task)) }),
+    offline,
     servers,
     runtime,
     admit: (operation) => assistants.admit(operation),

@@ -27,7 +27,8 @@ import { DreamingBackups } from "../features/assistants/dreaming-backups.js";
 import { agentBrowserDetection } from "../features/assistants/agent-browser-detection.js";
 import { AgentBrowsers, agentRunning } from "../features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
-import { PendingRestart, updateBlocked } from "../features/assistants/pending-restart.js";
+import { updateBlocked } from "../features/assistants/pending-restart.js";
+import { restartWiring } from "./offline-commands-wiring.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import {
@@ -67,7 +68,6 @@ import { resolveShellOwner } from "../features/assistants/exec-shell.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
 import { loginServices, mcpOAuthServices } from "./login-wiring.js";
-import { sweepLogoutConfigs } from "../features/mcp-servers/openclaw-mcp-cli.js";
 import {
   expectWiring,
   requireReferences,
@@ -315,9 +315,9 @@ export function constructAssistantGraph(host, created = {}) {
     isUpdating: () => scope.assistantUpdates.status().busy,
     pdfModel: () => assistantPdfModel.selection(),
   });
-  // A saved change needing a Gateway restart waits until nothing is busy.
-  assistants.pendingRestart = assistantProviderSynchronization.pending =
-    new PendingRestart({ assistants, synchronization: assistantProviderSynchronization });
+  // A saved change needing a Gateway restart waits until nothing is busy; so do
+  // OpenClaw's offline-only commands (offline-commands-wiring.js).
+  restartWiring(assistants, assistantProviderSynchronization, assistantRuntime);
   // The agents' own Telegram bots for other people; changes restart the Gateway.
   const assistantTelegramSenders = new TelegramSenders({
     store: assistantChannels.nativeBots,
@@ -364,8 +364,6 @@ export function constructAssistantGraph(host, created = {}) {
     usage: () => assistantWebTools.usage(),
     audit,
   });
-  // Logout configs a killed CLI run left behind (they can name a server URL).
-  sweepLogoutConfigs(assistantRuntime.paths.state);
   // MCP OAuth logins: OpenClaw's earlier ones, AgentPier's own behind the proxy.
   const mcpOAuth = mcpOAuthServices({
     dataDir,
@@ -574,6 +572,7 @@ export function connectAssistantServices(graph) {
     beforeSpawn: async () => {
       // Over whatever a rollback restored: AgentPier's logins stay access-only.
       await graph.assistantModelAccounts.syncAll();
+      await assistants.offlineCommands.drain();
       return synchronization.prepare();
     },
     afterReady: async () => {
