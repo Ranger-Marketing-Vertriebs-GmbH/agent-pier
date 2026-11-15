@@ -249,8 +249,10 @@ export function createAssistantFeature(services) {
     try {
       if (assistantMcpServers !== services.mcpServers) assistantMcpServers?.close();
     } catch {}
-    // No forget CLI outlives the switch-off (chat-removal.js).
+    // No forget CLI outlives the switch-off (chat-removal.js); queued ones run at the
+    // next Gateway start (offline-commands.js).
     await assistants?.dreamingForgets;
+    await assistants?.offlineCommands?.close();
     try {
       assistantDreamingSettings?.close();
     } catch {}

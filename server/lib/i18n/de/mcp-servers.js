@@ -41,6 +41,8 @@ export const mcpServers = {
   oauthCliTimeout:
     "Die Anmeldung hat nicht rechtzeitig geantwortet. Bitte erneut versuchen.",
   oauthRuntimeUnavailable: "Die Assistenz-Laufzeit ist nicht verfügbar.",
+  oauthRuntimeBusy:
+    "Der Agentendienst wird gerade gewartet oder neu gestartet. Bitte gleich erneut versuchen.",
   oauthLoginFailed: "Die OAuth-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
   oauthLogoutFailed:
     "Die OAuth-Anmeldung des Servers ließ sich nicht entfernen. Bitte erneut versuchen.",

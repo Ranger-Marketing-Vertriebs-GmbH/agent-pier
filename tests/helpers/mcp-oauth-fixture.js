@@ -57,6 +57,7 @@ export function oauthFixture(t, script, options = {}) {
     onFreed: () => f.service.admit(() => f.changes.apply()),
     now: () => clock,
     warn: (text) => warnings.push(text),
+    offline: options.offline,
   });
   f.changes.oauth = oauth;
   t.after(() => oauth.close());
