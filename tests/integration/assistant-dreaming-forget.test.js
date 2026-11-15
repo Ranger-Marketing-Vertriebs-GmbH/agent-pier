@@ -132,3 +132,20 @@ test("a deleted chat's forget is queued before the delete returns", async (t) =>
   assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
   assert.deepEqual(queued, [[f.agent.runtimeAgentId, ["s-live"]]]);
 });
+
+test("a forget the queue cannot write is logged and the delete still succeeds", async (t) => {
+  const f = fixture(t, { describe: "s-live" });
+  f.assistants.offlineCommands = {
+    forget: () => {
+      throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+    },
+  };
+  const warned = [];
+  const warn = console.warn;
+  console.warn = (...args) => warned.push(args.join(" "));
+  t.after(() => (console.warn = warn));
+  assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
+  await f.assistants.dreamingForgets;
+  assert.ok(warned.some((line) => /could not remove a deleted chat/.test(line)));
+  assert.ok(!warned.some((line) => /disk full/.test(line)), "no detail");
+});
