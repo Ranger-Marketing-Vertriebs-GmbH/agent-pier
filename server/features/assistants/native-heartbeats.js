@@ -43,8 +43,9 @@ export function checkInPrompt(person) {
  * memory. It runs as a routine targeting the agent's main chat: a detached
  * turn with full context (instructions, notes, the conversation's recent tail)
  * whose visible result OpenClaw commits into that conversation, since 2026.11.2 also
- * while a turn runs there (between its question and its answer; before, after it). The run's summary also returns over the reminder webhook
- * (completion destination); AgentPier drops NO_REPLY, badges anything else in the
+ * while a turn runs there (between its question and its answer; before, after it).
+ * The run's summary also returns over the reminder webhook (completion
+ * destination); AgentPier drops NO_REPLY, badges anything else in the
  * chat, sends an `agent-checkin` push notice and, unless the owner switched it
  * off, sends it to the paired Telegram chat too. A pairing change only moves that
  * extra delivery; it never retires the job. OpenClaw's own heartbeat stays off: it

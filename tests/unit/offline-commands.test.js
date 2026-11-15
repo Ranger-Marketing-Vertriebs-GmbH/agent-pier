@@ -326,3 +326,17 @@ test("while a Gateway launch is under way nothing runs beside it", async (t) => 
   assert.deepEqual(f.events, [], "queued for the started Gateway's restart");
   assert.deepEqual(f.requests, ["memoryForget"]);
 });
+
+test("idle waits for the start of a window that had not begun yet", async (t) => {
+  const f = commands(t);
+  let started = false;
+  f.s.start = async () => {
+    await sleep(30);
+    started = true;
+    f.s.child = { exitCode: null };
+  };
+  const login = f.queue.run(async () => "url");
+  await f.queue.idle();
+  assert.equal(started, true);
+  assert.equal(await login, "url");
+});
