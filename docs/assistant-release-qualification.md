@@ -93,7 +93,7 @@ What is real and what is a double:
 
 | Part               | In the run                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway            | The pinned OpenClaw 2026.11.2 runtime (Node 26.12.1, lock `2cadd51b4b78…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
+| Gateway            | The pinned OpenClaw 2026.11.3 runtime (Node 26.12.1, lock `b6416c1203e6…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
 | AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.      |
 | Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                  |
 | Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                              |
@@ -340,19 +340,19 @@ runtime that release pins (`stageRuntimeInBackground`); the owner activates it. 
 release requires an intermediate step, so a user's runtime update goes from whatever
 runtime their last release pinned straight to the current pin. The release tags pin:
 
-| AgentPier release | Pinned OpenClaw (Node) | Rollback targets                         | Update path to the current pin (2026.11.2, Node 26.12.1) |
+| AgentPier release | Pinned OpenClaw (Node) | Rollback targets                         | Update path to the current pin (2026.11.3, Node 26.12.1) |
 | ----------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------- |
-| v1.27.0 – v1.28.1 | 2026.9.8 (26.7.0)      | 2026.9.7                                 | 2026.9.8 → 2026.11.2 (skip update)                       |
-| v2.0.0            | 2026.9.9 (26.7.0)      | 2026.9.8, 2026.9.7                       | 2026.9.9 → 2026.11.2 (skip update)                       |
-| v2.1.0 – v2.5.1   | 2026.10.3 (26.7.0)     | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.2, with Node 26.7.0 → 26.12.1        |
-| v2.6.x            | 2026.10.3 (26.12.1)    | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.2 (skip update)                      |
-| v2.7.0 – v2.12.0  | 2026.10.7 (26.12.1)    | 2026.10.3, 2026.9.9, 2026.9.8            | 2026.10.7 → 2026.11.2 (skip update)                      |
-| v2.13.0 – v2.17.0 | 2026.10.9 (26.12.1)    | 2026.10.7, 2026.10.3, 2026.9.9, 2026.9.8 | 2026.10.9 → 2026.11.2                                    |
+| v1.27.0 – v1.28.1 | 2026.9.8 (26.7.0)      | 2026.9.7                                 | 2026.9.8 → 2026.11.3 (skip update)                       |
+| v2.0.0            | 2026.9.9 (26.7.0)      | 2026.9.8, 2026.9.7                       | 2026.9.9 → 2026.11.3 (skip update)                       |
+| v2.1.0 – v2.5.1   | 2026.10.3 (26.7.0)     | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.3, with Node 26.7.0 → 26.12.1        |
+| v2.6.x            | 2026.10.3 (26.12.1)    | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.3 (skip update)                      |
+| v2.7.0 – v2.12.0  | 2026.10.7 (26.12.1)    | 2026.10.3, 2026.9.9, 2026.9.8            | 2026.10.7 → 2026.11.3 (skip update)                      |
+| v2.13.0 – v2.19.0 | 2026.10.9 (26.12.1)    | 2026.10.7, 2026.10.3, 2026.9.9, 2026.9.8 | 2026.10.9 → 2026.11.3                                    |
 
 Releases before v1.27.0 had no managed assistants. 2026.9.7 was never pinned by a
 release, so no installed user runs it. 2026.9.8 → 2026.9.9 and every update to
 2026.10.3 or 2026.10.7 are no longer reachable: users of every release update
-straight to a release that pins 2026.11.2. v2.1.0 – v2.5.1 and v2.6.x pin the same
+straight to a release that pins 2026.11.3. v2.1.0 – v2.5.1 and v2.6.x pin the same
 OpenClaw and lock, so the `cross-version` job qualifies that pair with v2.6.1; the
 Node change of the older releases is part of the same activation. v2.7.0 – v2.12.0
 all pin the 2026.10.7 lock `aba8ef1b9a94…`; the job qualifies them with v2.12.0.
@@ -717,27 +717,31 @@ No product code changed besides the pins and both version gates.
   `apply_patch` wherever `write` is allowed, which the plugin's tool guard already
   covers but the script's expected tool list did not. The list now adds it.
 
-### OpenClaw 2026.10.9 → 2026.11.2 (2026-11-09, in progress)
+### OpenClaw 2026.10.9 → 2026.11.3 (2026-11-15, in progress)
 
-The update to 2026.11.2 skips 2026.10.10 and 2026.11.1. **Its qualification is not
-complete:** the native contracts still fail where 2026.11.2 changed behaviour
-AgentPier depends on (see Open below), so no release pins it yet.
+The update to 2026.11.3 skips 2026.10.10, 2026.11.1 and 2026.11.2; it was first
+prepared against 2026.11.2 (2026-11-09), and the findings below hold for both unless
+noted. **Its qualification is not complete:** the native contracts still fail where
+2026.11.2 changed behaviour AgentPier depends on (see Open below), so no release
+pins it yet.
 
-**Pins.** `openclaw` 2026.11.2 (`sha512-SgBml4WL…M5ShMgg==`, the integrity in the
+**Pins.** `openclaw` 2026.11.3 (`sha512-FBq/q0TC…K58dHg==`, the integrity in the
 upstream release notes) and the search plugins
-`@openclaw/{duckduckgo,perplexity,brave}-plugin` 2026.11.2 (peer dependency
-`openclaw >=2026.11.2`). Node stays 26.12.1 with npm 11.20.0; `engines` relaxed to
+`@openclaw/{duckduckgo,perplexity,brave}-plugin` 2026.11.3. 2026.11.3 is a patch
+release on 2026.11.2 ("No new configuration options or features"). Node stays 26.12.1 with npm 11.20.0; `engines` relaxed to
 `>=24.16.0 <25 || >=26.1.0`. Gateway protocol 4; the method list only gains methods.
 `rollbackTargets` is now `["2026.10.9", "2026.10.7", "2026.10.3", "2026.9.9",
 "2026.9.8"]`, and the `cross-version` job also checks out `v2.17.0`.
-`writeGuardRuntimes` adds 2026.11.2 and `advancedSettingsRuntime` moves to 2026.11.2:
+`writeGuardRuntimes` adds 2026.11.3 and `advancedSettingsRuntime` moves to 2026.11.3:
 the advanced settings contract finds every path's schema and `reloadKind` unchanged
 (the schema only gains keys: `database.*`, `session.communication`,
 `tools.sessions.allowThreadTargets`, model row fields).
 
 **Lock changes.** Resolved in full twice with `scripts/refresh-assistant-runtime-lock.mjs`
-(no `--keep-graph`), byte for byte the same: 438 entries (was 421), digest
-`2cadd51b4b78…`. New: `@openclaw/proc-safe` 0.4.2 and `@resvg/resvg-js` 2.6.2 with
+(no `--keep-graph`), byte for byte the same: 440 entries (was 421), digest
+`b6416c1203e6…` (2026.11.2: 438 entries, `2cadd51b4b78…`; 2026.11.3 adds and removes
+no package and moves 17 to a patch release, among them `@openclaw/ai`, `hono` and
+`@hono/node-server`). New since 2026.10.9: `@openclaw/proc-safe` 0.4.2 and `@resvg/resvg-js` 2.6.2 with
 their platform packages, `pg` 8.23.1 and its dependencies. Gone: `koffi` 3.3.2 and
 its platform packages. OpenClaw now pins `undici` 8.12.2, which fixes every published
 advisory, so the `undici` override is gone; `zod` keeps its override (4.6.7, OpenClaw
@@ -747,8 +751,8 @@ still pins 4.6.5). `minimatch` stays 10.2.6 (alert #60; no 10.x fix). `npm audit
 **Database (one-way).** Doctor migrates the state database from schema 20 to 22 and
 each agent database from 25 to 27; 2026.10.9 and earlier refuse the migrated data.
 Rollback before commit restores the snapshot as for 2026.10.7; after commit there is
-no downgrade. The runtime cross-version test checks schema 27 for a 2026.11.2
-candidate.
+no downgrade. 2026.11.3 keeps 2026.11.2's schemas (state 22, agent 27). The runtime
+cross-version test checks schema 27 for a 2026.11.2 or later candidate.
 
 **Code changes.**
 
@@ -779,7 +783,9 @@ framed prompt as its projection again; each turn's model input ends with a separ
 2026.11.2 before the fixes: 122 tests, 97 passed, 25 failed. Fixed or adapted since:
 admission, attachments, ChatGPT model list, symlinked dreaming, multi-chat, native
 write, SSH, team coding, voice reminder, owner run, routine failure
-and shell abort contracts. Still failing:
+and shell abort contracts. On 2026.11.3 (2026-11-15, all 64 files of the
+`native-contracts` job, macOS arm64): 124 tests, 115 passed, 9 failed, 0 skipped; no
+new failure. Still failing:
 
 - **Offline-only CLI commands.** `openclaw memory forget` and `openclaw mcp
 login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
@@ -790,9 +796,6 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
   browser-origin operator connection. Needs a design decision.
 - **Check-ins during a running turn** are committed inside that turn
   (`assistant-heartbeat-contract`).
-- **Session token totals.** `chat.history`'s `sessionInfo` no longer carries
-  `totalTokens` after a turn (`totalTokensFresh: false`), so the long-chat hint never
-  shows (`assistant-run-steps-contract`).
 - **Scheduler qualification harness.** 2026.11.2's `CronService` no longer arms the
   `cron:<store>:due` timer the harness drives (`assistant-schedule-qualification`).
 - **Work goals.** After the completion run the goal store still counts a running
@@ -800,11 +803,16 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
 - **Shadowed skills.** After a planted workspace skill is removed, the re-apply does
   not restore the bundled one within 20 s (`assistant-skills-contract`).
 
+Fixed in 2026.11.3: `chat.history`'s `sessionInfo` carries `totalTokens` after a turn
+again (2026.11.2 reported `totalTokensFresh: false` without it, so the long-chat hint
+never showed); `assistant-run-steps-contract` passes unchanged.
+
 Passed locally (macOS arm64): `scripts/verify-assistant-installation.mjs` on a new
 data directory, and `assistant-runtime-cross-version`,
 `assistant-mcp-oauth-cross-version`, `assistant-doctor-credentials-cross-version` and
 `assistant-dreaming-rollback-cross-version` from 2026.10.9 (provisioned from
-`v2.17.0`) to 2026.11.2: 6 of 6, 0 skipped, with Doctor's migration to schema 27.
+`v2.17.0`) to 2026.11.2: 6 of 6, 0 skipped, with Doctor's migration to schema 27
+(not yet repeated on 2026.11.3).
 The `Assistant runtime` workflow (on demand) passed the `cross-version` job from all
 five predecessors (`v1.28.1`, `v2.0.0`, `v2.6.1`, `v2.12.0`, `v2.17.0`) and the four
 fresh native installations (Linux x64/arm64, macOS x64/arm64, with the new

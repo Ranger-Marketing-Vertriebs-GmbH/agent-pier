@@ -500,7 +500,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.11.2 with Node 26.12.1 in private
+The foundation now provisions OpenClaw 2026.11.3 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it under Agents › Runtime provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -1109,7 +1109,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.11.2 and its qualified rollback predecessors 2026.10.9, 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
+to OpenClaw 2026.11.3 and its qualified rollback predecessors 2026.10.9, 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive `session_status` and their own four
 [member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
@@ -2332,9 +2332,9 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against (`advancedSettingsRuntime`, 2026.11.2); a rolled-back runtime
+list was qualified against (`advancedSettingsRuntime`, 2026.11.3); a rolled-back runtime
 starts with OpenClaw's defaults. After an AgentPier update that moves the approval
-(2026.10.3 to 2026.10.7, 2026.10.7 to 2026.10.9, then 2026.10.9 to 2026.11.2), stored overrides therefore stay
+(2026.10.3 to 2026.10.7, 2026.10.7 to 2026.10.9, then 2026.10.9 to 2026.11.3), stored overrides therefore stay
 inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
 (`overridesFor`, `runtimes/openclaw/openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
@@ -4766,9 +4766,9 @@ setting and clears what was pending.
   Gateway knows no session for the key and no archive names one is there no id to
   forget (`memory forget --session <key>` resolves a key only against live sessions
   and archives too, and would record the key literally).
-- **Resolved data directory.** On 2026.10.7 and later (checked through 2026.11.2) the
+- **Resolved data directory.** On 2026.10.7 and later (checked through 2026.11.3) the
   sweep fails every workspace (up to 2026.10.9 with "Canonical session reader
-  continuation is no longer current", 2026.11.2 without a log line) and writes no
+  continuation is no longer current", 2026.11.2 and later without a log line) and writes no
   corpus or notes when the state directory's path runs through a symbolic link. The data directory
   must therefore not sit behind a symbolic link; `runtime-paths.js` does not resolve
   it. Default data directories have no linked ancestor.
@@ -5402,7 +5402,7 @@ type.
   never part of a backup, sealed or not.
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folders and index for a
-  future deletion path. OpenClaw before 2026.10.9, and again the pinned 2026.11.2,
+  future deletion path. OpenClaw before 2026.10.9, and again since 2026.11.2,
   also stages inline images it receives under `media/inbound/openclaw-staged-<uuid>/`
   of the workspace, so such an image exists twice; an image above 2 MB is also
   offloaded to its own media store (`assistant-attachments-contract.test.js`).
@@ -5795,7 +5795,7 @@ follows the requalification checklist in
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
-- **Generated images in the delivery turn.** OpenClaw (checked up to 2026.11.2) loads the images a
+- **Generated images in the delivery turn.** OpenClaw (checked up to 2026.11.3) loads the images a
   prompt names only from the agent's workspace while `tools.fs.workspaceOnly` is on,
   and offers no setting for further folders. The `image_generate` completion turn
   names the image in `state/media/tool-image-generation/`, so a vision model gets the
