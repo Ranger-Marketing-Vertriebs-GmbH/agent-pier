@@ -24,7 +24,9 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: contractTimeout(300000),
+  // The CLI steps run in maintenance windows since 2026.10.10: the first test took
+  // up to 290 s on CI runners.
+  timeout: contractTimeout(480000),
 };
 const harness = (t) => cliHarness(t, { installed, contractDir });
 

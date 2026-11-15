@@ -17,7 +17,9 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: contractTimeout(400000),
+  // Since 2026.10.10 each sign-in step stops and restarts the Gateway (a maintenance
+  // window, offline-commands.js): eleven windows took 370-420 s on CI runners.
+  timeout: contractTimeout(700000),
 };
 
 const fixture = { connectionId: "fixture", modelId: "fixture-model" };
