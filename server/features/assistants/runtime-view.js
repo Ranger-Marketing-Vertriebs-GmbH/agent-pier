@@ -5,14 +5,24 @@ import { runtimeStatus } from "./team-bridge.js";
 
 /** The runtime view of `runtime` for the AssistantService `assistants`. */
 export function runtimeView({ runtime, assistants, bridge, webTools }) {
+  const status = runtimeStatus(runtime, assistants, bridge);
+  // A Gateway restart saved changes still wait for (pending-restart.js), or null.
+  const pendingRestart = assistants?.pendingRestart?.status() || null;
   return {
-    ...runtimeStatus(runtime, assistants, bridge),
+    ...status,
+    // Agents show "maintenance" while OpenClaw's offline-only commands run, or the
+    // restart that runs them (offline-commands.js).
+    maintenanceWindow: !!(
+      status.maintenanceWindow ||
+      (pendingRestart?.running &&
+        pendingRestart.reasons.some((reason) => offlineReasons.includes(reason)))
+    ),
     // Whether the agents can drive a browser; the settings page gates its switch on it.
     browser: browserStatus(webTools),
-    // A Gateway restart saved changes still wait for (pending-restart.js), or null.
-    pendingRestart: assistants?.pendingRestart?.status() || null,
+    pendingRestart,
   };
 }
+const offlineReasons = ["memoryForget", "mcpLogout"];
 
 export function browserStatus(webTools) {
   // Whether AgentPier can install its own agent browser on this host.

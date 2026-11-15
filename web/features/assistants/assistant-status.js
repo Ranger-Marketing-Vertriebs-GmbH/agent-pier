@@ -34,6 +34,17 @@ export function headerDotTone(tone, availability) {
   return headerDots[tone] ?? "idle";
 }
 
+/**
+ * The agent service's state as the owner reads it: "maintenance" while a window of
+ * OpenClaw's offline-only commands stops it (runtime-view.js maintenanceWindow).
+ */
+export function serviceLabel(runtime, copy) {
+  const availability = runtime?.availability;
+  if (availability !== "ready" && runtime?.maintenanceWindow)
+    return copy.status.maintenanceWindow;
+  return copy.status[availability];
+}
+
 export function headerStatus({
   assistant,
   models,
@@ -50,7 +61,7 @@ export function headerStatus({
   if (availability !== "ready")
     return {
       tone: attentionRuntime.has(availability) ? "attention" : "muted",
-      label: copy.status[availability] ?? availability ?? "",
+      label: serviceLabel(runtime, copy) ?? availability ?? "",
     };
   const current = entry ?? IDLE_ACTIVITY;
   // A turn waiting for the owner's approval stays accepted or running; the header

@@ -12,7 +12,12 @@ import { serviceDown } from "./hub/hub-model.js";
 import Icon from "../../components/Icon.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
-import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
+import {
+  activityFor,
+  activityDot,
+  serviceLabel,
+  sidebarSubline,
+} from "./assistant-status.js";
 import SidebarChats from "./chats/SidebarChats.jsx";
 import { usersCopy } from "../../lib/i18n/messages/users.js";
 import { groupedMembers } from "./member-group-view.js";
@@ -206,7 +211,7 @@ export default function AssistantSidebar({ navigate, route }) {
         ? copy.team.states[member.phase]
         : connectionMissing(assistant, models)
           ? copy.status.connectionMissing
-          : copy.status[runtime.availability],
+          : serviceLabel(runtime, copy),
     );
     // Wider than 1150 px the agent's chat can be dragged into a split view; a root
     // agent's row is also dragged into a new place in the list, in the same gesture.

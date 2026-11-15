@@ -9,6 +9,7 @@ import { connectionsRoute } from "../../connections/routes.js";
 import { useInboxSummary } from "../../inbox/inbox-store.js";
 import { agentsHubRoute } from "../hub-routes.js";
 import { serviceTone } from "./RuntimeServiceGroup.jsx";
+import { serviceLabel } from "../assistant-status.js";
 
 export const inboxAgentsRoute = { view: "inbox", inboxTab: "agents" };
 export const webSearchRoute = connectionsRoute("services");
@@ -46,7 +47,7 @@ export default function ReadinessCard({
     <ListCard label={copy.readiness}>
       <ListRow
         icon={<StatusDot tone={serviceTone(availability)} />}
-        label={copy.service(assistantCopy.status[availability] ?? availability ?? "")}
+        label={copy.service(serviceLabel(runtime, assistantCopy) ?? availability ?? "")}
         sub={copy.serviceDetail(
           runtime?.version || "—",
           assistantCopy.status[runtime?.sync] ?? "",

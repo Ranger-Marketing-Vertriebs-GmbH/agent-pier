@@ -459,6 +459,7 @@ export const assistantCopy = {
     ready: "Ready",
     reconnecting: "Reconnecting",
     stopping: "Stopping",
+    maintenanceWindow: "Maintenance",
     failed: "Failed",
     current: "Up to date",
     reconciling: "Checking status",

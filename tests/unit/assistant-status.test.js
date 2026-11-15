@@ -7,6 +7,7 @@ import {
   activityFor,
   copyAt,
   headerStatus,
+  serviceLabel,
   sidebarSubline,
 } from "../../web/features/assistants/assistant-status.js";
 
@@ -55,6 +56,18 @@ test("copy paths resolve nested keys and tolerate unknown ones", () => {
   assert.equal(copyAt(copy, "teamActive.awaiting"), "Team wartet auf Freigabe");
   assert.equal(copyAt(copy, "status.nope"), undefined);
   assert.equal(copyAt(copy, null), undefined);
+});
+
+test("a maintenance window of offline-only commands reads as maintenance", () => {
+  const window = { availability: "disabled", maintenanceWindow: true };
+  assert.equal(serviceLabel(window, copy), "Wartung");
+  assert.deepEqual(status({ runtime: window }), { tone: "muted", label: "Wartung" });
+  assert.equal(serviceLabel({ availability: "disabled" }, copy), "Gestoppt");
+  // Once ready again the flag no longer matters.
+  assert.equal(
+    serviceLabel({ availability: "ready", maintenanceWindow: true }, copy),
+    "Bereit",
+  );
 });
 
 test("header status follows the documented precedence", () => {
