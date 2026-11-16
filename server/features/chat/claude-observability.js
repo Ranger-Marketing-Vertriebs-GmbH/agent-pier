@@ -13,6 +13,7 @@ import {
 } from "./observability-values.js";
 import { createClaudeUsage, usd } from "./token-usage.js";
 import { asyncLaunch, settleStatus, subagentEvent } from "./claude-subagents.js";
+import { claudeShellTracker } from "./claude-shells.js";
 
 // Identities retained per session; finished agents are evicted first.
 const MAX_AGENTS = 100;
@@ -21,6 +22,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
   const field = (value) => (typeof value === "string" ? text(value) : Boolean(value));
   let context = emptyContext();
   const sessionUsage = createClaudeUsage();
+  const shells = claudeShellTracker();
   // cost-state is written when the CLI exits; any later reply makes it outdated.
   let cost = null;
   const agents = new Map(),
@@ -68,6 +70,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
     for (const record of list(records)) {
       if (!record || record.isSidechain) continue;
       const at = timestamp(record.timestamp);
+      shells.record(record, at);
       if (record.type === "system" && record.subtype === "compact_boundary") {
         const conversationTokens = tokens(record.compactMetadata?.postTokens);
         context = {
@@ -214,6 +217,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       cost && !cost.after ? { usd: cost.usd, scope: "cli-exit-incl-subagents" } : null,
     ),
     subagents: [...agents.values()].map((value) => ({ ...value })),
+    shells: shells.snapshot(),
     stale,
   });
   return { update, snapshot };

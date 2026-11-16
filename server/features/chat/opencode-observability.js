@@ -42,9 +42,11 @@ export function observeOpenCode(exported) {
         continue;
       const id = metadata.sessionId || metadata.sessionID;
       const status =
-        metadata.background === true && state.status === "completed"
-          ? "unknown"
-          : agentStatus(state.status);
+        state.status === "error" && state.error === "Task cancelled"
+          ? "stopped"
+          : metadata.background === true && state.status === "completed"
+            ? "unknown"
+            : agentStatus(state.status);
       putAgent(agents, id, {
         name: text(input.subagent_type),
         task: text(input.description || state.title),

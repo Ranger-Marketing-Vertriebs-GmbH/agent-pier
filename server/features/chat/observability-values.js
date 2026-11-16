@@ -65,8 +65,10 @@ export function agentStatus(value) {
   if (["running", "in_progress", "started"].includes(status)) return "running";
   if (status === "completed") return "completed";
   if (["errored", "failed", "error"].includes(status)) return "failed";
+  if (["interrupted", "killed", "stopped"].includes(status)) return "stopped";
   return "unknown";
 }
+export const TASK_STATUSES = ["running", "completed", "failed", "stopped", "unknown"];
 export function putAgent(agents, id, values = {}) {
   if (!nativeId(id)) return;
   const previous = agents.get(id) || {
@@ -81,11 +83,43 @@ export function putAgent(agents, id, values = {}) {
   next.name = text(next.name, 120);
   next.task = text(next.task, 1000);
   next.updatedAt = timestamp(next.updatedAt);
-  if (!["running", "completed", "failed", "unknown"].includes(next.status))
-    next.status = "unknown";
+  if (!TASK_STATUSES.includes(next.status)) next.status = "unknown";
   agents.delete(id);
   agents.set(id, next);
   if (agents.size > 100) agents.delete(agents.keys().next().value);
+}
+
+const shellId = (value) =>
+  typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_:-]{0,199}$/.test(value)
+    ? value
+    : null;
+export const isShellId = (value) => shellId(value) !== null;
+
+/** Background shells, keyed by id; the oldest finished entry makes room beyond 100. */
+export function putShell(shells, id, values = {}) {
+  if (!shellId(id)) return;
+  const previous = shells.get(id) || {
+    id,
+    command: "",
+    description: "",
+    status: "unknown",
+    startedAt: null,
+    updatedAt: null,
+  };
+  const next = { ...previous, ...values, id };
+  next.command = text(next.command, 1000);
+  next.description = text(next.description, 300);
+  next.startedAt = timestamp(next.startedAt);
+  next.updatedAt = timestamp(next.updatedAt);
+  if (!TASK_STATUSES.includes(next.status)) next.status = "unknown";
+  if (!Number.isSafeInteger(next.exitCode)) delete next.exitCode;
+  if (typeof next.outputFile !== "string") delete next.outputFile;
+  shells.delete(id);
+  shells.set(id, next);
+  if (shells.size > 100) {
+    const finished = [...shells.values()].find((entry) => entry.status !== "running");
+    shells.delete(finished ? finished.id : shells.keys().next().value);
+  }
 }
 
 /** Codex normalizes remaining context against its fixed native prompt/tool baseline. */

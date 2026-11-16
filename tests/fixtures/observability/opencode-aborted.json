@@ -1,0 +1,38 @@
+{
+  "info": { "id": "native-parent" },
+  "messages": [
+    {
+      "info": {
+        "id": "aborted",
+        "role": "assistant",
+        "modelID": "fixture-model",
+        "providerID": "fixture-provider",
+        "time": { "created": 1000, "completed": 1500 },
+        "tokens": { "input": 4, "output": 143, "cache": { "read": 11448, "write": 194 } }
+      },
+      "parts": [
+        {
+          "id": "part-aborted",
+          "type": "tool",
+          "callID": "toolu_aborted",
+          "tool": "task",
+          "state": {
+            "status": "error",
+            "input": {
+              "description": "Run sleep command",
+              "prompt": "Run the shell command `sleep 120 && echo slept`, then reply with exactly DONE-B.",
+              "subagent_type": "general"
+            },
+            "error": "Task cancelled",
+            "metadata": {
+              "parentSessionId": "native-parent",
+              "sessionId": "native-child-aborted",
+              "model": { "modelID": "fixture-model", "providerID": "fixture-provider" }
+            },
+            "time": { "start": 1100, "end": 1400 }
+          }
+        }
+      ]
+    }
+  ]
+}
