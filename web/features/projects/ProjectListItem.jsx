@@ -8,9 +8,10 @@ import { ProjectStateChip } from "./ProjectDeletionState.jsx";
 import { projectState } from "./project-deletion.js";
 import { hintCount, remoteShort } from "./project-presentation.js";
 
-// A project row: name over `owner/repo` or "Local only", attention hints, the folder or
-// deletion state (greyed while it is deleted), "● Running" while a session runs, and the ⋯ menu beside the row's own button (`menuSheet` turns
-// it into a sheet on phones; none without `menuItems`). On desktop the row's button also starts a drag
+// A project row: name over `owner/repo` or "Local only", attention hints, the folder
+// or deletion state (greyed while it is deleted), "● Running" while a session runs,
+// and the ⋯ menu beside the row's own button (`menuSheet` turns it into a sheet on
+// phones; none without `menuItems`). On desktop the row's button also starts a drag
 // (`onPress`, useProjectDrag.js).
 export default function ProjectListItem({
   item,

@@ -26,11 +26,16 @@ function noteFolder(project, row) {
     project.deletion = { state: row.deletion.state, error: row.deletion.error ?? null };
 }
 
+// Whether `folder` holds `path` below it (not the folder itself).
+const holds = (folder, path) =>
+  path !== folder && path.startsWith(folder === "/" ? "/" : `${folder}/`);
+
 // The server reads each folder's git remote live (`remote`); the URL a repository
 // was cloned from (`url`) only stands in while no live remote is known. Every project
 // carries `folder` ("present", "missing", "unavailable") and `deletion` (null or
-// `{ state, error }`), from its rows or else from `deletions` by folder; deletions of
-// a folder no source lists any more are dropped.
+// `{ state, error }`), from its rows or else from `deletions` by folder; a project
+// inside a folder being deleted also carries `deletionAbove` ({ path, state, error }).
+// Other deletions of a folder no source lists any more are dropped.
 export function mergeProjects({ repositories, memoryProjects, busProjects, deletions }) {
   const byPath = new Map();
   const entries = [];
@@ -121,6 +126,18 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
     noteFolder(project, { deletion: recorded.get(project.path) });
     project.folder ||= "present";
     project.deletion ||= null;
+    if (project.deletion) recorded.set(project.path, project.deletion);
+  }
+  // A project inside a folder being deleted goes with it: `deletionAbove` names the
+  // deletion of the nearest folder around it.
+  for (const project of entries) {
+    let nearest = "";
+    for (const folder of recorded.keys())
+      if (folder.length > nearest.length && holds(folder, project.path)) nearest = folder;
+    if (nearest) {
+      const { state, error = null } = recorded.get(nearest);
+      project.deletionAbove = { path: nearest, state, error };
+    }
   }
   return entries.sort(
     (a, b) => sortKey(a).localeCompare(sortKey(b)) || a.id.localeCompare(b.id),

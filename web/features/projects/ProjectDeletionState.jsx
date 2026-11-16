@@ -25,7 +25,8 @@ export function ProjectStateChip({ project, pill = false }) {
 
 /**
  * The state of a project's folder or deletion above its detail: the chip, why a
- * deletion failed and "Retry", which continues it on the server
+ * deletion failed (its own, or that of a folder around it) and "Retry" for its own,
+ * which continues it on the server
  * (POST /project-deletion/retry); the list follows over `projects.changed`.
  */
 export default function ProjectDeletionNotice({ project }) {
@@ -36,7 +37,9 @@ export default function ProjectDeletionNotice({ project }) {
     <div className="project-deletion-notice">
       <ProjectStateChip project={project} pill />
       {state === "failed" && (
-        <p className="project-deletion-reason">{failureText(project.deletion.error)}</p>
+        <p className="project-deletion-reason">
+          {failureText((project.deletion ?? project.deletionAbove).error)}
+        </p>
       )}
       {canRetry(project) && (
         <button

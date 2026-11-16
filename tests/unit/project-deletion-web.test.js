@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { withLanguage } from "../../web/lib/i18n/index.js";
+import { REPLACEABLE_DELETION_ERRORS } from "../../server/features/projects/deletion-errors.js";
 import { mergeProjects } from "../../web/features/projects/useProjectHub.js";
 import { projectMenuItems } from "../../web/features/projects/project-menu.js";
 import {
@@ -281,4 +282,59 @@ test("refusals and failure codes read in English, unknown ones fall back", () =>
     assert.match(failureText("ENOTEMPTY"), /did not finish/);
     assert.match(failureText(null), /did not finish/);
   });
+});
+
+test("failed deletions a retry cannot finish offer Delete, not Retry", () => {
+  for (const error of REPLACEABLE_DELETION_ERRORS) {
+    const project = { deletion: { state: "failed", error } };
+    assert.equal(canDelete(project), true, error);
+    assert.equal(canRetry(project), false, error);
+  }
+  for (const error of ["EACCES", "PROJECT_DATA_LEFT", "PROJECT_DELETE_BLOCKED"]) {
+    const project = { deletion: { state: "failed", error } };
+    assert.equal(canDelete(project), false, error);
+    assert.equal(canRetry(project), true, error);
+  }
+  assert.deepEqual([...REPLACEABLE_DELETION_ERRORS].sort(), [
+    "PROJECT_DELETE_REFUSED",
+    "PROJECT_FOLDER_CHANGED",
+    "PROJECT_FOLDER_REAPPEARED",
+  ]);
+});
+
+test("projects inside a folder being deleted show its state and offer no delete", () => {
+  const projects = mergeProjects({
+    memoryProjects: [
+      {
+        id: "m1",
+        name: "a",
+        cwd: "/w/a",
+        folder: "present",
+        deletion: { state: "deleting", error: null },
+      },
+      { id: "m2", name: "a-sub", cwd: "/w/a/sub", folder: "present", deletion: null },
+      { id: "m3", name: "a-deep", cwd: "/w/a/sub/deep", folder: "present" },
+      { id: "m4", name: "ab", cwd: "/w/ab", folder: "present" },
+      { id: "m5", name: "b-sub", cwd: "/w/b/sub", folder: "present" },
+    ],
+    repositories: [],
+    busProjects: [],
+    deletions: [{ path: "/w/b", state: "failed", error: "EACCES" }],
+  });
+  const by = Object.fromEntries(projects.map((p) => [p.name, p]));
+  assert.deepEqual(by["a-sub"].deletionAbove, {
+    path: "/w/a",
+    state: "deleting",
+    error: null,
+  });
+  assert.equal(by["a-deep"].deletionAbove.path, "/w/a");
+  assert.equal(by.ab.deletionAbove, undefined);
+  assert.equal(by.a.deletionAbove, undefined);
+  assert.equal(projectState(by["a-sub"]), "deleting");
+  assert.equal(canDelete(by["a-sub"]), false);
+  assert.equal(canDelete(by.ab), true);
+  assert.equal(projectState(by["b-sub"]), "failed");
+  assert.equal(canDelete(by["b-sub"]), false);
+  // Retry belongs to the folder whose deletion failed, not to the projects inside it.
+  assert.equal(canRetry(by["b-sub"]), false);
 });

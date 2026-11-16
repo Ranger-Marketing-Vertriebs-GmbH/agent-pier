@@ -67,6 +67,9 @@ export default function ProjectList({
   const [missingFilter, setMissingFilter] = useState(false);
   const missingCount = projects.filter((item) => item.folder === "missing").length;
   const missingOnly = missingFilter && missingCount > 0;
+  useEffect(() => {
+    if (!missingCount) setMissingFilter(false);
+  }, [missingCount]);
   const searching = query.trim() !== "" || missingOnly;
   const scroller = useRef(null);
   // Drag and drop: a fine pointer outside the phone layout, view "Groups", no search

@@ -1,15 +1,13 @@
+import { replaceableDeletion } from "../../../server/features/projects/deletion-errors.js";
 import { projectDeletionCopy as copy } from "../../lib/i18n/messages/project-deletion.js";
 
-// The record error of a failed deletion whose missing folder came back: a new delete
-// (the full flow) replaces it, a retry would fail again.
-const REAPPEARED = "PROJECT_FOLDER_REAPPEARED";
-
 /**
- * The state a project row shows: its deletion ("deleting", "failed") before its
- * folder ("missing", "unavailable"); null for a present folder.
+ * The state a project row shows: its deletion, or that of a folder around it
+ * ("deleting", "failed"), before its folder ("missing", "unavailable"); null for a
+ * present folder.
  */
 export function projectState(project) {
-  const state = project?.deletion?.state;
+  const state = project?.deletion?.state ?? project?.deletionAbove?.state;
   if (state === "deleting" || state === "failed") return state;
   if (project?.folder === "missing" || project?.folder === "unavailable")
     return project.folder;
@@ -21,16 +19,21 @@ export function deleteLabel(project) {
   return project?.folder === "missing" ? copy.removeAction : copy.deleteAction;
 }
 
-/** Whether the delete dialog is offered: not while a deletion runs or waits for retry. */
+/**
+ * Whether the delete dialog is offered: not while a deletion runs or waits for retry,
+ * nor inside a folder being deleted. A failed deletion that a retry cannot finish
+ * (the folder came back, was replaced or refused) is replaced by a new delete.
+ */
 export function canDelete(project) {
+  if (project?.deletionAbove) return false;
   const deletion = project?.deletion;
-  return !deletion || (deletion.state === "failed" && deletion.error === REAPPEARED);
+  return !deletion || replaceableDeletion(deletion);
 }
 
 /** Whether a failed deletion can be continued (POST /project-deletion/retry). */
 export function canRetry(project) {
   const deletion = project?.deletion;
-  return deletion?.state === "failed" && deletion.error !== REAPPEARED;
+  return deletion?.state === "failed" && !replaceableDeletion(deletion);
 }
 
 /**
