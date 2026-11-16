@@ -149,7 +149,12 @@ never gets:
 - project memory,
 - the visible browser window (its browser runs headless),
 - a Telegram bot for other people,
-- the built-in Shopping skill ([Shopping for agents](shopping.md)).
+- the built-in Shopping skill ([Shopping for agents](shopping.md)),
+- on OpenClaw, skills of its own: **Learns its own skills**
+  ([Capabilities](agents.md#capabilities)) is locked, because a learned skill is
+  always visible to the agent and would bypass the skill list that limits what it
+  reads. A Hermes agent keeps its skills in its own home, and the owner's switch works
+  for it as for any agent. Users never see or change the switch.
 
 The lock applies where the agent's tools are compiled, again when a tool runs, and at
 every settings API. What the owner can still give an agent for users:

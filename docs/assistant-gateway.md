@@ -1573,9 +1573,47 @@ scheduled check-ins replace OpenClaw's own heartbeat (see
 [Proactivity](#proactivity-check-ins-2026-10-12)), and dreaming runs only when the owner
 switches it on ([Dreaming](#dreaming)).
 `skills.workshop.autonomous.mode` is explicitly `off`, so
-enabling cron does not also start OpenClaw's default weekly skill collection reviews.
+enabling cron does not also start OpenClaw's skill reviews, unless an agent has
+**Learns its own skills** switched on ([Self-learning skills](#self-learning-skills)).
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
 Semantic search and comprehensive deletion/re-ingestion remain follow-ups.
+
+#### Self-learning skills
+
+OpenClaw's Skill Workshop (`docs/tools/self-learning.md` and `skill-workshop.md` of
+the pinned runtime) lets an agent save procedures as **learned skills** in
+`<agentDir>/workshop-skills/`. Its review mode, `skills.workshop.autonomous.mode`, is
+Gateway-wide (`auto` is OpenClaw's default); what it has per agent is tool policy: an
+agent whose tools lack `skill_workshop` is never reviewed and saves nothing.
+AgentPier maps the agent's **Learns its own skills** (`skillLearning`,
+`skill-learning.js`) onto both (`openclaw-config/skill-learning.js`):
+
+- An agent that learns holds `skill_workshop` in its `tools.allow`, once native tools
+  are ready. No other agent does, and the global `tools.allow`, every agent's upper
+  bound, names the tool only while at least one agent learns. No other tool is added.
+- The mode is `auto` while at least one OpenClaw agent that is not archived learns,
+  else `off`. So with no agent learning the compiled `openclaw.json` is the one from
+  before the option.
+- A change applies live with the agent's entry: one `config.patch` moves the entry,
+  the global tool and the mode, and the readback checks all three
+  (`agent-apply.js`). `skills.workshop` stays a locked path: only the compiler
+  writes it, never an override.
+- Never for an archived agent, a task member, an agent of restricted users (a learned
+  skill bypasses `agents.entries.<id>.skills`, the list that limits what such an
+  agent reads; refused with 409 `USER_AGENT_SKILL_LEARNING` on create and update,
+  never compiled whatever its record holds, and removed from the record when the
+  agent is assigned), or an agent with its own bot for other people (the review reads
+  the agent's other sessions with `sessions_history` and `sessions_search`).
+- `skills.status` reports a learned skill for its agent with `source:
+"openclaw-workshop"` and `blockedByAgentFilter: false`; the skills sub-port adds
+  the port's `origin: "local"`, and the skills page lists it as the agent's own. An
+  assigned bundled or catalog skill of the same name is shadowed for that agent, as
+  for any skill in the agent's folders.
+
+`tests/integration/assistant-skill-learning-contract.test.js` checks this on the pinned
+Gateway: the tool in `tools.effective` and in a real turn for the learning agent
+alone, the mode in both directions live and after a restart, a user's agent with a
+stored "on", and the report of a learned skill.
 
 #### Persistence, compaction and visible failures (AGENTPIER-99)
 

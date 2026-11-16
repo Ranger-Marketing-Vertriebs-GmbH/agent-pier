@@ -4,7 +4,7 @@
 
 Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
 (slots and built surfaces), 4 (described surfaces, advanced settings per runtime) and
-5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Per-agent options follow.
+5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Step 6 is implemented narrowed (decision 8): the first shared per-agent option; per-agent options of one runtime follow with their first consumer.
 
 Date: 2026-11-16
 
@@ -376,6 +376,46 @@ hosts after the shared host's start, the fleet's close after the shared host's.
 `tests/unit/runtime-wiring.test.js` pins the wiring and the order of the agent
 services' start.
 
+### 8. A shared per-agent option: "Learns its own skills"
+
+Step 6 was planned with per-agent options of one runtime (`runtimeOptions` in the
+profile, a slot `agent.capabilities`, a `connection` field type). No option needs
+them yet, so they are not built; they come with their first consumer. What is built is
+the first **shared** option, as decision 2 defines one: a field of AgentPier's own
+agent model that each runtime's compiler maps onto its own mechanism.
+
+- **The field.** `skillLearning` (boolean, optional) on the agent profile, through
+  validation, the store and the create and update routes. Unset means the runtime's
+  default: the effective value is `stored ?? trait` (`skill-learning.js`
+  `learnsSkills`), the agent view carries it, and the desired state names it as
+  `skills.learning`. An agent from before the field therefore compiles exactly as it
+  did, on both runtimes. A task member has no value of its own and follows its lead.
+- **Traits** (`skills`): `learnsByDefault` (Hermes `true`), `userAgentsLearn`
+  (whether an agent of restricted users may learn; Hermes `true`) and
+  `writesWhenAsked` (whether an agent with learning off still writes a skill when
+  asked; Hermes `true`), which the settings read for the switch's second sentence.
+- **OpenClaw** (`openclaw-config/skill-learning.js`): its review mode is Gateway-wide
+  and its per-agent lever is tool policy, so an agent that learns holds
+  `skill_workshop` and `skills.workshop.autonomous.mode` is `auto` while at least one
+  agent does, else `off`. The compiler port offers `learningTools` and `hostLearns`;
+  a live apply moves the entry, the global tool and the mode in one patch.
+- **Hermes** (`hermes-config/skills.js`): learning off writes
+  `skills.creation_nudge_interval: 0`, on removes the key.
+- **Restricted users.** On a runtime whose learned skills bypass the skill lists that
+  limit what a user's agent reads (`userAgentsLearn: false`), such an agent never
+  learns: the effective value is `false` whatever is stored, so every compile drops
+  it; create (also a duplicate and a template's agent) and update refuse "on" with
+  409 `USER_AGENT_SKILL_LEARNING`; an assignment removes a stored value; the settings
+  show the switch locked with the reason. Users never see the switch.
+- **Learned skills on the skills page.** OpenClaw's `skills.status` reports them with
+  the source `openclaw-workshop`; its skills sub-port adds the port's `origin:
+"local"`, so they are listed as Hermes's self-written skills are.
+
+Not decided by the plan and chosen here: an OpenClaw agent with its own bot for other
+people never learns (the review reads its other sessions); the feature code names the
+runtime-neutral effective value and asks the compiler port for OpenClaw's tool, so no
+shared module names `skill_workshop` as a grant.
+
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
@@ -386,7 +426,9 @@ services' start.
 4. Described surfaces; advanced settings per runtime. Done.
 5. Server: port methods for memory and the readers of a runtime id; Hermes's own
    services in its adapter, wired through the port. Done.
-6. Per-agent options, with "Learns its own skills" as the first shared option.
+6. "Learns its own skills" as the first shared per-agent option. Done (decision 8).
+   Per-agent options of one runtime (`runtimeOptions`, the slot `agent.capabilities`)
+   come with their first consumer.
 7. Mixture of Agents on Hermes; the memory wiki on OpenClaw.
 
 ## Considered options

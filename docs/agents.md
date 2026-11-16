@@ -301,7 +301,8 @@ What works on Hermes today:
 - Skills: switch on Hermes's bundled skills and skills from the skill catalog on the
   agent's skills page; the bundled skills you leave off stay off. Skills the agent
   writes itself in Hermes, and Hermes's own `hermes-agent`, stay on and are listed there
-  without a switch. **Shopping** works with the browser as on OpenClaw.
+  without a switch. Whether it writes them by itself is **Learns its own skills**
+  ([Capabilities](#capabilities)), on by default. **Shopping** works with the browser as on OpenClaw.
 - MCP servers: bind servers of the MCP store under **Access**, local commands and
   servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
   sign-in (OAuth) work once AgentPier holds their login; one OpenClaw signed in to
@@ -664,6 +665,32 @@ A switch with fresh chats also has the new model review the agent's memory; see
   information** on); the agent reads the skill's instructions itself. These agent
   skills are separate from the CLI skills under **CLIs and extensions › Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
+- **Learns its own skills** (in the same group): the agent reviews finished work in
+  the background and saves reusable procedures as skills of its own, which it then
+  reads like any other skill. Off for an OpenClaw agent and on for a Hermes agent
+  unless you choose otherwise; an agent you never changed keeps behaving as before.
+  - **Cost:** each review is an extra model run on the agent's own model, after about
+    ten tool steps of a chat, not after every message.
+  - **Privacy:** the review sends the conversation to the agent's model provider again
+    and may read the agent's other chats and its memory.
+  - **OpenClaw:** the agent gets OpenClaw's `skill_workshop` tool; OpenClaw's review
+    runs for the agents that have it and archives a learned skill nobody used for 30
+    days. With the switch off the agent cannot save a skill of its own at all. An
+    agent with its own Telegram bot for other people does not learn, because the
+    review reads its other chats, which are those people's.
+  - **Hermes:** the switch stops only the background review; the agent still writes a
+    skill when you ask it to, and Hermes's memory review and its clean-up of unused
+    skills stay as they are.
+  - **Agents of users** never learn on OpenClaw, where a learned skill is always
+    visible to the agent and so bypasses the skill list that limits what it reads;
+    the switch is shown locked with that reason. On Hermes a user's agent keeps its
+    skills in its own home and the switch works. Users do not see the switch.
+  - Learned skills appear on the agent's skills page as **On: the agent wrote or
+    installed this skill itself**, without a switch. A task member has no switch: on
+    Hermes it follows its lead's, on OpenClaw it never learns.
+  - The switch applies while the agent service keeps running; a duplicate keeps it.
+    Search for it with ⌘K ("Learns its own skills", "self-learning", "Skill
+    workshop").
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent

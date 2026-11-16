@@ -471,6 +471,22 @@ or installed this skill itself in Hermes Agent** without a switch. Hermes's cura
 may archive such skills after long disuse; it never touches bundled, hub-installed or
 external skills.
 
+**Learns its own skills** (`skillLearning`, [ADR 0007](adr/0007-runtime-descriptor.md)
+decision 8) decides whether the agent writes them by itself. Hermes counts tool
+iterations and, at `skills.creation_nudge_interval` (code default 10,
+`agent/agent_init.py`), reviews the finished turn in the background for a skill to
+write (`agent/turn_finalizer.py`, `agent/background_review.py`); the review runs on
+the agent's model with the agent's toolsets, so it may read other chats
+(`session_search`) and memory. An agent that learns, the default for every Hermes
+agent, has no key; with the switch off the compiler writes
+`skills.creation_nudge_interval: 0`, which never starts the review, and switching it
+on removes the key again. Nothing else changes: the `skills` toolset stays (it also
+holds `skills_list` and `skill_view`), so the agent still writes a skill when asked,
+and the memory review (`memory.nudge_interval`), `auxiliary.background_review` and
+the curator are not touched. A task member follows its lead's switch. A restricted
+user's agent keeps its skills in its own home, so the switch works for it as for any
+agent.
+
 The skills sub-port (`hermes-skills.js`) answers `status` from the installation and
 the home as Hermes reads them: each skill with its `origin` (`bundled`, `catalog`, or
 `local` for the agent's own), whether `skills.disabled` filters it, and what it
@@ -937,6 +953,9 @@ other value is OpenClaw's, the default:
 | `agentFiles.dreaming`     | `agent` (each agent's nightly dream)  | `host`          |
 | `models.chatgptLogin`     | `agentpierHeld`                       | `any`           |
 | `channelBots.peopleApply` | `restart`                             | `live`          |
+| `skills.learnsByDefault`  | `true`                                | `false`         |
+| `skills.userAgentsLearn`  | `true` (skills in its own home)       | `false`         |
+| `skills.writesWhenAsked`  | `true` (`skill_manage` stays)         | `false`         |
 | `sessions.chatFolders`    | `true`                                | `false`         |
 | `host.process`            | `perAgent`                            | `shared`        |
 | `host.install`            | `optional`                            | `builtin`       |
@@ -1186,6 +1205,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review, pins   | No memory step; 10,000 / 5,000 characters                    |
 | Dreaming                                                   | memory-core                         | AgentPier's nightly one-shot dream, pins kept       | [Dreaming](#memory-and-instructions); memory stays on        |
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
+| Learns its own skills                                      | `skill_workshop`, mode `auto`       | `skills.creation_nudge_interval`                    | Off / on by default; [Skills](#skills)                       |
 | MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP, OAuth logins AgentPier holds           | [MCP servers](#mcp-servers)                                  |
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
@@ -1234,6 +1254,9 @@ command in routine runs on full access and on approval (asked, allowed, denied).
 `agentpier_share_file`; `hermes-member-browser-contract.test.js` opens a page in a task
 member's own Chromium; `hermes-browser-upload-contract.test.js` fills a local page's
 file field with a staged file and refuses an unstaged one;
+`hermes-skill-learning-contract.test.js` compiles a home with **Learns its own skills**
+off, unset and on, and reads the review interval through Hermes's own agent setup (0,
+then Hermes's 10);
 `hermes-user-agent-lock-contract.test.js` forces a restricted user's agent to call each
 locked tool and finds each refused; `hermes-user-skill-reads-contract.test.js` lets such
 an agent read its switched-on catalog skill and refuses every other catalog skill;
