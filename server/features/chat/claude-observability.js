@@ -163,11 +163,16 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
         }
       }
       // Background agents finish through generated user records, linked only by
-      // the native tool-use id of a known Agent call or a known agent id.
+      // the native tool-use id of a known Agent call or a known agent id. A resumed
+      // agent's notification names only its task id: the agent's own launch call.
       const event = subagentEvent(record);
-      if (event?.kind === "notification" && calls.has(event.toolUseId)) {
-        const input = calls.get(event.toolUseId);
-        nativeAgent(event.toolUseId, agentByCall.get(event.toolUseId) || event.taskId, {
+      const callId =
+        event?.kind !== "notification"
+          ? null
+          : event.toolUseId || agents.get(event.taskId)?.toolUseId;
+      if (callId && calls.has(callId)) {
+        const input = calls.get(callId);
+        nativeAgent(callId, agentByCall.get(callId) || event.taskId, {
           name: text(input.name || input.subagent_type),
           task: text(input.description || input.prompt),
           status: event.status,

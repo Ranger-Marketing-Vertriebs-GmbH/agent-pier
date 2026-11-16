@@ -71,6 +71,14 @@ function handbackReport(body) {
   return report.trim().slice(0, REPORT_LIMIT);
 }
 
+// Since 2.1.326 Claude also notifies when an agent stops while background work of its
+// own (a shell it started) still runs. That notification says "completed"; only the
+// CLI's fixed note before the report marks it as interim. The agent resumes when the
+// work ends and notifies again under the same task id, without a <tool-use-id>.
+const WAITING_NOTE = "This agent stopped with background work of its own still running.";
+const waitingOnOwnWork = (envelope) =>
+  tag(envelope.split("<result>")[0], "note").startsWith(WAITING_NOTE);
+
 function notificationEnvelope(record) {
   const match = /<task-notification>([\s\S]*?)<\/task-notification>/.exec(
     recordText(record),
@@ -144,9 +152,10 @@ export function subagentEvent(source) {
   const key = subagentKey(record);
   if (key?.kind === "notification") {
     const envelope = notificationEnvelope(record);
+    const status = notificationStatus(tag(envelope, "status"));
     return {
       ...key,
-      status: notificationStatus(tag(envelope, "status")),
+      status: status === "completed" && waitingOnOwnWork(envelope) ? "running" : status,
       summary: tag(envelope, "summary").slice(0, 1000),
       durationMs: count(envelope, "duration_ms"),
       toolUses: count(envelope, "tool_uses"),
