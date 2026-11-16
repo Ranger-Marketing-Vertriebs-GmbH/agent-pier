@@ -482,6 +482,8 @@ export class RepositoryStore {
       throw problem(serverMessages.repositories.targetParentUnavailable);
     }
     const destination = path.join(parent, folderName);
+    // No clone into a folder being deleted (set by the application: DeletionGuard).
+    this.startGuard?.(destination);
     let identity;
     let scratch;
     try {

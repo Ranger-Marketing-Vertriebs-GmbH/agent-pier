@@ -116,3 +116,62 @@ test("a folder outside the deletion still starts", { timeout }, async (t) => {
     notDeleting,
   );
 });
+
+test(
+  "resolved launch folders, reloads, clones and new projects are refused too",
+  { timeout },
+  async (t) => {
+    const f = await applicationFixture(t);
+    const a = f.application;
+    // A folder below the home, so `~/…` reaches it.
+    const folder = path.join(f.home, "doomed");
+    fs.mkdirSync(path.join(folder, "sub"), { recursive: true });
+    const project = await a.memory.register(folder);
+    await markDeleting(a, folder);
+
+    // The folder a launch resolves: `~` expanded, or the default folder.
+    await assert.rejects(
+      a.launch({ cwd: "~/doomed", accountId: "local-codex" }),
+      deleting,
+    );
+    await a.preferences.update({ defaultCwd: folder });
+    await assert.rejects(a.launch({ accountId: "local-codex" }), deleting);
+
+    // A reload or auto-resume relaunches a stopped session there.
+    await assert.rejects(
+      a.restartReload({ id: "s1", cwd: path.join(folder, "sub") }, {}),
+      deleting,
+    );
+    await assert.rejects(
+      a.restartReload({ id: "s2", cwd: f.root, memory: { projectId: project.id } }, {}),
+      deleting,
+    );
+
+    // A clone into it, or into a folder inside it, creates nothing.
+    for (const [parentDirectory, folderName] of [
+      [f.home, "doomed"],
+      [folder, "clone"],
+    ])
+      await assert.rejects(
+        a.repositories.clone({
+          url: "https://github.com/acme/app",
+          parentDirectory,
+          folderName,
+        }),
+        deleting,
+      );
+    assert.equal(fs.existsSync(path.join(folder, "clone")), false);
+
+    // Adding a folder inside it as a project.
+    const added = await f.request("/api/memory/projects", {
+      method: "POST",
+      body: { cwd: path.join(folder, "sub") },
+    });
+    assert.equal(added.status, 409);
+    assert.equal((await added.json()).code, "PROJECT_DELETING");
+    assert.equal(
+      a.memory.projects().projects.some((row) => row.cwd === path.join(folder, "sub")),
+      false,
+    );
+  },
+);
