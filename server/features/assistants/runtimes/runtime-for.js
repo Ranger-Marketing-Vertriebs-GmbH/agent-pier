@@ -203,9 +203,11 @@ export const runtimeAccepts = (supervisor, agent) =>
 
 /**
  * What the agents list and an agent's settings show of its runtime: `{ id, name,
- * version, capabilities }`. `version` is the running version, or null while the host
- * is stopped or unknown. A runtime this AgentPier lacks is shown, never hidden: its
- * id as name and every capability unavailable with the reason `runtimeUnknown`.
+ * version, capabilities, surfaces }`. `version` is the running version, or null while
+ * the host is stopped or unknown; `surfaces` the UI of its own the runtime registers
+ * (runtime-surfaces.js). A runtime this AgentPier lacks is shown, never hidden: its
+ * id as name, every capability unavailable with the reason `runtimeUnknown`, and no
+ * surface.
  */
 export function runtimeDetails(agent, supervisor) {
   const id = runtimeIdOf(agent);
@@ -214,12 +216,12 @@ export function runtimeDetails(agent, supervisor) {
     const capabilities = Object.fromEntries(
       RUNTIME_CAPABILITIES.map((name) => [name, { ...missing, ...DEFAULT_TRAITS[name] }]),
     );
-    return { id, name: id, version: null, capabilities };
+    return { id, name: id, version: null, capabilities, surfaces: [] };
   }
-  const { name, traits } = registry[id].descriptor;
+  const { name, traits, surfaces } = registry[id].descriptor;
   // Without a host nothing tells what is available; the traits are known anyway.
   if (!supervisor || typeof supervisor !== "object")
-    return { id, name, version: null, capabilities: traits };
+    return { id, name, version: null, capabilities: traits, surfaces };
   const runtime = runtimeFor(agent, supervisor);
   let version = null;
   try {
@@ -227,7 +229,7 @@ export function runtimeDetails(agent, supervisor) {
   } catch {
     /* A host that cannot report its status has no known version. */
   }
-  return { id, name, version, capabilities: runtime.capabilities() };
+  return { id, name, version, capabilities: runtime.capabilities(), surfaces };
 }
 
 /**

@@ -1,4 +1,8 @@
 import { DEFAULT_TRAITS, resolveTraits } from "./runtime-traits.js";
+import { resolveSurfaces } from "./runtime-surfaces.js";
+
+// The slots of AgentPier's pages a runtime may register a surface at.
+export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
 
 /**
  * The agent runtime port (docs/adr/0006-assistant-runtime-port.md). Feature code talks
@@ -349,14 +353,21 @@ export function unavailable(reason) {
 
 /**
  * What a runtime states about itself (docs/adr/0007-runtime-descriptor.md): `{ id,
- * name, traits }`, frozen. `id` is what agents record, `name` the product name the
- * owner reads, `traits` the values it states (runtime-traits.js resolveTraits: every
- * trait, the unstated ones at their default; a wrong statement throws).
+ * name, traits, surfaces }`, frozen. `id` is what agents record, `name` the product
+ * name the owner reads, `traits` the values it states (runtime-traits.js
+ * resolveTraits: every trait, the unstated ones at their default) and `surfaces` the
+ * UI of its own it registers at AgentPier's slots (runtime-surfaces.js
+ * resolveSurfaces: `[{ id, slot, kind, shows }]`). A wrong statement throws.
  */
-export function defineRuntimeDescriptor({ id, name, traits = {} } = {}) {
+export function defineRuntimeDescriptor({ id, name, traits = {}, surfaces = [] } = {}) {
   if (typeof id !== "string" || !id) throw new TypeError("A runtime needs an id.");
   if (typeof name !== "string" || !name) throw new TypeError("A runtime needs a name.");
-  return Object.freeze({ id, name, traits: resolveTraits(traits) });
+  return Object.freeze({
+    id,
+    name,
+    traits: resolveTraits(traits),
+    surfaces: resolveSurfaces(surfaces, id),
+  });
 }
 
 /**

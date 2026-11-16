@@ -34,7 +34,12 @@ test("a descriptor needs an id and a name and checks its traits", () => {
     /host\.kind/,
   );
   const descriptor = defineRuntimeDescriptor({ id: "x", name: "X" });
-  assert.deepEqual(descriptor, { id: "x", name: "X", traits: DEFAULT_TRAITS });
+  assert.deepEqual(descriptor, {
+    id: "x",
+    name: "X",
+    traits: DEFAULT_TRAITS,
+    surfaces: [],
+  });
   assert.ok(Object.isFrozen(descriptor));
 });
 
@@ -162,6 +167,7 @@ test("the list names a built-in runtime ready and an optional one by its install
     "name",
     "version",
     "capabilities",
+    "surfaces",
     "install",
     "ready",
   ]);

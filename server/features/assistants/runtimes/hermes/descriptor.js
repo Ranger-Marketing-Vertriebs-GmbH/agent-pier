@@ -29,4 +29,7 @@ export const hermesDescriptor = defineRuntimeDescriptor({
     // One process set per agent (ADR 0006 decision 4), installed by the owner.
     host: { process: "perAgent", install: "optional" },
   },
+  // Agents › Runtime › Hermes Agent: the owner's switch, the install state and the
+  // update. It shows before Hermes is installed; that is where it gets installed.
+  surfaces: [{ id: "install", slot: "hub.runtime", kind: "built", shows: "always" }],
 });
