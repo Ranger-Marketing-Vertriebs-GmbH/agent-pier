@@ -21,8 +21,8 @@ const hint =
 // each group names the step of the runtime descriptor work that empties it.
 // (One exception, once: when the scanner learned to count unquoted object keys
 // (`hermes: …`), the keys that already existed were entered under the step that
-// removes them: two in agent-browsers.js. Those of advanced-config.js went with
-// step 4.)
+// removes them. Those of advanced-config.js went with step 4, the two of
+// agent-browsers.js with the readers of step 5.)
 const runtimeIdAllowlist = {
   // Permanent: "openclaw" as something other than an agent's runtime.
   // The holder of a login (model-accounts.js: "agentpier" or "openclaw").
@@ -40,26 +40,14 @@ const runtimeIdAllowlist = {
   "server/features/assistants/exec-allowlist.js": 1,
   "server/features/assistants/browser-upload-staging.js": 1,
 
-  // Step 5, server readers: port methods for memory, and Hermes's own services and
-  // routes into its adapter (the descriptor's wiring).
-  "server/application/assistants.js": 1,
+  // Step 5, second half: Hermes's own services and routes into its adapter (the
+  // descriptor's wiring). The readers of a runtime id went with the first half.
   "server/application/hermes-wiring.js": 3,
-  "server/features/assistants/assistant-bootstrap.js": 1,
-  "server/features/assistants/assistant-maintenance.js": 1,
-  // The `hermes` key of a managed browser's entry (whether a Hermes agent's).
-  "server/features/assistants/agent-browsers.js": 2,
   "server/features/assistants/hermes-browser-upload.js": 1,
   "server/features/assistants/hermes-dream-prompt.js": 2,
   "server/features/assistants/hermes-dreams.js": 1,
   "server/features/assistants/hermes-routine-approvals.js": 1,
   "server/features/assistants/hermes-tool-guard.js": 1,
-  "server/features/assistants/memory-archive.js": 3,
-  "server/features/assistants/memory-entries.js": 2,
-  "server/features/assistants/memory-review-answer.js": 1,
-  "server/features/assistants/memory-review-prompt.js": 2,
-  "server/features/assistants/memory-review.js": 1,
-  "server/features/assistants/native-memory.js": 2,
-  "server/features/assistants/own-process-guidance.js": 1,
   "server/http/routes/assistant-hermes.js": 2,
 };
 
@@ -96,7 +84,7 @@ test("runtime rule namedFiles: no file outside the runtime modules is named afte
   );
 });
 
-test("the files the trait, runtime list, surface and settings steps moved name no runtime", () => {
+test("the files the trait, runtime list, surface, settings and reader steps moved name no runtime", () => {
   for (const file of [
     "server/features/assistants/advanced-config.js",
     "server/http/routes/assistant-advanced-settings.js",
@@ -124,6 +112,17 @@ test("the files the trait, runtime list, surface and settings steps moved name n
     "web/features/assistants/wizard/StepCapabilities.jsx",
     "server/features/assistants/chat-file-folders.js",
     "server/features/assistants/own-process-agents.js",
+    "server/features/assistants/memory-archive.js",
+    "server/features/assistants/memory-entries.js",
+    "server/features/assistants/memory-review-answer.js",
+    "server/features/assistants/memory-review-prompt.js",
+    "server/features/assistants/memory-review.js",
+    "server/features/assistants/native-memory.js",
+    "server/features/assistants/assistant-bootstrap.js",
+    "server/features/assistants/own-process-guidance.js",
+    "server/features/assistants/assistant-maintenance.js",
+    "server/features/assistants/agent-browsers.js",
+    "server/application/assistants.js",
   ]) {
     assert.ok(
       sources.some((source) => source.file === file),

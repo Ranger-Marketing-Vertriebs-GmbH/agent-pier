@@ -1,4 +1,5 @@
 import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
+import { memoryFor, traitOf } from "./runtimes/runtime-for.js";
 
 /**
  * What the apply of an agent on its own process set (Hermes, AssistantConfig
@@ -8,8 +9,10 @@ import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
  * project folders, GitHub, plain ssh aliases, its secrets file, coding sessions,
  * email accounts, project creation, rebuilds (`craft`) and previews. AgentPier's own
  * tools reach a Hermes agent through the team plugin and its bridge (`tools`: the
- * bridge runs), so without it none of that guidance is given. Memory is Hermes's own memory tool
- * (`memoryKind` "hermes"), never AgentPier's memory files; image creation is, while its images reach the chat through the team plugin
+ * bridge runs), so without it none of that guidance is given. Memory is as its
+ * runtime keeps it (`memoryFormat`, the trait agentFiles.memoryFormat, with the
+ * format's `pinMarker`): Hermes's own memory tool, never AgentPier's memory files;
+ * image creation is, while its images reach the chat through the team plugin
  * (`images`: a ChatGPT login AgentPier holds serves them, hermes-config/images.js).
  * Never fails the apply.
  */
@@ -31,7 +34,8 @@ export async function ownProcessInputs(
         .catch(() => null)
     : null;
   const guidance = {
-    memoryKind: "hermes",
+    memoryFormat: traitOf(assistant, "agentFiles", "memoryFormat"),
+    pinMarker: memoryFor(assistant).pinMarker,
     projectFolders: (tools && config.projectFolders?.(assistant)) || [],
     github: (tools && config.github?.(assistant)) || null,
     plainSsh: plainSsh || null,

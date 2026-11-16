@@ -69,6 +69,9 @@ test("an agent with secrets learns where its file is, never names or values", ()
 });
 
 const memoryOn = { ...assistant, capabilities: { memory: true } };
+// What the apply of an agent whose memory is separated entries passes (Hermes,
+// own-process-guidance.js): the trait agentFiles.memoryFormat and its pin marker.
+const entriesMemory = { memoryFormat: "entries", pinMarker: "📌 " };
 
 test("memory on: the bootstrap says the conversation is not memory and where to write", () => {
   const text = assistantBootstrap(memoryOn, {});
@@ -114,7 +117,7 @@ test("bootstrap tells the agent not to store its own refusals", () => {
     "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.";
   // Also the guidance of an agent on its own process (Hermes), whose memory AgentPier
   // does not write.
-  for (const options of [{}, { memoryWritable: false }, { memoryKind: "hermes" }])
+  for (const options of [{}, { memoryWritable: false }, entriesMemory])
     assert.ok(assistantBootstrap(memoryOn, {}, options).includes(sentence));
   assert.ok(!assistantBootstrap(assistant, {}).includes(sentence), "no memory, no line");
   assert.match(memoryStepText, /Do not record your own refusals or limits/);
@@ -138,7 +141,7 @@ test("memory on without writes: the agent is told memory is read-only right now"
 });
 
 test("a Hermes agent keeps memory with its memory tool, never read-only or in files", () => {
-  const text = assistantBootstrap(memoryOn, {}, { memoryKind: "hermes" });
+  const text = assistantBootstrap(memoryOn, {}, entriesMemory);
   assert.match(text, /## Memory/);
   assert.match(text, /memory tool/);
   assert.match(text, /`memory` store/);
@@ -152,7 +155,7 @@ test("a Hermes agent keeps memory with its memory tool, never read-only or in fi
   assert.doesNotMatch(text, /memory\/YYYY-MM-DD\.md/);
   assert.doesNotMatch(text, /write or edit tool/);
   assert.doesNotMatch(
-    assistantBootstrap(assistant, {}, { memoryKind: "hermes" }),
+    assistantBootstrap(assistant, {}, entriesMemory),
     /## Memory/,
     "no memory, no section",
   );

@@ -10,7 +10,11 @@ import {
 } from "../features/assistants/assistant-feature.js";
 import { connectAssistantServices, constructAssistantGraph } from "./assistant-graph.js";
 import { recoverAssistantServices } from "./assistant-recovery.js";
-import { hermesFleetOf, hostOf } from "../features/assistants/runtimes/runtime-for.js";
+import {
+  hermesFleetOf,
+  hostOf,
+  traitOf,
+} from "../features/assistants/runtimes/runtime-for.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 import {
@@ -168,7 +172,7 @@ export function startAssistantServices(
   const startHermes = () => {
     if (assistantAgentSsh?.closed || assistants.maintenance || assistants.closed) return;
     const agents = assistants.store?.listAssistants?.() || [];
-    if (agents.some((agent) => agent.runtime === "hermes"))
+    if (agents.some((agent) => traitOf(agent, "host", "process") === "perAgent"))
       hermesFleetOf(assistantRuntime)
         .startAll(agents)
         .catch(() => {});

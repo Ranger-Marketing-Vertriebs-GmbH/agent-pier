@@ -3,7 +3,7 @@ import { NativeMemory, corpusFolder } from "./native-memory.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { parseReview } from "./memory-review-answer.js";
 import { reviewInput, reviewInstructions } from "./memory-review-prompt.js";
-import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { runtimeFor, traitOf } from "./runtimes/runtime-for.js";
 import { memoryReviewInputLimit } from "./team-plugin/memory-review.js";
 import { ownerDecides, recordReviews } from "./memory-reviews.js";
 
@@ -55,14 +55,10 @@ export class MemoryReview {
       const request = {
         agentId: agent.runtimeAgentId,
         instructions: reviewInstructions,
-        input: reviewInput(files, runtimeIdOf(agent)),
+        input: reviewInput(files, agent),
       };
       const ask = async () =>
-        parseReview(
-          (await sessions.reviewMemory(request))?.text,
-          files,
-          runtimeIdOf(agent),
-        );
+        parseReview((await sessions.reviewMemory(request))?.text, files, agent);
       // A refusal or a broken answer is asked once more.
       const review = (await ask()) ?? (await ask());
       if (!review) return { ...failed("unreadable"), truncated };
@@ -81,16 +77,16 @@ export class MemoryReview {
   }
 
   // The memory files with text, as much as the budget holds: `{ files, truncated }`.
-  // Hermes keeps its memory in MEMORY.md and USER.md alone.
+  // An agent whose memory is separated entries (trait agentFiles.memoryFormat) keeps
+  // it in MEMORY.md and USER.md alone.
   async files(agent) {
-    const runtime = runtimeIdOf(agent);
     const files = [];
     let left = reviewBudget;
     let truncated = false;
     // A file goes in when the whole input with it, as sent, fits.
     const add = (name, content) => {
       if (!content.trim()) return;
-      const size = reviewInput([...files, { name, content }], runtime).length;
+      const size = reviewInput([...files, { name, content }], agent).length;
       if (size > reviewBudget) truncated = true;
       else {
         files.push({ name, content });
@@ -99,7 +95,8 @@ export class MemoryReview {
     };
     for (const name of rootFiles)
       add(name, (await this.memory.read(agent.id, name)).content);
-    if (runtime === "hermes") return { files, truncated };
+    if (traitOf(agent, "agentFiles", "memoryFormat") === "entries")
+      return { files, truncated };
     for (const note of await this.notes(agent)) {
       // The room counts UTF-16 units, each at most three UTF-8 bytes of the file: a
       // note of more than three bytes per unit of room left cannot fit, unread.

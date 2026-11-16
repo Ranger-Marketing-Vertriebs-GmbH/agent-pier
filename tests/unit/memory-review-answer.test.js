@@ -53,7 +53,9 @@ test("the input gives every entry an id and keeps the headings", () => {
     "=== USER.md\n- [U1] Anna\n\n=== memory/a.md\n- [N1.1] a\n\n=== memory/b.md\n[N2.1] one line\n  - [N2.2] nested",
   );
   assert.equal(
-    reviewInput([{ name: "MEMORY.md", content: "First.\n§\nSecond." }], "hermes"),
+    reviewInput([{ name: "MEMORY.md", content: "First.\n§\nSecond." }], {
+      runtime: "hermes",
+    }),
     "=== MEMORY.md\n[M1] First.\n§\n[M2] Second.",
   );
   for (const word of [
@@ -154,10 +156,8 @@ test("a Hermes file's ids name its §-blocks", () => {
       content: "Owner: no mail without asking.\n§\nRefused a keylogger.",
     },
   ];
-  const review = parseReview(
-    answer(item("M2", "model-limit", "archive")),
-    files,
-    "hermes",
-  );
+  const review = parseReview(answer(item("M2", "model-limit", "archive")), files, {
+    runtime: "hermes",
+  });
   assert.deepEqual(archived(review), ["Refused a keylogger."]);
 });
