@@ -62,11 +62,19 @@ export function advancedValues(overrides) {
  * version, qualified }`), `applies(status)` and `values(status)` (by setting id, or
  * null), `store(setting, value, context)`, `stored(setting, context)`,
  * `storeOwn(field, value, context)`. `context` is `{ confirmed, persist, revert,
- * admit, restart, askRestart, applyAgents }`: `persist()` stores the value, `revert()`
- * undoes that after a failed restart, `admit(operation)` serializes with the agents
- * service, `restart(operation)` restarts the agent service in maintenance around
- * `operation`, `askRestart()` throws the restart question the owner confirms, and
- * `applyAgents()` applies every agent of the runtime in the background.
+ * admit, applyAgents }`: `persist()` stores the value, `revert()` undoes that after a
+ * failed restart, `admit(operation)` serializes with the agents service, and
+ * `applyAgents()` applies every agent of the runtime in the background. Only a
+ * runtime on the shared host (trait `host.process: "shared"`) also gets
+ * `restart(operation)`, which restarts the agent service in maintenance around
+ * `operation`, and `askRestart()`, which throws that restart's question with the
+ * agents it interrupts: the agent service is its host. A runtime with a host per
+ * agent restarts its own hosts and asks its own question, so a setting of its own can
+ * never restart the agent service.
+ *
+ * The shared settings are listed and stored only while the default runtime, whose
+ * path keys the store, offers advanced settings (its `settings()`): without them
+ * nothing is listed and every save is refused (409), whatever another runtime takes.
  */
 export class AdvancedConfig {
   constructor({
@@ -111,18 +119,26 @@ export class AdvancedConfig {
           .then(() => config.apply(profile.id))
           .catch(() => {});
   }
-  // What a host port's write gets beside the change itself.
+  // Whether the default runtime among `runtimes`, whose path keys the shared store,
+  // offers advanced settings at all; without them none is listed or saved.
+  offered(runtimes) {
+    return !!runtimes.find(({ id }) => id === runtimeIdOf(null))?.host.settings();
+  }
+  // What a host port's write gets beside the change itself. The restart of the agent
+  // service, and its question, go only to a runtime whose host that service is.
   context(runtime, { confirmed, persist, revert }) {
     return {
       confirmed,
       persist,
       revert,
       admit: (operation) => this.assistants.admit(operation),
-      restart: (operation) => this.synchronization.restartGateway(operation),
-      askRestart: () => {
-        throw restartRequired("advancedRestartRequired", this.usage?.() || undefined);
-      },
       applyAgents: () => this.applyAgents(runtime.id),
+      ...(runtime.process === "shared" && {
+        restart: (operation) => this.synchronization.restartGateway(operation),
+        askRestart: () => {
+          throw restartRequired("advancedRestartRequired", this.usage?.() || undefined);
+        },
+      }),
     };
   }
   /**
@@ -131,7 +147,9 @@ export class AdvancedConfig {
    */
   async get() {
     const read = [];
-    for (const runtime of this.runtimes()) {
+    const listed = this.runtimes();
+    const offered = this.offered(listed);
+    for (const runtime of listed) {
       const { host } = runtime;
       const status = host.status();
       const taken = host.settings();
@@ -158,7 +176,7 @@ export class AdvancedConfig {
         agents: this.agents(runtime.id),
         own: this.ownFields(runtime),
       })),
-      settings: sharedSettings.flatMap((setting) => {
+      settings: (offered ? sharedSettings : []).flatMap((setting) => {
         const runtimes = Object.fromEntries(
           read.flatMap(({ runtime, status, taken, applies, values }) => {
             const entry = taken?.byId(setting.id);
@@ -213,10 +231,13 @@ export class AdvancedConfig {
   }
   /** Sets one shared setting by its id; `value: null` resets it to the default. */
   async save(id, value, { confirmed = false } = {}) {
+    const runtimes = this.runtimes();
+    if (!this.offered(runtimes))
+      throw assistantProblem("advancedSettingUnavailable", 409);
     const setting = typeof id === "string" ? sharedSetting(id) : undefined;
     if (!setting) throw assistantProblem("invalid");
     const key = storeKey(setting.id);
-    const takers = this.runtimes()
+    const takers = runtimes
       .map((runtime) => ({ runtime, entry: runtime.host.settings()?.byId(setting.id) }))
       .filter(({ entry }) => entry);
     if (!key || !takers.length) throw assistantProblem("advancedSettingUnavailable", 409);

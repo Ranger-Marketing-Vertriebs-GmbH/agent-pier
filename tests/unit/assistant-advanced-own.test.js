@@ -24,7 +24,7 @@ import {
 // says, and handed to the runtime's compiler. The shared settings:
 // assistant-advanced-config.test.js, assistant-advanced-hermes.test.js.
 
-function setup({ fixture = {}, shipped = true } = {}) {
+function setup({ fixture = {}, shipped = true, around = (list) => list } = {}) {
   const db = new DatabaseSync(":memory:");
   migrateAssistants(db);
   const overrides = new OverrideStore(db);
@@ -48,11 +48,18 @@ function setup({ fixture = {}, shipped = true } = {}) {
     },
     overrides,
     settings,
-    synchronization: { restartGateway: async (operation) => operation() },
-    usage: () => ({ agents: [{ id: "f1", name: "Fix" }], teamMembers: 0 }),
+    synchronization: {
+      async restartGateway(operation) {
+        asked.restarts++;
+        return operation();
+      },
+    },
+    // The agents a restart of the shared agent service would interrupt.
+    usage: () => ({ agents: [{ id: "o1", name: "Home" }], teamMembers: 0 }),
     audit: { append: (entry) => audit.push(entry) },
     // The shipped runtimes, then the fixture.
-    runtimes: (supervisor) => [...(shipped ? advancedRuntimes(supervisor) : []), own],
+    runtimes: (supervisor) =>
+      around([...(shipped ? advancedRuntimes(supervisor) : []), own]),
   });
   return { advanced, overrides, settings, db, audit, applied, asked };
 }
@@ -222,6 +229,88 @@ test("a failed restart restores the previous own value", async () => {
       ["setting.rolled-back", "failure"],
     ],
   );
+});
+
+test("a runtime with a host per agent cannot reach the agent service's restart", async () => {
+  const contexts = [];
+  const { advanced, asked, settings } = setup({ fixture: { contexts } });
+  // Its own question names its own agents, not those of the shared agent service.
+  await assert.rejects(advanced.saveOwn("fixture", "workers", 4), (error) => {
+    assert.deepEqual(error.affected.agents, [{ id: "f1", name: "Fix" }]);
+    return true;
+  });
+  await advanced.saveOwn("fixture", "workers", 4, { confirmed: true });
+  await advanced.saveOwn("fixture", "effort", "high");
+  assert.equal(settings.get("fixture", "workers").value, 4);
+  assert.equal(contexts.length, 3);
+  for (const context of contexts) {
+    assert.equal(Object.hasOwn(context, "restart"), false);
+    assert.equal(Object.hasOwn(context, "askRestart"), false);
+    assert.deepEqual(Object.keys(context).sort(), [
+      "admit",
+      "applyAgents",
+      "confirmed",
+      "persist",
+      "revert",
+    ]);
+  }
+  // The Gateway was never restarted for another runtime's own setting.
+  assert.equal(asked.restarts, 0);
+  // A runtime on the shared host gets both: the restart is its own host's.
+  const shared = [];
+  const onShared = setup({ fixture: { contexts: shared, process: "shared" } });
+  await onShared.advanced.saveOwn("fixture", "effort", "high");
+  assert.equal(typeof shared[0].restart, "function");
+  await shared[0].restart(() => {});
+  assert.equal(onShared.asked.restarts, 1);
+  assert.throws(
+    () => shared[0].askRestart(),
+    (error) => {
+      assert.equal(error.code, "ASSISTANT_RESTART_REQUIRED");
+      assert.deepEqual(error.affected.agents, [{ id: "o1", name: "Home" }]);
+      return true;
+    },
+  );
+});
+
+test("without advanced settings on the default runtime nothing is listed or stored", async () => {
+  const stored = [];
+  const taken = [{ id: "thinkingDefault", path: "reasoning", reloadKind: "hot" }];
+  // The default runtime (the first) lacks the capability; the fixture takes a setting.
+  const { advanced, overrides } = setup({
+    fixture: {
+      taken: {
+        runtime: "1.0.0",
+        list: taken,
+        byId: (id) => taken.find((s) => s.id === id),
+      },
+      host: { stored: (setting) => stored.push(setting.id) },
+    },
+    around: ([first, ...rest]) => [
+      { ...first, host: { ...first.host, settings: () => null } },
+      ...rest,
+    ],
+  });
+  const listed = await advanced.get();
+  assert.deepEqual(listed.settings, []);
+  assert.equal(listed.runtimes.length, 3);
+  for (const [id, value] of [
+    ["thinkingDefault", "high"],
+    ["runTimeout", 900],
+    // As before, the refusal comes before the setting is looked at.
+    ["gateway.auth.token", "x"],
+  ])
+    await assert.rejects(
+      advanced.save(id, value),
+      { status: 409, key: "advancedSettingUnavailable" },
+      id,
+    );
+  assert.deepEqual(overrides.list(), []);
+  assert.deepEqual(stored, []);
+  // Without the default runtime in the list there is no store key either.
+  const alone = setup({ shipped: false });
+  assert.deepEqual((await alone.advanced.get()).settings, []);
+  await assert.rejects(alone.advanced.save("runTimeout", 900), { status: 409 });
 });
 
 test("the runtime's compiler receives its own values with the desired state", async () => {

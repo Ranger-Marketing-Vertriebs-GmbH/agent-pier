@@ -1,3 +1,4 @@
+import { restartRequired } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { defineRuntimeDescriptor } from "../../server/features/assistants/runtimes/agent-runtime.js";
 
 // A runtime only tests know (ADR 0007, step 4): it describes advanced settings of its
@@ -46,22 +47,28 @@ export const fixtureDescriptor = defineRuntimeDescriptor({
  * `advancedRuntimes`): its descriptor and how its host takes advanced settings.
  * `taken`: the shared settings it takes (`{ runtime, list, byId }`), none by default;
  * `host`: what replaces parts of its host port. Its own `storeOwn` stores at once,
- * except a `restart` field while it runs: that asks first and restarts
- * (`restart(operation)`), undoing the stored value when the restart fails.
- * `applied` collects what reached the host: `[apply, fieldId, value]`.
+ * except a `restart` field while it runs: that asks first, with its own question
+ * naming its own agents (`affected`), and restarts its own host
+ * (`restart(operation)`), undoing the stored value when the restart fails: a runtime
+ * with a host per agent gets no restart of the shared agent service from AgentPier.
+ * `applied` collects what reached the host: `[apply, fieldId, value]`; `contexts`
+ * the context of each own write. `process` replaces its trait `host.process`.
  */
 export function fixtureRuntime({
   running = true,
   taken = null,
   restart = async (operation) => operation(),
   applied = [],
+  contexts = [],
+  affected = { agents: [{ id: "f1", name: "Fix" }], teamMembers: 0 },
+  process = fixtureDescriptor.traits.host.process,
   host = {},
 } = {}) {
   return {
     id: fixtureDescriptor.id,
     name: fixtureDescriptor.name,
     shortName: fixtureDescriptor.shortName,
-    process: fixtureDescriptor.traits.host.process,
+    process,
     descriptor: fixtureDescriptor,
     host: {
       settings: () => taken,
@@ -72,13 +79,15 @@ export function fixtureRuntime({
         version: "1.0.0",
         qualified: true,
       }),
-      async storeOwn(field, value, { confirmed, persist, revert, askRestart }) {
+      async storeOwn(field, value, context) {
+        const { confirmed, persist, revert } = context;
+        contexts.push(context);
         if (field.apply !== "restart" || !running) {
           persist();
           applied.push([field.apply, field.id, value]);
           return;
         }
-        if (!confirmed) askRestart();
+        if (!confirmed) throw restartRequired("advancedRestartRequired", affected);
         try {
           await restart(persist);
           applied.push([field.apply, field.id, value]);

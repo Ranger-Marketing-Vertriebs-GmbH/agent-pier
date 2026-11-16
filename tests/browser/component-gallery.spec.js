@@ -180,3 +180,29 @@ test("Settings › Operations › Development leads to the gallery", async ({ pa
   await page.getByRole("button", { name: "Zurück zu Betrieb" }).click();
   await expect(page).toHaveURL(/\/settings\?tab=operations$/);
 });
+
+// TextRow's input must not share a class with the row's label block
+// (`.list-row-text`, a grid that page styles target).
+test.describe("text row", () => {
+  test.use({ locale: "en-GB" });
+
+  test("a text row keeps its label block and its input apart", async ({ page }) => {
+    await page.goto("/settings/components");
+    const input = page.getByRole("textbox", { name: "Short text" });
+    await expect(input).toBeVisible();
+    await expect(input).toHaveClass("list-row-text-input");
+    await expect(input).not.toHaveCSS("display", "grid");
+    const row = page.locator(".list-row.text-row");
+    await expect(row.locator(".list-row-text")).toHaveCount(1);
+    await expect(row.locator("span.list-row-text")).toHaveText("Short text");
+    await input.fill("Hello");
+    await expect(input).toHaveValue("Hello");
+    // The input sits beside the label, on the row's line.
+    const [label, field] = await Promise.all([
+      row.locator(".list-row-label").boundingBox(),
+      input.boundingBox(),
+    ]);
+    expect(field.x).toBeGreaterThan(label.x + label.width);
+    expect(field.height).toBe(34);
+  });
+});

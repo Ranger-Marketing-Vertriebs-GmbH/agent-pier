@@ -215,9 +215,22 @@ Storage: the shared settings stay in the override store as they were
 AgentPier reads it unchanged. A runtime's own settings go to a new table beside it,
 `runtime_settings`, keyed by runtime id and field id, which an older AgentPier never
 reads. A stored value whose field the descriptor no longer names, or no longer
-accepts, is ignored. The runtime's compiler receives its own values by field id,
-stored or default, beside the desired state (`runtime-settings.js` `ownSettings`); the
-adapter that describes the first field passes them into its compile.
+accepts, is ignored.
+
+What is not wired yet: a runtime's own stored values reach no shipped compiler.
+`ownSettings` (`runtime-settings.js`: every described field's value by field id,
+stored or default) is what a compiler is to receive beside the desired state, but it
+has no caller in production; neither OpenClaw's nor Hermes's host port implements
+`storeOwn`, so a save of an own setting answers 409 (`advancedSettingUnavailable`).
+Only the runtime that tests know exercises the path. This wiring comes with the first
+runtime that describes a field: its adapter passes `ownSettings` into its compile and
+its host port implements `storeOwn`.
+
+A write's context gives only a runtime on the shared host the restart of the agent
+service and its question; a runtime with a host per agent restarts its own hosts, so
+a setting of its own never restarts the agent service. The shared settings are listed
+and saved only while the default runtime, whose path keys the store, offers advanced
+settings.
 
 ## Delivery order
 
