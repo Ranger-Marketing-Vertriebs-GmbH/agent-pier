@@ -293,6 +293,15 @@ export class TicketRuleStore {
         [...this.picks.values()].some((p) => p.projectId === projectId))
     );
   }
+  /** Drops a deleted project's rules and pickups; a locked file stays. */
+  removeProject(projectId) {
+    if (!this.ownsProject(projectId)) return;
+    this.commit(projectId, () => {
+      this.list = this.list.filter((e) => e.projectId !== projectId);
+      for (const [id, p] of [...this.picks])
+        if (p.projectId === projectId) this.picks.delete(id);
+    });
+  }
   /**
    * Moves a project's rules and pickups to the project it became. A rule whose source
    * and label the new project already has, or beyond its rule limit, is dropped; its

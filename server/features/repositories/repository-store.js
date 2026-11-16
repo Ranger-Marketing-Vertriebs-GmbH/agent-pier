@@ -14,6 +14,7 @@ import {
   validRepositoryComponent,
 } from "./repository-discovery.js";
 import { checkGithubToken, remoteRepositories } from "./github-token-check.js";
+import { inside } from "../projects/deletion-paths.js";
 import {
   privateDirectory,
   writePrivate,
@@ -235,6 +236,22 @@ export class RepositoryStore {
   }
   listProjects() {
     return this.projects.map((item) => ({ ...item }));
+  }
+  /** Forgets the cloned projects inside a deleted folder; returns how many. */
+  removeProjects(folder) {
+    const kept = this.projects.filter((item) => !inside(folder, path.resolve(item.path)));
+    const removed = this.projects.length - kept.length;
+    if (!removed) return 0;
+    const before = this.projects;
+    this.projects = kept;
+    try {
+      this.save();
+    } catch (error) {
+      this.projects = before;
+      throw error;
+    }
+    this.onChange?.();
+    return removed;
   }
   credential(id) {
     const item = this.credentials.find((item) => item.id === id);

@@ -277,6 +277,12 @@ export class SecretStore {
       .run(toId, fromId);
     if (result.changes) this.changed();
   }
+  /** Deletes a deleted project's secrets one by one, so each is audited. */
+  removeProject(projectId, actor = null) {
+    const ids = this.projectEntries(projectId).map((entry) => entry.id);
+    for (const id of ids) this.remove(id, actor);
+    return ids.length;
+  }
   /** Every secret with its value, for the sealed (credential) backup only. */
   exportSealed() {
     return {

@@ -275,6 +275,13 @@ export class PipelineDefinitions {
     delete next.verification[fromProjectId];
     this.commit(next);
   }
+  /** Drops a deleted project's verification steps, risk rules and queue settings. */
+  removeProject(projectId) {
+    if (!this.hasVerification(projectId)) return;
+    const next = copy(this.state);
+    for (const kind of ["verification", "risk", "queue"]) delete next[kind][projectId];
+    this.commit(next);
+  }
   hasVerification(projectId) {
     return (
       Object.hasOwn(this.state.verification, projectId) ||

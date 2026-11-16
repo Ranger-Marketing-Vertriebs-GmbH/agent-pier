@@ -234,6 +234,31 @@ export class ArtifactService {
       if (changed) this.store.save(next);
     });
   }
+  /** Deletes a deleted project's artifacts and drops the receipts naming it. */
+  removeProject(projectId) {
+    return this.serial(async () => {
+      const next = structuredClone(this.store.state);
+      let removed = 0;
+      let changed = false;
+      for (const record of Object.values(next.records))
+        if (record.projectId === projectId) {
+          next.records[record.id] = {
+            id: record.id,
+            sessionId: record.sessionId,
+            deleted: true,
+          };
+          removed += 1;
+        }
+      for (const [key, receipt] of Object.entries(next.receipts))
+        if (receipt.result?.projectId === projectId) {
+          delete next.receipts[key];
+          changed = true;
+        }
+      if (removed || changed) this.store.save(next);
+      await this.store.cleanup(this.onError);
+      return removed;
+    });
+  }
   get(id) {
     return this.serial(() => this.overview(this.record(id)));
   }

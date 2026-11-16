@@ -23,6 +23,18 @@ export class AgentProjectStore {
       .prepare("DELETE FROM agent_created_projects WHERE project_id=? AND assistant_id=?")
       .run(projectId, assistantId);
   }
+  /** Forgets every agent's creation of a deleted project. */
+  removeProject(projectId) {
+    this.db
+      .prepare("DELETE FROM agent_created_projects WHERE project_id=?")
+      .run(projectId);
+  }
+  /** Whether any agent created the project. */
+  hasProject(projectId) {
+    return !!this.db
+      .prepare("SELECT 1 FROM agent_created_projects WHERE project_id=?")
+      .get(projectId);
+  }
   /** The agent's created projects, oldest first. */
   list(assistantId) {
     return this.db

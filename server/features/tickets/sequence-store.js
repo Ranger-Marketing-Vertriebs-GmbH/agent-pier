@@ -356,6 +356,19 @@ export class TicketSequenceStore {
     this.changed(fromId);
     this.changed(toId);
   }
+  /** Drops a deleted project's queue; an unknown id changes nothing. */
+  removeProject(projectId) {
+    const queue = this.byProject.get(projectId);
+    if (!queue) return;
+    this.byProject.delete(projectId);
+    try {
+      this.save();
+    } catch (error) {
+      this.byProject.set(projectId, queue);
+      throw error;
+    }
+    this.changed(projectId);
+  }
   /** How many more items the queue takes before it is full. */
   freeSlots(projectId) {
     const items = this.byProject.get(projectId)?.items ?? [];

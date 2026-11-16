@@ -1,4 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
+import { rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -27,6 +28,10 @@ export class PipelineWorkspace {
   }
   file(runId) {
     return path.join(this.directory, `${validId(runId)}.json`);
+  }
+  /** Drops a run's workspace record (its project was deleted); nothing on disk else. */
+  forget(runId) {
+    rmSync(this.file(runId), { force: true });
   }
   /** Whether the repository containing `cwd` has the `origin` remote runs publish to. */
   async hasRemote(cwd) {

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
+import { inside } from "./deletion-paths.js";
 
 export const MAX_GROUP_NAME = 60;
 export const MAX_GROUPS = 200;
@@ -153,5 +154,16 @@ export class ProjectGroups {
     this.value = next;
     this.onChange();
     return this.get();
+  }
+  /** Drops the group assignments of a deleted folder and the folders inside it. */
+  forget(folder) {
+    const current = this.get();
+    const assignments = Object.fromEntries(
+      Object.entries(current.assignments).filter(([key]) => !inside(folder, key)),
+    );
+    if (Object.keys(assignments).length === Object.keys(current.assignments).length)
+      return false;
+    this.replace({ version: current.version, groups: current.groups, assignments });
+    return true;
   }
 }
