@@ -79,9 +79,29 @@ test("a probe that does not answer in time is unchecked, not none", async (t) =>
   const base = await temp();
   t.after(() => rm(base, { recursive: true, force: true }));
   run(base, "init", "-b", "main");
-  const r = await unsavedGitWork(base, { timeoutMs: 1 });
+  // A git that does not answer: killed at the bound like execFile's timeout. A real
+  // 1 ms bound is not reliable, fast machines answer within it.
+  const calls = [];
+  const hanging = (cwd, args, { timeout }) => {
+    calls.push(timeout);
+    return new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            Object.assign(new Error("git timed out"), {
+              code: null,
+              killed: true,
+              signal: "SIGTERM",
+            }),
+          ),
+        timeout,
+      ),
+    );
+  };
+  const r = await unsavedGitWork(base, { timeoutMs: 5, git: hanging });
   assert.equal(r.status, "unchecked");
   assert.deepEqual(r.worktrees, []);
+  assert.deepEqual(calls, [5]);
 });
 
 test("a failed worktree listing and failed counts are reported", async (t) => {
