@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   createHermesRuntime,
   runtimeInstallsOf,
+  wireHermesRuntime,
 } from "../../server/application/hermes-wiring.js";
 import { hermesDescriptor } from "../../server/features/assistants/runtimes/hermes/descriptor.js";
 
@@ -79,4 +80,14 @@ test("the install sources name the optional runtime by its descriptor and read l
   assert.equal(installs[hermesDescriptor.id](), undefined);
   services.hermesRuntime = { state: () => ({ enabled: true, installed: false }) };
   assert.deepEqual(installs[hermesDescriptor.id](), { enabled: true, installed: false });
+});
+
+test("the wiring puts the switch, its install source and its live signal on the services", (t) => {
+  const signaled = [];
+  const services = { live: { invalidate: (topic) => signaled.push(topic) } };
+  const hermes = wireHermesRuntime({ config: { dataDir: installed(t) }, services });
+  assert.equal(services.hermesRuntime, hermes);
+  assert.equal(services.runtimeInstalls[hermesDescriptor.id]().installed, true);
+  hermes.onChange();
+  assert.deepEqual(signaled, ["runtimes"]);
 });

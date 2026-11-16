@@ -1,4 +1,5 @@
 import { pdfFallbackId } from "../features/assistants/pdf-policy.js";
+import { runtimesChanged } from "../features/assistants/live-runtime-topics.js";
 import { hermesUpdateScope } from "../features/assistants/runtime-update-scope.js";
 import {
   createHermesSwitch,
@@ -337,3 +338,17 @@ export function createHermesRuntime({ config, services = {}, updates: journalOf 
 export const runtimeInstallsOf = (services) => ({
   [hermesDescriptor.id]: () => services.hermesRuntime?.state(),
 });
+
+/**
+ * Puts the owner's Hermes switch on `services` (`hermesRuntime`) with what the
+ * runtime list needs of it: its install state by runtime id (`runtimeInstalls`), and
+ * every change of the switch pushed over the live topic `runtimes` (`services.live`,
+ * once the server listens). Returns the switch.
+ */
+export function wireHermesRuntime({ config, services }) {
+  const hermes = createHermesRuntime({ config, services });
+  hermes.onChange = () => runtimesChanged(services.live);
+  services.hermesRuntime = hermes;
+  services.runtimeInstalls = runtimeInstallsOf(services);
+  return hermes;
+}
