@@ -128,7 +128,9 @@ test("an agent's runtime is named with its version once known", () => {
   assert.equal(runtimeName({ runtimeInfo: openClaw }), "OpenClaw");
   assert.equal(runtimeLabel({ runtimeInfo: openClaw }), "OpenClaw 2026.10.3");
   assert.equal(runtimeLabel({ runtimeInfo: partial }), "Hermes");
-  // Agents from before the field ran on OpenClaw.
-  assert.equal(runtimeName({}), "OpenClaw");
-  assert.equal(runtimeLabel(undefined), "OpenClaw");
+  // A view without its runtime is named by the default runtime of the list, and
+  // in neutral words without one.
+  assert.equal(runtimeName({}, [openClaw, partial]), "OpenClaw");
+  assert.equal(runtimeLabel(undefined, [openClaw]), "OpenClaw");
+  assert.equal(runtimeName({}), "Die Laufzeit des Agenten");
 });

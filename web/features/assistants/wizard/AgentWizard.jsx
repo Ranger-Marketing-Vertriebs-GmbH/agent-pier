@@ -19,12 +19,10 @@ import { browserTimeZone } from "../heartbeat.js";
 import { hubLists } from "../hub/agent-rows.js";
 import ConfirmationSheet from "../settings/ConfirmationSheet.jsx";
 import TemplatePicker from "../settings/TemplatePicker.jsx";
-import { hermesReady } from "../hermes-runtime.js";
 import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
-import useHermesRuntime from "../useHermesRuntime.js";
 import useRuntimes from "../useRuntimes.js";
-import { draftRuntimeInfo } from "../runtime-list.js";
+import { draftRuntimeInfo, otherRuntime, readyRuntimes } from "../runtime-list.js";
 import { offersEveryCommand } from "../shell-level.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
@@ -85,10 +83,9 @@ export default function AgentWizard({ route, navigate }) {
   const [createError, setCreateError] = useState("");
   const creation = useWizardCreation();
   const { runtimes, infoOf } = useRuntimes();
-  // New agents may choose Hermes while it is switched on and installed, and once the
-  // runtime list tells how each runtime behaves: without it the steps after the
-  // choice would show the default runtime's shell levels and models.
-  const hermes = hermesReady(useHermesRuntime().state) && runtimes.length > 0;
+  // New agents may choose among the runtimes that are ready (an optional one while
+  // it is switched on and installed), which the runtime list names with how each
+  // behaves: without the list there is no choice.
   // How the draft's runtime behaves (its traits), before the agent exists. A
   // duplicate knows it from its source also without the list (runtime-list.js).
   const runtimeInfo = draftRuntimeInfo(runtimes, d, assistants);
@@ -242,7 +239,8 @@ export default function AgentWizard({ route, navigate }) {
       onPickTemplate={() => setPicking(true)}
       onDuplicate={duplicate}
       onStart={chooseStart}
-      hermes={hermes}
+      runtimes={runtimes}
+      runtimeInfo={runtimeInfo}
       onRuntime={(runtime) => set(withRuntime(d, runtime, models, infoOf(runtime)))}
       error={startError || usersError}
     />
@@ -269,7 +267,10 @@ export default function AgentWizard({ route, navigate }) {
       sourceName={assistants.find((a) => a.id === d.duplicateOf)?.name || ""}
       runtime={runtime}
       webSearchReady={webSearchReady}
-      runtimeShown={hermes || (Boolean(d.runtime) && d.runtime !== "openclaw")}
+      runtimeInfo={runtimeInfo}
+      runtimeShown={
+        readyRuntimes(runtimes).length > 1 || otherRuntime(runtimes, d.runtime)
+      }
     />
   );
   const last = step === "review";

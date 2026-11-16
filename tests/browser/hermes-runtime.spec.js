@@ -56,32 +56,78 @@ const hermesInfo = {
   },
 };
 
-/** The Hermes endpoints: `states` answer the reads in turn, the last one repeats. */
-async function hermesRoutes(page, states, answers = {}) {
+// The runtime list (GET /api/assistant-runtimes, the live topic `runtimes`) with
+// Hermes in install state `state`; null is a server without an optional runtime.
+const runtimeList = (state) => ({
+  runtimes: [
+    {
+      id: "openclaw",
+      name: "OpenClaw",
+      version: "2026.10.3",
+      capabilities: {},
+      install: { kind: "builtin" },
+      ready: true,
+    },
+    ...(state
+      ? [
+          {
+            ...hermesInfo,
+            version: state.version,
+            install: { kind: "optional", ...state },
+            ready: state.enabled && state.installed,
+          },
+        ]
+      : []),
+  ],
+});
+
+/**
+ * The Hermes endpoints and the runtime list that carries Hermes's state: the list
+ * answers `state` until `show(next)` changes it, as an action's answer does. The
+ * actions are recorded in `sent`. `listed: false` is a server whose list fails.
+ */
+async function hermesRoutes(page, state, answers = {}, { listed = true } = {}) {
   const sent = [];
-  const queue = [...states];
+  let current = state;
+  await page.route(/\/api\/assistant-runtimes$/, (route) =>
+    listed
+      ? route.fulfill({ json: runtimeList(current) })
+      : route.fulfill({ status: 503, json: { error: "unavailable" } }),
+  );
   await page.route(/\/api\/assistant-runtime\/hermes/, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
     if (method === "GET" && answers[`GET ${path}`])
       return route.fulfill({ json: answers[`GET ${path}`] });
-    if (method === "GET") {
-      const state = queue.length > 1 ? queue.shift() : queue[0];
-      return route.fulfill(state ? { json: state } : { status: 404, json: {} });
-    }
+    // The web app reads the state from the runtime list alone.
+    if (method === "GET") return route.fulfill({ status: 500, json: {} });
     sent.push([method, path, request.postDataJSON()]);
     const answer = answers[`${method} ${path}`];
+    if (answer) current = answer;
     return route.fulfill({ status: method === "POST" ? 202 : 200, json: answer });
   });
-  return sent;
+  return {
+    sent,
+    show(next) {
+      current = next;
+    },
+  };
+}
+// Stops the mocks of hermesRoutes, before another state's are set up.
+async function unrouteHermes(page) {
+  await page.unroute(/\/api\/assistant-runtime\/hermes/);
+  await page.unroute(/\/api\/assistant-runtimes$/);
 }
 const group = (page) => page.getByRole("region", { name: "Hermes Agent" });
 
-test("switching Hermes on installs it and shows its version", async ({ page }) => {
+test("switching Hermes on installs it and shows its version", async ({
+  page,
+  liveStub,
+}) => {
   await setup(page);
   const installing = { ...off, enabled: true, installing: true };
-  const sent = await hermesRoutes(page, [off, installing, installed], {
+  const { sent, show } = await hermesRoutes(page, off, {
     "PUT /api/assistant-runtime/hermes": installing,
   });
   await page.goto(baseURL + "/agents?tab=runtime");
@@ -90,13 +136,16 @@ test("switching Hermes on installs it and shows its version", async ({ page }) =
   const toggle = hermes.getByRole("switch", { name: "Offer Hermes Agent" });
   await expect(toggle).not.toBeChecked();
   await toggle.click();
+  // The switch announces the installation's start: the list is pushed.
+  await expect.poll(() => sent.length).toBe(1);
+  await liveStub.reread("runtimes");
   await expect(hermes.getByText("Installing Hermes Agent …")).toBeVisible();
   await expect(toggle).toBeDisabled();
   expect(sent).toEqual([["PUT", "/api/assistant-runtime/hermes", { enabled: true }]]);
-  // The state is read again every 2 s until the install has finished.
-  await expect(hermes.getByText("Ready", { exact: true })).toBeVisible({
-    timeout: 8000,
-  });
+  // Its end is pushed too: nothing is polled meanwhile.
+  show(installed);
+  await liveStub.reread("runtimes");
+  await expect(hermes.getByText("Ready", { exact: true })).toBeVisible();
   await expect(toggle).toBeChecked();
   await expect(toggle).toBeEnabled();
   await expect(hermes.getByText("0.22.5")).toBeVisible();
@@ -107,12 +156,13 @@ test("switching Hermes on installs it and shows its version", async ({ page }) =
 
 test("an available update installs the pinned version; errors are named", async ({
   page,
+  liveStub,
 }) => {
   await setup(page);
   const outdated = { ...installed, targetVersion: "0.23.0", updateAvailable: true };
   const updating = { ...outdated, updating: true };
   const failed = { ...outdated, error: "HERMES_UPDATE_FAILED" };
-  const sent = await hermesRoutes(page, [outdated, updating, failed], {
+  const { sent, show } = await hermesRoutes(page, outdated, {
     "POST /api/assistant-runtime/hermes/update": updating,
   });
   await page.goto(baseURL + "/agents?tab=runtime");
@@ -122,14 +172,19 @@ test("an available update installs the pinned version; errors are named", async 
     hermes.getByText("Hermes agents restart during the update."),
   ).toBeVisible();
   await hermes.getByRole("button", { name: "Update" }).click();
+  await expect.poll(() => sent.length).toBe(1);
   expect(sent).toEqual([["POST", "/api/assistant-runtime/hermes/update", {}]]);
+  await liveStub.reread("runtimes");
   await expect(hermes.getByText("Updating Hermes Agent …")).toBeVisible();
   await expect(hermes.getByRole("button", { name: "Update" })).toBeDisabled();
+  // The update's end is pushed with its error.
+  show(failed);
+  await liveStub.reread("runtimes");
   await expect(
     hermes.getByText(
       "The update failed. Hermes Agent keeps running on its previous version.",
     ),
-  ).toBeVisible({ timeout: 8000 });
+  ).toBeVisible();
 });
 
 test("work of Hermes agents that blocks the update is listed and can be paused", async ({
@@ -148,7 +203,7 @@ test("work of Hermes agents that blocks the update is listed and can be paused",
     revision: "r1",
   };
   const blocked = { ...outdated, error: "UPDATE_BLOCKED", blockerItems: [turn] };
-  const sent = await hermesRoutes(page, [blocked], {
+  const { sent } = await hermesRoutes(page, blocked, {
     "GET /api/assistant-runtime/hermes/update/blockers": { items: [turn] },
     "POST /api/assistant-runtime/hermes/update": { ...outdated, updating: true },
   });
@@ -181,40 +236,25 @@ test("an unknown error code falls back; a server without Hermes shows no group",
   page,
 }) => {
   await setup(page);
-  await hermesRoutes(page, [{ ...installed, error: "HERMES_SOMETHING_NEW" }]);
+  await hermesRoutes(page, { ...installed, error: "HERMES_SOMETHING_NEW" });
   await page.goto(baseURL + "/agents?tab=runtime");
   await expect(
     group(page).getByText("Hermes Agent reported a problem (HERMES_SOMETHING_NEW)."),
   ).toBeVisible();
-  await page.unroute(/\/api\/assistant-runtime\/hermes/);
-  await hermesRoutes(page, [null]);
+  // A list without an optional runtime.
+  await unrouteHermes(page);
+  await hermesRoutes(page, null);
   await page.reload();
   await expect(page.getByRole("heading", { name: "OpenClaw updates" })).toBeVisible();
   await expect(group(page)).toHaveCount(0);
 });
 
 /** The wizard's mocks: the create request is recorded in `sent`. */
-async function wizard(page, hermes, assistants, { runtimeList = true } = {}) {
+async function wizard(page, hermes, assistants, { listed = true } = {}) {
   const state = await setupAssistantSettings(page, { assistants });
-  await hermesRoutes(page, [hermes]);
-  // The runtimes a new agent may choose, with their traits (ADR 0007).
-  await page.route(/\/api\/assistant-runtimes$/, (route) =>
-    !runtimeList
-      ? route.fulfill({ status: 503, json: { error: "unavailable" } })
-      : route.fulfill({
-          json: {
-            runtimes: [
-              {
-                id: "openclaw",
-                name: "OpenClaw",
-                version: "2026.10.3",
-                capabilities: {},
-              },
-              { ...hermesInfo, version: null },
-            ],
-          },
-        }),
-  );
+  // The runtimes a new agent may choose, with their traits and install state
+  // (ADR 0007).
+  await hermesRoutes(page, hermes, {}, { listed });
   const sent = [];
   await page.route(/\/api\/assistants/, async (route) => {
     const request = route.request();
@@ -287,7 +327,7 @@ test("without the runtime list the wizard offers no choice and a duplicate keeps
     shell: "approval",
     shellEveryCommand: true,
   });
-  const sent = await wizard(page, installed, [source], { runtimeList: false });
+  const sent = await wizard(page, installed, [source], { listed: false });
   // A new agent: how Hermes behaves is unknown, so it is not offered.
   await page.goto(baseURL + "/agents?new=1");
   await expect(page.getByRole("radio", { name: /^Blank/ })).toBeChecked();
@@ -341,8 +381,8 @@ test("a duplicate keeps its runtime; without Hermes the wizard has no choice", a
   await expect(
     runtimeGroup(page).getByRole("radio", { name: /^OpenClaw/ }),
   ).toBeChecked();
-  await page.unroute(/\/api\/assistant-runtime\/hermes/);
-  await hermesRoutes(page, [off]);
+  await unrouteHermes(page);
+  await hermesRoutes(page, off);
   await page.goto(baseURL + "/agents?new=1");
   await expect(page.getByRole("radio", { name: /^Blank/ })).toBeChecked();
   await expect(runtimeGroup(page)).toHaveCount(0);

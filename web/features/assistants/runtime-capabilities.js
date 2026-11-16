@@ -1,3 +1,4 @@
+import { capabilityGateCopy } from "../../lib/i18n/messages/components.js";
 import { traitOf } from "./runtime-traits.js";
 
 // What the agent settings need of the agent's runtime (ADR 0006): each surface names
@@ -17,25 +18,22 @@ export const surfaceCapabilities = Object.freeze({
   telegramSenders: "channelBots",
 });
 
-// Every agent ran on OpenClaw before agents named their runtime (server DEFAULT_RUNTIME).
-const defaultRuntimeName = "OpenClaw";
-// The product names of the runtimes a new agent may choose (server runtimes/).
-const runtimeNames = Object.freeze({
-  openclaw: defaultRuntimeName,
-  hermes: "Hermes Agent",
-});
-
-/** The product name of runtime id `id`; "" (the server's default) is OpenClaw. */
-export const runtimeIdName = (id) =>
-  Object.hasOwn(runtimeNames, id || "openclaw") ? runtimeNames[id || "openclaw"] : id;
-
-/** The product name of the agent's runtime, as its settings show it. */
-export const runtimeName = (assistant) =>
-  assistant?.runtimeInfo?.name || defaultRuntimeName;
+/**
+ * The product name of the agent's runtime, as its settings show it: the name its view
+ * carries (`runtimeInfo`, which every agent the server lists has). A missing view (an
+ * agent not loaded yet) is named by the default runtime of the runtime list
+ * `runtimes` where the caller has one, else in neutral words ("The agent's runtime").
+ */
+export const runtimeName = (assistant, runtimes) =>
+  assistant?.runtimeInfo?.name ||
+  runtimes?.[0]?.name ||
+  capabilityGateCopy.unknownRuntime;
 
 /** "OpenClaw 2026.10.3", or the name alone while its version is unknown. */
-export const runtimeLabel = (assistant) =>
-  [runtimeName(assistant), assistant?.runtimeInfo?.version].filter(Boolean).join(" ");
+export const runtimeLabel = (assistant, runtimes) =>
+  [runtimeName(assistant, runtimes), assistant?.runtimeInfo?.version]
+    .filter(Boolean)
+    .join(" ");
 
 // Whether a runtime (its view, `runtimeInfo`) reaches only a ChatGPT login AgentPier
 // holds, through its model proxy (trait `models.chatgptLogin`; Hermes).
