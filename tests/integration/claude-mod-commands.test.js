@@ -9,6 +9,9 @@ import { ClaudeModBridge } from "../../server/features/claude-mod/claude-mod-bri
 import { ClaudeModCommands } from "../../server/features/claude-mod/claude-mod-commands.js";
 import { claudeTaskDriver } from "../../server/features/claude-mod/claude-task-driver.js";
 import { CLAUDE_TASK_STOP_VERSION } from "../../server/features/claude-mod/claude-mod-launch.js";
+import { TaskControl } from "../../server/features/chat/task-control.js";
+import { TaskStopStore } from "../../server/features/chat/task-stop-store.js";
+import { setTimeout as delay } from "node:timers/promises";
 import { fakeModRuntime } from "../helpers/fake-mod-runtime.js";
 import { until } from "../helpers/adapter-process.js";
 
@@ -72,12 +75,16 @@ async function setup(t, { holdMs = 30, graceMs = 200 } = {}) {
     "x-agentpier-session": "s",
     authorization: `Bearer ${token}`,
   });
-  const poll = ({ token } = {}) =>
+  // `instance` stands for one loaded copy of the mod (its x-agentpier-instance).
+  const poll = ({ token, instance = "i1" } = {}) =>
     unixFetch({
       url: "http://agentpier/claude-mod/v1/commands",
       socketPath: broker.modSocketPath,
       method: "GET",
-      headers: headers(token),
+      headers: {
+        ...headers(token),
+        ...(instance ? { "x-agentpier-instance": instance } : {}),
+      },
     });
   const postEvents = (events) =>
     unixFetch({
@@ -105,11 +112,16 @@ test("the command long-poll hands a stop to the mod and redelivers it after a re
   } = await (await first).json();
   assert.equal(cmd.name, "task.stop");
   assert.equal(cmd.taskId, "ad8fe347eb34a68b1");
-  // Reload mid long-poll: no result arrives, the next poll gets the same command.
-  assert.equal((await (await poll()).json()).commands[0].id, cmd.id);
+  // The same copy polls again before its result is posted: it never gets the
+  // command twice, the poll is held as usual.
+  assert.deepEqual(await (await poll()).json(), { commands: [], suppress: [] });
+  // Reload mid long-poll: no result arrives, the new copy gets the same command.
+  assert.equal((await (await poll({ instance: "i2" })).json()).commands[0].id, cmd.id);
   // The reloaded copy finds the task gone: it was stopped by the first delivery.
   commands.result("s", { id: cmd.id, ok: false, gone: true });
   assert.deepEqual(await sent, { ok: true });
+  // A poll that names no mod copy is refused.
+  assert.equal((await poll({ instance: "" })).status, 400);
   await assert.rejects(new ClaudeModCommands({}).send("none", {}), {
     code: "TASK_STOP_CHANNEL_DOWN",
   });
@@ -213,4 +225,123 @@ test("the real mod stops a task through TaskStop and AgentPier drops its notific
     drop: "Stopped in AgentPier",
   });
   assert.equal(CLAUDE_TASK_STOP_VERSION, "2.1.325");
+});
+
+const SHELL = "b4qyjbxhd";
+const noTask = (id) => ({
+  result: `Error: No task found with ID: ${id}`,
+  text: `<tool_use_error>No task found with ID: ${id}</tool_use_error>`,
+  isError: true,
+});
+
+/** A loaded copy of the real mod module on the broker's socket, hello sent. */
+async function loadMod({ launch, mod, commands }, { toolCall }) {
+  const runtime = fakeModRuntime({
+    env: launch.env,
+    fetch: unixFetch,
+    poll: unixFetch,
+    version: "2.1.325",
+    toolCall,
+  });
+  const directory = launch.args.find((arg) => arg.endsWith(".claude-bridge"));
+  const { register } = await import(path.join(directory, "hooks/register.js"));
+  register(runtime.on);
+  await runtime.dispatch("session.start", {});
+  await runtime.tick();
+  await until(() => mod.cli("s") === "2.1.325" && commands.connected("s"), 2000);
+  return runtime;
+}
+
+/** The stop service over a snapshot that lists one running shell. */
+function stopService(t, { commands, mod }) {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "claude-cmd-stops-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const shell = { id: SHELL, command: "sleep 5", status: "running" };
+  const snapshot = { observability: { stale: false, subagents: [], shells: [shell] } };
+  const control = new TaskControl({
+    sessions: { get: async () => ({ id: "s", tool: "claude", status: "running" }) },
+    chat: { read: async () => snapshot },
+    reads: { flags: () => ({}) },
+    stops: new TaskStopStore({ dataDir }),
+    timeoutMs: 5000,
+  });
+  control.register("claude", claudeTaskDriver({ commands, mod }));
+  return control;
+}
+
+/** Run the copies' timers (their flushes) until `promise` settles. */
+async function ticking(runtimes, promise) {
+  let done = false;
+  const settled = promise.finally(() => (done = true));
+  settled.catch(() => {});
+  for (let i = 0; i < 400 && !done; i++) {
+    for (const runtime of runtimes) await runtime.tick();
+    await delay(5);
+  }
+  return settled;
+}
+
+test("a task that ended by itself is not reported stopped, though the mod polls again first", async (t) => {
+  const ctx = await setup(t, { holdMs: 5000 });
+  const runtime = await loadMod(ctx, {
+    toolCall: async ({ task_id }) => {
+      await delay(20);
+      return noTask(task_id);
+    },
+  });
+  const control = stopService(t, ctx);
+  await assert.rejects(ticking([runtime], control.stop("s", SHELL)), {
+    code: "TASK_STOP_NOT_RUNNING",
+  });
+  assert.ok(runtime.polls.length >= 2, "the copy polled again before its result");
+  assert.equal(
+    control.overlay(
+      { id: "s", tool: "claude", status: "running" },
+      {
+        observability: { shells: [] },
+      },
+    ).observability.stopNotes.length,
+    0,
+    "no note",
+  );
+});
+
+test("a reloaded copy gets a pending stop again; its 'gone' then counts as stopped", async (t) => {
+  const ctx = await setup(t, { holdMs: 5000 });
+  const firstCalls = [];
+  // The first copy stops the shell but is replaced before it posts the result.
+  const first = await loadMod(ctx, {
+    toolCall: async ({ task_id }) => {
+      firstCalls.push(task_id);
+      return {
+        result: { message: "Successfully stopped", task_id, task_type: "local_bash" },
+        text: "{}",
+      };
+    },
+  });
+  const control = stopService(t, ctx);
+  const stopping = control.stop("s", SHELL);
+  stopping.catch(() => {});
+  await until(() => firstCalls.length === 1, 2000);
+  const second = await loadMod(ctx, { toolCall: async ({ task_id }) => noTask(task_id) });
+  assert.deepEqual(await ticking([second], stopping), { stopped: true });
+  // The replaced copy stops polling instead of competing with the new one.
+  const polls = first.polls.length;
+  await delay(50);
+  assert.equal(first.polls.length, polls);
+  assert.equal(second.polls.length >= 2, true);
+});
+
+test("a copy the server has not seen gets the suppress list at once", async (t) => {
+  const { commands, poll } = await setup(t, { holdMs: 5000 });
+  commands.suppress("s", "ae70c6020167ba525");
+  const started = Date.now();
+  assert.deepEqual(await (await poll({ instance: "fresh" })).json(), {
+    commands: [],
+    suppress: ["ae70c6020167ba525"],
+  });
+  assert.ok(Date.now() - started < 2000);
+  // Known from now on: its next poll is held as usual.
+  const again = poll({ instance: "fresh" });
+  assert.equal(await Promise.race([again.then(() => "answered"), delay(200)]), undefined);
 });

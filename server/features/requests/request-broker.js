@@ -141,7 +141,7 @@ export class RequestBroker {
       authenticate: (id, token) => this.modOwners.owner(id, token),
       deliver: (owner, { events, prompts }) =>
         this.notify(owner.id, { type: "claude-mod", events, prompts }),
-      poll: commands && ((owner, closed) => commands.poll(owner, closed)),
+      poll: commands && ((...args) => commands.poll(...args)),
     });
   }
   file(id) {
