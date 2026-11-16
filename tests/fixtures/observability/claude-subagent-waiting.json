@@ -1,0 +1,190 @@
+{
+  "main": [
+    {
+      "type": "assistant",
+      "isSidechain": false,
+      "timestamp": "2026-11-16T23:49:38.726Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_fixture_agent_call",
+            "name": "Agent",
+            "input": {
+              "description": "waiter",
+              "subagent_type": "general-purpose",
+              "prompt": "Start a background sleep and wait for it."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "isSidechain": false,
+      "timestamp": "2026-11-16T23:49:38.741Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_fixture_agent_call",
+            "content": [
+              {
+                "type": "text",
+                "text": "Async agent launched successfully."
+              }
+            ],
+            "is_error": false
+          }
+        ]
+      },
+      "toolUseResult": {
+        "isAsync": true,
+        "status": "async_launched",
+        "agentId": "a0fixture0waiter1",
+        "description": "waiter",
+        "outputFile": "/tmp/claude-501/-fixture-project/fixture-session/tasks/a0fixture0waiter1.output"
+      }
+    },
+    {
+      "type": "queue-operation",
+      "operation": "enqueue",
+      "timestamp": "2026-11-16T23:49:42.830Z",
+      "sessionId": "fixture-session",
+      "content": "<task-notification>\n<task-id>a0fixture0waiter1</task-id>\n<tool-use-id>toolu_fixture_agent_call</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/a0fixture0waiter1.output</output-file>\n<status>completed</status>\n<summary>Agent \"waiter\" is waiting on its own background work</summary>\n<note>This agent stopped with background work of its own still running. It may resume on its own when that work completes or reports, and the same task-id notifies again if it does; the result below may be interim.</note>\n<result>Fixture report.</result>\n<usage><subagent_tokens>32231</subagent_tokens><tool_uses>1</tool_uses><duration_ms>4095</duration_ms></usage>\n</task-notification>"
+    },
+    {
+      "type": "user",
+      "isSidechain": false,
+      "timestamp": "2026-11-16T23:49:42.838Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "origin": {
+        "kind": "task-notification",
+        "producer": "session-task",
+        "runId": "run-1"
+      },
+      "promptSource": "system",
+      "turnOrigin": "task_notification",
+      "message": {
+        "role": "user",
+        "content": "<task-notification>\n<task-id>a0fixture0waiter1</task-id>\n<tool-use-id>toolu_fixture_agent_call</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/a0fixture0waiter1.output</output-file>\n<status>completed</status>\n<summary>Agent \"waiter\" is waiting on its own background work</summary>\n<note>This agent stopped with background work of its own still running. It may resume on its own when that work completes or reports, and the same task-id notifies again if it does; the result below may be interim.</note>\n<result>Fixture report.</result>\n<usage><subagent_tokens>32231</subagent_tokens><tool_uses>1</tool_uses><duration_ms>4095</duration_ms></usage>\n</task-notification>"
+      }
+    },
+    {
+      "type": "queue-operation",
+      "operation": "enqueue",
+      "timestamp": "2026-11-16T23:50:10.570Z",
+      "sessionId": "fixture-session",
+      "content": "<task-notification>\n<task-id>bfixture01</task-id>\n<tool-use-id>toolu_fixture_subagent_bash</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/bfixture01.output</output-file>\n<status>completed</status>\n<summary>Background command \"Sleep in background\" completed (exit code 0)</summary>\n</task-notification>"
+    },
+    {
+      "type": "queue-operation",
+      "operation": "remove",
+      "timestamp": "2026-11-16T23:50:10.600Z",
+      "sessionId": "fixture-session",
+      "content": "<task-notification>\n<task-id>bfixture01</task-id>\n<tool-use-id>toolu_fixture_subagent_bash</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/bfixture01.output</output-file>\n<status>completed</status>\n<summary>Background command \"Sleep in background\" completed (exit code 0)</summary>\n</task-notification>",
+      "reason": "delivered_to_agent"
+    },
+    {
+      "type": "queue-operation",
+      "operation": "enqueue",
+      "timestamp": "2026-11-16T23:50:11.947Z",
+      "sessionId": "fixture-session",
+      "content": "<task-notification>\n<task-id>a0fixture0waiter1</task-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/a0fixture0waiter1.output</output-file>\n<status>completed</status>\n<summary>Agent \"waiter\" finished</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n<result>Fixture report.</result>\n<usage><subagent_tokens>32530</subagent_tokens><tool_uses>1</tool_uses><duration_ms>33208</duration_ms></usage>\n</task-notification>"
+    },
+    {
+      "type": "user",
+      "isSidechain": false,
+      "timestamp": "2026-11-16T23:50:11.958Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "origin": {
+        "kind": "task-notification",
+        "producer": "session-task",
+        "runId": "run-2"
+      },
+      "promptSource": "system",
+      "turnOrigin": "task_notification",
+      "message": {
+        "role": "user",
+        "content": "<task-notification>\n<task-id>a0fixture0waiter1</task-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/a0fixture0waiter1.output</output-file>\n<status>completed</status>\n<summary>Agent \"waiter\" finished</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n<result>Fixture report.</result>\n<usage><subagent_tokens>32530</subagent_tokens><tool_uses>1</tool_uses><duration_ms>33208</duration_ms></usage>\n</task-notification>"
+      }
+    }
+  ],
+  "subagent": [
+    {
+      "type": "assistant",
+      "isSidechain": true,
+      "agentId": "a0fixture0waiter1",
+      "timestamp": "2026-11-16T23:49:40.382Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_fixture_subagent_bash",
+            "name": "Bash",
+            "input": {
+              "command": "sleep 30",
+              "description": "Sleep in background",
+              "run_in_background": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "isSidechain": true,
+      "agentId": "a0fixture0waiter1",
+      "timestamp": "2026-11-16T23:49:40.404Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_fixture_subagent_bash",
+            "content": "Command running in background with ID: bfixture01. Output is being written to: /tmp/claude-501/-fixture-project/fixture-session/tasks/bfixture01.output",
+            "is_error": false
+          }
+        ]
+      },
+      "toolUseResult": {
+        "stdout": "",
+        "stderr": "",
+        "interrupted": false,
+        "isImage": false,
+        "noOutputExpected": false,
+        "backgroundTaskId": "bfixture01"
+      }
+    },
+    {
+      "type": "user",
+      "isSidechain": true,
+      "agentId": "a0fixture0waiter1",
+      "timestamp": "2026-11-16T23:50:10.599Z",
+      "sessionId": "fixture-session",
+      "version": "2.1.326",
+      "isMeta": true,
+      "origin": {
+        "kind": "task-notification",
+        "producer": "session-task"
+      },
+      "message": {
+        "role": "user",
+        "content": "<task-notification>\n<task-id>bfixture01</task-id>\n<tool-use-id>toolu_fixture_subagent_bash</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/bfixture01.output</output-file>\n<status>completed</status>\n<summary>Background command \"Sleep in background\" completed (exit code 0)</summary>\n</task-notification>"
+      }
+    }
+  ]
+}
