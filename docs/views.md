@@ -92,9 +92,10 @@ To open an item alone regardless of the rule, use **Open alone** (German: **Einz
 
 ## Inside a pane
 
-A pane up to 900 px wide shows its session's chat like a narrow window: **Tasks**
-opens the task list as a drawer on the pane's left edge, inside the pane, while the other
-panes stay usable. Escape, its **×** or a click outside it closes it.
+A pane shows its session's chat like a narrow window. The line above the composer
+("2 running tasks", German: "2 laufende Aufgaben") opens **Background tasks** (German:
+**Hintergrundaufgaben**) as a dialog over the whole window, so the other panes wait
+until it closes. Escape, its close button or a click beside it closes it.
 
 ## Unsaved edits
 

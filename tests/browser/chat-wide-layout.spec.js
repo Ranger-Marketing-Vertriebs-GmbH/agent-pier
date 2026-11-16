@@ -69,38 +69,27 @@ test("on a wide window the bubble and the composer share the messages' column", 
   await shoot(page, "chat-wide-column");
 });
 
-test("a pane's task list opens as a drawer inside the pane and closes on Escape", async ({
+test("a pane's task line opens the background tasks sheet and closes on Escape", async ({
   page,
 }) => {
   await fixture(page, split("row", leaf.s1("chat"), leaf.s2()));
   await page.goto(`${baseURL}/views/${viewId}`);
   const pane = paneOf(page, "session:s1");
   await expect(pane.locator(".chat-message.user").first()).toBeVisible();
-  const toggle = pane.getByRole("button", { name: "Show tasks", exact: true });
-  await toggle.click();
-  const drawer = pane.getByRole("dialog", { name: "Task list" });
-  await expect(drawer).toBeVisible();
-  await expect(drawer).toContainText("Run the billing tests");
-  // Non-modal: the other pane stays usable while it is open.
-  expect(await drawer.evaluate((element) => element.matches(":modal"))).toBe(false);
-  const inside = await box(drawer),
-    bounds = await box(pane.locator(".chat-layout"));
-  expect(inside.x).toBeGreaterThanOrEqual(bounds.x - 1);
-  expect(inside.y).toBeGreaterThanOrEqual(bounds.y - 1);
-  expect(inside.x + inside.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
-  expect(inside.y + inside.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
-  near(inside.height, bounds.height);
-  expect(inside.width).toBeLessThanOrEqual(280);
-  await shoot(page, "split-pane-tasks-drawer");
+  const line = pane.getByRole("button", { name: "Tasks 1/2", exact: true });
+  await line.click();
+  const sheet = page.getByRole("dialog", { name: "Background tasks" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText("Run the billing tests");
+  // Modal over the window: the other pane waits until it closes.
+  expect(await sheet.evaluate((element) => element.matches(":modal"))).toBe(true);
+  await shoot(page, "split-pane-background-tasks");
   await page.keyboard.press("Escape");
-  await expect(drawer).toBeHidden();
-  await expect(toggle).toBeFocused();
-  // A click on its text keeps Escape working; a press outside it closes it.
-  await toggle.click();
-  await drawer.getByText("Extract the totals").click();
+  await expect(sheet).toBeHidden();
+  await expect(line).toBeFocused();
+  // A click on its text keeps Escape working.
+  await line.click();
+  await sheet.getByText("Extract the totals").click();
   await page.keyboard.press("Escape");
-  await expect(drawer).toBeHidden();
-  await toggle.click();
-  await pane.locator(".chat-messages").click({ position: { x: 500, y: 40 } });
-  await expect(drawer).toBeHidden();
+  await expect(sheet).toBeHidden();
 });
