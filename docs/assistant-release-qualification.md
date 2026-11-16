@@ -773,19 +773,16 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   repeats only the `config.patch` rate limit. Other retryable refusals are not repeated: OpenClaw may have acted
   before them (a `models.authLogout` that removed the profiles and then met an agent
   database still being inspected answers retryable too).
-- **Configuration write budget.** OpenClaw answers `config.patch`, `agents.update`
-  and `agents.delete` only once the active Gateway applied the change, and 2026.11.3
-  does more before that: the first patch after a start takes about 0.85 s on a fast
-  macOS arm64 host (0.2 s on 2026.10.9), and the journaled delete, which also drains
-  the agent's work and databases and removes its cron jobs, about 0.7 s (0.3 s).
-  Throttled to efficiency cores both take about 4–6 s; under full CPU load the
-  first patch timed out at the default 10 s locally, and with the new budget it took
-  27 s, an `agents.update` 11 s and the delete 19 s. The deletion contract,
-  the first in its shard on a cold runner, failed twice on macos-latest with
-  `TIMEOUT`; in the app a delete that times out stays pending with `TIMEOUT` in
-  Agents › Archive while the Gateway finishes it. These writes now get 30 s
-  (`configWriteTimeoutMs` in `runtimes/openclaw/gateway-client.js`), like
-  `agents.create`.
+- **Agent deletion budget.** 2026.11.3's journaled `agents.delete` drains the
+  agent's work and databases, removes its cron jobs and is answered once the active
+  Gateway applied the change: about 0.7 s on a fast macOS arm64 host (0.3 s on
+  2026.10.9), about 5 s throttled to efficiency cores and 19 s under full CPU load.
+  The deletion contract failed twice on macos-latest with `TIMEOUT` at the default
+  10 s; in the app such a delete stays pending with `TIMEOUT` in Agents › Archive while
+  the Gateway finishes it. `agents.delete` now gets 30 s (`agentDeleteTimeoutMs` in
+  `runtimes/openclaw/gateway-client.js`), like `agents.create`. `config.patch` keeps
+  10 s: one that reloads a plugin waits for the running turns that use it, and the
+  dreaming contract pins that a save during a turn times out and converges later.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled
