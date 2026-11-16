@@ -2,8 +2,9 @@
 
 ---
 
-Status: accepted; steps 1 (traits) and 2 (the runtime list with install state)
-implemented. Surfaces, described options and the server-side moves follow.
+Status: accepted; steps 1 (traits), 2 (the runtime list with install state) and 3
+(slots and built surfaces) implemented. Described surfaces, per-agent options and the
+server-side moves follow.
 
 Date: 2026-11-16
 
@@ -36,7 +37,8 @@ device nodes).
 ### 1. Each runtime has a descriptor
 
 `server/features/assistants/runtimes/<id>/descriptor.js` states what the runtime says
-about itself: its id, its product name and its traits (`defineRuntimeDescriptor`).
+about itself: its id, its product name, its traits and its surfaces
+(`defineRuntimeDescriptor`).
 The registry of `runtime-for.js` is built from the descriptors.
 `runtime-descriptors.js` holds them without importing an adapter, so any module may
 read one.
@@ -79,7 +81,8 @@ true for a built-in runtime and for an optional one that is switched on and
 installed. The composition root registers each optional runtime's state by its id
 (`services.runtimeInstalls`), so feature code names none. The list is the live topic
 `runtimes` (`docs/architecture.md`, Live channel): the wizard's runtime chooser and
-the Hermes group of Agents › Runtime follow it, and nothing polls an install.
+the slot of Agents › Runtime that renders Hermes's install group follow it, and
+nothing polls an install.
 
 `everyCommandApproval` is no capability any more: it is the `every` entry of
 `approvals.shellLevels`.
@@ -89,7 +92,8 @@ is either _described_ (fields AgentPier renders, validates, stores and hands to 
 runtime's compiler) or _built_ (a component in the runtime's web module). Per-agent
 options of one runtime are stored in the agent's profile under `runtimeOptions`. An
 option both runtimes have is a field of AgentPier's own agent model, mapped by each
-compiler. Surfaces are not implemented yet.
+compiler. Built surfaces are implemented (decision 4); described surfaces and
+per-agent options are not yet.
 
 ### 3. No runtime ids outside the runtime modules
 
@@ -99,14 +103,69 @@ runtime id as a string literal, or a file there is named after a runtime. Its
 allowlists start with the places that existed and may only shrink; each group names
 the step that empties it. Permanent entries are `"openclaw"` as something other than
 an agent's runtime: the holder of a login, the consumer of AgentPier's MCP proxy, the
-source of an allowlist entry.
+source of an allowlist entry, and the name of OpenClaw's temporary folder
+(`browser-upload-staging.js`).
+
+The same test lists the product files that import a web runtime module: the slot and
+the search index, no page.
+
+The rule sees literals and file names. It does not see a helper that hides the
+comparison: `ownProcess()` in `runtime-for.js` compares the runtime id inside the
+runtime modules and is called from about 14 feature files outside them. Those calls
+go with step 5.
+
+### 4. Slots and built surfaces
+
+A **slot** is a named place on a page AgentPier owns. AgentPier owns the list
+(`RUNTIME_SLOTS`, `runtimes/runtime-surfaces.js`, exported from the port) and adds a
+slot with the first surface that needs it. Today there is one: `hub.runtime`, a group
+of Agents › Runtime.
+
+A descriptor states its surfaces as `surfaces: [{ id, slot, kind, shows }]`. `kind`
+is `built` (`described` comes with step 4 and is refused until then). `shows` says
+when the surface is on screen: `whileEnabled` (the default) while a new agent may run
+on the runtime, the list entry's `ready`; `always` also before, as the install group
+of an optional runtime must. A missing or repeated id and an unknown slot, kind,
+`shows` or key fail when the module loads, like a wrong trait. Hermes registers
+`{ id: "install", slot: "hub.runtime", kind: "built", shows: "always" }`; OpenClaw
+registers none. The runtime list and an agent's `runtimeInfo` carry `surfaces`; a
+runtime this AgentPier lacks has none.
+
+In the web app each runtime with UI of its own has a web module,
+`web/features/assistants/runtimes/<id>/index.js`: its web descriptor `{ id, surfaces:
+{ [surfaceId]: Component }, search }`. `web/features/assistants/runtimes/index.js`
+looks one up by runtime id. `<RuntimeSlot name="hub.runtime" context={…} />`
+(`web/features/assistants/RuntimeSlot.jsx`; the selection is `runtime-surfaces.js`)
+follows the runtime list and renders, for every runtime in the list's order, each
+built surface the server names for that slot that shows, with the component
+registered under the surface's id. The component receives `runtime` (its list entry,
+so it reads its install state there and looks no runtime up), `context` (what the
+page offers, on the Runtime tab `navigate`), `list` (`error`, `refresh` and `written`
+of the runtime list, to follow its own actions) and `anchor` (the element id a link
+to the slot scrolls to, given to the slot's first surface). The page around the slot
+imports nothing of a runtime. A surface the server names without a component renders
+nothing and is reported once in development; `tests/unit/runtime-surfaces.test.js`
+fails when a descriptor names a built surface the web registry lacks, or the reverse.
+
+The Hermes group of Agents › Runtime is Hermes's `install` surface
+(`runtimes/hermes/InstallSurface.jsx`), unchanged for the owner.
+
+A web descriptor's `search` entries (`{ surface, label, aliases }`, one per surface,
+read from the catalogs) put its surfaces into the owner's ⌘K index
+(`web/features/assistants/runtime-surface-search.js`): an entry is listed while its
+surface shows, so the install group is found before Hermes is installed, and it opens
+Agents › Runtime at the slot (`section=runtimes`). They are listed a second time
+without their components in `runtimes/search.js`, because the search index loads
+before any runtime UI and Node's tests load no JSX; the same test keeps both lists
+equal. Users never see Agents › Runtime, so their search holds no surface.
 
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
 2. The runtime list with each runtime's install state over the live channel; the
    wizard's runtime chooser reads it. Done.
-3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's.
+3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's;
+   its search entry. Done.
 4. Described surfaces; advanced settings per runtime.
 5. Server: port methods for memory; Hermes's own services move into its adapter.
 6. Per-agent options, with "Learns its own skills" as the first shared option.
@@ -131,4 +190,7 @@ source of an allowlist entry.
 - The web app's trait defaults duplicate the server's; a test keeps them equal.
 - OpenClaw stays the built-in runtime: its host pages (service, updates, blockers) do
   not become surfaces.
-- Until the later steps land, the allowlist of the rule shows what is left.
+- A runtime's web module is listed twice, with and without its components; a test
+  keeps the two equal.
+- Until the later steps land, the allowlist of the rule shows what is left, except
+  the comparisons behind helpers such as `ownProcess()`, which it cannot see.
