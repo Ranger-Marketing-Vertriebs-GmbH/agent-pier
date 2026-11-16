@@ -17,13 +17,13 @@ import { capacityRange } from "../../settings/settings-steps.js";
 import { assistantApi } from "../assistant-api.js";
 import AssistantRuntimeUpdates from "../AssistantRuntimeUpdates.jsx";
 import RestartConfirmation from "../RestartConfirmation.jsx";
+import RuntimeSlot from "../RuntimeSlot.jsx";
 import useAssistants from "../useAssistants.js";
 import useDreaming from "../useDreaming.js";
 import { landOn } from "../transcript-scroll.js";
 import HubFrame from "./HubFrame.jsx";
 import RuntimeAdvancedGroup from "./RuntimeAdvancedGroup.jsx";
 import RuntimeFeatureGroup from "./RuntimeFeatureGroup.jsx";
-import RuntimeHermesGroup from "./RuntimeHermesGroup.jsx";
 import RuntimeServiceGroup from "./RuntimeServiceGroup.jsx";
 import {
   advancedKey,
@@ -40,6 +40,8 @@ import { useRuntimeGuard } from "./RuntimeOff.jsx";
 const sectionIds = {
   advanced: "agents-runtime-advanced",
   storage: "agents-runtime-storage",
+  // The first group a runtime registers itself (the slot `hub.runtime`).
+  runtimes: "agents-runtime-runtimes",
 };
 
 function useAdvancedSettings() {
@@ -135,19 +137,25 @@ export function RuntimeOn({ frame, feature, section }) {
   // `section=advanced|storage` lands on the group once the advanced values above it
   // have loaded (or failed), once per link, and keeps it in view while the pushed
   // groups above it (the update status, teams, dreaming) still arrive (landOn).
+  // `section=runtimes` lands on the runtimes' own groups once their slot read the
+  // runtime list, which is what puts them on screen.
   const scrolled = useRef(false);
   const advancedSettled = Boolean(advanced.data || advanced.error);
+  const [slotSettled, setSlotSettled] = useState(false);
+  const onSlotSettled = useCallback(() => setSlotSettled(true), []);
+  const settled = section === "runtimes" ? slotSettled : advancedSettled;
   useEffect(() => {
     if (!sectionIds[section]) {
       scrolled.current = false;
       return;
     }
-    if (scrolled.current || !advancedSettled) return;
+    if (scrolled.current || !settled) return;
     const target = document.getElementById(sectionIds[section]);
     if (!target) return;
     scrolled.current = true;
     return landOn(target);
-  }, [section, advancedSettled]);
+  }, [section, settled]);
+  const slotContext = useMemo(() => ({ navigate: frame.navigate }), [frame.navigate]);
   const teamId = useId();
   // Only the host capacity changed: the bar names the team settings, as before.
   const teamOnly =
@@ -170,7 +178,12 @@ export function RuntimeOn({ frame, feature, section }) {
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
       <AssistantRuntimeUpdates onChange={refresh} navigate={frame.navigate} />
-      <RuntimeHermesGroup navigate={frame.navigate} />
+      <RuntimeSlot
+        name="hub.runtime"
+        id={sectionIds.runtimes}
+        context={slotContext}
+        onSettled={onSlotSettled}
+      />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}

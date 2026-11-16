@@ -1,9 +1,10 @@
 // Pure rules of the runtime list (GET /api/assistant-runtimes, the live topic
 // `runtimes`): every runtime this AgentPier ships, each as an agent's `runtimeInfo`
-// shows it (`{ id, name, version, capabilities }`, the traits beside each capability)
-// with its install state (`install`: `{ kind: "builtin" }`, or `{ kind: "optional",
-// enabled, installed, … }`) and `ready`: whether a new agent may run on it now. The
-// first entry is the server's default. No request here.
+// shows it (`{ id, name, version, capabilities, surfaces }`, the traits beside each
+// capability; runtime-surfaces.js reads the surfaces) with its install state
+// (`install`: `{ kind: "builtin" }`, or `{ kind: "optional", enabled, installed, … }`)
+// and `ready`: whether a new agent may run on it now. The first entry is the server's
+// default. No request here.
 
 /** The list in a server answer, or [] when it carries none. */
 export const validRuntimes = (data) =>
@@ -47,15 +48,6 @@ export const otherRuntime = (runtimes, id) => Boolean(id) && id !== runtimes?.[0
 
 /** The name of a runtime from its view `info`; its `id` while the view is unknown. */
 export const runtimeNameOf = (info, id) => info?.name || id || info?.id || "";
-
-/**
- * The entry of the optional runtime, whose install state the owner switches
- * (`install.kind`); undefined on a server without one or while the list is unknown.
- */
-export const optionalRuntime = (runtimes) =>
-  Array.isArray(runtimes)
-    ? runtimes.find((runtime) => runtime.install?.kind === "optional")
-    : undefined;
 
 /**
  * The wizard's runtime group for draft `d`: `shown`, `readOnly` (a duplicate keeps

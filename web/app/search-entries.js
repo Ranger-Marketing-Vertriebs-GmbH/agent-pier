@@ -26,6 +26,7 @@ import { searchCopy } from "../lib/i18n/messages/search.js";
 import { settingsHubCopy, settingsPageCopy } from "../lib/i18n/messages/settings.js";
 import { systemStatusCopy } from "../lib/i18n/messages/system-status.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
+import { surfaceSearchEntries } from "../features/assistants/runtime-surface-search.js";
 import {
   agentPageAllowed,
   agentRoute,
@@ -567,6 +568,7 @@ export function withTerms(entry) {
  * names (or null); with agents off only the "Agenten" area of the agent entries stays.
  * `sessionOpen` and `runOpen` offer the actions on the session or pipeline run on screen;
  * `offered` lists the page actions a mounted page takes (chat: New chat, Summarize).
+ * `runtimes` is the runtime list: each runtime's surfaces that show are indexed.
  */
 export function buildSearchIndex({
   agents = [],
@@ -575,9 +577,11 @@ export function buildSearchIndex({
   sessionOpen = false,
   runOpen = false,
   offered = [],
+  runtimes = [],
 }) {
   return [
     ...pageEntries(),
+    ...surfaceSearchEntries(runtimes, pageEntry, bilingual),
     ...agentEntries(agents),
     ...connectionEntries(connections),
     ...actionEntries(),

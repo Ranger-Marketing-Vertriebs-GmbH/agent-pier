@@ -482,3 +482,26 @@ test("a session's agent access request waits for that session alone", () => {
   assert.equal(takePageAction("session-agent-access:b", 5000), true);
   assert.equal(takePageAction("session-agent-access:b", 5001), false);
 });
+
+test("the owner finds a runtime's install group; a user's search holds none", () => {
+  const runtimes = [
+    {
+      id: "hermes",
+      name: "Hermes Agent",
+      ready: false,
+      surfaces: [{ id: "install", slot: "hub.runtime", kind: "built", shows: "always" }],
+    },
+  ];
+  const owners = buildSearchIndex({ agentsEnabled: true, runtimes });
+  const hit = flat(searchEntries(owners, "hermes"))[0];
+  assert.equal(hit.id, "page:runtime-hermes-install");
+  assert.equal(hit.group, "pages");
+  assert.equal(routePath(hit.target.route), "/agents?tab=runtime&section=runtimes");
+  // Users never see Agents › Runtime: their index has no runtime surface.
+  const users = buildUserSearchIndex({ agents: [{ id: "mine", name: "Mine" }] });
+  assert.equal(
+    users.some((entry) => entry.id.startsWith("page:runtime-")),
+    false,
+  );
+  assert.equal(flat(searchEntries(users, "hermes")).length, 0);
+});

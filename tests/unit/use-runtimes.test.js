@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   draftRuntimeInfo,
-  optionalRuntime,
   otherRuntime,
   readyRuntimes,
   runtimeChoice,
@@ -142,11 +141,4 @@ test("runtimeNameOf: the view's name, the id while it is unknown", () => {
   assert.equal(runtimeNameOf(undefined, "two"), "two");
   assert.equal(runtimeNameOf({ id: "two" }), "two");
   assert.equal(runtimeNameOf(undefined, ""), "");
-});
-
-test("optionalRuntime: the entry whose install state the owner switches", () => {
-  assert.equal(optionalRuntime([builtin, on]), on);
-  assert.equal(optionalRuntime([builtin]), undefined);
-  assert.equal(optionalRuntime([{ id: "old" }]), undefined);
-  assert.equal(optionalRuntime(undefined), undefined);
 });

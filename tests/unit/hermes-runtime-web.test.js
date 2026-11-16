@@ -3,10 +3,9 @@ import assert from "node:assert/strict";
 import {
   hermesBusy,
   hermesErrorText,
-  hermesInstall,
   hermesStatus,
   validHermes,
-} from "../../web/features/assistants/hermes-runtime.js";
+} from "../../web/features/assistants/runtimes/hermes/install-state.js";
 import { updateCauseDetail } from "../../web/features/assistants/update-cause.js";
 import {
   offersEveryCommand,
@@ -82,15 +81,12 @@ test("the Hermes state row follows install, update, error and switch", () => {
   assert.deepEqual(hermesStatus(state()), { kind: "ready", tone: "ok" });
   assert.equal(hermesStatus(state({ installed: false })).kind, "notInstalled");
   assert.equal(hermesStatus(null).kind, "off");
-  // The group's state is the optional runtime's install state in the runtime list.
-  const listed = { id: "x", install: { kind: "optional", ...state() }, ready: true };
-  assert.deepEqual(hermesInstall([{ id: "d", install: { kind: "builtin" } }, listed]), {
-    kind: "optional",
-    ...state(),
-  });
-  // A server without an optional runtime, or no list yet: no state, no group.
-  assert.equal(hermesInstall([{ id: "d", install: { kind: "builtin" } }]), null);
-  assert.equal(hermesInstall([]), null);
+  // The group's state is the install state of the runtime list entry it is handed.
+  const install = { kind: "optional", ...state() };
+  assert.equal(validHermes(install), install);
+  // An entry without an install state of the owner's switch: no state, no group.
+  assert.equal(validHermes({ kind: "builtin" }), null);
+  assert.equal(validHermes(undefined), null);
   assert.equal(hermesBusy(state({ updating: true })), true);
   assert.equal(hermesBusy(state()), false);
   assert.equal(validHermes({ enabled: "yes" }), null);
