@@ -2,13 +2,17 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { wantsRemotes } from "../../features/repositories/git-remote.js";
+import { annotateFolders } from "../../application/project-folder-annotations.js";
 export function agentbusRoutes(services) {
-  const { agentbus, gitRemotes } = services;
+  const { agentbus, gitRemotes, memory } = services;
   const router = Router();
   router.get("/agentbus", async (req, res) => {
     const listed = await agentbus.list();
     if (gitRemotes && wantsRemotes(req))
       listed.projects = await gitRemotes.annotate(listed.projects, "cwd");
+    // Folder state and deletion, like the other project sources.
+    if (memory)
+      listed.projects = await annotateFolders(memory, listed.projects, (p) => p.cwd);
     res.json(listed);
   });
   router.get("/agentbus/projects/:id/messages", async (req, res) => {

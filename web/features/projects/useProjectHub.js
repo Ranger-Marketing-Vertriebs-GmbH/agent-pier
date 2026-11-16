@@ -117,6 +117,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
           sessionCount,
         }),
       );
+    noteFolder(project, bus);
     liveRemote(project, bus.remote);
   }
   const recorded = new Map(
