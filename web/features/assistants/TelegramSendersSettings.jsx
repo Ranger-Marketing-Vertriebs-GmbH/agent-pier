@@ -7,7 +7,7 @@ import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
-import { runtimeIdName } from "./runtime-capabilities.js";
+import { runtimeNameOf } from "./runtime-list.js";
 import { traitOf } from "./runtime-traits.js";
 
 const telegramUserId = /^[1-9]\d{0,19}$/;
@@ -173,7 +173,7 @@ export default function TelegramSendersSettings({ assistantId, runtime = null })
           <h3>{copy.people}</h3>
           <p className="assistant-note">
             {restartsOnPeople(runtime)
-              ? copy.peopleHintRestart(runtimeIdName(runtime.id))
+              ? copy.peopleHintRestart(runtimeNameOf(runtime))
               : copy.peopleHint}
           </p>
           {people.length ? (

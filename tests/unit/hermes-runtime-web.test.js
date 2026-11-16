@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   hermesBusy,
   hermesErrorText,
-  hermesReady,
+  hermesInstall,
   hermesStatus,
   validHermes,
 } from "../../web/features/assistants/hermes-runtime.js";
@@ -15,7 +15,7 @@ import {
 } from "../../web/features/assistants/shell-level.js";
 import {
   modelsFor,
-  runtimeIdName,
+  runtimeName,
   surfaceCapabilities,
 } from "../../web/features/assistants/runtime-capabilities.js";
 import {
@@ -28,6 +28,7 @@ import {
   withRuntime,
 } from "../../web/features/assistants/wizard/wizard-draft.js";
 import { createBody } from "../../web/features/assistants/wizard/wizard-creation.js";
+import { setLanguage } from "../../web/lib/i18n/index.js";
 
 // AGENTPIER-332: Hermes Agent as a second runtime in the web app.
 const hermesInfo = {
@@ -81,10 +82,15 @@ test("the Hermes state row follows install, update, error and switch", () => {
   assert.deepEqual(hermesStatus(state()), { kind: "ready", tone: "ok" });
   assert.equal(hermesStatus(state({ installed: false })).kind, "notInstalled");
   assert.equal(hermesStatus(null).kind, "off");
-  assert.equal(hermesReady(state()), true);
-  assert.equal(hermesReady(state({ installed: false })), false);
-  assert.equal(hermesReady(state({ enabled: false })), false);
-  assert.equal(hermesReady(null), false);
+  // The group's state is the optional runtime's install state in the runtime list.
+  const listed = { id: "x", install: { kind: "optional", ...state() }, ready: true };
+  assert.deepEqual(hermesInstall([{ id: "d", install: { kind: "builtin" } }, listed]), {
+    kind: "optional",
+    ...state(),
+  });
+  // A server without an optional runtime, or no list yet: no state, no group.
+  assert.equal(hermesInstall([{ id: "d", install: { kind: "builtin" } }]), null);
+  assert.equal(hermesInstall([]), null);
   assert.equal(hermesBusy(state({ updating: true })), true);
   assert.equal(hermesBusy(state()), false);
   assert.equal(validHermes({ enabled: "yes" }), null);
@@ -222,10 +228,14 @@ test("the wizard keeps a runtime per draft and sends Hermes' shell choice", () =
   const copy = duplicateFields(source, null, null, (name) => `Copy of ${name}`);
   assert.equal(copy.runtime, "hermes");
   assert.equal(copy.shell, "every");
-  assert.equal(runtimeIdName("hermes"), "Hermes Agent");
-  assert.equal(runtimeIdName(""), "OpenClaw");
-  assert.equal(runtimeIdName("openclaw"), "OpenClaw");
-  assert.equal(runtimeIdName("other"), "other");
+  // An agent view names its runtime itself; one without a view falls back to the
+  // default runtime of the list, then to neutral words, never to a product name.
+  assert.equal(runtimeName(source), "Hermes Agent");
+  assert.equal(runtimeName(agent(), [openClawInfo, hermesInfo]), "OpenClaw");
+  setLanguage("en", { persist: false });
+  assert.equal(runtimeName(agent()), "The agent's runtime");
+  assert.equal(runtimeName(undefined, []), "The agent's runtime");
+  setLanguage("de", { persist: false });
 });
 
 test("a Hermes agent lists ChatGPT logins OpenClaw holds unavailable and drops a chosen one", () => {

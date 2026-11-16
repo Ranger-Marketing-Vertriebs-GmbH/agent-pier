@@ -28,7 +28,9 @@ const hermesUpdate = {
  * background and its update installs the pinned version; both are immediate actions,
  * never part of the tab's draft. Work of Hermes agents that refused the update is
  * listed, each item opening where it is resolved, beside "Pause agents and update".
- * A server without Hermes (404) shows no group.
+ * Its state is the optional runtime's install state in the runtime list, pushed live
+ * (useHermesRuntime); after an action the control stays busy until the change shows.
+ * A server without an optional runtime shows no group.
  */
 export default function RuntimeHermesGroup({ navigate }) {
   const id = useId();
@@ -41,10 +43,11 @@ export default function RuntimeHermesGroup({ navigate }) {
     setBusy(true);
     setError("");
     try {
-      hermes.setState(await request());
+      await request();
+      await hermes.written();
     } catch (e) {
       setError(e.message);
-      await hermes.load();
+      await hermes.refresh();
     } finally {
       setBusy(false);
     }
@@ -123,7 +126,7 @@ export default function RuntimeHermesGroup({ navigate }) {
                     endpoints={hermesUpdate}
                     onDone={async (message) => {
                       setError(message);
-                      await hermes.load();
+                      await hermes.written();
                     }}
                   />
                 )}

@@ -2,8 +2,8 @@
 
 ---
 
-Status: accepted; step 1 (traits) implemented. Surfaces, described options and the
-server-side moves follow.
+Status: accepted; steps 1 (traits) and 2 (the runtime list with install state)
+implemented. Surfaces, described options and the server-side moves follow.
 
 Date: 2026-11-16
 
@@ -70,6 +70,17 @@ whose defaults a test keeps equal to the server's.
 `runtimeInfo` shows it, so the wizard knows a runtime's traits before an agent exists.
 A runtime with a host per agent answers its traits alone there.
 
+Each entry also carries the runtime's install state and whether a new agent may run
+on it now: `install` is `{ kind: "builtin" }` for a runtime whose trait
+`host.install` is `builtin`, and `{ kind: "optional", …state }` for an optional one,
+with the state of the owner's switch (`enabled`, `installed`, `installing`,
+`updating`, `version`, `targetVersion`, `updateAvailable`, `error`, …); `ready` is
+true for a built-in runtime and for an optional one that is switched on and
+installed. The composition root registers each optional runtime's state by its id
+(`services.runtimeInstalls`), so feature code names none. The list is the live topic
+`runtimes` (`docs/architecture.md`, Live channel): the wizard's runtime chooser and
+the Hermes group of Agents › Runtime follow it, and nothing polls an install.
+
 `everyCommandApproval` is no capability any more: it is the `every` entry of
 `approvals.shellLevels`.
 
@@ -94,7 +105,7 @@ source of an allowlist entry.
 
 1. Traits, descriptors, the runtime list, the rule. Done.
 2. The runtime list with each runtime's install state over the live channel; the
-   wizard's runtime chooser reads it.
+   wizard's runtime chooser reads it. Done.
 3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's.
 4. Described surfaces; advanced settings per runtime.
 5. Server: port methods for memory; Hermes's own services move into its adapter.

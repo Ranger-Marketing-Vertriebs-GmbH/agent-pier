@@ -6,7 +6,7 @@ import ListRow from "../../../components/ListRow.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import { connectionLabel } from "../connection-label.js";
-import { runtimeIdName } from "../runtime-capabilities.js";
+import { runtimeNameOf } from "../runtime-list.js";
 import { matchingProfile } from "./wizard-profiles.js";
 
 const copy = () => agentWizardCopy.review;
@@ -44,6 +44,7 @@ export default function StepReview({
   sourceName,
   runtime,
   webSearchReady,
+  runtimeInfo,
   runtimeShown = false,
 }) {
   const { agentGroups: groups = [] } = useAssistants();
@@ -71,7 +72,7 @@ export default function StepReview({
         {d.template && <ListRow label={copy().template} value={d.template.name} />}
         {d.duplicateOf && <ListRow label={copy().duplicate} value={sourceName} />}
         {runtimeShown && (
-          <ListRow label={copy().runtime} value={runtimeIdName(d.runtime)} />
+          <ListRow label={copy().runtime} value={runtimeNameOf(runtimeInfo, d.runtime)} />
         )}
         <ListRow
           label={copy().model}

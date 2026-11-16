@@ -18,6 +18,9 @@ const hint =
 
 // The files that still name a runtime id, with how often. This list may only shrink:
 // each group names the step of the runtime descriptor work that empties it.
+// (One exception, once: when the scanner learned to count unquoted object keys
+// (`hermes: …`), the keys that already existed were entered under the step that
+// removes them: two more in advanced-config.js, two in agent-browsers.js.)
 const runtimeIdAllowlist = {
   // Permanent: "openclaw" as something other than an agent's runtime.
   // The holder of a login (model-accounts.js: "agentpier" or "openclaw").
@@ -35,14 +38,9 @@ const runtimeIdAllowlist = {
   "server/features/assistants/exec-allowlist.js": 1,
   "server/features/assistants/browser-upload-staging.js": 1,
 
-  // The runtime chooser and the runtimes' product names: with the runtime list's
-  // install state.
-  "web/features/assistants/runtime-capabilities.js": 2,
-  "web/features/assistants/wizard/AgentWizard.jsx": 1,
-  "web/features/assistants/wizard/StepStart.jsx": 4,
-
-  // Advanced settings per runtime (described surfaces).
-  "server/features/assistants/advanced-config.js": 2,
+  // Advanced settings per runtime (described surfaces). Two literals and the two
+  // `hermes` keys of a setting's view.
+  "server/features/assistants/advanced-config.js": 4,
 
   // Server readers: port methods for memory, and Hermes's own services and routes
   // into its adapter (the descriptor's wiring).
@@ -50,6 +48,8 @@ const runtimeIdAllowlist = {
   "server/application/hermes-wiring.js": 3,
   "server/features/assistants/assistant-bootstrap.js": 1,
   "server/features/assistants/assistant-maintenance.js": 1,
+  // The `hermes` key of a managed browser's entry (whether a Hermes agent's).
+  "server/features/assistants/agent-browsers.js": 2,
   "server/features/assistants/hermes-browser-upload.js": 1,
   "server/features/assistants/hermes-dream-prompt.js": 2,
   "server/features/assistants/hermes-dreams.js": 1,
@@ -100,8 +100,15 @@ test("runtime rule namedFiles: no file outside the runtime modules is named afte
   );
 });
 
-test("the files the trait step moved name no runtime", () => {
+test("the files the trait and runtime list steps moved name no runtime", () => {
   for (const file of [
+    "web/features/assistants/runtime-capabilities.js",
+    "web/features/assistants/wizard/AgentWizard.jsx",
+    "web/features/assistants/wizard/StepStart.jsx",
+    "web/features/assistants/wizard/StepReview.jsx",
+    "web/features/assistants/useRuntimes.js",
+    "web/features/assistants/useHermesRuntime.js",
+    "web/features/assistants/hub/RuntimeHermesGroup.jsx",
     "web/features/assistants/shell-level.js",
     "web/features/assistants/TelegramSendersSettings.jsx",
     "web/features/assistants/settings/CapabilityGroups.jsx",
@@ -130,6 +137,32 @@ test("the id scanner finds literals, not prefixes or prose", () => {
     { file: "c.js", text: 'import x from "./hermes-runtime.js"; const hermes = 1;' },
   ]);
   assert.deepEqual(found, { "a.js": 3 });
+});
+
+test("the id scanner counts unquoted object keys, not ternaries, strings or paths", () => {
+  const found = runtimeIdLiterals([
+    { file: "keys.js", text: "const names = {\n  openclaw: 1,\n  hermes: 2,\n};" },
+    {
+      file: "inline.js",
+      text: "f({ hermes: state, other: 1 }); const { openclaw: o } = x;",
+    },
+    { file: "both.js", text: 'const t = { hermes: "hermes" };' },
+    // A ternary's branch, a shorthand property and a member are no keys.
+    {
+      file: "ternary.js",
+      text: "const r = on ? hermes : openclaw; g({ hermes }, x.hermes);",
+    },
+    // Session keys, prefixes and routes inside strings and patterns.
+    {
+      file: "strings.js",
+      text: 'a("agent:x:hermes:cron"); b(/^agent:[^:]+:hermes:/); c("/runtime/hermes:x"); d(/^openclaw:/);',
+    },
+    {
+      file: "words.js",
+      text: "const view = { myhermes: 1, hermesState: 2, hermes_x: 3 };",
+    },
+  ]);
+  assert.deepEqual(found, { "keys.js": 2, "inline.js": 2, "both.js": 2 });
 });
 
 test("the file scanner finds runtime-named files", () => {

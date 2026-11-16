@@ -6,45 +6,48 @@ import ListRow, { RadioRow, SelectRow } from "../../../components/ListRow.jsx";
 import Segmented from "../../../components/Segmented.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { usersCopy } from "../../../lib/i18n/messages/users.js";
-import { runtimeIdName } from "../runtime-capabilities.js";
+import { runtimeChoice, runtimeNameOf } from "../runtime-list.js";
 import TemplateNote from "../settings/TemplateNote.jsx";
 
 const copy = () => agentWizardCopy.start;
 const starts = ["blank", "template", "duplicate"];
-// "" lets the server choose its default runtime, OpenClaw.
-const runtimes = [
-  ["", "openclawSub"],
-  ["hermes", "hermesSub"],
-];
+// What the wizard says about runtime `id`: the catalog's line for it (`<id>Sub`),
+// none for a runtime the catalog does not describe.
+const runtimeSub = (id) => {
+  const key = `${id}Sub`;
+  return Object.hasOwn(copy(), key) ? copy()[key] : undefined;
+};
 
 /**
- * Laufzeit: OpenClaw or Hermes Agent while Hermes is switched on and installed
- * (`hermes`). A duplicate keeps its source's runtime and names it read-only.
+ * Laufzeit: the runtimes of the runtime list `runtimes` a new agent may run on now,
+ * the default first (runtime-list.js runtimeChoice), offered while there is more
+ * than one. A duplicate keeps its source's runtime and names it read-only
+ * (`runtimeInfo`: the view of the draft's runtime).
  */
-function RuntimeGroup({ d, hermes, onRuntime }) {
+function RuntimeGroup({ d, runtimes, runtimeInfo, onRuntime }) {
   const id = useId();
-  const duplicating = d.start === "duplicate";
-  // A duplicate shows its runtime once its source is chosen; one off OpenClaw always.
-  if (duplicating && !d.duplicateOf) return null;
-  const other = Boolean(d.runtime) && d.runtime !== "openclaw";
-  if (!hermes && !(duplicating && other)) return null;
+  const choice = runtimeChoice(runtimes, d);
+  if (!choice.shown) return null;
   return (
     <section aria-labelledby={id}>
       <GroupLabel id={id} hint={copy().runtimeHint}>
         {copy().runtime}
       </GroupLabel>
       <ListCard labelledBy={id}>
-        {duplicating ? (
-          <ListRow label={runtimeIdName(d.runtime)} sub={copy().duplicateRuntime} />
+        {choice.readOnly ? (
+          <ListRow
+            label={runtimeNameOf(runtimeInfo, d.runtime)}
+            sub={copy().duplicateRuntime}
+          />
         ) : (
-          runtimes.map(([runtime, sub]) => (
+          choice.options.map((option) => (
             <RadioRow
-              key={runtime || "default"}
+              key={option.id}
               name={`${id}-runtime`}
-              value={runtime}
-              checked={(d.runtime === "hermes" ? "hermes" : "") === runtime}
-              label={runtimeIdName(runtime)}
-              sub={copy()[sub]}
+              value={option.value}
+              checked={option.checked}
+              label={option.name}
+              sub={runtimeSub(option.id)}
               onChange={onRuntime}
             />
           ))
@@ -68,7 +71,8 @@ export default function StepStart({
   onPickTemplate,
   onDuplicate,
   onStart,
-  hermes = false,
+  runtimes = [],
+  runtimeInfo,
   onRuntime,
   error,
 }) {
@@ -116,7 +120,12 @@ export default function StepStart({
           <TemplateNote template={d.template} findings={d.template.findings} />
         )}
       </section>
-      <RuntimeGroup d={d} hermes={hermes} onRuntime={onRuntime} />
+      <RuntimeGroup
+        d={d}
+        runtimes={runtimes}
+        runtimeInfo={runtimeInfo}
+        onRuntime={onRuntime}
+      />
       {(users.length > 0 || d.owner) && (
         <section aria-labelledby={forId}>
           <GroupLabel id={forId}>{copy().forWhom}</GroupLabel>

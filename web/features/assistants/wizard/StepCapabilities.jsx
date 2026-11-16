@@ -6,7 +6,8 @@ import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "../assistant-api.js";
-import { imagesFor, runtimeIdName } from "../runtime-capabilities.js";
+import { imagesFor } from "../runtime-capabilities.js";
+import { runtimeNameOf } from "../runtime-list.js";
 import { ShellGroup } from "../settings/CapabilityGroups.jsx";
 import LockedNotice from "../settings/LockedNotice.jsx";
 import ConnectModelSheet from "./ConnectModelSheet.jsx";
@@ -80,7 +81,7 @@ export default function StepCapabilities({
       imageState === "ready"
         ? ""
         : imageState === "move"
-          ? personal().imagesRuntimeMove(runtimeIdName(d.runtime))
+          ? personal().imagesRuntimeMove(runtimeNameOf(runtimeInfo, d.runtime))
           : personal().imagesUnavailable,
   };
   // "hier einrichten" rows: [sheet, shown, label]. The PDF model is optional (a

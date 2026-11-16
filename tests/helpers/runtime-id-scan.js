@@ -45,11 +45,20 @@ export async function productSources() {
 // `"openclaw:"`, `"Hermes Agent"` or the name of a file.
 const idLiteral = /(["'`])(?:hermes|openclaw)\1/g;
 
-/** { file: count } of the runtime id literals each file holds. */
+// An unquoted object key that is exactly a runtime id: `{ hermes: … }`, `openclaw: 1,`.
+// Never part of a longer word, a member (`x.hermes`), a ternary's branch (`a ? hermes
+// : b`, which Prettier writes with a space before the colon) or text inside a string,
+// a pattern or a path (`"agent:x:hermes:cron"`, `"openclaw:"`, `/^openclaw:/`, `/hermes:`).
+const idKey = /(?<![\w$.:/"'`^-])(?:hermes|openclaw):(?!:)/g;
+
+/**
+ * { file: count } of the runtime ids each file names: its string literals and its
+ * unquoted object keys.
+ */
 export function runtimeIdLiterals(sources) {
   const found = {};
   for (const { file, text } of sources) {
-    const count = text.match(idLiteral)?.length ?? 0;
+    const count = (text.match(idLiteral)?.length ?? 0) + (text.match(idKey)?.length ?? 0);
     if (count) found[file] = count;
   }
   return found;

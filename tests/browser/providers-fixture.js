@@ -485,8 +485,9 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (path === "/api/assistant-runtime/updates" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
-    // Hermes Agent, the second runtime (its specs mock it): a server without it.
-    if (path === "/api/assistant-runtime/hermes" && method === "GET")
+    // The runtime list with Hermes Agent's install state (its specs mock it; the
+    // live topic `runtimes`): a server without it.
+    if (path === "/api/assistant-runtimes" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     // An agent's plain ssh status (agent.ssh-agent); fixture agents have no hosts,
     // which shows no block.
