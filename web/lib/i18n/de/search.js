@@ -100,5 +100,10 @@ export const searchCopy = {
     removeProject: "Projekt entfernen",
     // Die Sprech-Freigabe auf der Projekte-Seite eines Agenten.
     sessionTalk: "Sessions sprechen mit Agenten",
+    // "Lernt eigene Skills" in an agent's Capabilities tab.
+    skillLearning: "Lernt eigene Skills",
+    selfLearning: "selbst lernen",
+    learnSkills: "Skills lernen",
+    skillWorkshop: "Skill Workshop",
   },
 };

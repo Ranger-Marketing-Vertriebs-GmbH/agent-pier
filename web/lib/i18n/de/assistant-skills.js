@@ -3,6 +3,16 @@ export const assistantSkillsCopy = {
   intro:
     "Skills bringen dem Agenten ein Tool bei, meist ein Kommandozeilenprogramm. Schalte die mitgelieferten oder Katalog-Skills ein, die dieser Agent nutzen darf; Katalog-Skills installierst du unter Agenten › Skills.",
   row: "Skills",
+  learning: {
+    title: "Lernt eigene Skills",
+    description:
+      "Der Agent wertet erledigte Arbeit im Hintergrund aus und speichert wiederverwendbare Abläufe als eigene Skills. Das kostet zusätzliche Modellaufrufe mit dem Modell des Agenten, und die Auswertung kann andere Chats des Agenten und sein Gedächtnis lesen.",
+    offStillWrites:
+      "Ausgeschaltet schreibt der Agent weiterhin einen Skill, wenn du ihn darum bittest.",
+    offNoSkills: "Ausgeschaltet kann der Agent keine eigenen Skills speichern.",
+    userAgent: (runtime) =>
+      `Für Agenten von Benutzern auf ${runtime} gesperrt: Gelernte Skills würden die Skill-Liste umgehen, die begrenzt, was sie lesen.`,
+  },
   shellOff:
     "Die meisten Skills führen Kommandozeilenprogramme aus und brauchen Shell-Zugriff.",
   pageHint: (runtime) =>

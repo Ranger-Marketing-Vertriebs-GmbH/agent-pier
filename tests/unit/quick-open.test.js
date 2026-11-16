@@ -505,3 +505,21 @@ test("the owner finds a runtime's install group; a user's search holds none", ()
   );
   assert.equal(flat(searchEntries(users, "hermes")).length, 0);
 });
+
+test("'Learns its own skills' is the owner's setting, not in the user's search", () => {
+  const agents = [{ id: "lumi", name: "Lumi" }];
+  const owners = buildSearchIndex({ agents, connections: null, agentsEnabled: true });
+  for (const query of [
+    "Learns its own skills",
+    "Lernt eigene Skills",
+    "Skill Workshop",
+  ]) {
+    const hit = flat(searchEntries(owners, query))[0];
+    assert.equal(hit.id, "agent:lumi:capabilities", query);
+    assert.equal(routePath(hit.target.route), "/agents/lumi/settings?tab=capabilities");
+  }
+  // A user never sees the switch on her agent's settings: her index has no entry.
+  const users = buildUserSearchIndex({ agents });
+  for (const query of ["Learns its own skills", "Lernt eigene Skills", "self-learning"])
+    assert.equal(flat(searchEntries(users, query)).length, 0, query);
+});
