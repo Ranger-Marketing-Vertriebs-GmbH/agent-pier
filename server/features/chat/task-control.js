@@ -14,6 +14,12 @@ const fail = (key, status, code, reason) =>
     code,
     ...(reason === undefined ? {} : { reason }),
   });
+/** A stop error a driver raises itself (a channel that went away, its own timeout). */
+export const taskStopError = {
+  channelDown: () => fail("taskStopChannelDown", 503, "TASK_STOP_CHANNEL_DOWN"),
+  timeout: () => fail("taskStopTimeout", 504, "TASK_STOP_TIMEOUT"),
+};
+const ownError = (error) => /^TASK_STOP_/.test(error?.code || "");
 
 /** A driver or read that throws offers nothing instead of breaking every chat read. */
 function guarded(read, fallback) {
@@ -137,6 +143,8 @@ export class TaskControl {
     const attempt = Promise.resolve()
       .then(() => driver.stop(session, task))
       .catch((error) => {
+        // A driver's own stop error reaches the browser as it is.
+        if (ownError(error)) return { ok: false, error };
         // What went wrong stays in the log; the browser only hears that it was refused.
         console.error("AgentPier could not stop a background task.", error);
         return { ok: false };
@@ -153,6 +161,7 @@ export class TaskControl {
       throw fail("taskStopTimeout", 504, "TASK_STOP_TIMEOUT");
     }
     if (!result?.ok) {
+      if (result?.error) throw result.error;
       if (result?.gone) throw fail("taskStopNotRunning", 409, "TASK_STOP_NOT_RUNNING");
       throw fail("taskStopRefused", 409, "TASK_STOP_REFUSED", result?.reason);
     }

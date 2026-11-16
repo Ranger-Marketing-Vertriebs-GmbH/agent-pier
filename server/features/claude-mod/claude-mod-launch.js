@@ -6,6 +6,8 @@ import { atLeast } from "../tools/cli-version.js";
 // Claude Code loads hooks modules (mods) from a `--plugin-dir` since this release.
 export const CLAUDE_MOD_VERSION = "2.1.287";
 export const claudeBridgeName = "agentpier-bridge";
+// The release the mod's `$.tool.call` TaskStop was verified on (stop a task).
+export const CLAUDE_TASK_STOP_VERSION = "2.1.325";
 const moduleFile = fileURLToPath(new URL("./bridge-mod.js", import.meta.url));
 
 /**

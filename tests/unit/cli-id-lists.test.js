@@ -180,6 +180,8 @@ test("every file allowed to mention a config root still does", () => {
 const BRANCH_BUDGET = {
   "server/features/accounts/account-store.js": 1,
   "server/features/agentbus/agentbus-broker.js": 4,
+  // Moved out of request-broker.js (its mod owner check), not a new branch.
+  "server/features/claude-mod/claude-mod-owner.js": 1,
   "server/features/chat/chat-source-watch.js": 1,
   "server/features/chat/context-window.js": 1,
   "server/features/cli-profiles/configuration.js": 2,
@@ -195,7 +197,7 @@ const BRANCH_BUDGET = {
   "server/features/requests/claude-startup-prompts.js": 1,
   "server/features/requests/codex-hook-trust.js": 1,
   "server/features/requests/request-approvals.js": 1,
-  "server/features/requests/request-broker.js": 4,
+  "server/features/requests/request-broker.js": 3,
   "server/features/sessions/native-session-process.js": 3,
   "server/features/sessions/session-chat-input.js": 1,
   "server/features/sessions/session-slash-command.js": 1,

@@ -13,6 +13,8 @@ const name = (value) =>
 // A submitted prompt's image file names, as the mod read them from its attachments.
 const maxImages = 32;
 const maxReason = 500;
+// The kinds of task Claude Code's TaskStop reports it stopped.
+const taskTypes = ["local_bash", "local_agent"];
 const fileName = (value) =>
   typeof value === "string" && /^[^\0-\x1f\x7f/]{1,255}$/.test(value);
 const images = (value) =>
@@ -114,6 +116,26 @@ function event(value) {
       type,
       images: [...value.images],
       ...(value.reason !== undefined ? { reason: value.reason } : {}),
+    };
+  }
+  // The answer to a command of the long-poll (claude-mod-commands.js).
+  if (type === "command.result") {
+    if (
+      !label(value.id) ||
+      typeof value.ok !== "boolean" ||
+      (value.gone !== undefined && typeof value.gone !== "boolean") ||
+      (value.reason !== undefined &&
+        (typeof value.reason !== "string" || value.reason.length > maxReason)) ||
+      (value.taskType !== undefined && !taskTypes.includes(value.taskType))
+    )
+      invalid();
+    return {
+      type,
+      id: value.id,
+      ok: value.ok,
+      ...(value.reason !== undefined ? { reason: value.reason } : {}),
+      ...(value.gone !== undefined ? { gone: value.gone } : {}),
+      ...(value.taskType !== undefined ? { taskType: value.taskType } : {}),
     };
   }
   if (["compact.start", "compact.end", "session.end"].includes(type)) return { type };

@@ -288,6 +288,7 @@ export async function createServices(config) {
     onActivity: (id) => chatEvents.publish(id, "native-activity"),
     ...claudeModAcceptance(() => chatDelivery), // Its prompts confirm chat deliveries.
   });
+  tasks.useClaudeMod(claudeMod); // Background task stops through its command poll.
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
@@ -401,6 +402,7 @@ export async function createServices(config) {
   requests = new RequestBroker({
     dataDir: config.dataDir,
     sessions,
+    commands: tasks.claudeCommands, // The bridge mod's command long-poll.
     onEvent: (event) => {
       events.current?.emit(event);
       inbox?.changed();
@@ -567,9 +569,7 @@ export async function createServices(config) {
   // Host and key writes, also those of a session's MCP server through the management
   // socket, change every session's host list.
   watchSshCatalog(sshManagement.catalog, () => services.live);
-  sshAgentRegistry.listen("session", (sessionId) =>
-    sshToolsChanged(services.live, sessionId),
-  );
+  sshAgentRegistry.listen("session", (id) => sshToolsChanged(services.live, id));
   // The managed agent browser stays while an agent browser runs, or while the running
   // Gateway was started with it and an agent has a browser profile there. Without
   // one, a later switch-on finds the browser gone and restarts first (web-tools-changes.js).
