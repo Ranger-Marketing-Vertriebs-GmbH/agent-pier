@@ -1,4 +1,5 @@
-import { defineAgentRuntime, unavailable } from "../agent-runtime.js";
+import { defineAgentRuntime } from "../agent-runtime.js";
+import { openClawDescriptor } from "./descriptor.js";
 import { openClawAgentFiles, openClawAgents } from "./openclaw-agents.js";
 import { openClawApprovals } from "./openclaw-approvals.js";
 import { openClawConfig } from "./openclaw-configuration.js";
@@ -65,9 +66,10 @@ function loopbackPorts(supervisor) {
 export function createOpenClawRuntime(supervisor) {
   const call = async (method, params) => supervisor.client.call(method, params);
   return defineAgentRuntime({
-    id: "openclaw",
-    // OpenClaw's "approval" level already asks before every command.
-    capabilities: { everyCommandApproval: unavailable("approvalAsksEveryCommand") },
+    id: openClawDescriptor.id,
+    // OpenClaw's "approval" level already asks before every command, so its shell
+    // levels (the default of `approvals.shellLevels`) have no "every".
+    traits: openClawDescriptor.traits,
     host: openClawHost(supervisor),
     sessions: openClawSessions(supervisor, clientOf),
     events: openClawEvents(supervisor),

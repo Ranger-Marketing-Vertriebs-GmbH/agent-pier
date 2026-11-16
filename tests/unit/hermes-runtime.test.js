@@ -83,7 +83,6 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
     "models",
     "channels",
     "channelBots",
-    "everyCommandApproval",
     // On the Chromium AgentPier starts for the agent (hermes-browser.js).
     "browser",
     // Those Hermes has an equivalent of (hermes-config/advanced.js).

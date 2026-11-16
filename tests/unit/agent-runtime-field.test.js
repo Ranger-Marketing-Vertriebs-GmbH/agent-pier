@@ -9,6 +9,7 @@ import {
   DEFAULT_RUNTIME,
   RUNTIME_CAPABILITIES,
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
+import { DEFAULT_TRAITS } from "../../server/features/assistants/runtimes/runtime-traits.js";
 import {
   RUNTIME_IDS,
   assertRuntime,
@@ -167,15 +168,15 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   assert.equal(details.name, "OpenClaw");
   assert.equal(details.version, "2026.10.3");
   assert.deepEqual(Object.keys(details.capabilities), [...RUNTIME_CAPABILITIES]);
-  // OpenClaw offers everything but the Hermes-only "Every command" level.
+  // OpenClaw offers everything, each with the default traits: its shell levels have
+  // no "Every command".
   for (const [name, capability] of Object.entries(details.capabilities))
-    assert.deepEqual(
-      capability,
-      name === "everyCommandApproval"
-        ? { available: false, reason: "approvalAsksEveryCommand" }
-        : { available: true },
-      name,
-    );
+    assert.deepEqual(capability, { available: true, ...DEFAULT_TRAITS[name] }, name);
+  assert.deepEqual(details.capabilities.approvals.shellLevels, [
+    "off",
+    "approval",
+    "full",
+  ]);
   const hermes = runtimeDetails(
     { runtime: "hermes", runtimeAgentId: "ap-h" },
     supervisor(),
@@ -194,8 +195,12 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   const missing = runtimeDetails({ runtime: "mystery" }, supervisor());
   assert.equal(missing.name, "mystery");
   assert.deepEqual(Object.keys(missing.capabilities), [...RUNTIME_CAPABILITIES]);
-  for (const capability of Object.values(missing.capabilities))
-    assert.deepEqual(capability, { available: false, reason: "runtimeUnknown" });
+  for (const [name, capability] of Object.entries(missing.capabilities))
+    assert.deepEqual(capability, {
+      available: false,
+      reason: "runtimeUnknown",
+      ...DEFAULT_TRAITS[name],
+    });
   const view = withRuntime({ id: "a", runtime: "openclaw" }, supervisor());
   assert.equal(view.runtimeInfo.name, "OpenClaw");
   assert.equal(view.id, "a");

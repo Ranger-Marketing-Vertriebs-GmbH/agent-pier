@@ -159,7 +159,12 @@ test("defineAgentRuntime fills sub-ports and capabilities and refuses unknown on
     available: false,
     reason: "runtimeBrowserUnsupported",
   });
-  assert.deepEqual(runtime.capabilities().sessions, available());
+  // A capability carries its traits beside its availability (ADR 0007).
+  assert.deepEqual(runtime.capabilities().sessions, {
+    ...available(),
+    chatFolders: false,
+  });
+  assert.deepEqual(runtime.capabilities().routines, available());
   assert.throws(
     () => defineAgentRuntime({ id: "x", shells: {} }),
     /Unknown runtime ports/,

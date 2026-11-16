@@ -1,0 +1,130 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  RUNTIME_CAPABILITIES,
+  defineAgentRuntime,
+  defineRuntimeDescriptor,
+} from "../../server/features/assistants/runtimes/agent-runtime.js";
+import {
+  DEFAULT_TRAITS,
+  RUNTIME_TRAITS,
+} from "../../server/features/assistants/runtimes/runtime-traits.js";
+import {
+  hermesFleetOf,
+  keepsExecAllowlist,
+  runtimeDetails,
+  runtimeList,
+  traitOf,
+} from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesDescriptor } from "../../server/features/assistants/runtimes/hermes/descriptor.js";
+import { openClawDescriptor } from "../../server/features/assistants/runtimes/openclaw/descriptor.js";
+
+// ADR 0007: each runtime states its traits in its descriptor; feature code reads them.
+
+test("trait features are capabilities", () => {
+  for (const feature of Object.keys(RUNTIME_TRAITS))
+    assert.ok(RUNTIME_CAPABILITIES.includes(feature), feature);
+});
+
+test("a descriptor needs an id and a name and checks its traits", () => {
+  assert.throws(() => defineRuntimeDescriptor({ name: "X" }), TypeError);
+  assert.throws(() => defineRuntimeDescriptor({ id: "x" }), TypeError);
+  assert.throws(
+    () => defineRuntimeDescriptor({ id: "x", name: "X", traits: { host: { kind: 1 } } }),
+    /host\.kind/,
+  );
+  const descriptor = defineRuntimeDescriptor({ id: "x", name: "X" });
+  assert.deepEqual(descriptor, { id: "x", name: "X", traits: DEFAULT_TRAITS });
+  assert.ok(Object.isFrozen(descriptor));
+});
+
+test("OpenClaw states the defaults, Hermes its own", () => {
+  assert.equal(openClawDescriptor.id, "openclaw");
+  assert.equal(openClawDescriptor.name, "OpenClaw");
+  assert.deepEqual(openClawDescriptor.traits, DEFAULT_TRAITS);
+  assert.equal(hermesDescriptor.id, "hermes");
+  assert.deepEqual(hermesDescriptor.traits, {
+    approvals: {
+      shellLevels: ["off", "approval", "every", "full"],
+      allowlist: "exactCommands",
+    },
+    agentFiles: { memoryFormat: "entries", dreaming: "agent" },
+    models: { chatgptLogin: "agentpierHeld" },
+    channelBots: { peopleApply: "restart" },
+    sessions: { chatFolders: true },
+    host: { process: "perAgent", install: "optional" },
+  });
+});
+
+test("traitOf reads the agent's runtime without a supervisor", () => {
+  assert.equal(traitOf({ runtime: "hermes" }, "sessions", "chatFolders"), true);
+  assert.equal(traitOf({ runtime: "openclaw" }, "sessions", "chatFolders"), false);
+  assert.equal(traitOf(null, "approvals", "allowlist"), "patterns");
+  assert.equal(traitOf({ runtime: "next" }, "host", "process"), "shared");
+  assert.throws(() => traitOf(null, "host", "kind"), TypeError);
+  assert.throws(() => traitOf(null, "kanban", "board"), TypeError);
+});
+
+test("the exec allowlist follows the trait and still refuses an unknown runtime", () => {
+  assert.equal(keepsExecAllowlist({ runtime: "openclaw" }), true);
+  assert.equal(keepsExecAllowlist({ runtime: "hermes" }), false);
+  assert.throws(() => keepsExecAllowlist({ runtime: "next" }), { status: 409 });
+});
+
+test("a capability carries its traits beside its availability", () => {
+  const runtime = defineAgentRuntime({ id: "x", traits: hermesDescriptor.traits });
+  assert.deepEqual(runtime.capabilities().sessions, {
+    available: true,
+    chatFolders: true,
+  });
+  assert.deepEqual(runtime.capabilities().routines, { available: true });
+  assert.equal("everyCommandApproval" in runtime.capabilities(), false);
+  assert.ok(Object.isFrozen(runtime.capabilities().sessions));
+  const plain = defineAgentRuntime({ id: "y" });
+  assert.deepEqual(plain.capabilities().approvals, {
+    available: true,
+    ...DEFAULT_TRAITS.approvals,
+  });
+});
+
+test("details carry traits while no host answers", () => {
+  const details = runtimeDetails({ runtime: "hermes" }, null);
+  assert.equal(details.name, "Hermes Agent");
+  assert.equal(details.version, null);
+  assert.deepEqual(details.capabilities.approvals, {
+    shellLevels: ["off", "approval", "every", "full"],
+    allowlist: "exactCommands",
+  });
+  assert.equal("routines" in details.capabilities, false);
+});
+
+test("an unknown runtime is unavailable with default traits", () => {
+  const { capabilities } = runtimeDetails({ runtime: "next" }, null);
+  assert.deepEqual(capabilities.sessions, {
+    available: false,
+    reason: "runtimeUnknown",
+    chatFolders: false,
+  });
+  assert.deepEqual(capabilities.routines, {
+    available: false,
+    reason: "runtimeUnknown",
+  });
+});
+
+test("the list makes no process set for an agent that does not exist", () => {
+  const supervisor = { client: null, status: () => ({ version: "2026.10.9" }) };
+  const [openclaw, hermes] = runtimeList(supervisor);
+  assert.equal(openclaw.capabilities.routines.available, true);
+  assert.deepEqual(hermes.capabilities.sessions, { chatFolders: true });
+  assert.deepEqual(hermesFleetOf(supervisor).list(), []);
+});
+
+test("the list names every runtime this AgentPier ships", () => {
+  assert.deepEqual(
+    runtimeList(null).map((r) => [r.id, r.name]),
+    [
+      ["openclaw", "OpenClaw"],
+      ["hermes", "Hermes Agent"],
+    ],
+  );
+});

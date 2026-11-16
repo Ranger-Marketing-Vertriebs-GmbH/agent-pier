@@ -1,5 +1,9 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { DEFAULT_RUNTIME, RUNTIME_CAPABILITIES, unavailable } from "./agent-runtime.js";
+import { DEFAULT_TRAITS } from "./runtime-traits.js";
+import { RUNTIME_IDS, runtimeIdOf, traitOf } from "./runtime-descriptors.js";
+import { openClawDescriptor } from "./openclaw/descriptor.js";
+import { hermesDescriptor } from "./hermes/descriptor.js";
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 import { sharedAgentAdapter } from "./openclaw/shared-prompts.js";
@@ -16,9 +20,11 @@ import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
 // shares. Hermes Agent: one process set per agent (ADR 0006 decision 4), kept by the
 // Hermes fleet attached to that supervisor (attachHermesFleet); its routines run on
 // each agent's gateway cron, their runs in `agent:<agent>:hermes:cron:<job>:<id>`.
+// What each states about itself (its name, its traits) is its descriptor
+// (docs/adr/0007-runtime-descriptor.md).
 const registry = Object.freeze({
-  openclaw: Object.freeze({
-    name: "OpenClaw",
+  [openClawDescriptor.id]: Object.freeze({
+    descriptor: openClawDescriptor,
     resolve: (supervisor, agent) => {
       let adapter = adapters.get(supervisor);
       if (!adapter)
@@ -28,15 +34,12 @@ const registry = Object.freeze({
     },
     compiler: openClawCompiler,
     runOf: cronRunOf,
-    execAllowlist: true,
   }),
-  hermes: Object.freeze({
-    name: "Hermes Agent",
+  [hermesDescriptor.id]: Object.freeze({
+    descriptor: hermesDescriptor,
     resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
     compiler: hermesCompiler,
     runOf: hermesCronRunOf,
-    // "Always allow" is AgentPier's remembered exact command (exec-remembered.js).
-    execAllowlist: false,
   }),
 });
 
@@ -60,8 +63,9 @@ export {
   pinnedEntries as hermesPinnedEntries,
 } from "./hermes/hermes-config/memory.js";
 
-/** The runtime ids an agent may record, the default first. */
-export const RUNTIME_IDS = Object.freeze(Object.keys(registry));
+// The ids agents may record, the id an agent records and its runtime's traits need
+// no adapter (runtime-descriptors.js); they are part of this module's interface too.
+export { RUNTIME_IDS, runtimeIdOf, traitOf };
 
 // One OpenClaw adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
@@ -91,20 +95,14 @@ export const hermesAvailable = (supervisor) =>
   !!supervisor && typeof supervisor === "object" && !!fleets.get(supervisor)?.available();
 
 /**
- * The runtime id `agent` records; an agent without one (and a missing agent) runs on
- * DEFAULT_RUNTIME. A team member's read already carries its lead's (assistant-store.js).
- */
-export const runtimeIdOf = (agent) =>
-  typeof agent?.runtime === "string" && agent.runtime ? agent.runtime : DEFAULT_RUNTIME;
-
-/**
  * Whether the runtime of `agent` keeps an exec allowlist AgentPier reads and writes
  * through its approvals sub-port (OpenClaw's). Hermes keeps none AgentPier may write:
  * its "Always allow" is the exact command AgentPier remembers (exec-remembered.js). A
  * runtime this AgentPier lacks is refused as in runtimeFor (409).
  */
 export const keepsExecAllowlist = (agent) =>
-  registry[assertRuntime(runtimeIdOf(agent), 409)].execAllowlist;
+  assertRuntime(runtimeIdOf(agent), 409) &&
+  traitOf(agent, "approvals", "allowlist") === "patterns";
 
 /** Whether this AgentPier has an adapter for runtime `id`. */
 export const knownRuntime = (id) => typeof id === "string" && Object.hasOwn(registry, id);
@@ -214,13 +212,14 @@ export function runtimeDetails(agent, supervisor) {
   if (!knownRuntime(id)) {
     const missing = unavailable("runtimeUnknown");
     const capabilities = Object.fromEntries(
-      RUNTIME_CAPABILITIES.map((name) => [name, missing]),
+      RUNTIME_CAPABILITIES.map((name) => [name, { ...missing, ...DEFAULT_TRAITS[name] }]),
     );
     return { id, name: id, version: null, capabilities };
   }
-  const { name } = registry[id];
+  const { name, traits } = registry[id].descriptor;
+  // Without a host nothing tells what is available; the traits are known anyway.
   if (!supervisor || typeof supervisor !== "object")
-    return { id, name, version: null, capabilities: {} };
+    return { id, name, version: null, capabilities: traits };
   const runtime = runtimeFor(agent, supervisor);
   let version = null;
   try {
@@ -240,6 +239,20 @@ export function runtimeDetails(agent, supervisor) {
  */
 export const compilerFor = (agent) =>
   registry[assertRuntime(runtimeIdOf(agent), 409)].compiler;
+
+/**
+ * Every runtime this AgentPier ships as runtimeDetails shows it, the default first:
+ * what a new agent may choose from and how each would behave, before an agent exists.
+ * A runtime with a host per agent has none to ask without an agent, so it answers
+ * its traits alone and no version.
+ */
+export const runtimeList = (supervisor) =>
+  RUNTIME_IDS.map((id) =>
+    runtimeDetails(
+      { runtime: id },
+      registry[id].descriptor.traits.host.process === "shared" ? supervisor : null,
+    ),
+  );
 
 /** A copy of the agent view `agent` with its `runtimeInfo` (runtimeDetails). */
 export const withRuntime = (agent, supervisor) => ({
