@@ -1,12 +1,22 @@
 import { TaskControl } from "../features/chat/task-control.js";
 import { TaskReads } from "../features/chat/task-reads.js";
 import { TaskStopStore } from "../features/chat/task-stop-store.js";
+import { ClaudeModCommands } from "../features/claude-mod/claude-mod-commands.js";
+import { claudeTaskDriver } from "../features/claude-mod/claude-task-driver.js";
+
+// Claude Code's host aborts a mod's `$.http.fetch` after 30 s (measured on 2.1.325);
+// a command poll is answered well before.
+const CLAUDE_COMMAND_HOLD_MS = 25000;
+const CLAUDE_TOOL = "claude";
 
 /**
  * What the chat's task sheet reads and controls, as one shared set: the reads of
  * transcripts and shell output, the stop control and the stops it persisted. The
  * control's overlay is installed on the chat store, so every chat read carries the
  * stop flags and notes. CLI drivers register on `taskControl` by tool id.
+ * `claudeCommands` is the bridge mod's command channel (the request broker serves
+ * its long-poll); `useClaudeMod(mod)` hands it the ClaudeModBridge, which routes the
+ * mod's results and hello to it, and registers the Claude Code driver.
  */
 export function createTaskServices({ config, sessions, chat, history, chatEvents }) {
   const taskReads = new TaskReads({ sessions, chat, history });
@@ -18,5 +28,16 @@ export function createTaskServices({ config, sessions, chat, history, chatEvents
     onChange: (id) => chatEvents.publish(id, "snapshot-changed"),
   });
   chat.overlay = (session, snapshot) => taskControl.overlay(session, snapshot);
-  return { taskReads, taskControl };
+  const claudeCommands = new ClaudeModCommands({
+    holdMs: CLAUDE_COMMAND_HOLD_MS,
+    onChange: (id) => taskControl.channelChanged(id),
+  });
+  const useClaudeMod = (mod) => {
+    mod.commands = claudeCommands;
+    taskControl.register(
+      CLAUDE_TOOL,
+      claudeTaskDriver({ commands: claudeCommands, mod }),
+    );
+  };
+  return { taskReads, taskControl, claudeCommands, useClaudeMod };
 }

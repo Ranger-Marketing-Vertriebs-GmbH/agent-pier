@@ -7,11 +7,19 @@
 // AgentPier over the request broker's private Unix socket
 // (server/features/claude-mod/claude-mod-socket.js).
 //
-// It never changes what Claude Code does: every hook passes the event on unchanged,
-// chunks are forwarded the moment they arrive, and reports are buffered and sent
-// about every 100 ms, one request at a time, never awaited by a hook. Without
-// AgentPier's launch environment (a remote or headless run, a plain `claude`) it
-// stays quiet. It never logs anything.
+// Beside its reports it keeps one long-poll open for AgentPier's commands. The only
+// command is `task.stop`, sent when the owner stops a background task in AgentPier's
+// chat: the mod runs Claude Code's TaskStop tool for that task id (`$.tool.call`)
+// and reports the result. This is the one case where the mod changes what Claude
+// Code does: it stops that task, and for a stopped agent it drops the `killed`
+// task notification that would otherwise start a model turn ("Stopped in
+// AgentPier"). It does so only for a stop the owner asked for.
+//
+// Otherwise it never changes what Claude Code does: every hook passes the event on
+// unchanged, chunks are forwarded the moment they arrive, and reports are buffered
+// and sent about every 100 ms, one request at a time, never awaited by a hook.
+// Without AgentPier's launch environment (a remote or headless run, a plain
+// `claude`) it stays quiet. It never logs anything.
 
 const protocol = 1;
 // This copy reports prompt.accepted / prompt.dropped. A copy from before (protocol 1
@@ -21,6 +29,7 @@ const flushMs = 100;
 const maxText = 64 * 1024;
 const maxQueue = 512;
 const url = "http://agentpier/claude-mod/v1/events";
+const commandsUrl = "http://agentpier/claude-mod/v1/commands";
 // Reports that must survive a failed request; the others describe a moment. A
 // tool's start and end keep the running tools (and the end of a call's
 // preparation) right through a failed request.
@@ -33,7 +42,20 @@ const kept = new Set([
   "session.end",
   "prompt.accepted",
   "prompt.dropped",
+  "command.result",
 ]);
+// The command ids and stopped agents a copy remembers; a poll answering only with
+// commands this copy already ran waits this long before the next poll.
+const maxRemembered = 64;
+const repeatMs = 1000;
+const taskId = (value) =>
+  typeof value === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(value) ? value : null;
+const taskTypes = new Set(["local_bash", "local_agent"]);
+const stoppedReason = "Stopped in AgentPier";
+const remember = (set, value) => {
+  set.add(value);
+  if (set.size > maxRemembered) set.delete(set.values().next().value);
+};
 // A prompt report names at most this many images and a drop's reason this many chars.
 const maxImages = 32;
 const maxReason = 500;
@@ -85,11 +107,106 @@ export class Bridge {
     this.failures = 0;
     this.turn = null;
     this.agents = new Map();
+    // The command poll: its state, the commands this copy ran (by id), the agents it
+    // stopped, the task ids it is stopping now and the agents the last poll named.
+    this.polling = false;
+    this.pollOff = false;
+    this.pollFailures = 0;
+    this.ran = new Set();
+    this.stoppedAgents = new Set();
+    this.stopping = new Set();
+    this.suppress = new Set();
   }
   use(io) {
     this.io = io;
     this.config ??= launchConfig(io.env());
+    this.poll();
     return this;
+  }
+  /** One long-poll for AgentPier's commands; the next follows when it ends. */
+  async poll() {
+    if (this.polling || this.pollOff || this.disabled || !this.io) return;
+    this.polling = true;
+    let wait = 0;
+    try {
+      const config = await this.config;
+      if (!config) return void (this.pollOff = true);
+      const response = await this.io.fetch(commandsUrl, {
+        method: "GET",
+        socketPath: config.socketPath,
+        headers: {
+          authorization: `Bearer ${config.token}`,
+          "x-agentpier-session": config.session,
+        },
+      });
+      // No command channel here (an older AgentPier, another launch): stop asking.
+      if ([401, 403, 404, 410].includes(response.status))
+        return void (this.pollOff = true);
+      if (response.ok !== true) throw Error("poll failed");
+      this.pollFailures = 0;
+      const answer = quietly(() => JSON.parse(response.text || "{}")) || {};
+      if (Array.isArray(answer.suppress))
+        this.suppress = new Set(answer.suppress.map(taskId).filter(Boolean));
+      const commands = Array.isArray(answer.commands) ? answer.commands : [];
+      // A command this copy already ran comes again until AgentPier has its result.
+      if (commands.length && commands.every((command) => this.ran.has(command?.id)))
+        wait = repeatMs;
+      for (const command of commands) this.runCommand(command);
+    } catch {
+      this.pollFailures++;
+      wait = Math.min(10000, flushMs * 2 ** this.pollFailures);
+    } finally {
+      this.polling = false;
+    }
+    if (this.pollOff || this.disabled) return;
+    if (!wait) return void this.poll();
+    if (quietly(() => this.io.after(wait, () => this.poll())) === undefined)
+      this.pollOff = true;
+  }
+  /** Run one command (once per id) and report its result; resolves that result. */
+  async runCommand(command) {
+    const id = typeof command?.id === "string" ? command.id.slice(0, 120) : null;
+    if (!id || this.ran.has(id)) return null;
+    remember(this.ran, id);
+    const result = await this.stopTask(command);
+    this.push({ type: "command.result", id, ...result });
+    this.flushSoon();
+    return result;
+  }
+  async stopTask(command) {
+    const task = command?.name === "task.stop" ? taskId(command.taskId) : null;
+    if (!task) return { ok: false, reason: "Unknown command" };
+    this.stopping.add(task);
+    try {
+      const answer = await this.io.call({ tool: "TaskStop", task_id: task });
+      if (answer?.isError) {
+        const text = String(
+          typeof answer.result === "string" ? answer.result : answer.text || "",
+        );
+        // Finished or never there: nothing left to stop.
+        if (/No task found/.test(text)) return { ok: false, gone: true };
+        return { ok: false, reason: text.slice(0, maxReason) };
+      }
+      const type = answer?.result?.task_type;
+      if (type === "local_agent") remember(this.stoppedAgents, task);
+      return { ok: true, ...(taskTypes.has(type) ? { taskType: type } : {}) };
+    } catch (error) {
+      return { ok: false, reason: String(error?.message || error).slice(0, maxReason) };
+    } finally {
+      this.stopping.delete(task);
+    }
+  }
+  /**
+   * The reason to drop a prompt, or undefined: the task notification of an agent
+   * that this copy stopped or AgentPier's last poll named, unless it says the agent
+   * finished on its own.
+   */
+  dropReason(e) {
+    if (e?.origin?.kind !== "task-notification" || typeof e.text !== "string") return;
+    const id = /<task-id>([^<]{1,80})<\/task-id>/.exec(e.text)?.[1];
+    const status = /<status>([^<]{1,40})<\/status>/.exec(e.text)?.[1];
+    if (status && status !== "killed" && status !== "stopped") return;
+    if (id && (this.stoppedAgents.has(id) || this.suppress.has(id))) return stoppedReason;
   }
   push(event) {
     if (this.disabled) return;
@@ -176,8 +293,10 @@ export class Bridge {
     if (this.turn?.id === turnId) this.turn = null;
     this.flushSoon();
   }
-  toolStart({ tool, tool_use_id: id, agentId }) {
+  toolStart({ tool, tool_use_id: id, agentId, task_id }) {
     if (agentId !== undefined || typeof id !== "string") return false;
+    // The TaskStop this copy runs for AgentPier is no tool call of the session.
+    if (tool === "TaskStop" && this.stopping.has(task_id)) return false;
     this.push({ type: "tool.start", id, name: String(tool) });
     return true;
   }
@@ -347,21 +466,24 @@ function tap(stream, observe) {
 // An observer never decides: should one of its hooks fail, the call goes on as if it
 // were not there (`next(e)` replays what an earlier `next` settled to).
 const pass = ($, e, next) => next(e);
+// What the bridge reaches through a hook's own `$`.
+const ioOf = ($) => ({
+  env: () =>
+    Promise.all([
+      $.env.get("AGENTPIER_CLAUDE_BRIDGE_SOCKET"),
+      $.env.get("AGENTPIER_REQUEST_FILE"),
+      $.env.get("AGENTPIER_REQUEST_TOKEN"),
+    ]),
+  after: (ms, fn) => $.clock.after(ms, fn),
+  fetch: (target, init) => $.http.fetch(target, init),
+  call: (input) => $.tool.call(input),
+});
 
 /** @type {import('claude-code').Register} */
 export const register = (on) => {
   const bridge = new Bridge();
   on("session.start", async ($, e, next) => {
-    bridge.use({
-      env: () =>
-        Promise.all([
-          $.env.get("AGENTPIER_CLAUDE_BRIDGE_SOCKET"),
-          $.env.get("AGENTPIER_REQUEST_FILE"),
-          $.env.get("AGENTPIER_REQUEST_TOKEN"),
-        ]),
-      after: (ms, fn) => $.clock.after(ms, fn),
-      fetch: (target, init) => $.http.fetch(target, init),
-    });
+    bridge.use(ioOf($));
     const version = await $.session.version().then(
       (value) => value?.version,
       () => undefined,
@@ -371,17 +493,7 @@ export const register = (on) => {
   });
   on("turn.start", ($, e, next) => {
     // A copy the engine replaced mid-session hears no `session.start`.
-    if (!bridge.io)
-      bridge.use({
-        env: () =>
-          Promise.all([
-            $.env.get("AGENTPIER_CLAUDE_BRIDGE_SOCKET"),
-            $.env.get("AGENTPIER_REQUEST_FILE"),
-            $.env.get("AGENTPIER_REQUEST_TOKEN"),
-          ]),
-        after: (ms, fn) => $.clock.after(ms, fn),
-        fetch: (target, init) => $.http.fetch(target, init),
-      });
+    if (!bridge.io) bridge.use(ioOf($));
     quietly(() => bridge.turnStart(e));
     return next(e);
   });
@@ -418,6 +530,9 @@ export const register = (on) => {
     }
   }).catch(pass);
   on("prompt.submit", async ($, e, next) => {
+    // The notification of an agent the owner stopped in AgentPier starts no turn.
+    const drop = quietly(() => bridge.dropReason(e));
+    if (drop) return { drop };
     // Observed once it entered or was queued (or dropped); never changed or held.
     const result = await next(e);
     quietly(() => bridge.promptSubmitted(e, result));

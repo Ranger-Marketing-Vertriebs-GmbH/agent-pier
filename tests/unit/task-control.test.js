@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TaskControl } from "../../server/features/chat/task-control.js";
+import { TaskControl, taskStopError } from "../../server/features/chat/task-control.js";
 import { TaskStopStore } from "../../server/features/chat/task-stop-store.js";
 
 const session = { id: "s1", tool: "claude", status: "running" };
@@ -254,6 +254,18 @@ test("a driver exception never reaches the browser", async (t) => {
     return true;
   });
   assert.equal(logged.mock.callCount(), 1);
+});
+
+test("a driver's own stop error (its channel went away) reaches the route as it is", async (t) => {
+  const { control, driver, changes } = setup(t);
+  const logged = t.mock.method(console, "error", () => {});
+  driver.stop = async () => Promise.reject(taskStopError.channelDown());
+  await assert.rejects(control.stop("s1", "agent1"), {
+    code: "TASK_STOP_CHANNEL_DOWN",
+    status: 503,
+  });
+  assert.equal(logged.mock.callCount(), 0);
+  assert.deepEqual(changes, [], "nothing recorded");
 });
 
 test("a stop that read the snapshot before the first one finished does not run again", async (t) => {

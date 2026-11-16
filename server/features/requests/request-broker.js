@@ -22,6 +22,7 @@ import { validSession, requestValue, answerValue } from "./request-validation.js
 import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
+import { createModOwner } from "../claude-mod/claude-mod-owner.js";
 import { RequestNotices } from "./request-notices.js";
 import { inboxEntry, sessionEntry } from "./request-views.js";
 import { RequestApprovals } from "./request-approvals.js";
@@ -60,6 +61,7 @@ export class RequestBroker {
     onNative = () => {},
     onLaunch = () => {},
     onChange = () => {},
+    commands = null,
   }) {
     Object.assign(this, requestFolders(dataDir));
     this.sessions = sessions;
@@ -87,7 +89,9 @@ export class RequestBroker {
     this.socketPath = `/tmp/agentpier-requests-${process.getuid?.() ?? "user"}-${hash}/bridge.sock`;
     // The Claude Code bridge mod speaks HTTP; it gets a socket of its own beside it.
     this.modSocketPath = path.join(path.dirname(this.socketPath), "claude-mod.sock");
-    this.modOwners = new Map();
+    this.modOwners = createModOwner({ file: (id) => this.file(id), sessions });
+    // ClaudeModCommands: the mod's command long-poll (none: the route answers 404).
+    this.commands = commands;
     this.ready = this.start();
   }
   async start() {
@@ -131,40 +135,14 @@ export class RequestBroker {
       this.server.listen(this.socketPath, resolve);
     });
     await fs.chmod(this.socketPath, 0o600);
+    const { commands } = this;
     this.modServer = await listenClaudeMod({
       socketPath: this.modSocketPath,
-      authenticate: (id, token) => this.modOwner(id, token),
+      authenticate: (id, token) => this.modOwners.owner(id, token),
       deliver: (owner, { events, prompts }) =>
         this.notify(owner.id, { type: "claude-mod", events, prompts }),
+      poll: commands && ((owner, closed) => commands.poll(owner, closed)),
     });
-  }
-  /**
-   * The Claude Code launch a bridge mod request belongs to, checked like a native
-   * channel's hello and the pushes after it; remembered for a second, as the mod
-   * reports about ten times a second.
-   */
-  async modOwner(id, token) {
-    if (!validSession(id)) return null;
-    const cached = this.modOwners.get(id);
-    if (cached && Date.now() - cached.at < 1000 && equal(token, cached.owner.token))
-      return cached.owner;
-    let launch;
-    try {
-      launch = JSON.parse(await fs.readFile(this.file(id), "utf8"));
-    } catch {
-      return null;
-    }
-    if (launch.tool !== "claude" || !equal(token, launch.token)) return null;
-    const session = await this.sessions.get(id).catch(() => null);
-    if (
-      session?.status !== "running" ||
-      session.accountId !== launch.accountId ||
-      session.tool !== launch.tool
-    )
-      return { status: 410 };
-    if (this.modOwners.size > 256) this.modOwners.clear();
-    this.modOwners.set(id, { owner: launch, at: Date.now() });
-    return launch;
   }
   file(id) {
     if (!validSession(id)) throw problem(copy.session);
@@ -573,7 +551,7 @@ export class RequestBroker {
     // Only a session id can name launch files; anything else removes nothing.
     if (!validSession(sessionId)) return;
     this.notices.clear(sessionId);
-    this.modOwners.delete(sessionId);
+    this.modOwners.forget(sessionId);
     this.launched(sessionId);
     for (const socket of this.clients)
       if (socket.owner?.id === sessionId) socket.destroy();

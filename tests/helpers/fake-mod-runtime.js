@@ -1,10 +1,19 @@
 // A stand-in for Claude Code's mod runtime, enough to drive a hooks module's
 // `register(on)` from node:test: hooks by event, a `$` with env, clock, http and
 // session nouns, manual timers, and streaming events as async generators.
-export function fakeModRuntime({ env = {}, fetch, version = "2.1.304" } = {}) {
+// A GET (the mod's command long-poll) goes to `poll`, held open when none is given,
+// and is recorded in `polls`; `toolCall` answers `$.tool.call`.
+export function fakeModRuntime({
+  env = {},
+  fetch,
+  poll = () => new Promise(() => {}),
+  toolCall = async () => ({ text: "" }),
+  version = "2.1.304",
+} = {}) {
   const hooks = new Map();
   const timers = [];
   const requests = [];
+  const polls = [];
   const $ = {
     env: { get: async (name) => env[name] },
     clock: {
@@ -21,6 +30,11 @@ export function fakeModRuntime({ env = {}, fetch, version = "2.1.304" } = {}) {
     },
     http: {
       fetch: async (url, init) => {
+        if (init.method === "GET") {
+          const request = { url, ...init };
+          polls.push(request);
+          return poll(request);
+        }
         const request = { url, ...init, body: JSON.parse(init.body) };
         requests.push(request);
         return fetch
@@ -29,6 +43,7 @@ export function fakeModRuntime({ env = {}, fetch, version = "2.1.304" } = {}) {
       },
     },
     session: { version: async () => ({ version }) },
+    tool: { call: async (input) => toolCall(input) },
   };
   const on = (event, hook) => {
     const registration = { event, hook, catch: null };
@@ -45,6 +60,7 @@ export function fakeModRuntime({ env = {}, fetch, version = "2.1.304" } = {}) {
     hooks,
     timers,
     requests,
+    polls,
     settle,
     /** Every report the module sent so far, in order. */
     events: () => requests.flatMap((request) => request.body.events),

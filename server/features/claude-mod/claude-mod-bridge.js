@@ -41,6 +41,13 @@ export class ClaudeModBridge {
       now,
     });
     this.sessions = new Map();
+    // ClaudeModCommands, once task control is wired: it hears the mod's command
+    // results and that the hello named the CLI version a stop depends on.
+    this.commands = null;
+  }
+  /** The Claude Code version this launch's mod said hello with, if any. */
+  cli(sessionId) {
+    return this.sessions.get(sessionId)?.cli;
   }
   /** Tell the acceptance matcher; it is advisory and never fails a report. */
   acceptance(name, ...args) {
@@ -95,6 +102,11 @@ export class ClaudeModBridge {
         this.forget(sessionId);
         return {};
       }
+      if (event.type === "hello" && event.cli && event.cli !== state.cli) {
+        state.cli = event.cli;
+        this.commands?.changed(sessionId);
+      }
+      if (event.type === "command.result") this.commands?.result(sessionId, event);
       if (event.type === "prompt.accepted" || event.type === "prompt.dropped")
         this.acceptance("onPrompt", sessionId, {
           kind: event.type === "prompt.accepted" ? "accepted" : "dropped",
@@ -205,6 +217,8 @@ export class ClaudeModBridge {
   /** A new launch, a stopped session or the mod's goodbye: back to the fallbacks. */
   forget(sessionId) {
     this.acceptance("onForget", sessionId);
+    // Its command poll and pending stops end with it.
+    this.commands?.forget(sessionId);
     const state = this.sessions.get(sessionId);
     if (!state) return;
     this.sessions.delete(sessionId);
