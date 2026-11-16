@@ -32,6 +32,7 @@ import { GitRemotes } from "../features/repositories/git-remote.js";
 import { ProviderHistory } from "../features/chat/provider-history.js";
 import { claudeModAcceptance, codexProxyAcceptance } from "./chat-delivery-wiring.js";
 import { createChatDelivery } from "./chat-delivery-wiring.js";
+import { createTaskServices } from "./task-services.js";
 import { ChatStore } from "../features/chat/chat-store.js";
 import { ChatImages } from "../features/chat/chat-images.js";
 import { ChatSync } from "../features/chat/chat-sync.js";
@@ -245,11 +246,9 @@ export async function createServices(config) {
     bindings,
     events: chatEvents,
   });
-  const github = new GithubCredentials({
-    dataDir: config.dataDir,
-    repositories,
-  });
+  const github = new GithubCredentials({ dataDir: config.dataDir, repositories });
   await github.sync();
+  const tasks = createTaskServices({ config, sessions, chat, history, chatEvents });
   // Late-bound: the bridge mod's state needs the chat streams created below.
   let claudeMod = null;
   const activity = new SessionActivity({
@@ -442,6 +441,7 @@ export async function createServices(config) {
     sessions,
     requests,
     models,
+    notes: tasks.taskControl,
     onChange: (sessionId) => deliveriesChanged(services.live, sessionId),
   });
   artifacts = new ArtifactService({
@@ -530,6 +530,7 @@ export async function createServices(config) {
     slashCommands,
     chatAttachments,
     chatDelivery,
+    ...tasks,
     extensions,
     mcpServers,
     mcpServerChanges,

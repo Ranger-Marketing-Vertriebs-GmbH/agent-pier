@@ -61,6 +61,13 @@ export const chat = Object.freeze({
   codexReadTimeout: "Das Lesen des Codex-Verlaufs hat zu lange gedauert.",
   taskUnknown: "Diese Aufgabe gehört nicht zur Session.",
   taskTranscriptUnavailable: "Der Verlauf dieser Aufgabe ist nicht lesbar.",
+  taskStopUnsupported: "Diese Aufgabe lässt sich in dieser CLI nicht beenden.",
+  taskStopNotRunning: "Diese Aufgabe läuft nicht mehr.",
+  taskStopChannelDown:
+    "Die Verbindung zur CLI steht gerade nicht. Versuche es gleich noch einmal.",
+  taskStopRefused: "Die CLI hat das Beenden der Aufgabe abgelehnt.",
+  taskStopTimeout:
+    "Die CLI hat auf das Beenden der Aufgabe nicht rechtzeitig geantwortet.",
 });
 export const chatAttachmentCopy = {
   invalidSession: "Ungültige Session für den Datei-Upload.",

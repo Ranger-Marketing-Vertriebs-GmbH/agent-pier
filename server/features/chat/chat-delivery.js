@@ -73,10 +73,16 @@ export class ChatDelivery {
     waitLimitMs,
     onChange,
     acceptance,
+    filterNotes,
+    onNotesDelivered,
   }) {
     this.directory = path.join(dataDir, "chat-delivery");
     // Told the session id of every receipt write (session.deliveries live topic).
     this.onChange = onChange;
+    // Stop notes a message carries: which of the ids its text holds, and the ids it
+    // delivered once accepted (task-control.js).
+    this.filterNotes = filterNotes;
+    this.onNotesDelivered = onNotesDelivered;
     this.waiters = new Set();
     this.sessions = sessions;
     this.requests = requests;
@@ -133,6 +139,9 @@ export class ChatDelivery {
   }
 
   write(file, receipt) {
+    // Marked before the write so the receipt on disk says the notes are spent.
+    const consume = this.notesDue(receipt);
+    if (consume) receipt.notesDelivered = true;
     const temporary = `${file}.${randomUUID()}.tmp`;
     try {
       privateDirectory(this.directory);
@@ -158,6 +167,25 @@ export class ChatDelivery {
       }
     }
     this.changed(path.basename(path.dirname(file)));
+    if (consume) this.deliverNotes(path.basename(path.dirname(file)), receipt);
+  }
+
+  /** Whether the message is delivered for good: its stop notes are then spent. */
+  notesDue(receipt) {
+    return (
+      receipt.stopNoteIds?.length &&
+      !receipt.notesDelivered &&
+      (receipt.status === "accepted" ||
+        (receipt.status === "handed-off" && receipt.confirmation === "text"))
+    );
+  }
+
+  deliverNotes(id, receipt) {
+    try {
+      this.onNotesDelivered?.(id, receipt.stopNoteIds);
+    } catch {
+      console.error("AgentPier could not forget delivered stop notes.");
+    }
   }
 
   /**
@@ -266,9 +294,16 @@ export class ChatDelivery {
   }
 
   async send(id, body) {
-    const { deliveryId, deliveryScope, text, submit } = body;
+    const { deliveryId, deliveryScope, text, submit, stopNoteIds } = body;
     const file = this.file(id, deliveryId);
     if (typeof text !== "string" || text.length > 32000 || submit !== true)
+      throw problem(copy.invalid);
+    if (
+      stopNoteIds !== undefined &&
+      (!Array.isArray(stopNoteIds) ||
+        stopNoteIds.length > 20 ||
+        !stopNoteIds.every((noteId) => typeof noteId === "string" && uuid.test(noteId)))
+    )
       throw problem(copy.invalid);
     this.checkScope(await this.sessions.get(id), deliveryScope);
     const hash = createHash("sha256")
@@ -295,6 +330,11 @@ export class ChatDelivery {
       attemptId: deliveryId.toLowerCase(),
       journal: { phase: "reserved" },
     };
+    // Only a message that is no slash or ! line carries notes, and only those it holds.
+    const carried = /^\s*[/!]/.test(text)
+      ? []
+      : (this.filterNotes?.(id, stopNoteIds || [], text) ?? []);
+    if (carried.length) receipt.stopNoteIds = carried;
     // No await between lookup, durable reservation and in-process ownership.
     if (normalized === undefined) {
       receipt.status = "rejected";
