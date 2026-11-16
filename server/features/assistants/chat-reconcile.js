@@ -164,7 +164,7 @@ async function pass(service) {
   const reads = new Map();
   const busy = busyChats(service);
   const watched = new Set(service.feeds?.entries?.keys() || []);
-  const openClaw = hostReady(service.runtime);
+  const sharedReady = hostReady(service.runtime);
   for (const c of service.store.listConversations()) {
     // One unavailable session must not stall run reconciliation for the rest.
     if (service.closed) break;
@@ -192,7 +192,7 @@ async function pass(service) {
       continue;
     }
     // The shared host's chats wait while it takes no calls.
-    if (!openClaw) continue;
+    if (!sharedReady) continue;
     // Once per connection, archived chats too: pinned, a chat stays out of OpenClaw's
     // maintenance (its entry cap and disk budget included), and one it archived anyway
     // takes turns and deliveries again (native-chat-archive.js).
@@ -250,7 +250,7 @@ async function pass(service) {
     const listed = new Set(service.store.listConversations().map((c) => c.id));
     for (const id of stale) if (!listed.has(id)) stale.delete(id);
     // The shared host's sync state; only its chats keep it while it runs.
-    if (openClaw) service.runtime.setState({ sync: stale.size ? "stale" : "current" });
+    if (sharedReady) service.runtime.setState({ sync: stale.size ? "stale" : "current" });
     // The poll reconciles every 2 s during a turn: only the chats whose history
     // or turns changed read their feed again; the list hears of every pass.
     for (const id of reconciledChanges(service, reads)) service.feeds.invalidate(id);

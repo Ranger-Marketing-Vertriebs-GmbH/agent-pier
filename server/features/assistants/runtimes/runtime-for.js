@@ -225,6 +225,15 @@ function hermesSessionAgent(sessionKey) {
 }
 
 /**
+ * Whether `sessionKey` is a session key of an agent on a host of its own (a Hermes
+ * agent's, hermes/hermes-run-state.js sessionKeyOf), whatever became of the agent.
+ */
+export const ownHostSessionKey = (sessionKey) =>
+  /^agent:[A-Za-z0-9][A-Za-z0-9_-]{0,63}:hermes:/.test(
+    typeof sessionKey === "string" ? sessionKey : "",
+  );
+
+/**
  * Run events of every agent behind `supervisor` that runs on a host of its own (the
  * Hermes fleet's), subscribed once and followed across each host's restarts. The
  * shared host's own events go through `runtimeFor(null, supervisor).events`,

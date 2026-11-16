@@ -4,6 +4,7 @@ import path from "node:path";
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { privateFolder } from "./runtime-paths.js";
+import { isRuntimeCredential } from "./runtimes/runtime-backup-paths.js";
 
 /**
  * Update backups keep credentials only in sealed form (AES-256-GCM). Each backup has
@@ -100,11 +101,10 @@ export function configShaped(text) {
   }
 }
 export const isDatabase = (name) => /\.(sqlite3?|db)$/.test(name);
-// A Hermes agent's HERMES_HOME (runtimes/hermes/hermes-backup-paths.js): its .env holds the
-// model, MCP, bot and speech keys, auth.json Hermes's own provider logins.
-const hermesCredential = /^hermes\/state\/[^/]+\/(\.env|auth\.json)$/;
+// A runtime's own credential files come first (runtimes/runtime-backup-paths.js: a
+// Hermes agent's .env and auth.json in its HERMES_HOME).
 export function isCredentialFile(relative) {
-  if (hermesCredential.test(relative)) return true;
+  if (isRuntimeCredential(relative)) return true;
   const [tree, ...rest] = relative.split("/");
   if (!["home", "state"].includes(tree)) return false;
   return (

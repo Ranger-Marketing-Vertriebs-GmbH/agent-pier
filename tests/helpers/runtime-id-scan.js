@@ -83,3 +83,33 @@ export const runtimeNamedFiles = (sources) =>
     .map(({ file }) => file)
     .filter((file) => /^(?:hermes|openclaw)-/.test(path.posix.basename(file)))
     .sort();
+
+// Code without its block comments, string and template literals and trailing
+// comments (whole-line comments are gone from the sources already). A regular
+// expression stays: a pattern that spells a runtime's name knows that runtime.
+const codeOnly = (text) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(["'])(?:\\.|(?!\1)[^\\\n])*\1/g, '""')
+    .replace(/`(?:\\.|[^`\\])*`/g, "``")
+    .replace(/\/\/.*$/gm, "");
+
+// An identifier with a runtime's name as a word part, in any position: an import, a
+// call, a member, a key, a declaration (`hermesFleetOf`, `openClawFrameEvent`,
+// `services.hermesRuntime`, `hermes.state()`, `stripOpenClawRows`).
+const namedIdentifier = /[\w$]*(?:[Hh]ermes|[Oo]pen[Cc]law)[\w$]*/g;
+
+/**
+ * { file: [name, …] } of the identifiers each file spells with a runtime's name,
+ * sorted. It reads code only: no comment, no string, no template literal (so not an
+ * expression inside one either). A helper that hides a runtime behind a neutral name
+ * is still invisible to it.
+ */
+export function runtimeNamedIdentifiers(sources) {
+  const found = {};
+  for (const { file, text } of sources) {
+    const names = [...new Set(codeOnly(text).match(namedIdentifier) ?? [])];
+    if (names.length) found[file] = names.sort();
+  }
+  return found;
+}

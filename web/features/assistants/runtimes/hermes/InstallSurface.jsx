@@ -5,7 +5,7 @@ import ListCard from "../../../../components/ListCard.jsx";
 import ListRow, { ToggleRow, unknownValue } from "../../../../components/ListRow.jsx";
 import StatusDot from "../../../../components/StatusDot.jsx";
 import { agentsHubCopy } from "../../../../lib/i18n/messages/agents-hub.js";
-import { assistantApi } from "../../assistant-api.js";
+import { hermesApi } from "./api.js";
 import {
   BlockerList,
   PauseAndUpdate,
@@ -94,7 +94,7 @@ export default function InstallSurface({ runtime, context, list, anchor }) {
           sub={copy().enableSub}
           checked={state.enabled}
           disabled={working}
-          onChange={(enabled) => act(() => assistantApi.setHermes(enabled))}
+          onChange={(enabled) => act(() => hermesApi.set(enabled))}
         />
         <ListRow
           label={copy().state}
@@ -120,7 +120,7 @@ export default function InstallSurface({ runtime, context, list, anchor }) {
                 type="button"
                 className="button secondary compact"
                 disabled={working}
-                onClick={() => act(() => assistantApi.updateHermes())}
+                onClick={() => act(() => hermesApi.update())}
               >
                 {copy().update}
               </button>

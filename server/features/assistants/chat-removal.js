@@ -6,6 +6,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import {
   hostConnection,
   hostReady,
+  ownHostSessionKey,
   ownProcess,
   runtimeFor,
 } from "./runtimes/runtime-for.js";
@@ -160,7 +161,7 @@ export async function deleteNativeSession(assistants, conversation) {
   // A Hermes agent's chat lives in its own process set; a gone agent's on OpenClaw.
   const owner = agent && ownProcess(agent) ? agent : null;
   // A deleted Hermes agent's set went with its home, transcripts included.
-  if (!agent && hermesKey.test(conversation.runtimeSessionKey || "")) {
+  if (!agent && ownHostSessionKey(conversation.runtimeSessionKey)) {
     assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
     await forgetChat(assistants, conversation);
     return true;
@@ -244,9 +245,6 @@ export async function deleteNativeSession(assistants, conversation) {
   await forgetChat(assistants, conversation);
   return true;
 }
-
-// A Hermes agent's session key (runtimes/hermes/hermes-run-state.js sessionKeyOf).
-const hermesKey = /^agent:[A-Za-z0-9][A-Za-z0-9_-]{0,63}:hermes:/;
 
 /**
  * The deletes of `agent`'s chats a stopped process set kept (Hermes): retried once its

@@ -19,7 +19,10 @@ import {
 import {
   isPrivateRuntimeTree,
   isRuntimeBrowserTree,
+  isRuntimeCredential,
   isRuntimeExcluded,
+  isRuntimeSnapshotCredential,
+  runtimeBrowserProfiles,
 } from "../../server/features/assistants/runtimes/runtime-backup-paths.js";
 import {
   agentHostSets,
@@ -28,6 +31,7 @@ import {
   agentWorkspace,
   assertRuntimeReady,
   attachAgentHosts,
+  ownHostSessionKey,
   ownProcess,
   runtimeReady,
   sharedHostAgents,
@@ -352,6 +356,39 @@ test("the runtimes' parts of shared features are reached without naming one", as
   assert.equal(isPrivateRuntimeTree("hermes/home/ap-a/notes.txt"), true);
   assert.equal(isPrivateRuntimeTree("hermes/state/ap-a/config.yaml"), false);
   assert.equal(isPrivateRuntimeTree("workspaces/a/x"), false);
+  // Credentials of a home, below assistants/ and below the runtime's own folder.
+  assert.equal(isRuntimeCredential("hermes/state/ap-a/.env"), true);
+  assert.equal(isRuntimeCredential("hermes/state/ap-a/auth.json"), true);
+  assert.equal(isRuntimeCredential("hermes/state/ap-a/.env.bak"), false);
+  assert.equal(isRuntimeCredential("state/credentials/x"), false);
+  assert.equal(isRuntimeSnapshotCredential("state/ap-a/.env.bak"), true);
+  assert.equal(isRuntimeSnapshotCredential("state/ap-a/backups/1/.env"), true);
+  assert.equal(isRuntimeSnapshotCredential("state/ap-a/config.yaml"), false);
+  // Browser profiles in the agents' own homes.
+  const [profiles, ...others] = runtimeBrowserProfiles();
+  assert.deepEqual(others, []);
+  assert.equal(profiles.prefix, "assistants/hermes/home");
+  assert.equal(profiles.folder, "agentpier-browser");
+  assert.equal(profiles.homeOf("a1"), "ap-a1");
+  assert.equal(profiles.homeOf("../x"), null);
+  assert.equal(
+    profiles.member("assistants/hermes/home/ap-a1/agentpier-browser/user-data/Default/x"),
+    true,
+  );
+  assert.equal(profiles.member("assistants/hermes/home/ap-a1/notes.txt"), false);
+});
+
+test("a session key tells whether its agent ran on a host of its own", () => {
+  assert.equal(ownHostSessionKey("agent:ap-a1:hermes:s1"), true);
+  assert.equal(ownHostSessionKey("agent:ap-a1:hermes:cron:j:1"), true);
+  for (const key of [
+    "agent:ap-a1:main",
+    "agent::hermes:s1",
+    "x:agent:a:hermes:",
+    "",
+    null,
+  ])
+    assert.equal(ownHostSessionKey(key), false, String(key));
 });
 
 // The order of the agent services' start, as it was before the runtimes were wired

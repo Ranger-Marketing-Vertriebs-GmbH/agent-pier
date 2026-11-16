@@ -32,7 +32,7 @@ export function proxyAccess({ assistants, servers, accountIdOf }) {
     !!agent &&
     !agent.archivedAt &&
     (typeof agent.userId !== "string" || assistants.userActive?.(agent.userId) !== false);
-  const hermesAgent = (agentId) => {
+  const ownProcessAgent = (agentId) => {
     const agent = assistants.store
       .listAssistants()
       .find((a) => a.runtimeAgentId === agentId && ownProcess(a));
@@ -52,7 +52,7 @@ export function proxyAccess({ assistants, servers, accountIdOf }) {
   };
   return {
     chatgpt(agentId, profileId, { images = false, route } = {}) {
-      const agent = hermesAgent(agentId);
+      const agent = ownProcessAgent(agentId);
       if (!agent) return false;
       const model = agent.model?.connectionId === accountIdOf(profileId);
       if (!images)
@@ -74,7 +74,7 @@ export function proxyAccess({ assistants, servers, accountIdOf }) {
         return assistants.store
           .listAssistants()
           .some((agent) => !ownProcess(agent) && active(agent) && bound(agent));
-      const agent = hermesAgent(consumer);
+      const agent = ownProcessAgent(consumer);
       return !!agent && bound(agent);
     },
   };
