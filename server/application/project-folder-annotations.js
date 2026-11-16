@@ -1,9 +1,15 @@
+import { waitsForAgents } from "../features/projects/deletion-errors.js";
 import { folderState } from "../features/projects/deletion-paths.js";
 import { deletionKey } from "./project-deletion.js";
 
+// A deletion that only waits for the agents no longer stands for its folder: its
+// projects are gone, and a project registered there since is another one.
+const shown = (memory) =>
+  memory.deletions.list().filter((record) => !waitsForAgents(record));
+
 /** The deletion records the project lists carry: path, state and error code. */
 export const listedDeletions = (memory) =>
-  memory.deletions.list().map(({ path, state, error }) => ({ path, state, error }));
+  shown(memory).map(({ path, state, error }) => ({ path, state, error }));
 
 /**
  * Each row with `folder` ("present", "missing" or "unavailable"; one stat per row, in
@@ -12,7 +18,7 @@ export const listedDeletions = (memory) =>
  * written path.
  */
 export async function annotateFolders(memory, rows, pathOf) {
-  const records = new Map(memory.deletions.list().map((record) => [record.path, record]));
+  const records = new Map(shown(memory).map((record) => [record.path, record]));
   return Promise.all(
     rows.map(async (row) => {
       const record = records.size ? records.get(deletionKey(pathOf(row))) : undefined;

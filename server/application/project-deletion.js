@@ -5,7 +5,11 @@ import { projectDir } from "../lib/config.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 import { auditActor } from "../features/audit/audit-actor.js";
-import { replaceableDeletion } from "../features/projects/deletion-errors.js";
+import {
+  AGENTS_OFF,
+  replaceableDeletion,
+  waitsForAgents,
+} from "../features/projects/deletion-errors.js";
 import { inside } from "../features/projects/deletion-paths.js";
 import { endProcess } from "../features/projects/folder-processes.js";
 import { normalizeProjectPath } from "../features/projects/project-groups.js";
@@ -16,15 +20,21 @@ import {
   preflightProbes,
   refusalMessage,
 } from "./project-deletion-preflight.js";
-import { deletionScope, deletionToken, folderKey } from "./project-deletion-scope.js";
+import {
+  deletionScope,
+  deletionToken,
+  folderIdentity,
+  folderKey,
+} from "./project-deletion-scope.js";
 
 const messages = serverMessages.projectDeletion;
-// A failed deletion whose folder and data are gone except the grants of agents that
-// were switched off; it finishes once they run again (resume, or their start).
-export const AGENTS_OFF = "PROJECT_AGENTS_OFF";
+export { AGENTS_OFF };
+// What a deletion that waits for the agents (AGENTS_OFF) still has to remove.
+const agentData = ["agentGrants", "agentSessions"];
 
 const refusal = (message, status, code, extra = {}) =>
   Object.assign(problem(message, status), { code, ...extra });
+const deleting = () => refusal(messages.projectDeleting, 409, "PROJECT_DELETING");
 const stale = () => refusal(messages.deleteStale, 409, "PROJECT_DELETE_STALE");
 const blocked = () => refusal(messages.deleteBlocked, 409, "PROJECT_DELETE_BLOCKED");
 // After the mark the agents' grants are revoked; an abort does not restore them.
@@ -169,10 +179,22 @@ export class ProjectDeletion {
       if (report.folderState === "present" && name !== report.name)
         throw refusal(messages.deleteName, 400, "PROJECT_DELETE_NAME");
       if (!report.ready) throw blocked();
-      this.records.mark(scope.path, this.#body(scope, report));
+      // A failed record this start replaces: the ids it names go with this deletion,
+      // and an abort writes it back.
+      const previous = this.records.get(scope.path);
+      const { projectIds } = this.records.mark(
+        scope.path,
+        this.#body(scope, report, previous?.body),
+      ).body;
+      // A deletion of a folder around or inside this one, started meanwhile: no await
+      // lies between a mark and this check, so of two such starts one gives way.
+      if (this.#recordedAround(scope.path)) {
+        this.#undo(scope.path, previous);
+        throw deleting();
+      }
       this.#changed();
       try {
-        for (const id of scope.projectIds)
+        for (const id of projectIds)
           this.services.assistantWorkflows?.revokeProject(id, id);
         // New work is refused from the mark on; what started before it shows now.
         const after = await preflight(this.services, key, {
@@ -183,10 +205,10 @@ export class ProjectDeletion {
         const unchanged = after.token === token && deletionToken(fresh) === token;
         if (!unchanged) throw stale();
         if (after.refused || !after.ready) throw blocked();
-        this.records.mark(scope.path, this.#body(fresh, report));
+        this.records.mark(scope.path, this.#body(fresh, report, previous?.body));
       } catch (error) {
         // Nothing was deleted: the folder is no longer being deleted.
-        this.records.drop(scope.path);
+        this.#undo(scope.path, previous);
         this.#changed();
         throw aborted(error);
       }
@@ -228,7 +250,7 @@ export class ProjectDeletion {
       return;
     }
     for (const record of records) {
-      const waited = record.state === "failed" && record.error === AGENTS_OFF;
+      const waited = waitsForAgents(record);
       if (record.state !== "deleting" && !(waited && this.services.assistantWorkflows))
         continue;
       if (this.queue.has(record.path)) continue;
@@ -257,18 +279,34 @@ export class ProjectDeletion {
   async #run(key, principal) {
     const record = this.records.get(key);
     if (record?.state !== "deleting") return;
-    const { body } = record;
+    let { body } = record;
     try {
-      if (!body.folderMissing) await this.#removeFolder(key, body);
-      else if (await exists(key)) throw coded("PROJECT_FOLDER_REAPPEARED");
-      await this.removeData(this.services, body, key, principal);
-      const left = this.dataLeft(this.services, body, key);
+      if (body.dataRemoved) {
+        // Only the agents' grants were left: whatever is at the path now is not this
+        // deletion's; nothing there and no path-keyed data is touched.
+        await this.removeData(this.services, body, key, principal, { agentsOnly: true });
+      } else {
+        if (body.folderMissing || body.folderRemoved) {
+          // Never deleted again: a folder there now is another one.
+          if (await exists(key)) throw coded("PROJECT_FOLDER_REAPPEARED");
+        } else {
+          await this.#removeFolder(key, body);
+          body = this.records.update(key, { ...body, folderRemoved: true }).body;
+        }
+        await this.removeData(this.services, body, key, principal);
+      }
+      const left = this.dataLeft(this.services, body, key).filter(
+        (name) => !body.dataRemoved || agentData.includes(name),
+      );
       if (left.length) {
-        const agentsOff =
-          left.length === 1 &&
-          left[0] === "agentGrants" &&
-          !this.services.assistantWorkflows;
-        throw coded(agentsOff ? AGENTS_OFF : "PROJECT_DATA_LEFT");
+        if (
+          !this.services.assistantWorkflows &&
+          left.every((name) => name === "agentGrants")
+        ) {
+          this.records.update(key, { ...body, dataRemoved: true });
+          throw coded(AGENTS_OFF);
+        }
+        throw coded("PROJECT_DATA_LEFT");
       }
       this.#audit(key, body, principal);
       this.records.drop(key);
@@ -293,16 +331,20 @@ export class ProjectDeletion {
       if (["ENOENT", "ENOTDIR"].includes(error?.code)) return;
       throw error;
     }
+    // Checked again right before the removal, mounts inside the folder included.
     const refused = await this.probes.refusedFolder(key, {
       home: this.services.config.home ?? os.homedir(),
       dataDir: this.services.config.dataDir,
       installDir: projectDir,
     });
     if (refused) throw coded("PROJECT_DELETE_REFUSED");
+    const found = folderIdentity(now);
     const same =
       now.isDirectory() &&
-      String(now.dev) === String(body.dev) &&
-      String(now.ino) === String(body.ino);
+      found.dev === String(body.dev) &&
+      found.ino === String(body.ino) &&
+      // A reused inode number: the creation time tells the folders apart.
+      (!body.birth || !found.birth || found.birth === body.birth);
     if (!same) throw coded("PROJECT_FOLDER_CHANGED");
     await fs.promises.rm(key, { recursive: true, force: false, maxRetries: 2 });
   }
@@ -311,29 +353,37 @@ export class ProjectDeletion {
   // that does not finish counts as a process.
   async #stillBlocked(key, body) {
     if (anyBlocker(await this.#blockers(body))) return true;
+    // A folder this deletion removed already is not scanned: one there now is another.
+    if (body.folderMissing || body.folderRemoved || body.dataRemoved) return false;
     // A folder that cannot be read is scanned as if it were there.
-    if (body.folderMissing || !(await exists(key).catch(() => true))) return false;
+    if (!(await exists(key).catch(() => true))) return false;
     const scan = await this.probes
       .scan([key])
       .catch(() => ({ status: "failed", processes: [] }));
     return scan.status !== "ok" || scan.processes.length > 0;
   }
 
-  #body(scope, report) {
+  #body(scope, report, carried = null) {
     const main = scope.projects.find((item) => item.main);
     const nested = scope.projects.filter((item) => !item.main);
     const mainIds = main?.memoryIds ?? [];
     const ended = this.#endedOf(scope.path);
+    const projectIds = [
+      ...mainIds,
+      ...scope.projectIds.filter((id) => !mainIds.includes(id)),
+    ];
     return {
       name: scope.name,
       folderMissing: scope.folderState === "missing",
       dev: scope.dev,
       ino: scope.ino,
-      // The main project's newest row first: the audit names it.
-      projectIds: [...mainIds, ...scope.projectIds.filter((id) => !mainIds.includes(id))],
+      birth: scope.birth ?? "",
+      // The main project's newest row first: the audit names it. Then those of a
+      // replaced record, whose grants and data may still be left.
+      projectIds: union(projectIds, carried?.projectIds),
       repositoryIds: scope.repositoryIds,
       busIds: scope.busIds,
-      sessionIds: scope.sessionIds,
+      sessionIds: union(scope.sessionIds, carried?.sessionIds),
       runIds: scope.runIds,
       rebuildIds: scope.rebuildIds,
       nested: nested.map(({ path, name }) => ({ path, name })),
@@ -407,15 +457,27 @@ export class ProjectDeletion {
   // A folder whose deletion, or that of a folder around or inside it, is recorded.
   #refuseRecorded(key) {
     // A failed deletion that a retry cannot finish (a missing folder that came back,
-    // a folder replaced or refused): a new start deletes the folder there now.
+    // a folder replaced or refused): a new start deletes the folder there now and
+    // takes over the ids the record names. One that waits for the agents never
+    // refuses (nests) and is taken over the same way.
     const replaceable = (record) => record.path === key && replaceableDeletion(record);
     const recorded = this.records
       .list()
-      .some(
-        (record) =>
-          !replaceable(record) && (inside(record.path, key) || inside(key, record.path)),
-      );
-    if (recorded) throw refusal(messages.projectDeleting, 409, "PROJECT_DELETING");
+      .some((record) => !replaceable(record) && nests(record, key));
+    if (recorded) throw deleting();
+  }
+
+  // Another folder's deletion recorded around or inside `key`.
+  #recordedAround(key) {
+    return this.records
+      .list()
+      .some((record) => record.path !== key && nests(record, key));
+  }
+
+  // Takes back a mark: the record it replaced as it was, else none.
+  #undo(key, previous) {
+    if (previous) this.records.restore(previous);
+    else this.records.drop(key);
   }
 
   #refused(code) {
@@ -429,6 +491,7 @@ export class ProjectDeletion {
       folderState: "missing",
       dev: "",
       ino: "",
+      birth: "",
     });
     return scope.folderState !== "missing" && asMissing === token
       ? refusal(messages.folderReappeared, 409, "PROJECT_FOLDER_REAPPEARED")
@@ -459,6 +522,13 @@ export class ProjectDeletion {
     return next;
   }
 }
+
+// Whether a deletion recorded at a folder around or inside `key` stands for it; one
+// that waits for the agents no longer does.
+const nests = (record, key) =>
+  !waitsForAgents(record) && (inside(record.path, key) || inside(key, record.path));
+
+const union = (ids, more) => [...new Set([...ids, ...(more ?? [])])];
 
 async function exists(target) {
   try {
