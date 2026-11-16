@@ -266,8 +266,15 @@ test("the image policy's refusal reaches the model with OpenClaw's reasons", asy
 });
 
 test("the settings offer images to a Hermes agent only with a login AgentPier holds", () => {
-  const hermes = { runtimeInfo: { id: "hermes" } };
-  const openclaw = { runtimeInfo: { id: "openclaw" } };
+  // The runtime views: Hermes reaches only a login AgentPier holds.
+  const hermes = {
+    id: "hermes",
+    capabilities: { models: { available: true, chatgptLogin: "agentpierHeld" } },
+  };
+  const openclaw = {
+    id: "openclaw",
+    capabilities: { models: { available: true, chatgptLogin: "any" } },
+  };
   const held = { providerId: "openai-chatgpt", holder: "agentpier", signedIn: true };
   const kept = { providerId: "openai-chatgpt", holder: "openclaw", signedIn: true };
   const out = { ...held, signedIn: false };

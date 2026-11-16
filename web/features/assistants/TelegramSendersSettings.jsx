@@ -8,11 +8,13 @@ import RestartConfirmation from "./RestartConfirmation.jsx";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
 import { runtimeIdName } from "./runtime-capabilities.js";
+import { traitOf } from "./runtime-traits.js";
 
 const telegramUserId = /^[1-9]\d{0,19}$/;
 // A runtime that runs the bot in the agent's own processes (Hermes) reads the people
 // at its start: a change restarts that agent, where OpenClaw applies it live.
-const restartsOnPeople = (runtime) => runtime?.id === "hermes";
+const restartsOnPeople = (runtime) =>
+  traitOf(runtime, "channelBots", "peopleApply") === "restart";
 
 /**
  * The agent's own Telegram bot for other people: its token (written here, never

@@ -1,3 +1,5 @@
+import { traitOf } from "./runtime-traits.js";
+
 // What the agent settings need of the agent's runtime (ADR 0006): each surface names
 // the capability of its sub-port (server runtimes/agent-runtime.js). A capability the
 // runtime lacks keeps the surface visible, disabled with the reason (CapabilityGate).
@@ -35,14 +37,19 @@ export const runtimeName = (assistant) =>
 export const runtimeLabel = (assistant) =>
   [runtimeName(assistant), assistant?.runtimeInfo?.version].filter(Boolean).join(" ");
 
+// Whether a runtime (its view, `runtimeInfo`) reaches only a ChatGPT login AgentPier
+// holds, through its model proxy (trait `models.chatgptLogin`; Hermes).
+const needsHeldLogin = (runtimeInfo) =>
+  traitOf(runtimeInfo, "models", "chatgptLogin") === "agentpierHeld";
+
 /**
- * The model connections an agent of runtime `runtimeId` may choose from `models`:
- * a Hermes agent lists ChatGPT logins OpenClaw still holds unavailable
- * (`runtimeAccount`): only a login AgentPier holds reaches Hermes, through its model
- * proxy (server own-process-agents.js refuseModelChoice).
+ * The model connections an agent on the runtime `runtimeInfo` shows may choose from
+ * `models`: a runtime that needs a login AgentPier holds lists ChatGPT logins
+ * OpenClaw still holds unavailable (`runtimeAccount`; server own-process-agents.js
+ * refuseModelChoice).
  */
-export const modelsFor = (models, runtimeId) =>
-  runtimeId === "hermes"
+export const modelsFor = (models, runtimeInfo) =>
+  needsHeldLogin(runtimeInfo)
     ? models.map((m) =>
         m.providerId === "openai-chatgpt" && m.holder !== "agentpier"
           ? { ...m, available: false, reason: "runtimeAccount" }
@@ -51,17 +58,18 @@ export const modelsFor = (models, runtimeId) =>
     : models;
 
 /**
- * Whether the agent can create images with `models`: AgentPier creates them through a
- * signed-in ChatGPT login (server model-accounts.js), its last known status counting
- * also while the service is away. A Hermes agent reaches only a login AgentPier holds,
- * through its model proxy (server hermes-config/images.js). "ready", "move" (only
- * logins OpenClaw holds are signed in) or "none".
+ * Whether an agent on the runtime `runtimeInfo` shows can create images with
+ * `models`: AgentPier creates them through a signed-in ChatGPT login (server
+ * model-accounts.js), its last known status counting also while the service is away.
+ * A runtime that needs a login AgentPier holds reaches only such a one (server
+ * hermes-config/images.js). "ready", "move" (only logins OpenClaw holds are signed
+ * in) or "none".
  */
-export function imagesFor(models, assistant) {
+export function imagesFor(models, runtimeInfo) {
   const signedIn = models.filter(
     (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
   );
-  if (assistant?.runtimeInfo?.id !== "hermes") return signedIn.length ? "ready" : "none";
+  if (!needsHeldLogin(runtimeInfo)) return signedIn.length ? "ready" : "none";
   if (signedIn.some((m) => m.holder === "agentpier")) return "ready";
   return signedIn.length ? "move" : "none";
 }

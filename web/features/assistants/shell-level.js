@@ -1,3 +1,5 @@
+import { traitOf } from "./runtime-traits.js";
+
 // Mirrors the server's eligibility (native-capabilities.js): task-bound team
 // members and archived agents never have shell access.
 export const shellLevels = ["off", "approval", "full"];
@@ -13,7 +15,7 @@ export const shellLevel = (assistant) =>
     : "off";
 /** Whether the agent's runtime view offers asking before every shell command. */
 export const offersEveryCommand = (runtimeInfo) =>
-  runtimeInfo?.capabilities?.everyCommandApproval?.available === true;
+  traitOf(runtimeInfo, "approvals", "shellLevels").includes("every");
 /** The shell choice of `assistant`: its level, or `every` where its runtime offers it. */
 export function shellChoice(assistant) {
   const level = shellLevel(assistant);

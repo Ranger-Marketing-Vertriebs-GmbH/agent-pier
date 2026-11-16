@@ -55,7 +55,7 @@ const conflictLabels = {
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   const { refresh, runtime, models = [] } = useAssistants();
   // Images come from a signed-in ChatGPT login the agent's runtime can use.
-  const imageState = imagesFor(models, assistant);
+  const imageState = imagesFor(models, assistant?.runtimeInfo);
   const images = imageState === "ready";
   const personal = isPersonal(assistant);
   // A user's own agent: its notes and browser are hers (hidden, or read only).

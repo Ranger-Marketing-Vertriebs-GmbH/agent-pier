@@ -34,13 +34,25 @@ const hermesInfo = {
   id: "hermes",
   name: "Hermes Agent",
   version: "0.22.5",
-  capabilities: { everyCommandApproval: { available: true } },
+  capabilities: {
+    approvals: {
+      available: true,
+      shellLevels: ["off", "approval", "every", "full"],
+      allowlist: "exactCommands",
+    },
+    models: { available: true, chatgptLogin: "agentpierHeld" },
+  },
 };
 const openClawInfo = {
   id: "openclaw",
   name: "OpenClaw",
   capabilities: {
-    everyCommandApproval: { available: false, reason: "approvalAsksEveryCommand" },
+    approvals: {
+      available: true,
+      shellLevels: ["off", "approval", "full"],
+      allowlist: "patterns",
+    },
+    models: { available: true, chatgptLogin: "any" },
   },
 };
 const agent = (extra = {}) => ({
@@ -205,9 +217,10 @@ test("a Hermes agent lists ChatGPT logins OpenClaw holds unavailable and drops a
     { id: "c", providerId: "endpoint", available: true },
     held,
   ];
-  assert.equal(modelsFor(models, "openclaw"), models);
+  assert.equal(modelsFor(models, openClawInfo), models);
+  // A runtime whose traits are unknown lists every login as it is.
   assert.equal(modelsFor(models, undefined), models);
-  assert.deepEqual(modelsFor(models, "hermes"), [
+  assert.deepEqual(modelsFor(models, hermesInfo), [
     { ...models[0], available: false, reason: "runtimeAccount" },
     models[1],
     held,

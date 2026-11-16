@@ -23,6 +23,7 @@ import { hermesReady } from "../hermes-runtime.js";
 import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
 import useHermesRuntime from "../useHermesRuntime.js";
+import useRuntimes from "../useRuntimes.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
 import StepCapabilities from "./StepCapabilities.jsx";
@@ -83,6 +84,10 @@ export default function AgentWizard({ route, navigate }) {
   const creation = useWizardCreation();
   // New agents may choose Hermes while it is switched on and installed.
   const hermes = hermesReady(useHermesRuntime().state);
+  // How the chosen runtime behaves (its traits), before the agent exists; undefined
+  // until the runtime list arrived.
+  const { infoOf } = useRuntimes();
+  const runtimeInfo = infoOf(d.runtime);
   const finished = useRef(false);
   const sources = hubLists(assistants);
   const duplicable = [...sources.own, ...sources.ofUsers];
@@ -238,12 +243,13 @@ export default function AgentWizard({ route, navigate }) {
       error={startError || usersError}
     />
   ) : step === "identity" ? (
-    <StepIdentity d={d} set={set} models={modelsFor(models, d.runtime)} />
+    <StepIdentity d={d} set={set} models={modelsFor(models, runtimeInfo)} />
   ) : step === "capabilities" ? (
     <StepCapabilities
       d={d}
       set={set}
       runtime={runtime}
+      runtimeInfo={runtimeInfo}
       models={models}
       everyCommand={d.runtime === "hermes"}
     />
