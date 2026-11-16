@@ -214,6 +214,14 @@ test("Git warnings list changes, unpushed commits and what could not be checked"
               unpushed: null,
               checked: false,
             },
+            {
+              path: "/elsewhere/q",
+              branch: "q",
+              inside: false,
+              changes: null,
+              unpushed: null,
+              checked: false,
+            },
           ],
         },
       },
@@ -248,6 +256,11 @@ test("Git warnings list changes, unpushed commits and what could not be checked"
       "The linked worktree /elsewhere/y lies outside the folder and is kept; remove it by hand afterwards.",
     ],
     ["/w/a/.worktrees/z", "/w/a/.worktrees/z could not be checked."],
+    ["/elsewhere/q", "/elsewhere/q could not be checked."],
+    [
+      "/elsewhere/q",
+      "The linked worktree /elsewhere/q lies outside the folder and is kept; remove it by hand afterwards.",
+    ],
     ["/w/a/sub", "/w/a/sub could not be checked."],
   ]);
   assert.deepEqual(gitWarnings({ git: [] }), []);
