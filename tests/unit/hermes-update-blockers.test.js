@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hermesUpdateMaintenance } from "../../server/application/hermes-wiring.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesUpdateMaintenance } from "../../server/features/assistants/runtimes/hermes/wiring.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { makeHermesRuntime } from "../helpers/hermes-fake-gateway.js";
 
 // What blocks a Hermes update and what "Pause agents and update" does with it
-// (hermes-wiring.js hermesUpdateMaintenance): only Hermes agents' work counts, a
+// (runtimes/hermes/wiring.js hermesUpdateMaintenance): only Hermes agents' work counts, a
 // running turn is stopped through its Hermes session, a routine run under way is
 // waited for, and anything unconfirmed is left alone.
 async function fixture() {

@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.js";
+import { hermesGuard } from "../../server/features/assistants/runtimes/hermes/tools/hermes-tool-guard.js";
 import {
   chatFilesRefusal,
   homeRefusal,
   splitSearchRefusal,
-} from "../../server/features/assistants/hermes-home-guard.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+} from "../../server/features/assistants/runtimes/hermes/tools/hermes-home-guard.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { secretsRefusal } from "../../server/features/assistants/team-plugin/secrets-guard.js";

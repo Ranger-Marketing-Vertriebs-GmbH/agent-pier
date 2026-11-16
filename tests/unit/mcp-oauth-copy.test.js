@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as de from "../../web/lib/i18n/de/mcp-oauth.js";
 import * as en from "../../web/lib/i18n/en/mcp-oauth.js";
 import { setLanguage } from "../../web/lib/i18n/index.js";
-import { mcpCliErrorCodes } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { mcpCliErrorCodes } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { providerErrors } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
 import {
   authorizationTarget,

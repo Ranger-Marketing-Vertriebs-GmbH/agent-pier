@@ -5,8 +5,7 @@ import { promisify } from "node:util";
 import { readJSON } from "../../lib/storage.js";
 import { openInsideSync } from "./project-open.js";
 import { compilerFor, ownProcess } from "./runtimes/runtime-for.js";
-import { HermesDreams } from "./hermes-dreams.js";
-import { HermesDreamStore } from "./hermes-dream-store.js";
+import { agentDreams } from "./runtimes/runtime-services.js";
 import { privateFolder } from "./runtime-paths.js";
 
 /*
@@ -103,7 +102,7 @@ function writeCopy(folder, prefix, content, { keep, now }) {
  * written paths; throws (code "AGENT_ID_INVALID") for an agent id that names no
  * folder, so the dream never writes without its copy.
  */
-export function backupHermesMemory(
+export function backupMemoryFiles(
   paths,
   agent,
   contents,
@@ -165,10 +164,10 @@ export const sweepNear = (now, settings, minutes = 15) =>
 export class DreamingBackups {
   constructor({ settings, assistants, clock = () => new Date(), keep = 7 }) {
     Object.assign(this, { settings, assistants, clock, keep });
-    this.hermes = assistants.hermesDreams = new HermesDreams({
+    // The dreams of agents that dream by themselves (runtime-services.js).
+    this.agentDreams = assistants.agentDreams = agentDreams({
       settings,
       assistants,
-      store: new HermesDreamStore(settings.db),
       clock,
       keep,
     });
@@ -191,8 +190,8 @@ export class DreamingBackups {
       return this.tick(now ?? this.clock());
     });
     // Outside admission and not awaited: a dream waits on the agent's model.
-    this.hermes.tick(now ?? this.clock()).catch((error) => {
-      console.warn("Hermes dreams failed:", error?.code || "UNAVAILABLE");
+    this.agentDreams?.tick(now ?? this.clock()).catch((error) => {
+      console.warn("Agents' own dreams failed:", error?.code || "UNAVAILABLE");
     });
     return taken;
   }
@@ -213,7 +212,7 @@ export class DreamingBackups {
       if (!agent || (!ownProcess(agent) && !fs.existsSync(workspace(agent))))
         fs.rmSync(path.join(root, name), { recursive: true, force: true });
     }
-    this.hermes.store.prune(new Set([...agents.values()].map((agent) => agent.id)));
+    this.agentDreams?.store.prune(new Set([...agents.values()].map((agent) => agent.id)));
     const { enabled, hour, timeZone } = this.settings.get();
     if (!enabled || !inWindow(now, hour, timeZone)) return [];
     const taken = [];

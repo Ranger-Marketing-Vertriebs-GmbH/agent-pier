@@ -7,8 +7,8 @@ import { RuntimeUpdates } from "../../server/features/assistants/runtime-updates
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import {
-  hermesUpdateScope,
-  openClawUpdateScope,
+  ownProcessUpdateScope,
+  sharedHostUpdateScope,
 } from "../../server/features/assistants/runtime-update-scope.js";
 import {
   createUpdateSnapshot,
@@ -94,7 +94,7 @@ test("an OpenClaw rollback never reverts or removes a Hermes agent's workspace",
   await failedUpdate(t, {
     dataDir,
     paths: openclaw,
-    scope: () => openClawUpdateScope(store),
+    scope: () => sharedHostUpdateScope(store),
     during: () => {
       write(work("claw", "notes.md"), "claw half migrated");
       write(work("herm", "notes.md"), "herm newer");
@@ -111,7 +111,7 @@ test("a Hermes rollback restores its agents' workspaces and leaves OpenClaw's", 
   await failedUpdate(t, {
     dataDir,
     paths: hermes,
-    scope: () => hermesUpdateScope(store),
+    scope: () => ownProcessUpdateScope(store),
     during: () => {
       write(work("herm", "notes.md"), "herm half migrated");
       write(work("herm", "stray.md"), "left by the failed update");

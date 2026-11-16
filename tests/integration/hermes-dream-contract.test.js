@@ -10,7 +10,7 @@ import {
   startHermes,
   strayAfterStop,
 } from "../helpers/hermes-native.js";
-import { dreamOnce } from "../../server/features/assistants/hermes-dream.js";
+import { dreamOnce } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream.js";
 
 // One nightly dream (hermes-dream.js) on the pinned Hermes: the agent's files through
 // its agentFiles port and the agent's model through Hermes's one-shot call, with the

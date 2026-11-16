@@ -10,13 +10,13 @@ import { scripted, settle } from "../helpers/hermes-scripted.js";
 import {
   hermesRoutineApproval,
   routineApprovalRefusals,
-} from "../../server/features/assistants/hermes-routine-approvals.js";
+} from "../../server/features/assistants/runtimes/hermes/tools/hermes-routine-approvals.js";
 import { toolPolicy } from "../../server/features/assistants/bridge-tool-policies.js";
 import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { guardFiles } from "../../server/features/assistants/runtimes/hermes/hermes-config/guard-plugin.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 const runKey = "agent:ap-a1:hermes:cron:job1:cron_job1_20261102_090000";
 

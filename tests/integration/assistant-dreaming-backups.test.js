@@ -7,7 +7,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
 import {
   DreamingBackups,
-  backupHermesMemory,
+  backupMemoryFiles,
   backupMemory,
   sweepNear,
 } from "../../server/features/assistants/dreaming-backups.js";
@@ -120,7 +120,7 @@ test("Hermes backups keep seven of each file", async (t) => {
   const hermes = f.agent("Heron", null);
   const claw = f.agent("Orchid");
   for (let n = 0; n < 8; n++) {
-    const written = backupHermesMemory(
+    const written = backupMemoryFiles(
       f.paths,
       hermes,
       { "MEMORY.md": `memory ${n}`, "USER.md": n === 7 ? null : `user ${n}` },
@@ -150,7 +150,7 @@ test("Hermes backups keep seven of each file", async (t) => {
   assert.ok(openclaw.every((name) => name.startsWith("MEMORY-")));
   // A copy half written by a crash is removed with the next one.
   fs.writeFileSync(path.join(f.folder(hermes), "USER-20261101T000000000Z.md.tmp"), "x");
-  backupHermesMemory(
+  backupMemoryFiles(
     f.paths,
     hermes,
     { "MEMORY.md": "m", "USER.md": "u" },
@@ -167,7 +167,7 @@ test("a Hermes backup for an agent id that names no folder throws", (t) => {
   for (const runtimeAgentId of ["../escape", "", "a/b"])
     assert.throws(
       () =>
-        backupHermesMemory(
+        backupMemoryFiles(
           f.paths,
           { runtimeAgentId },
           { "MEMORY.md": "m", "USER.md": "u" },
@@ -308,15 +308,15 @@ test("a Hermes agent's copies and dream records stay while the agent does", asyn
     runtime: "hermes",
   });
   const heron = f.store.updateAssistant(created.id, memoryOn, created.revision);
-  backupHermesMemory(
+  backupMemoryFiles(
     f.paths,
     heron,
     { "MEMORY.md": "memory", "USER.md": "user" },
     { now: night(0) },
   );
   const backups = new DreamingBackups({ settings: f.settings, assistants: f.assistants });
-  assert.equal(f.assistants.hermesDreams, backups.hermes);
-  const dreams = backups.hermes.store;
+  assert.equal(f.assistants.agentDreams, backups.agentDreams);
+  const dreams = backups.agentDreams.store;
   dreams.markNight(heron.id, "2026-11-01");
   dreams.applied(heron.id, 42);
   dreams.append(heron.id, { at: night(0).toISOString(), outcome: "applied" });

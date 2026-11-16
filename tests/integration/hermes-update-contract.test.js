@@ -22,18 +22,18 @@ import { createHermesUpdates } from "../../server/features/assistants/runtimes/h
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { createHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-runtime.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import {
   hermesUpdateHost,
   hermesUpdateMaintenance,
-} from "../../server/application/hermes-wiring.js";
+} from "../../server/features/assistants/runtimes/hermes/wiring.js";
 import {
   hermesContractDownload,
   previousHermesManifest,
 } from "../../scripts/hermes-contract-downloads.mjs";
 
 // A real Hermes update between two pins, through AgentPier's Hermes update path
-// (hermes-wiring.js: the fleet as the journal's host, its maintenance; runtime-updates.js):
+// (runtimes/hermes/wiring.js: the fleet as the journal's host, its maintenance; runtime-updates.js):
 // the previous release (tests/fixtures/hermes-previous-manifest.json, v0.22.4) is
 // installed and selected in a disposable data directory and runs an agent with a chat;
 // staging installs the pinned release beside it; a turn still running blocks the

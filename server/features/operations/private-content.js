@@ -6,7 +6,7 @@ import {
   isCredentialFile,
   sealedSuffix,
 } from "../assistants/backup-credentials.js";
-import { isPrivateHermesTree } from "./hermes-backup-paths.js";
+import { isPrivateRuntimeTree } from "../assistants/runtimes/runtime-backup-paths.js";
 
 /**
  * Private content beside the histories (docs/backups.md): agent chats, channel
@@ -37,10 +37,10 @@ const privateTree =
   /^(workspaces|chat-files|memory-backups|shares|state\/media|state\/memory|state\/agents\/[^/]+\/sessions)(\/|$)/;
 /**
  * Whether `relative` (below assistants/) is or lies in a private folder, Hermes's
- * included (hermes-backup-paths.js).
+ * included (runtimes/runtime-backup-paths.js).
  */
 export const isPrivateAssistantTree = (relative) =>
-  privateTree.test(relative) || isPrivateHermesTree(relative);
+  privateTree.test(relative) || isPrivateRuntimeTree(relative);
 // What a restore needs of OpenClaw's state folder in public: its configuration and
 // copies, plugin skills, credential files (sealed in place, backup-credentials.js)
 // and each agent's configuration folder. Anything else below state/, including what

@@ -9,7 +9,7 @@ import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
 import { noteRefusalOn } from "./agent-admission.js";
 import {
-  hermesFleetOf,
+  agentHostSets,
   hostConnection,
   hostReady,
   ownProcess,
@@ -105,9 +105,9 @@ async function keepOpen(service, connection, c) {
 
 // Whether a Hermes agent's own process set takes calls (hermes-fleet.js).
 const ownReady = (service) =>
-  hermesFleetOf(service.runtime)
-    .list()
-    .some(({ runtime }) => runtime.host.ready());
+  agentHostSets(service.runtime).some((hosts) =>
+    hosts.list().some(({ runtime }) => runtime.host.ready()),
+  );
 
 /**
  * One chat of a Hermes agent in a pass: its session attached on the agent's current

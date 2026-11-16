@@ -6,11 +6,11 @@ import { compilerFor, hostOf, hostReady, ownProcess } from "./runtimes/runtime-f
 import { desiredAgent } from "./agent-desired-state.js";
 
 /**
- * Applies every Hermes agent of `assistants` (the agents service) that `wanted` (a
+ * Applies every agent on a host of its own (Hermes's) of `assistants` (the agents service) that `wanted` (a
  * desiredAgent) names, in the background: each restarts only if its home changed.
  * A failure retries with the agent's next apply.
  */
-export function applyHermesAgents(assistants, wanted = () => true) {
+export function applyOwnProcessAgents(assistants, wanted = () => true) {
   const { store, config } = assistants;
   if (typeof config?.apply !== "function") return;
   for (const profile of store.listAssistants())
@@ -208,11 +208,11 @@ export class WebToolsChanges {
   }
   /** Applies every Hermes agent that searches the web; failures retry with its next apply. */
   applySearchAgents() {
-    this.applyHermesAgents((agent) => agent.web.webSearch);
+    this.applyOwnProcessAgents((agent) => agent.web.webSearch);
   }
   /** Applies every Hermes agent `wanted` (a desiredAgent) names. */
-  applyHermesAgents(wanted) {
-    applyHermesAgents(this.assistants, wanted);
+  applyOwnProcessAgents(wanted) {
+    applyOwnProcessAgents(this.assistants, wanted);
   }
   /**
    * Saves the PDF model; a change for agents that read PDFs needs a Gateway restart.
@@ -221,7 +221,7 @@ export class WebToolsChanges {
    */
   async savePdfModel(input, options) {
     const saved = await this.saveGatewayPdfModel(input, options);
-    this.applyHermesAgents((agent) => agent.web.readPdfs);
+    this.applyOwnProcessAgents((agent) => agent.web.readPdfs);
     return saved;
   }
   async saveGatewayPdfModel(input, { confirmed = false } = {}) {

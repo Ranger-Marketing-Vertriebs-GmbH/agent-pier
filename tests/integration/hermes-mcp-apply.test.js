@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { mcpApplyFixture as fixture, model } from "../helpers/mcp-apply-fixture.js";
 
 // A Hermes agent compiles its bound MCP servers into its own home (assistant-config.js

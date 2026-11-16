@@ -5,9 +5,8 @@ import { assistantProblem } from "./assistant-validation.js";
 import { AgentQuestions } from "./agent-questions.js";
 import {
   agentRuntimeEvents,
-  hermesAvailable,
-  hermesFleetOf,
-  ownProcess,
+  assertRuntimeReady,
+  onAgentHostStatus,
   traitOf,
 } from "./runtimes/runtime-for.js";
 
@@ -16,13 +15,13 @@ const offersEveryCommand = (agent) =>
   traitOf(agent, "approvals", "shellLevels").includes("every");
 
 /**
- * Refuses a new agent's runtime choice this AgentPier cannot run now: a Hermes agent
- * while Hermes is not enabled and installed (hermesUnavailable, 409), and "Every
+ * Refuses a new agent's runtime choice this AgentPier cannot run now: an agent of a
+ * runtime that is not enabled and installed (runtime-for.js assertRuntimeReady: 409
+ * with the runtime's own refusal, for Hermes `hermesUnavailable`), and "Every
  * command" on a runtime without it (shellEveryCommandUnsupported, 400).
  */
 export function refuseRuntimeChoice(supervisor, input, accounts) {
-  if (ownProcess(input) && !hermesAvailable(supervisor))
-    throw assistantProblem("hermesUnavailable", 409);
+  assertRuntimeReady(supervisor, input);
   if (input.shellEveryCommand === true && !offersEveryCommand(input))
     throw assistantProblem("shellEveryCommandUnsupported", 400);
   refuseModelChoice(input, input.model, accounts);
@@ -65,12 +64,11 @@ export function refuseEveryCommand(supervisor, agent, changes, accounts) {
  */
 export function followOwnProcesses(service, onEvent) {
   service.questions = new AgentQuestions(service);
-  const fleet = hermesFleetOf(service.runtime);
   const changed = () => !service.closed && service.changed();
-  fleet.on("status", changed);
+  const unfollow = onAgentHostStatus(service.runtime, changed);
   const unsubscribe = agentRuntimeEvents(service.runtime).subscribe(onEvent);
   return () => {
-    fleet.off("status", changed);
+    unfollow();
     unsubscribe();
   };
 }

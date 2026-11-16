@@ -1,40 +1,21 @@
-import { pdfFallbackId } from "../features/assistants/pdf-policy.js";
-import { runtimesChanged } from "../features/assistants/live-runtime-topics.js";
-import { hermesUpdateScope } from "../features/assistants/runtime-update-scope.js";
-import {
-  createHermesSwitch,
-  stageHermesInBackground,
-} from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
-import {
-  createHermesUpdates,
-  hermesLifecycle,
-} from "../features/assistants/runtimes/hermes/hermes-lifecycle.js";
-import { HermesFleet } from "../features/assistants/runtimes/hermes/hermes-fleet.js";
+import { pdfFallbackId } from "../../pdf-policy.js";
+import { runtimesChanged } from "../../live-runtime-topics.js";
+import { ownProcessUpdateScope } from "../../runtime-update-scope.js";
+import { createHermesSwitch, stageHermesInBackground } from "./hermes-provisioning.js";
+import { createHermesUpdates, hermesLifecycle } from "./hermes-lifecycle.js";
+import { HermesFleet } from "./hermes-fleet.js";
 import {
   blockerCodes,
   publicItem,
   runtimeBlockerItems,
-} from "../features/assistants/runtime-update-blockers.js";
-import {
-  confirmedAll,
-  resolveItems,
-} from "../features/assistants/runtime-update-resolution.js";
-import {
-  hermesRunnable,
-  hermesSelectedVersion,
-} from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
-import { hermesDescriptor } from "../features/assistants/runtimes/hermes/descriptor.js";
-import { OverrideStore } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
-import { advancedValues } from "../features/assistants/advanced-config.js";
-import {
-  attachHermesFleet,
-  hermesFleetOf,
-  runtimeIdOf,
-} from "../features/assistants/runtimes/runtime-for.js";
-
-/** The agents OpenClaw runs: every agent that does not run on its own Hermes set. */
-export const openClawProfiles = (profiles) =>
-  profiles.filter((profile) => runtimeIdOf(profile) === "openclaw");
+} from "../../runtime-update-blockers.js";
+import { confirmedAll, resolveItems } from "../../runtime-update-resolution.js";
+import { hermesRunnable, hermesSelectedVersion } from "./hermes-provisioning.js";
+import { hermesDescriptor } from "./descriptor.js";
+import { OverrideStore } from "../openclaw/openclaw-config/overrides.js";
+import { advancedValues } from "../../advanced-config.js";
+import { attachHermesFleet, hermesFleetOf } from "./hermes-hosts.js";
+import { hermesRoutes } from "./hermes-routes.js";
 
 /**
  * The Hermes fleet of an assistant graph (ADR 0006 decision 4): one process set per
@@ -157,7 +138,7 @@ const fleetOf = (services) =>
   services.assistants?.runtime ? hermesFleetOf(services.assistants.runtime) : null;
 const hermesAgents = (services) =>
   (services.assistants?.store.listAssistants() || []).filter(
-    (a) => a.runtime === "hermes",
+    (a) => a.runtime === hermesDescriptor.id,
   );
 
 /**
@@ -207,7 +188,7 @@ export function hermesUpdateMaintenance(services) {
   const blockerItems = async ({ settle = true } = {}) => {
     if (!services.assistants) return [];
     if (settle) await services.assistants.settleUserTurns?.();
-    return runtimeBlockerItems(services, "hermes");
+    return runtimeBlockerItems(services, hermesDescriptor.id);
   };
   return {
     enter: async () => {},
@@ -295,7 +276,7 @@ export function createHermesRuntime({ config, services = {}, updates: journalOf 
       host: hermesUpdateHost(services),
       maintenance: hermesUpdateMaintenance(services),
       // Its agents' folders of the shared workspace root, and no other's.
-      scope: () => hermesUpdateScope(services.assistants?.store),
+      scope: () => ownProcessUpdateScope(services.assistants?.store),
     });
   hermes.update = async (resolution) => {
     const state = hermes.state();
@@ -340,15 +321,39 @@ export const runtimeInstallsOf = (services) => ({
 });
 
 /**
- * Puts the owner's Hermes switch on `services` (`hermesRuntime`) with what the
- * runtime list needs of it: its install state by runtime id (`runtimeInstalls`), and
- * every change of the switch pushed over the live topic `runtimes` (`services.live`,
- * once the server listens). Returns the switch.
+ * Hermes's wiring into the application (../runtime-wiring.js wireRuntimes calls it
+ * once, with the application's `services` and `{ config }`). It makes the owner's
+ * Hermes switch, whose every change is pushed over the live topic `runtimes`
+ * (`services.live`, once the server listens), and returns what the application keeps:
+ *
+ * - `services`: the switch as `hermesRuntime`;
+ * - `install`: its install state, which the runtime list shows under Hermes's id;
+ * - `routes`: the owner's Hermes routes (hermes-routes.js), mounted with the agent
+ *   routes;
+ * - `listening`: once the server listens, the pinned runtime is installed or staged
+ *   when the owner enabled Hermes.
+ *
+ * Each reads `services.hermesRuntime` at its call, as the agent services are read.
  */
-export function wireHermesRuntime({ config, services }) {
+export function wire(services, { config }) {
   const hermes = createHermesRuntime({ config, services });
   hermes.onChange = () => runtimesChanged(services.live);
-  services.hermesRuntime = hermes;
-  services.runtimeInstalls = runtimeInstallsOf(services);
-  return hermes;
+  return {
+    services: { hermesRuntime: hermes },
+    install: runtimeInstallsOf(services)[hermesDescriptor.id],
+    routes: hermesRoutes,
+    listening: () => services.hermesRuntime?.start(),
+  };
 }
+
+/**
+ * Hermes's agent hosts for one assistant graph (../runtime-wiring.js wireAgentHosts):
+ * the fleet, attached to the graph's `supervisor`.
+ */
+export const agentHosts = hermesAgentFleet;
+
+/**
+ * What a Hermes agent's apply reads beside its record, for a connected graph
+ * (../runtime-wiring.js ownProcessWiring): `(assistant) => inputs`.
+ */
+export const applyInputs = (connected) => hermesApplyWiring(connected).hermesInputs;

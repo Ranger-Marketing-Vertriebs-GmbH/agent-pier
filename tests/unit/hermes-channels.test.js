@@ -5,10 +5,8 @@ import { hermesEntry } from "../../server/features/assistants/runtimes/hermes/he
 import { hermesChannels } from "../../server/features/assistants/runtimes/hermes/hermes-channels.js";
 import { fakeHermesSupervisor } from "../helpers/hermes-fake-gateway.js";
 import { TelegramSenders } from "../../server/features/assistant-channels/telegram-senders.js";
-import {
-  attachHermesFleet,
-  runtimeFor,
-} from "../../server/features/assistants/runtimes/runtime-for.js";
+import { runtimeFor } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 const rows = (list) =>
   list.map(([role, text], i) => {

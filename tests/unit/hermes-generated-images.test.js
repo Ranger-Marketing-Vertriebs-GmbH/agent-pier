@@ -7,7 +7,7 @@ import http from "node:http";
 import { execFile, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";

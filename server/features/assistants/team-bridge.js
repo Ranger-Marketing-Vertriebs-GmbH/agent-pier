@@ -525,7 +525,7 @@ export class TeamBridge {
           "/attachment-policy",
           "/secrets-policy",
           "/guard",
-          ...Object.keys(toolPolicyRoutes),
+          ...toolPolicyRoutes(),
         ].includes(req.url)
       )
         throw assistantProblem("invalid", 404);
@@ -560,7 +560,7 @@ export class TeamBridge {
               ? this.browserPolicy(input)
               : req.url === "/browser-upload"
                 ? this.closed || browserUploadDone(this, input)
-                : Object.hasOwn(toolPolicyRoutes, req.url)
+                : toolPolicyRoutes().includes(req.url)
                   ? toolPolicy(this, req.url, input)
                   : req.url === "/attachment-policy"
                     ? this.attachmentPolicy(input)

@@ -8,19 +8,19 @@ import { ownProcess } from "./runtimes/runtime-for.js";
 
 // The ids of the Hermes agents `store` holds, archived and deleting ones included;
 // none without a store (Hermes's journal then owns no folder of the shared root).
-const hermesIds = (store) =>
+const ownProcessIds = (store) =>
   new Set(
     (store?.listAssistants() || []).filter(ownProcess).map((profile) => profile.id),
   );
 
 /** OpenClaw's journal: every folder of `workspaces/` but a Hermes agent's. */
-export function openClawUpdateScope(store) {
-  const hermes = hermesIds(store);
-  return { workspaces: (name) => !hermes.has(name) };
+export function sharedHostUpdateScope(store) {
+  const own = ownProcessIds(store);
+  return { workspaces: (name) => !own.has(name) };
 }
 
 /** Hermes's journal: the Hermes agents' folders of the shared root. */
-export function hermesUpdateScope(store) {
-  const hermes = hermesIds(store);
-  return { agentWorkspaces: (name) => hermes.has(name) };
+export function ownProcessUpdateScope(store) {
+  const own = ownProcessIds(store);
+  return { agentWorkspaces: (name) => own.has(name) };
 }

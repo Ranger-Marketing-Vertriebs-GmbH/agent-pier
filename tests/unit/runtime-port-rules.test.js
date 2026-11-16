@@ -7,6 +7,7 @@ import {
   portDirectory,
   serverSources,
 } from "../helpers/runtime-port-scan.js";
+import { DEFAULT_RUNTIME } from "../../server/features/assistants/runtimes/agent-runtime.js";
 
 // ADR 0006 (agent runtime port): server code outside server/features/assistants/runtimes/
 // never names a Gateway method or reaches the runtime's client. Every caller moved
@@ -46,6 +47,25 @@ test("runtime rule adapterImports: only the port's public modules are imported",
     Object.entries(adapterImports(sources)).filter(([file]) => !compositionRoot(file)),
   );
   assert.deepEqual(found, adapterImportAllowlist, hint);
+});
+
+// The built-in runtime stays the roots' to construct (ADR 0007: its supervisor, its
+// overrides, its offline commands). Every other runtime is wired through the port
+// (runtime-wiring.js), so no root imports its adapter.
+test("runtime rule rootImports: a composition root imports only the built-in runtime's adapter", () => {
+  const builtIn = `${portDirectory}${DEFAULT_RUNTIME}/`;
+  const found = Object.entries(adapterImports(sources))
+    .filter(([file]) => compositionRoot(file))
+    .flatMap(([file, modules]) =>
+      modules
+        .filter((module) => !module.startsWith(builtIn))
+        .map((module) => `${file} imports ${module}`),
+    );
+  assert.deepEqual(found, [], "wire the runtime through runtime-wiring.js");
+  assert.ok(
+    Object.keys(adapterImports(sources)).some(compositionRoot),
+    "the roots still construct the built-in runtime",
+  );
 });
 
 test("the port directory itself is not scanned", () => {

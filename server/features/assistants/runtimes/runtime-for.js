@@ -22,12 +22,16 @@ import { hermesMemory } from "./hermes/hermes-memory.js";
 // brings its pure configuration compiler and the routine-run reader of its session
 // keys. OpenClaw: one adapter over the OpenClaw supervisor that every OpenClaw agent
 // shares. Hermes Agent: one process set per agent (ADR 0006 decision 4), kept by the
-// Hermes fleet attached to that supervisor (attachHermesFleet); its routines run on
-// each agent's gateway cron, their runs in `agent:<agent>:hermes:cron:<job>:<id>`.
+// Hermes fleet attached to that supervisor as its agent hosts (attachAgentHosts); its
+// routines run on each agent's gateway cron, their runs in
+// `agent:<agent>:hermes:cron:<job>:<id>`.
 // What each states about itself (its name, its traits) is its descriptor
 // (docs/adr/0007-runtime-descriptor.md). `advanced` makes the port through which its
 // host takes the advanced settings for all agents (advancedRuntimes); `memory` is how
-// it writes an agent's memory files (memoryFor).
+// it writes an agent's memory files (memoryFor). A runtime with a host per agent
+// (trait `host.process: "perAgent"`) also brings `idleHosts`, the agent hosts of a
+// supervisor none were attached to, and `unavailable`, the translated refusal for an
+// agent that cannot run on it now.
 const registry = Object.freeze({
   [openClawDescriptor.id]: Object.freeze({
     descriptor: openClawDescriptor,
@@ -44,15 +48,19 @@ const registry = Object.freeze({
   }),
   [hermesDescriptor.id]: Object.freeze({
     descriptor: hermesDescriptor,
-    resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
+    resolve: (supervisor, agent) =>
+      hostsOf(supervisor, hermesDescriptor.id).runtimeOf(agent),
     compiler: hermesCompiler,
     memory: hermesMemory,
     runOf: hermesCronRunOf,
     advanced: (supervisor) =>
       hermesAdvanced({
-        fleet: () => hermesFleetOf(supervisor),
-        available: () => hermesAvailable(supervisor),
+        fleet: () => hostsOf(supervisor, hermesDescriptor.id),
+        available: () => !!attachedHosts(supervisor, hermesDescriptor.id)?.available(),
       }),
+    // A fleet that never starts: its agents stay unavailable.
+    idleHosts: () => new HermesFleet({ dataDir: null }),
+    unavailable: "hermesUnavailable",
   }),
 });
 
@@ -64,24 +72,10 @@ function openClawAdapter(supervisor) {
 }
 
 /**
- * OpenClaw's own frame (the gateway event hub's `agent` payloads) as a normalized
+ * A frame of the shared host's own event hub (its `agent` payloads) as a normalized
  * run event, for readers of that hub such as agent-hook-runs.js.
  */
-export { openClawRunEvent as openClawFrameEvent } from "./openclaw/openclaw-events.js";
-
-/**
- * Hermes's own memory parsing, for the nightly dream alone (hermes-dream*.js), which
- * moves into the adapter. Everything else reads an agent's memory format through
- * memoryFor.
- */
-export {
-  entryDelimiter as hermesEntryDelimiter,
-  memoryEntries as hermesMemoryEntries,
-  memoryLimits as hermesMemoryLimits,
-  memoryChars as hermesMemoryChars,
-  pinMarker as hermesPinMarker,
-  pinnedEntries as hermesPinnedEntries,
-} from "./hermes/hermes-config/memory.js";
+export { openClawRunEvent as sharedHostFrameEvent } from "./openclaw/openclaw-events.js";
 
 // The ids agents may record, the id an agent records and its runtime's traits need
 // no adapter (runtime-descriptors.js); they are part of this module's interface too.
@@ -100,30 +94,80 @@ export { validFieldValue } from "./runtime-surfaces.js";
 
 // One OpenClaw adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
-// The Hermes fleet of each supervisor. A supervisor without one (a test double, a
-// setup without Hermes) gets a fleet that never starts: its agents stay unavailable.
-const fleets = new WeakMap();
+// The agent hosts of each supervisor, by runtime id: what a runtime with a host per
+// agent keeps its agents' hosts in (Hermes: its fleet, hermes/hermes-fleet.js). A
+// supervisor without them (a test double, a setup without that runtime) gets idle
+// ones at the first use (the registry's `idleHosts`).
+const hostSets = new WeakMap();
+// The runtimes with a host per agent, in registry order.
+const perAgentIds = RUNTIME_IDS.filter(
+  (id) => registry[id].descriptor.traits.host.process === "perAgent",
+);
+const usable = (supervisor) => !!supervisor && typeof supervisor === "object";
 
 /**
- * Attaches the Hermes fleet (hermes/hermes-fleet.js) the composition root built to
- * the OpenClaw `supervisor` every caller passes, so runtimeFor resolves Hermes agents
- * through it. Returns the fleet.
+ * Attaches the agent hosts of runtime `id` that its wiring built
+ * (runtime-wiring.js wireAgentHosts) to the `supervisor` every caller passes, so
+ * runtimeFor resolves that runtime's agents through them. Returns the hosts.
  */
-export function attachHermesFleet(supervisor, fleet) {
-  fleets.set(supervisor, fleet);
-  return fleet;
+export function attachAgentHosts(supervisor, id, hosts) {
+  let attached = hostSets.get(supervisor);
+  if (!attached) hostSets.set(supervisor, (attached = new Map()));
+  attached.set(assertRuntime(id), hosts);
+  return hosts;
 }
 
-/** The Hermes fleet behind `supervisor` (an idle one when none was attached). */
-export function hermesFleetOf(supervisor) {
-  let fleet = fleets.get(supervisor);
-  if (!fleet) fleets.set(supervisor, (fleet = new HermesFleet({ dataDir: null })));
-  return fleet;
+// The agent hosts of runtime `id` attached to `supervisor` or made idle for it
+// earlier; undefined before either, and without a supervisor.
+const attachedHosts = (supervisor, id) =>
+  usable(supervisor) ? hostSets.get(supervisor)?.get(id) : undefined;
+
+// The agent hosts of per-agent runtime `id` behind `supervisor`, idle ones when
+// none were attached.
+const hostsOf = (supervisor, id) =>
+  attachedHosts(supervisor, id) ??
+  attachAgentHosts(supervisor, id, registry[id].idleHosts());
+
+/**
+ * The agent hosts that hold the host of `agent` behind `supervisor`: for an agent
+ * of a runtime with a host per agent the object that starts, applies, stops and
+ * removes each agent's host (`start`, `apply`, `stop`, `remove`, `list`,
+ * `on("status")`); null for an agent on the shared host and without a supervisor.
+ */
+export const agentHosts = (supervisor, agent) =>
+  usable(supervisor) && ownProcess(agent)
+    ? hostsOf(supervisor, runtimeIdOf(agent))
+    : null;
+
+/** The agent hosts of every runtime with a host per agent behind `supervisor`. */
+export const agentHostSets = (supervisor) =>
+  perAgentIds.map((id) => hostsOf(supervisor, id));
+
+/**
+ * Whether an agent may be created and run on the runtime of `agent` now: always on
+ * the built-in shared host (its own start decides when it takes calls, hostReady);
+ * on a runtime with a host per agent while that runtime is switched on and installed
+ * (its agent hosts' `available()`). False for such an agent without a supervisor.
+ */
+export const runtimeReady = (supervisor, agent) =>
+  !ownProcess(agent) || !!attachedHosts(supervisor, runtimeIdOf(agent))?.available();
+
+/**
+ * Refuses (409) an agent whose runtime cannot run it now (runtimeReady), with that
+ * runtime's own translated refusal (Hermes: `hermesUnavailable`).
+ */
+export function assertRuntimeReady(supervisor, agent) {
+  if (!runtimeReady(supervisor, agent))
+    throw assistantProblem(registry[runtimeIdOf(agent)].unavailable, 409);
 }
 
-/** Whether Hermes agents may be created and run now: enabled and installed. */
-export const hermesAvailable = (supervisor) =>
-  !!supervisor && typeof supervisor === "object" && !!fleets.get(supervisor)?.available();
+/**
+ * The agents of `profiles` the built-in shared host runs: those recording the
+ * default runtime. An agent of a runtime with hosts of its own, or of a runtime this
+ * AgentPier lacks, is never compiled into it.
+ */
+export const sharedHostAgents = (profiles) =>
+  profiles.filter((profile) => runtimeIdOf(profile) === DEFAULT_RUNTIME);
 
 /**
  * Whether the runtime of `agent` keeps an exec allowlist AgentPier reads and writes
@@ -181,14 +225,27 @@ function hermesSessionAgent(sessionKey) {
 }
 
 /**
- * Run events of every runtime agent behind `supervisor` that is not OpenClaw: the
- * Hermes fleet's, subscribed once and followed across each set's restarts. OpenClaw's
- * own events go through `runtimeFor(null, supervisor).events`, subscribed anew per
- * connection.
+ * Run events of every agent behind `supervisor` that runs on a host of its own (the
+ * Hermes fleet's), subscribed once and followed across each host's restarts. The
+ * shared host's own events go through `runtimeFor(null, supervisor).events`,
+ * subscribed anew per connection.
  */
 export const agentRuntimeEvents = (supervisor) => ({
-  subscribe: (listener) => hermesFleetOf(supervisor).subscribe(listener),
+  subscribe: (listener) => {
+    const stops = agentHostSets(supervisor).map((hosts) => hosts.subscribe(listener));
+    return () => stops.forEach((stop) => stop());
+  },
 });
+
+/**
+ * Calls `listener(runtimeAgentId, status)` at every status change of an agent's own
+ * host behind `supervisor`. Returns unsubscribe.
+ */
+export function onAgentHostStatus(supervisor, listener) {
+  const sets = agentHostSets(supervisor);
+  for (const hosts of sets) hosts.on("status", listener);
+  return () => sets.forEach((hosts) => hosts.off("status", listener));
+}
 
 /**
  * Calls `listener(runtimeAgentId)` whenever the own process set of an agent behind
@@ -197,12 +254,11 @@ export const agentRuntimeEvents = (supervisor) => ({
  * supervisor.
  */
 export function onAgentRuntimeReady(supervisor, listener) {
-  if (!supervisor || typeof supervisor !== "object") return () => {};
-  const fleet = hermesFleetOf(supervisor);
-  const follow = (agentId, status) =>
-    status?.availability === "ready" && listener(agentId);
-  fleet.on("status", follow);
-  return () => fleet.off("status", follow);
+  if (!usable(supervisor)) return () => {};
+  return onAgentHostStatus(
+    supervisor,
+    (agentId, status) => status?.availability === "ready" && listener(agentId),
+  );
 }
 
 /**
@@ -211,18 +267,17 @@ export function onAgentRuntimeReady(supervisor, listener) {
  * runtime paths' own.
  */
 export const agentWorkspace = (supervisor, agent) =>
-  ownProcess(agent) && supervisor && typeof supervisor === "object"
-    ? hermesFleetOf(supervisor).workspaceOf(agent)
-    : null;
+  agentHosts(supervisor, agent)?.workspaceOf(agent) ?? null;
 
 /** The private folders of a Hermes agent outside its work folder (hermes-fleet.js). */
 export const agentPrivateFolders = (supervisor, agent) =>
-  ownProcess(agent) && supervisor && typeof supervisor === "object"
-    ? hermesFleetOf(supervisor).privateFoldersOf(agent)
-    : null;
+  agentHosts(supervisor, agent)?.privateFoldersOf(agent) ?? null;
 
-/** Whether `agent` runs on its own process set (Hermes) rather than the shared host. */
-export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
+/**
+ * Whether `agent` runs on a host of its own rather than the shared one: its
+ * runtime's trait `host.process` is `perAgent`.
+ */
+export const ownProcess = (agent) => traitOf(agent, "host", "process") === "perAgent";
 
 /**
  * Whether a configuration change of `agent` can reach its runtime now: the shared
@@ -230,7 +285,7 @@ export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
  * the agent's own process set). False without a supervisor.
  */
 export const runtimeAccepts = (supervisor, agent) =>
-  ownProcess(agent) ? hermesAvailable(supervisor) : hostReady(supervisor, agent);
+  ownProcess(agent) ? runtimeReady(supervisor, agent) : hostReady(supervisor, agent);
 
 /**
  * What the agents list and an agent's settings show of its runtime: `{ id, name,
@@ -381,7 +436,11 @@ export const anyHostReady = (supervisor) =>
   hostReady(supervisor) ||
   (!!supervisor &&
     typeof supervisor === "object" &&
-    (fleets.get(supervisor)?.list() || []).some(({ runtime }) => runtime.host.ready()));
+    perAgentIds.some((id) =>
+      (attachedHosts(supervisor, id)?.list() || []).some(({ runtime }) =>
+        runtime.host.ready(),
+      ),
+    ));
 
 /**
  * The current connection of the runtime of `agent` behind `supervisor`

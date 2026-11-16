@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { assistantProblem } from "./assistant-validation.js";
-import { readShareSource } from "./agent-share-source.js";
-import { SHARED_TTL } from "./agent-share-store.js";
-import { checkedChatFolder, keepsChatFolders } from "./chat-file-folders.js";
-import { agentPrivateFolders } from "./runtimes/runtime-for.js";
+import { assistantProblem } from "../../../assistant-validation.js";
+import { readShareSource } from "../../../agent-share-source.js";
+import { SHARED_TTL } from "../../../agent-share-store.js";
+import { checkedChatFolder, keepsChatFolders } from "../../../chat-file-folders.js";
+import { agentPrivateFolders } from "../../runtime-for.js";
 
 // An image a Hermes agent created (image_generate) is saved by Hermes below its home,
 // `cache/generated/images/`, beside every other chat's. The team plugin's

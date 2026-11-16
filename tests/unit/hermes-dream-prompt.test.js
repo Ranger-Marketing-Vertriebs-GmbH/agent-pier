@@ -6,7 +6,7 @@ import {
   dreamSummaryLimit,
   hermesDreamInstructions,
   parseDream,
-} from "../../server/features/assistants/hermes-dream-prompt.js";
+} from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-prompt.js";
 
 const files = {
   "MEMORY.md": "📌 Owner drinks tea\n§\nSecond note",

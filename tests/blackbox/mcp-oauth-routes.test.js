@@ -5,7 +5,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
-import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { createMcpCli } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import {
   mcpServerConfig,
   mcpServerSignature,

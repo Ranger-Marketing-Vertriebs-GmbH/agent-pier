@@ -1,7 +1,7 @@
-import { assistantProblem, textValue } from "./assistant-validation.js";
-import { browserRefusals } from "./team-plugin/tool-guard.js";
-import { browserUploadDone } from "./agent-browser-uploads.js";
-import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { assistantProblem, textValue } from "../../../assistant-validation.js";
+import { browserRefusals } from "../../../team-plugin/tool-guard.js";
+import { browserUploadDone } from "../../../agent-browser-uploads.js";
+import { runtimeFor, runtimeIdOf } from "../../runtime-for.js";
 
 // Why a Hermes browser upload did not fill the field, for the model.
 export const hermesUploadRefusals = {

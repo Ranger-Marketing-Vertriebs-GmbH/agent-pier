@@ -5,7 +5,7 @@ import { applicationFixture, enabledAssistants } from "../helpers/application.js
 import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
 import { secretMatches } from "../../server/features/assistants/agent-hook-store.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { makeHermesRuntime } from "../helpers/hermes-fake-gateway.js";
 
 const base = { name: "Zabbix", sender: "zabbix01" };

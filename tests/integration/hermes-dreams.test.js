@@ -4,13 +4,13 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { DreamingBackups } from "../../server/features/assistants/dreaming-backups.js";
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
-import { HermesDreamStore } from "../../server/features/assistants/hermes-dream-store.js";
+import { HermesDreamStore } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-store.js";
 import {
   HermesDreams,
   dreamNight,
-} from "../../server/features/assistants/hermes-dreams.js";
+} from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dreams.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { shellService } from "../helpers/assistant-shell-service.js";
 
 const sha = (text) => crypto.createHash("sha256").update(text).digest("hex");
@@ -447,18 +447,18 @@ test("the minute tick does not wait for a dream", async (t) => {
   f.chat(heron, day);
   const { release, started } = gate(heron.set);
   const backups = new DreamingBackups({ settings: f.settings, assistants: f.service });
-  assert.equal(f.service.hermesDreams, backups.hermes);
+  assert.equal(f.service.agentDreams, backups.agentDreams);
   let recorded;
   const done = new Promise((resolve) => (recorded = resolve));
-  backups.hermes.onChange = recorded;
+  backups.agentDreams.onChange = recorded;
   await backups.run(night);
   await started;
   // The run returned while the model still thinks; the night is already marked.
-  assert.deepEqual(backups.hermes.store.diary(heron.id).entries, []);
-  assert.equal(backups.hermes.store.night(heron.id), "2026-11-08");
+  assert.deepEqual(backups.agentDreams.store.diary(heron.id).entries, []);
+  assert.equal(backups.agentDreams.store.night(heron.id), "2026-11-08");
   release();
   assert.equal(await done, heron.id);
-  assert.equal(backups.hermes.store.diary(heron.id).entries[0].outcome, "applied");
+  assert.equal(backups.agentDreams.store.diary(heron.id).entries[0].outcome, "applied");
 });
 
 test("a turn AgentPier submitted is not read as a person's words", async (t) => {

@@ -5,14 +5,14 @@ import path from "node:path";
 import { hermesFakeRuntime, eventually } from "../helpers/hermes-fake-runtime.js";
 import { contractAgent } from "../helpers/hermes-native.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import {
-  attachHermesFleet,
-  hermesAvailable,
   hostReady,
   ownProcess,
   runtimeAccepts,
   runtimeFor,
   runtimeForSession,
+  runtimeReady,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
 
 const hermesAgent = (id, extra = {}) => ({
@@ -159,7 +159,7 @@ test("runtime-for resolves Hermes agents and their sessions through the attached
   const fake = hermesFakeRuntime(t);
   const supervisor = { client: { ready: true }, status: () => ({}) };
   // Without a fleet: Hermes agents are known but unavailable.
-  assert.equal(hermesAvailable(supervisor), false);
+  assert.equal(runtimeReady(supervisor, hermesAgent("x")), false);
   const idle = runtimeFor(hermesAgent("x"), supervisor);
   assert.equal(idle.id, "hermes");
   assert.equal(idle.host.ready(), false);
@@ -168,7 +168,7 @@ test("runtime-for resolves Hermes agents and their sessions through the attached
   const agent = hermesAgent("s");
   assert.equal(ownProcess(agent), true);
   assert.equal(ownProcess({ runtime: "openclaw" }), false);
-  assert.equal(hermesAvailable(owner), true);
+  assert.equal(runtimeReady(owner, agent), true);
   // A Hermes agent may take changes while Hermes is available; its set starts then.
   assert.equal(runtimeAccepts(owner, agent), true);
   assert.equal(hostReady(owner, agent), false);

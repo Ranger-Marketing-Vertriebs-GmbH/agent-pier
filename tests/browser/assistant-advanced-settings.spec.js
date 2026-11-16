@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
 import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 
 /**

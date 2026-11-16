@@ -6,7 +6,7 @@ import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { UNCLAIMED } from "../../server/features/assistants/chat-file-folders.js";
-import { leftoverImages } from "../../server/features/assistants/hermes-image-migration.js";
+import { leftoverImages } from "../../server/features/assistants/runtimes/hermes/tools/hermes-image-migration.js";
 
 // Images an older AgentPier kept in a Hermes agent's generated-images/ leave the work
 // folder of an agent shared with users before its next start

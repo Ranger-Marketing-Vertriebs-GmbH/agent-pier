@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import { isShared } from "../users/user-access.js";
-import { MAX_SHARE_BYTES } from "./agent-share-source.js";
-import { UNCLAIMED, checkedChatFolder } from "./chat-file-folders.js";
+import { isShared } from "../../../../users/user-access.js";
+import { MAX_SHARE_BYTES } from "../../../agent-share-source.js";
+import { UNCLAIMED, checkedChatFolder } from "../../../chat-file-folders.js";
 import { generatedPrefix } from "./hermes-generated-images.js";
 
 // An AgentPier before per-chat created images copied each image a Hermes agent created

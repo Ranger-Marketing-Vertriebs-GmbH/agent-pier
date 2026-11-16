@@ -94,7 +94,7 @@ export function createHermesRuntime({
   strict = false,
   remove = async () => {},
   advanced = () => undefined,
-  // Runs before each start with the runtime agent id (hermes-wiring.js: the chat
+  // Runs before each start with the runtime agent id (wiring.js: the chat
   // file move), before the home is written.
   prepareFiles = async () => {},
   ...options

@@ -8,8 +8,8 @@ import { compileHome } from "../../server/features/assistants/runtimes/hermes/he
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { proxyAccess } from "../../server/features/assistants/proxy-access.js";
 import { accountIdOf } from "../../server/features/assistants/model-accounts.js";
-import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesGuard } from "../../server/features/assistants/runtimes/hermes/tools/hermes-tool-guard.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { imageRefusals } from "../../server/features/assistants/team-plugin/tool-guard.js";
 import { imagesFor } from "../../web/features/assistants/runtime-capabilities.js";

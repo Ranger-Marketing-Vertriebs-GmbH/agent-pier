@@ -9,8 +9,8 @@ import {
   DEFAULT_TRAITS,
   RUNTIME_TRAITS,
 } from "../../server/features/assistants/runtimes/runtime-traits.js";
+import { hermesFleetOf } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import {
-  hermesFleetOf,
   keepsExecAllowlist,
   runtimeDetails,
   runtimeList,

@@ -4,7 +4,7 @@ import { applicationFixture, enabledAssistants } from "./application.js";
 import { eventually } from "./hermes-fake-runtime.js";
 import { contractRecord } from "./hermes-native.js";
 import { guardProcess } from "./process-guard.js";
-import { hermesFleetOf } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesFleetOf } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 // AgentPier itself on the pinned Hermes for the native end-to-end contracts
 // (tests/integration/hermes-*-contract.test.js): a temporary app whose Hermes fleet

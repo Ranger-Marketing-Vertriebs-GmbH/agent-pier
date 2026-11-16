@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isShared, isUserAgent } from "../users/user-access.js";
-import { fold } from "./team-plugin/tool-guard.js";
-import { managedFolder } from "./team-plugin/managed-folder.js";
-import { agentPrivateFolders, agentWorkspace } from "./runtimes/runtime-for.js";
-import { chatFilesRoot } from "./chat-file-folders.js";
+import { isShared, isUserAgent } from "../../../../users/user-access.js";
+import { fold } from "../../../team-plugin/tool-guard.js";
+import { managedFolder } from "../../../team-plugin/managed-folder.js";
+import { agentPrivateFolders, agentWorkspace } from "../../runtime-for.js";
+import { chatFilesRoot } from "../../../chat-file-folders.js";
 
 // A Hermes agent keeps more than its work folder: its HERMES_HOME holds every chat's
 // sessions and the images of every chat's turns (the gateway's staged cache/images/

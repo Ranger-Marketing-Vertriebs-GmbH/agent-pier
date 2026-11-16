@@ -38,7 +38,7 @@ import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { assistantFeatureRoutes } from "./assistant-feature.js";
-import { assistantHermesRoutes } from "./assistant-hermes.js";
+import { runtimeRouters } from "../../features/assistants/runtimes/runtime-wiring.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
@@ -119,7 +119,8 @@ function activeAssistantRoutes(services) {
   router.use(assistantHookRoutes(services));
   router.use(assistantWorkflowRoutes(services));
   router.use(assistantRuntimeUpdateRoutes(services));
-  router.use(assistantHermesRoutes(services));
+  // A runtime's own routes (Hermes: the owner's opt-in and its update).
+  for (const routes of runtimeRouters(services)) router.use(routes);
   router.use(assistantChannelRoutes(services));
   router.use(assistantWebSearchRoutes(services));
   router.use(assistantBrowserNetworkRoutes(services));

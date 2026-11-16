@@ -17,7 +17,7 @@ import { oauthRedirect } from "../../server/features/mcp-servers/oauth-redirect.
 import {
   McpCliError,
   supervisorMcpCli,
-} from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { readMcpInputs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";

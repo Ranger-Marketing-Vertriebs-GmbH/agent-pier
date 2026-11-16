@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { agentProfileName } from "./browser-profile-names.js";
 import {
-  hermesFleetOf,
+  agentHosts,
   hostConnection,
   ownProcess,
   runtimeFor,
@@ -298,7 +298,7 @@ export async function purgeAgent(services, agent, channelIds = []) {
   await assistants.browsers?.stopAgent?.(agent.id).catch(() => {});
   // A Hermes agent's process set stops and its HOME, HERMES_HOME and work folders
   // go (hermes-fleet.js); OpenClaw's entry and jobs go through its Gateway.
-  if (ownProcess(agent)) await hermesFleetOf(assistants.runtime).remove(agent);
+  if (ownProcess(agent)) await agentHosts(assistants.runtime, agent).remove(agent);
   else await removeFromGateway(assistants.runtime, agent.runtimeAgentId);
   // Its Telegram channels with their inbox, pending outbox and follow-ups
   // (channels.sqlite); the ids were recorded with the mark, so a resume finds them.

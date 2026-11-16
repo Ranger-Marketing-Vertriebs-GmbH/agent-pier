@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 // A Hermes agent's own Chromium under AgentBrowsers' limits (agent-browsers.js): its
 // profile comes from its runtime's browser sub-port, the guard's policy launches the

@@ -90,7 +90,7 @@ test("the memory topic pushes when a night is recorded", { timeout }, async (t) 
   const path = `/api/assistants/${heron.id}/memory/files`;
   assert.deepEqual(first.data, await json(f, path));
   assert.deepEqual(first.data.files, []);
-  const dreams = f.service.hermesDreams;
+  const dreams = f.service.agentDreams;
   dreams.store.append(heron.id, {
     at: "2026-11-08T02:00:00.000Z",
     night: "2026-11-08",

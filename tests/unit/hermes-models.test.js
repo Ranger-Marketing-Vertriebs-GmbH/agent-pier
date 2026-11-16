@@ -9,7 +9,7 @@ import {
   refuseEveryCommand,
   refuseRuntimeChoice,
 } from "../../server/features/assistants/own-process-agents.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 test("the Hermes models sub-port lists the home's inventory and signs in no account", async () => {
   const supervisor = fakeHermesSupervisor({ agentId: "ap-1" });

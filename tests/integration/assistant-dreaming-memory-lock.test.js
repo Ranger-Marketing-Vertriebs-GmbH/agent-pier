@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryRequirement } from "../../server/features/assistants/memory-rules.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { UserAgents } from "../../server/features/users/user-agents.js";
 import { shellService } from "../helpers/assistant-shell-service.js";
 

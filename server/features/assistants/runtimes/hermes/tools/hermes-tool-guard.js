@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { assistantProblem, textValue } from "./assistant-validation.js";
+import { assistantProblem, textValue } from "../../../assistant-validation.js";
 import {
   attachmentRefusal,
   attachmentTargets,
@@ -10,11 +10,11 @@ import {
   pdfRefusals,
   writeRefusals,
   writeTargets,
-} from "./team-plugin/tool-guard.js";
-import { managedRefusal } from "./team-plugin/managed-folder.js";
-import { namesSecrets, secretsRefusal } from "./team-plugin/secrets-guard.js";
-import { secretsPolicy } from "./agent-hook-bridge.js";
-import { agentWorkspace, runtimeIdOf } from "./runtimes/runtime-for.js";
+} from "../../../team-plugin/tool-guard.js";
+import { managedRefusal } from "../../../team-plugin/managed-folder.js";
+import { namesSecrets, secretsRefusal } from "../../../team-plugin/secrets-guard.js";
+import { secretsPolicy } from "../../../agent-hook-bridge.js";
+import { agentWorkspace, runtimeIdOf } from "../../runtime-for.js";
 import {
   chatFilesRefusal,
   chatFolderRefusal,
@@ -25,8 +25,8 @@ import {
   splitsSearch,
   userReadRefusal,
 } from "./hermes-home-guard.js";
-import { agentChatPath, chatFolderPath } from "./chat-file-folders.js";
-import { isShared } from "../users/user-access.js";
+import { agentChatPath, chatFolderPath } from "../../../chat-file-folders.js";
+import { isShared } from "../../../../users/user-access.js";
 import { OLD_IMAGES, leftoverImages } from "./hermes-image-migration.js";
 
 // The OpenClaw tool each Hermes file tool corresponds to for the write rule
