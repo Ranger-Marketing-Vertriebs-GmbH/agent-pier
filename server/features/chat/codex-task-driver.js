@@ -1,31 +1,48 @@
+import { taskStopError } from "./task-control.js";
+import { NO_ANSWER } from "../requests/codex-tasks.js";
+
 // Longer than the stop service's own 10 s, so a late answer still settles the stop.
 const STOP_TIMEOUT_MS = 15000;
+// How long a stopped agent's terminates may take before the stop answers anyway.
+const TERMINATE_BOUND_MS = 1500;
 // Codex no longer has the turn or terminal: it ended by itself.
 const GONE = /thread not found|turn not running|terminal not running/;
 
-const outcome = (result) =>
-  result?.ok
-    ? { ok: true }
-    : {
-        ok: false,
-        ...(GONE.test(result?.reason || "") ? { gone: true } : {}),
-        ...(result?.reason ? { reason: result.reason } : {}),
-      };
+/** The driver's answer to a command result; Codex not answering is the stop's timeout. */
+function outcome(result) {
+  if (result?.ok) return { ok: true };
+  const reason = result?.reason || "";
+  if (reason.endsWith(NO_ANSWER)) throw taskStopError.timeout();
+  return {
+    ok: false,
+    ...(GONE.test(reason) ? { gone: true } : {}),
+    ...(reason ? { reason } : {}),
+  };
+}
 const gone = { ok: false, gone: true };
 
 /**
  * The Codex driver of TaskControl (task-control.js). A subagent is a thread of its
  * own: a stop interrupts its active turn, then terminates that thread's running
  * background terminals, since an interrupted child leaves its commands running (the
- * parent is not told and its wait runs to its timeout). A shell is a background
- * terminal ("<threadId>:<processId>"), stopped only where the connection has the
- * terminal methods. Both go as commands to the launch's proxy (codex-tasks.js) over
- * NativeCommands (`commands`); `state` is CodexTaskState, which also lists the
- * shells.
+ * parent is not told and its wait runs to its timeout). Those terminates run at once,
+ * for at most `terminateBoundMs`, and never fail the stop: a terminal they could not
+ * end stays listed running with a stop of its own. A shell is a background terminal
+ * ("<threadId>:<processId>"), stopped only where the connection has the terminal
+ * methods. Both go as commands to the launch's proxy (codex-tasks.js) over
+ * NativeCommands (`commands`); `state` is CodexTaskState, which also lists the shells.
  */
-export function codexTaskDriver({ commands, state }) {
+export function codexTaskDriver({
+  commands,
+  state,
+  terminateBoundMs = TERMINATE_BOUND_MS,
+}) {
   const send = (session, name, params) =>
     commands.send(session.id, { name, params }, { timeoutMs: STOP_TIMEOUT_MS });
+  const terminate = (session, { threadId, processId }) =>
+    Promise.resolve()
+      .then(() => send(session, "terminal.terminate", { threadId, processId }))
+      .catch(() => {});
   return {
     connected: (session) => commands.connected(session.id),
     canStop: (session, task) =>
@@ -48,11 +65,17 @@ export function codexTaskDriver({ commands, state }) {
         await send(session, "turn.interrupt", { threadId: task.id, turnId }),
       );
       if (!result.ok || !state.terminalMethods(session.id)) return result;
-      for (const { threadId, processId } of state.running(session.id, task.id))
-        // The agent is stopped; a terminal that ended meanwhile changes nothing.
-        await send(session, "terminal.terminate", { threadId, processId }).catch(
-          () => {},
-        );
+      const terminals = state
+        .running(session.id, task.id)
+        .map((entry) => terminate(session, entry));
+      let timer;
+      await Promise.race([
+        Promise.all(terminals),
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, terminateBoundMs);
+        }),
+      ]);
+      clearTimeout(timer);
       return result;
     },
   };

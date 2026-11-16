@@ -13,6 +13,9 @@ const STATUSES = new Set(["running", "completed", "failed", "stopped", "unknown"
 const threadId = (value) => typeof value === "string" && THREAD.test(value);
 const processId = (value) => typeof value === "string" && PROCESS.test(value);
 const time = (value) => Number.isSafeInteger(value) && value >= 0;
+// How a proxy request that Codex did not answer in time fails; the driver turns it
+// into the stop's timeout (codex-task-driver.js).
+export const NO_ANSWER = "no answer from Codex";
 
 /** A finished terminal's status: Codex reports a terminated one with exit code -1. */
 function endStatus(exitCode) {
@@ -75,10 +78,9 @@ export function codexTaskTracker(report = () => {}, now = Date.now) {
     if (!params || typeof params !== "object") return;
     let changed = false;
     if (message.method === "turn/started" && threadId(params.threadId)) {
-      if (
-        typeof params.turn?.id === "string" &&
-        turns.get(params.threadId) !== params.turn.id
-      ) {
+      // A turn id the push validation (codexTasksValue) would refuse is ignored: one
+      // such id would make every report invalid and cost the whole native channel.
+      if (threadId(params.turn?.id) && turns.get(params.threadId) !== params.turn.id) {
         turns.delete(params.threadId);
         turns.set(params.threadId, params.turn.id);
         if (turns.size > MAX_TURNS) turns.delete(turns.keys().next().value);
@@ -162,9 +164,12 @@ export function codexTasksValue(message) {
  *   itself before Codex answered is no stop.
  * - `terminal.terminate { threadId, processId }`: needs the terminal methods; Codex
  *   answers `{ terminated: false }` for a terminal that is not there (any more).
- * `proxy` is `{ request, tracker }` from createCodexProxy.
+ * `proxy` is `{ request, tracker }` from createCodexProxy; `timeoutMs` bounds each
+ * request (the proxy's default, 8 s, ends before the stop service's 10 s).
  */
-export function codexTaskCommands({ request, tracker }) {
+export function codexTaskCommands({ request: send, tracker }, { timeoutMs } = {}) {
+  const request = (method, params) =>
+    send(method, params, timeoutMs === undefined ? {} : { timeoutMs });
   return async (name, params) => {
     const thread = params?.threadId;
     if (name === "turn.interrupt") {

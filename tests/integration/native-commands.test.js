@@ -8,6 +8,7 @@ import { RequestBroker } from "../../server/features/requests/request-broker.js"
 import { NativeRequestChannel } from "../../server/features/requests/native-channel.js";
 import { openCodeCommands } from "../../server/features/requests/opencode-plugin.js";
 import { send } from "../../server/features/requests/wire.js";
+import { NativeCommands } from "../../server/features/requests/native-commands.js";
 import { openCodeTaskDriver } from "../../server/features/chat/opencode-task-driver.js";
 import { TaskControl } from "../../server/features/chat/task-control.js";
 
@@ -261,6 +262,36 @@ test("after the commands channel closed a new one can join", async (t) => {
     ok: true,
     data: "next",
   });
+});
+
+test("a commands socket of another launch clears the tasks the previous one reported", () => {
+  const reports = [];
+  const commands = new NativeCommands({
+    onTasks: (id, push) => reports.push([id, push && push.turns.length]),
+  });
+  const socket = (epoch) => ({ owner: { id: "s", epoch }, destroyed: false });
+  const push = { type: "tasks", turns: [{ threadId: "t", turnId: "u" }], terminals: [] };
+  const first = socket("one");
+  commands.joined(first, { commands: true });
+  commands.tasks(first, push);
+  // A reconnect of the same channel keeps them.
+  const again = socket("one");
+  commands.joined(again, { commands: true });
+  assert.deepEqual(reports, [["s", 1]]);
+  commands.tasks(again, push);
+  // The old socket is gone, its close not yet seen, and another launch joins.
+  again.destroyed = true;
+  const next = socket("two");
+  commands.joined(next, { commands: true });
+  assert.deepEqual(reports, [
+    ["s", 1],
+    ["s", 1],
+    ["s", null],
+  ]);
+  commands.left(again);
+  commands.left(first);
+  assert.equal(reports.length, 3);
+  assert.equal(commands.connected("s"), true);
 });
 
 test("a command refused with a thrown object says why, not [object Object]", async (t) => {

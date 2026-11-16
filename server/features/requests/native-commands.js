@@ -46,8 +46,10 @@ export class NativeCommands {
       current.owner.epoch !== socket.owner.epoch
     )
       return;
-    // What a replaced socket had pending fails once the broker closes it.
+    // What a replaced socket had pending fails once the broker closes it; the tasks
+    // another launch (another epoch) reported are not this one's.
     this.sockets.set(id, socket);
+    if (current && current.owner.epoch !== socket.owner.epoch) this.reportTasks(id, null);
     if (!current) this.changed(id);
   }
   /** The socket closed: it takes no commands, and what it had pending fails. */
