@@ -24,7 +24,8 @@ import { insideRoot } from "./skill-paths.js";
 // workspace skills. A Hermes agent's skills compile into its own home
 // (runtimes/hermes/hermes-config/skills.js); its report names each skill's origin, and
 // a skill it wrote or installed in Hermes itself is listed as on (`selfWritten`), as
-// is a bundled skill Hermes always offers (`essential`, hermes-agent).
+// is a bundled skill Hermes always offers (`essential`, hermes-agent). A skill an
+// OpenClaw agent learned itself is reported with the same origin and listed likewise.
 
 const bundledSource = "openclaw-bundled";
 /** The source OpenClaw reports for skills from skills.load.extraDirs: the catalog. */
@@ -310,11 +311,12 @@ export function skillCatalog({
   return { skills, assigned, shell: personalShell(assistant) };
 }
 
-// The bundled names a report that names origins lists (Hermes); null for OpenClaw's,
-// whose bundled names come from its installation.
+// The bundled names a report that names every entry's origin lists (Hermes); null for
+// OpenClaw's, which names an origin only for a learned skill and whose bundled names
+// come from its installation.
 function reportedBundled(report) {
   const entries = Array.isArray(report?.skills) ? report.skills : [];
-  if (!entries.some((entry) => entry?.origin)) return null;
+  if (!entries.length || !entries.every((entry) => entry?.origin)) return null;
   return new Set(
     entries.filter((entry) => entry?.origin === "bundled").map((entry) => entry.name),
   );
