@@ -26,6 +26,7 @@ import {
   oauthMcpServer,
 } from "../helpers/mcp-oauth-test-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { testPhases } from "../helpers/test-phases.js";
 
 // An MCP OAuth login made on the previous runtime keeps working after a runtime
 // update: the activation carries the stored client and tokens over, the candidate
@@ -66,6 +67,7 @@ test(
       ...(previousRoot === candidateRoot && { version: "pre-update" }),
     };
     t.diagnostic(`${previous.version} -> ${candidate.version}`);
+    const phase = testPhases(t);
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-oauth-version-"));
     const store = new AssistantStore({ dataDir });
     const tool = { name: "none", arguments: {} };
@@ -108,6 +110,7 @@ test(
       reconcile: async () => {},
     };
     runtime.maintenance = () => assistants.maintenance;
+    phase(`start ${previous.version}`);
     await runtime.start();
     const config = new AssistantConfig({
       store,
@@ -245,8 +248,10 @@ test(
           ],
         };
       });
+    phase("bind the OAuth server");
     await bind();
 
+    phase("log in");
     // Log in with the previous runtime's CLI (redirect port held: URL, then --code).
     let authorizationUrl;
     for (let attempt = 1; !authorizationUrl; attempt++) {
@@ -290,13 +295,16 @@ test(
       maintenance: new AssistantMaintenance(services),
       stage: async () => candidate,
     });
+    phase("stage");
     await updates.stage();
+    phase(`activate ${candidate.version}`);
     await updates.activate();
     assert.equal(updates.status().phase, "complete");
     assert.equal(runtime.status().version, candidate.version);
     assert.equal(selected().version, candidate.version);
     await bind();
 
+    phase("check the carried-over login");
     // The candidate's CLI reads the carried-over login.
     const carried = await authStatus();
     assert.equal(carried.state, "authorized");
@@ -306,6 +314,7 @@ test(
 
     // An expired access token: the candidate refreshes the old login unattended,
     // without a new client registration or authorization.
+    phase("refresh on the updated runtime");
     oauth.expireAccessTokens();
     const refreshed = grants().length;
     const first = { name: "docs__echo", arguments: { text: "after-update" } };
@@ -332,6 +341,7 @@ test(
     assert.ok(warned <= 1, `${warned} missing-issuer warnings`);
 
     // Survives a restart of the updated Gateway as well.
+    phase("restart");
     await runtime.restart();
     await bind();
     assert.equal((await authStatus()).state, "authorized");

@@ -14,6 +14,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { testPhases } from "../helpers/test-phases.js";
 
 // OpenClaw 2026.10.7's Doctor copies every plain `models.providers.*.apiKey` into its
 // auth profile store, which the model request then prefers over openclaw.json. After
@@ -107,7 +108,8 @@ function databasesHolding(paths, secret) {
 test(
   "native cross-version activation keeps openclaw.json's model key authoritative",
   { skip: !previousRoot || !candidateRoot, timeout: 240000 },
-  async () => {
+  async (t) => {
+    const phase = testPhases(t);
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-doctor-keys-"));
     const previous = descriptor(previousRoot),
       candidate = descriptor(candidateRoot);
@@ -116,160 +118,170 @@ test(
       ledger = new RequestLedger(store.db);
     const model = await keyedModel();
     let runtime;
-    try {
-      runtime = new RuntimeSupervisor({
-        dataDir,
-        install: async () => readJSON(path.join(runtime.paths.root, "runtime.json")),
+    // Also when the test times out: node:test starts the next test while a timed-out
+    // body still runs, and its Gateway would compete with the next one.
+    t.after(async () => {
+      try {
+        await runtime?.close();
+      } finally {
+        store.close();
+        await model.close();
+        fs.rmSync(dataDir, { recursive: true, force: true });
+      }
+    });
+    runtime = new RuntimeSupervisor({
+      dataDir,
+      install: async () => readJSON(path.join(runtime.paths.root, "runtime.json")),
+    });
+    writePrivate(path.join(runtime.paths.root, "runtime.json"), previous);
+    const a = store.createAssistant({
+      name: "Doctor key fixture",
+      model: { connectionId: "fixture", modelId: "fixture-model" },
+      capabilities: { memory: true, reminders: true },
+    });
+    const assistants = {
+      store,
+      ledger,
+      runtime,
+      locks: new Map(),
+      maintenance: false,
+      changed() {},
+      admit: (fn) => Promise.resolve().then(fn),
+      requireReady() {
+        assert.ok(runtime.client?.ready);
+      },
+      reconcile: async () => {},
+    };
+    runtime.maintenance = () => assistants.maintenance;
+    runtime.teamConfiguration = async (installed) => ({
+      directory: provisionTeamPlugin({
+        paths: runtime.paths,
+        runtimeVersion: installed.version,
+      }).directory,
+      connection: { url: "http://127.0.0.1:1", token: "fixture" },
+      native: { token: "fixture-webhook" },
+      hostMaxConcurrent: 4,
+      profiles: store.listAssistants(),
+    });
+    phase(`start ${previous.version}`);
+    await runtime.start();
+    phase("apply the configuration");
+    // A provider whose id stays the same when its key changes, as the Telegram
+    // voice provider `deepgram` does; model connections also get a new id.
+    let apiKey = OLD_KEY;
+    assistants.config = new AssistantConfig({
+      runtime,
+      store,
+      workspaces: runtime.paths.workspaces,
+      models: {
+        resolve: () => ({
+          providerId: "fixture",
+          modelRef: "fixture/fixture-model",
+          provider: {
+            baseUrl: model.url,
+            api: "openai-completions",
+            apiKey,
+            models: [
+              {
+                id: "fixture-model",
+                name: "Fixture",
+                contextWindow: 32768,
+                maxTokens: 4096,
+              },
+            ],
+          },
+          release() {},
+        }),
+      },
+    });
+    assistants.config.nativeReady = () => true;
+    await assistants.config.apply(a.id);
+    const chat = await createGatewaySession(runtime.client, {
+      agentId: a.runtimeAgentId,
+    });
+    const turn = async (text) => {
+      const sent = await runtime.client.call("sessions.send", {
+        key: chat.key,
+        message: text,
+        idempotencyKey: `doctor-keys-${text}`,
       });
-      writePrivate(path.join(runtime.paths.root, "runtime.json"), previous);
-      const a = store.createAssistant({
-        name: "Doctor key fixture",
-        model: { connectionId: "fixture", modelId: "fixture-model" },
-        capabilities: { memory: true, reminders: true },
-      });
-      const assistants = {
-        store,
-        ledger,
-        runtime,
-        locks: new Map(),
-        maintenance: false,
-        changed() {},
-        admit: (fn) => Promise.resolve().then(fn),
-        requireReady() {
-          assert.ok(runtime.client?.ready);
-        },
-        reconcile: async () => {},
-      };
-      runtime.maintenance = () => assistants.maintenance;
-      runtime.teamConfiguration = async (installed) => ({
-        directory: provisionTeamPlugin({
-          paths: runtime.paths,
-          runtimeVersion: installed.version,
-        }).directory,
-        connection: { url: "http://127.0.0.1:1", token: "fixture" },
-        native: { token: "fixture-webhook" },
-        hostMaxConcurrent: 4,
-        profiles: store.listAssistants(),
-      });
-      await runtime.start();
-      // A provider whose id stays the same when its key changes, as the Telegram
-      // voice provider `deepgram` does; model connections also get a new id.
-      let apiKey = OLD_KEY;
-      assistants.config = new AssistantConfig({
-        runtime,
-        store,
-        workspaces: runtime.paths.workspaces,
-        models: {
-          resolve: () => ({
-            providerId: "fixture",
-            modelRef: "fixture/fixture-model",
-            provider: {
-              baseUrl: model.url,
-              api: "openai-completions",
-              apiKey,
-              models: [
-                {
-                  id: "fixture-model",
-                  name: "Fixture",
-                  contextWindow: 32768,
-                  maxTokens: 4096,
-                },
-              ],
-            },
-            release() {},
-          }),
-        },
-      });
-      assistants.config.nativeReady = () => true;
-      await assistants.config.apply(a.id);
-      const chat = await createGatewaySession(runtime.client, {
-        agentId: a.runtimeAgentId,
-      });
-      const turn = async (text) => {
-        const sent = await runtime.client.call("sessions.send", {
-          key: chat.key,
-          message: text,
-          idempotencyKey: `doctor-keys-${text}`,
-        });
-        return runtime.client.call(
-          "agent.wait",
-          { runId: sent.runId, timeoutMs: 45000 },
-          { timeoutMs: 50000 },
-        );
-      };
-      assert.equal((await turn("before-update")).status, "ok");
-      assert.equal(model.seen.at(-1), OLD_KEY);
+      return runtime.client.call(
+        "agent.wait",
+        { runId: sent.runId, timeoutMs: 45000 },
+        { timeoutMs: 50000 },
+      );
+    };
+    phase("model turn");
+    assert.equal((await turn("before-update")).status, "ok");
+    assert.equal(model.seen.at(-1), OLD_KEY);
 
-      const services = {
-        assistants,
-        assistantRuntime: runtime,
-        assistantChannels: {
-          pause: async () => {},
-          resume() {},
-          store: { list: () => [] },
-        },
-        assistantReminders: {
-          webhook: { jobs: new Set() },
-          hasRunning: async () => false,
-        },
-      };
-      const updates = new RuntimeUpdates({
-        dataDir,
-        runtime,
-        maintenance: new AssistantMaintenance(services),
-        stage: async () => candidate,
-      });
-      await updates.stage();
-      await updates.activate();
-      assert.equal(runtime.status().version, candidate.version);
-      // Doctor's copy of the compiled key is gone with the activation; openclaw.json
-      // keeps it.
-      assert.deepEqual(databasesHolding(runtime.paths, OLD_KEY), []);
-      assert.equal((await turn("after-update")).status, "ok");
-      assert.equal(model.seen.at(-1), OLD_KEY);
+    const services = {
+      assistants,
+      assistantRuntime: runtime,
+      assistantChannels: {
+        pause: async () => {},
+        resume() {},
+        store: { list: () => [] },
+      },
+      assistantReminders: {
+        webhook: { jobs: new Set() },
+        hasRunning: async () => false,
+      },
+    };
+    const updates = new RuntimeUpdates({
+      dataDir,
+      runtime,
+      maintenance: new AssistantMaintenance(services),
+      stage: async () => candidate,
+    });
+    phase("stage");
+    await updates.stage();
+    phase(`activate ${candidate.version}`);
+    await updates.activate();
+    phase("model turn after the update");
+    assert.equal(runtime.status().version, candidate.version);
+    // Doctor's copy of the compiled key is gone with the activation; openclaw.json
+    // keeps it.
+    assert.deepEqual(databasesHolding(runtime.paths, OLD_KEY), []);
+    assert.equal((await turn("after-update")).status, "ok");
+    assert.equal(model.seen.at(-1), OLD_KEY);
 
-      // The owner rotates the key and the provider revokes the old one.
-      apiKey = NEW_KEY;
-      model.accept(NEW_KEY);
-      await assistants.config.apply(a.id);
-      const before = model.seen.length;
-      const rotated = await turn("after-rotation");
-      assert.ok(model.seen.length > before, "the rotated turn reached the model");
-      assert.deepEqual(
-        [...new Set(model.seen.slice(before))],
-        [NEW_KEY],
-        "every request after the rotation carries the new key",
-      );
-      assert.equal(rotated.status, "ok");
-      // A restart keeps the rotated key and resurrects no copy of the old one. The
-      // updated runtime itself copies no configured key into its state either.
-      await runtime.restart();
-      assert.deepEqual(databasesHolding(runtime.paths, OLD_KEY), []);
-      assert.deepEqual(databasesHolding(runtime.paths, NEW_KEY), []);
-      assert.equal(
-        readJSON(runtime.paths.config).models.providers.fixture.apiKey,
-        NEW_KEY,
-      );
-      // Removing the connection removes its provider from openclaw.json, the only
-      // place the key then lives: no turn can send it and no state keeps it.
-      await runtime.stop();
-      const config = readJSON(runtime.paths.config);
-      delete config.models.providers.fixture;
-      writePrivate(runtime.paths.config, config);
-      await runtime.start();
-      const removed = model.seen.length;
-      const blocked = await turn("after-removal").catch((error) => error);
-      assert.ok(
-        blocked instanceof Error || blocked.status !== "ok",
-        "no turn without a key",
-      );
-      assert.equal(model.seen.length, removed, "no request after the removal");
-      assert.deepEqual(databasesHolding(runtime.paths, NEW_KEY), []);
-    } finally {
-      await runtime?.close();
-      store.close();
-      await model.close();
-      fs.rmSync(dataDir, { recursive: true, force: true });
-    }
+    // The owner rotates the key and the provider revokes the old one.
+    phase("rotate the key");
+    apiKey = NEW_KEY;
+    model.accept(NEW_KEY);
+    await assistants.config.apply(a.id);
+    const before = model.seen.length;
+    const rotated = await turn("after-rotation");
+    assert.ok(model.seen.length > before, "the rotated turn reached the model");
+    assert.deepEqual(
+      [...new Set(model.seen.slice(before))],
+      [NEW_KEY],
+      "every request after the rotation carries the new key",
+    );
+    assert.equal(rotated.status, "ok");
+    // A restart keeps the rotated key and resurrects no copy of the old one. The
+    // updated runtime itself copies no configured key into its state either.
+    phase("restart");
+    await runtime.restart();
+    assert.deepEqual(databasesHolding(runtime.paths, OLD_KEY), []);
+    assert.deepEqual(databasesHolding(runtime.paths, NEW_KEY), []);
+    assert.equal(readJSON(runtime.paths.config).models.providers.fixture.apiKey, NEW_KEY);
+    // Removing the connection removes its provider from openclaw.json, the only
+    // place the key then lives: no turn can send it and no state keeps it.
+    phase("remove the provider");
+    await runtime.stop();
+    const config = readJSON(runtime.paths.config);
+    delete config.models.providers.fixture;
+    writePrivate(runtime.paths.config, config);
+    await runtime.start();
+    const removed = model.seen.length;
+    const blocked = await turn("after-removal").catch((error) => error);
+    assert.ok(
+      blocked instanceof Error || blocked.status !== "ok",
+      "no turn without a key",
+    );
+    assert.equal(model.seen.length, removed, "no request after the removal");
+    assert.deepEqual(databasesHolding(runtime.paths, NEW_KEY), []);
   },
 );
