@@ -122,10 +122,33 @@ reads as data (`metadata.openclaw` of a skill, `__openclaw` on a transcript mess
 the host backup's knowledge of the built-in runtime's state folder, and the product
 name on the built-in runtime's host page.
 
-What the rule still cannot see: a helper with a neutral name that compares a runtime
-id inside the runtime modules (review keeps `runtime-for.js` to helpers that ask a
-trait or the agent's runtime), an expression inside a template literal, a name built
-at run time, and prose.
+#### Known limits of the rule
+
+- **The runtime modules are not scanned, the port's public ones included.**
+  `runtime-for.js`, `runtime-wiring.js`, `runtime-services.js` and
+  `runtime-backup-paths.js` lie in `runtimes/` and name Hermes. A helper there with a
+  neutral name can therefore still hide a runtime; only review keeps them to helpers
+  that ask a trait, the registry or the agent's runtime.
+- An expression inside a template literal, a name built at run time, comments, log
+  texts and prose are not read.
+- **`ownProcess` stands for "the one runtime with a host per agent".** The trait
+  `host.process: "perAgent"` is true of Hermes alone, and several places rely on
+  that. They are correct with the two runtimes shipped; with a second per-agent
+  runtime each needs a finer trait or a port method:
+  - `runtimes/hermes/wiring.js`: Hermes's update journal claims the workspaces of
+    every per-agent runtime's agents (`ownProcessUpdateScope`);
+  - `server/application/assistants.js`: the start calls `startAll` on every set of
+    agent hosts with all agents;
+  - `proxy-access.js`: the ChatGPT proxy credential is granted to any own-process
+    agent;
+  - `exec-approvals.js`, `native-heartbeats.js`, `agent-browsers.js`,
+    `dreaming-backups.js`: behaviour that is Hermes's, chosen by `ownProcess`;
+  - `runtime-services.js` `part()`: the first runtime that brings a part (tool
+    routes aside, which are merged by URL) serves every agent, whatever its runtime.
+- The lists of `runtime-wiring.js`, `runtime-services.js` and
+  `runtime-backup-paths.js` are kept by hand beside the registry of `runtime-for.js`.
+  `tests/unit/runtime-wiring.test.js` fails when a runtime with a host per agent has
+  no backup rules, or an adapter has a `wiring.js` or `services.js` its list lacks.
 
 ### 4. Slots and built surfaces
 
@@ -336,6 +359,10 @@ the agent's runtime:
 | `hermes*` memory re-exports                      | gone; the dream imports `hermes-config/memory.js` in its adapter                               |
 | `openClawUpdateScope`, `hermesUpdateScope`       | `sharedHostUpdateScope`, `ownProcessUpdateScope` (`runtime-update-scope.js`)                   |
 | `assistants.hermesDreams`, `config.hermesInputs` | `assistants.agentDreams`, `config.hostInputs`                                                  |
+
+A per-agent runtime's registry entry also tells its session keys (`sessionKey`,
+`sessionAgent`, next to `runOf`), which `ownHostSessionKey` and `runtimeForSession`
+ask instead of spelling a key format.
 
 The translated refusal `hermesUnavailable` keeps its key and text; the registry entry
 of a runtime with a host per agent names its refusal, and feature code raises it

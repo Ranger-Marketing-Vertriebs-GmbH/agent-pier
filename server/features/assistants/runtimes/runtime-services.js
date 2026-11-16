@@ -1,4 +1,5 @@
 import { assistantProblem } from "../assistant-validation.js";
+import { hermesDescriptor } from "./hermes/descriptor.js";
 import { hermesServices } from "./hermes/services.js";
 
 // What runtimes bring to features AgentPier shares between them, beside the port of
@@ -10,7 +11,11 @@ import { hermesServices } from "./hermes/services.js";
 //
 // Read at each call, never when this module loads: a runtime's parts import feature
 // modules that import this one.
-const parts = () => [hermesServices];
+const byRuntime = () => ({ [hermesDescriptor.id]: hermesServices });
+const parts = () => Object.values(byRuntime());
+
+/** The ids of the runtimes that list parts: each with a `<id>/services.js`. */
+export const serviceRuntimes = () => Object.keys(byRuntime());
 // The part `name` of the first runtime that brings one. Each part exists once today;
 // a second runtime bringing the same part needs a choice by the agent's runtime here.
 const part = (name) => parts().find((services) => services[name])?.[name];

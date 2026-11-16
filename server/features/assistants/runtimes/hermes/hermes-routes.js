@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../assistant-validation.js";
 import { hermesDescriptor } from "./descriptor.js";
-import { resolution } from "../../../../http/routes/assistant-runtime-updates.js";
+import { resolution } from "../../runtime-update-resolution.js";
 
 /**
  * The owner's Hermes Agent opt-in (wiring.js), an agent route, mounted from what

@@ -1,37 +1,11 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { resolution } from "../../features/assistants/runtime-update-resolution.js";
 const updateFailures = {
   UPDATE_BLOCKED: ["updateBlocked", 409],
   UPDATE_CONFIG_BUSY: ["configBusy", 503],
   UPDATE_PREPARE_FAILED: ["updatePrepareFailed", 503],
 };
-const itemLimit = 500;
-const shortText = (value) =>
-  typeof value === "string" && value.length > 0 && value.length <= 300;
-// `{ resolveBlockers: true, items: [{ id, revision }] }`: the blocker items the owner
-// confirmed in "Pause agents and update", or null when the body is not exactly that.
-export function resolution(body) {
-  const { resolveBlockers, items, ...rest } = body;
-  if (
-    resolveBlockers !== true ||
-    Object.keys(rest).length ||
-    !Array.isArray(items) ||
-    items.length > itemLimit ||
-    !items.every(
-      (i) =>
-        i &&
-        typeof i === "object" &&
-        Object.keys(i).length === 2 &&
-        shortText(i.id) &&
-        shortText(i.revision),
-    )
-  )
-    return null;
-  return {
-    resolveBlockers: true,
-    items: items.map(({ id, revision }) => ({ id, revision })),
-  };
-}
 export function assistantRuntimeUpdateRoutes({ assistantUpdates, assistants }) {
   const router = Router();
   router.use("/assistant-runtime/updates", (_req, res, next) => {

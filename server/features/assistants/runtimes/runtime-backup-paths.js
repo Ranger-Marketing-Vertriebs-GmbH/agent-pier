@@ -1,3 +1,4 @@
+import { hermesDescriptor } from "./hermes/descriptor.js";
 import { hermesBackupPaths } from "./hermes/hermes-backup-paths.js";
 
 // What host backups make of the folders a runtime keeps below assistants/ beside the
@@ -8,7 +9,14 @@ import { hermesBackupPaths } from "./hermes/hermes-backup-paths.js";
 //
 // This module imports only the runtimes' path rules, so the backup and restore code
 // loads no adapter. Read at each call: no module order matters.
-const rules = () => [hermesBackupPaths];
+const byRuntime = () => ({ [hermesDescriptor.id]: hermesBackupPaths });
+const rules = () => Object.values(byRuntime());
+
+/**
+ * The ids of the runtimes that bring backup rules. Every runtime with a host per
+ * agent keeps private folders and must be among them (runtime-wiring.test.js).
+ */
+export const backupRuleRuntimes = () => Object.keys(byRuntime());
 
 /** Whether `relative` is a runtime's data no host backup archives. */
 export const isRuntimeExcluded = (relative) =>
