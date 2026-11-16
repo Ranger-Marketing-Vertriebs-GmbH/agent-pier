@@ -14,7 +14,7 @@ import {
   redact,
   supervisorMcpCli,
   sweepLogoutConfigs,
-} from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 
 const fakeEntry = fileURLToPath(

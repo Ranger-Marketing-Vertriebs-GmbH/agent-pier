@@ -56,6 +56,11 @@ export const publicPortModules = [
   `${portDirectory}runtime-for.js`,
   `${portDirectory}runtime-traits.js`,
   `${portDirectory}runtime-descriptors.js`,
+  // What runtimes bring beside the port (ADR 0007, decision 7): their wiring into
+  // the application, their parts of shared features, their backup path rules.
+  `${portDirectory}runtime-wiring.js`,
+  `${portDirectory}runtime-services.js`,
+  `${portDirectory}runtime-backup-paths.js`,
 ];
 // Imports and re-exports, static and dynamic: `from "…"`, `import "…"`, `import("…")`.
 const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'`](\.{1,2}\/[^"'`]+)["'`]/g;

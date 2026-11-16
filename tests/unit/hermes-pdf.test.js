@@ -5,7 +5,7 @@ import { compileHome } from "../../server/features/assistants/runtimes/hermes/he
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { pdfKeyEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/pdf.js";
 import { WebToolsChanges } from "../../server/features/assistants/web-tools-changes.js";
-import { hermesPdfFallback } from "../../server/application/hermes-wiring.js";
+import { hermesPdfFallback } from "../../server/features/assistants/runtimes/hermes/wiring.js";
 
 // Read PDFs on Hermes (hermes-config/pdf.js): AgentPier's own pdf tool in the team
 // plugin, which reads scanned pages too, with the model AgentPier names.

@@ -1,16 +1,18 @@
 import { Router } from "express";
-import { assistantProblem } from "../../features/assistants/assistant-validation.js";
-import { resolution } from "./assistant-runtime-updates.js";
+import { assistantProblem } from "../../assistant-validation.js";
+import { hermesDescriptor } from "./descriptor.js";
+import { resolution } from "../../../../http/routes/assistant-runtime-updates.js";
 
 /**
- * The owner's Hermes Agent opt-in (application/hermes-wiring.js), an agent route:
+ * The owner's Hermes Agent opt-in (wiring.js), an agent route, mounted from what
+ * Hermes's wiring returns (`routes`, ../runtime-wiring.js):
  * GET reports it, PUT `{ enabled }` records it; enabling installs the pinned Hermes
  * runtime in the background (`installing`, then `installed` or `error`); POST
  * `/update` activates the version this AgentPier pins (`updating` until done), with
  * `{ resolveBlockers: true, items }` after resolving the work the owner confirmed
  * ("Pause agents and update"); GET `/update/blockers` lists what blocks it now.
  */
-export function assistantHermesRoutes({ hermesRuntime, audit }) {
+export function hermesRoutes({ hermesRuntime, audit }) {
   const router = Router();
   if (!hermesRuntime) return router;
   router.get("/assistant-runtime/hermes", (_req, res) => res.json(hermesRuntime.state()));
@@ -29,7 +31,7 @@ export function assistantHermesRoutes({ hermesRuntime, audit }) {
     audit.append({
       action: "setting.updated",
       resourceType: "setting",
-      resourceId: "hermes",
+      resourceId: hermesDescriptor.id,
       outcome: "success",
       source: "user",
       details: { enabled: state.enabled },
@@ -37,7 +39,7 @@ export function assistantHermesRoutes({ hermesRuntime, audit }) {
     res.json(state);
   });
   // Installs the pinned Hermes beside the selected one and activates it; the Hermes
-  // agents restart, and a failed start rolls back (application/hermes-wiring.js).
+  // agents restart, and a failed start rolls back (wiring.js).
   router.get("/assistant-runtime/hermes/update/blockers", async (_req, res) => {
     res.set("Cache-Control", "no-store");
     res.json({ items: await hermesRuntime.blockerPreview() });
@@ -53,7 +55,7 @@ export function assistantHermesRoutes({ hermesRuntime, audit }) {
     audit.append({
       action: "setting.updated",
       resourceType: "setting",
-      resourceId: "hermes",
+      resourceId: hermesDescriptor.id,
       outcome: "success",
       source: "user",
       details: {

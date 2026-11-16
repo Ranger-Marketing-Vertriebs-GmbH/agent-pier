@@ -11,9 +11,9 @@ import {
 import { connectAssistantServices, constructAssistantGraph } from "./assistant-graph.js";
 import { recoverAssistantServices } from "./assistant-recovery.js";
 import {
-  hermesFleetOf,
+  agentHostSets,
   hostOf,
-  traitOf,
+  ownProcess,
 } from "../features/assistants/runtimes/runtime-for.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
@@ -88,9 +88,10 @@ export function createAssistantServices(options) {
       agentChannelsChanged(options.live, assistantId);
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     followReminderWrites(graph.assistantReminders, () => options.live);
-    // A recorded Hermes night (hermes-dreams.js) shows on the memory view.
-    if (graph.assistants.hermesDreams)
-      graph.assistants.hermesDreams.onChange = (id) =>
+    // A night an agent dreamed by itself (runtime-services.js agentDreams) shows on
+    // the memory view.
+    if (graph.assistants.agentDreams)
+      graph.assistants.agentDreams.onChange = (id) =>
         agentMemoryChanged(options.live, id);
     // The agents' pinboards (agentpier_pinboard), on the shares of the connected graph.
     graph.assistants.pinboard = new AgentPinboard({
@@ -167,18 +168,17 @@ export function startAssistantServices(
   };
   if (sshReady) sshReady.then(run);
   else run();
-  // Hermes agents run in their own process sets while Hermes is enabled and
-  // installed, independent of the OpenClaw runtime switch (hermes-fleet.js).
-  const startHermes = () => {
+  // Agents on hosts of their own (Hermes's process sets) run while their runtime is
+  // enabled and installed, independent of the shared host's switch (hermes-fleet.js).
+  const startOwn = () => {
     if (assistantAgentSsh?.closed || assistants.maintenance || assistants.closed) return;
     const agents = assistants.store?.listAssistants?.() || [];
-    if (agents.some((agent) => traitOf(agent, "host", "process") === "perAgent"))
-      hermesFleetOf(assistantRuntime)
-        .startAll(agents)
-        .catch(() => {});
+    if (agents.some(ownProcess))
+      for (const hosts of agentHostSets(assistantRuntime))
+        hosts.startAll(agents).catch(() => {});
   };
-  if (sshReady) sshReady.then(startHermes);
-  else startHermes();
+  if (sshReady) sshReady.then(startOwn);
+  else startOwn();
   // After an AgentPier update, the runtime it ships is prepared without blocking start.
   stageInBackground({ dataDir: config.dataDir });
 }

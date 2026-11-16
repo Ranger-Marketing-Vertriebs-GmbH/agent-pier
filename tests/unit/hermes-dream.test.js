@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { dreamOnce } from "../../server/features/assistants/hermes-dream.js";
+import { dreamOnce } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream.js";
 
 const agentId = "hermes-agent";
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");

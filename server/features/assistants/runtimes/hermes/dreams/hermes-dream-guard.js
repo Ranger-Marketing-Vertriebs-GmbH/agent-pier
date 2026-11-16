@@ -1,9 +1,9 @@
 import {
-  hermesMemoryChars as memoryChars,
-  hermesMemoryEntries as memoryEntries,
-  hermesMemoryLimits as memoryLimits,
-  hermesPinnedEntries as pinnedEntries,
-} from "./runtimes/runtime-for.js";
+  memoryChars,
+  memoryEntries,
+  memoryLimits,
+  pinnedEntries,
+} from "../hermes-config/memory.js";
 
 const files = Object.keys(memoryLimits);
 

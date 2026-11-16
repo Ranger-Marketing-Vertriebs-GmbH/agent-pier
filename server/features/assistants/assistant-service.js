@@ -57,7 +57,7 @@ import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
 import {
-  hermesFleetOf,
+  agentHostSets,
   hostOf,
   runtimeAccepts,
   runtimeFor,
@@ -557,7 +557,7 @@ export class AssistantService {
     await this.teams?.close();
     await this.login?.close();
     await this.runtime.close();
-    await hermesFleetOf(this.runtime).close();
+    for (const hosts of agentHostSets(this.runtime)) await hosts.close();
     await this.reminders?.close();
     await Promise.allSettled([...this.locks.values(), this.reconciling].filter(Boolean));
     this.markOutstandingUnknown();

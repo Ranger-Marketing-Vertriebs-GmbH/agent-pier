@@ -4,7 +4,7 @@ import {
   nudgedIdleTtl,
   pendingLoginMs,
 } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
-import { McpCliError } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { McpCliError } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   local,

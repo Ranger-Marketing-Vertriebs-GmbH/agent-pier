@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { makeHermesRuntime } from "../helpers/hermes-fake-gateway.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import {
   deleteNativeSession,
   deletePendingSessions,

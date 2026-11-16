@@ -6,11 +6,11 @@ import path from "node:path";
 import {
   createHermesRuntime,
   runtimeInstallsOf,
-  wireHermesRuntime,
-} from "../../server/application/hermes-wiring.js";
+} from "../../server/features/assistants/runtimes/hermes/wiring.js";
+import { wireRuntimes } from "../../server/features/assistants/runtimes/runtime-wiring.js";
 import { hermesDescriptor } from "../../server/features/assistants/runtimes/hermes/descriptor.js";
 
-// The owner's Hermes switch announces every change of its state (hermes-wiring.js),
+// The owner's Hermes switch announces every change of its state (runtimes/hermes/wiring.js),
 // which the live topic `runtimes` follows.
 
 // A data directory with Hermes switched on and an installation selected.
@@ -85,7 +85,8 @@ test("the install sources name the optional runtime by its descriptor and read l
 test("the wiring puts the switch, its install source and its live signal on the services", (t) => {
   const signaled = [];
   const services = { live: { invalidate: (topic) => signaled.push(topic) } };
-  const hermes = wireHermesRuntime({ config: { dataDir: installed(t) }, services });
+  const wired = wireRuntimes(services, { config: { dataDir: installed(t) } });
+  const hermes = wired.services.hermesRuntime;
   assert.equal(services.hermesRuntime, hermes);
   assert.equal(services.runtimeInstalls[hermesDescriptor.id]().installed, true);
   hermes.onChange();

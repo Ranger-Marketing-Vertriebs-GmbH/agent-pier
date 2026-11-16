@@ -203,7 +203,7 @@ export class AssistantConfig {
    * catalog skills are checked first (a tampered copy is restored, a damaged one left
    * out) and offered from their live folders; its bound MCP servers come from the
    * store (`ownMcp`, mcp-changes.js agentInputs); the team bridge its team plugin
-   * calls comes from `hermesInputs`; its SSH grant, shell PATH and the guidance on
+   * calls comes from `hostInputs` (its runtime's wiring, runtime-wiring.js); its SSH grant, shell PATH and the guidance on
    * what its AgentPier tools reach from `ownProcessInputs` (own-process-guidance.js).
    */
   async applyOwnProcess(assistant, lease) {
@@ -226,7 +226,7 @@ export class AssistantConfig {
       const mcp = this.ownMcp?.(assistant) || { servers: [], inputs: undefined };
       // The team bridge (and the browser settings) its plugin needs; a lead's team
       // section leaves its members out, which agentpier_team_members lists.
-      const inputs = (await this.hermesInputs?.(assistant)) || {};
+      const inputs = (await this.hostInputs?.(assistant)) || {};
       let team = null;
       if (inputs.connection && !assistant.teamMemberId)
         try {

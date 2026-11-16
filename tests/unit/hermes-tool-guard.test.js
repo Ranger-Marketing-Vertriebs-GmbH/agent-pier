@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesGuard } from "../../server/features/assistants/runtimes/hermes/tools/hermes-tool-guard.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { secretsRefusal } from "../../server/features/assistants/team-plugin/secrets-guard.js";
 import {

@@ -16,7 +16,7 @@ import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import {
   anyHostReady,
   hostReady,
-  openClawFrameEvent,
+  sharedHostFrameEvent,
   ownProcess,
   routineRunOf,
   runtimeFor,
@@ -387,7 +387,7 @@ export class HookRuns {
     if (event.sessionKey !== payload.sessionKey)
       this.hooks.events.patch(event.id, { sessionKey: payload.sessionKey });
     // The hub hands on OpenClaw's own frame; RunSteps reads the normalized event.
-    this.steps.observe(openClawFrameEvent({ event: "agent", payload }));
+    this.steps.observe(sharedHostFrameEvent({ event: "agent", payload }));
   }
   /**
    * On every Gateway ready, and whenever a Hermes agent's own set became ready: events

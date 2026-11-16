@@ -100,7 +100,7 @@ export function configShaped(text) {
   }
 }
 export const isDatabase = (name) => /\.(sqlite3?|db)$/.test(name);
-// A Hermes agent's HERMES_HOME (operations/hermes-backup-paths.js): its .env holds the
+// A Hermes agent's HERMES_HOME (runtimes/hermes/hermes-backup-paths.js): its .env holds the
 // model, MCP, bot and speech keys, auth.json Hermes's own provider logins.
 const hermesCredential = /^hermes\/state\/[^/]+\/(\.env|auth\.json)$/;
 export function isCredentialFile(relative) {

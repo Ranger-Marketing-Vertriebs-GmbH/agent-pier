@@ -39,38 +39,12 @@ const runtimeIdAllowlist = {
   // The source of an allowlist entry, and the name of OpenClaw's temporary folder.
   "server/features/assistants/exec-allowlist.js": 1,
   "server/features/assistants/browser-upload-staging.js": 1,
-
-  // Step 5, second half: Hermes's own services and routes into its adapter (the
-  // descriptor's wiring). The readers of a runtime id went with the first half.
-  "server/application/hermes-wiring.js": 3,
-  "server/features/assistants/hermes-browser-upload.js": 1,
-  "server/features/assistants/hermes-dream-prompt.js": 2,
-  "server/features/assistants/hermes-dreams.js": 1,
-  "server/features/assistants/hermes-routine-approvals.js": 1,
-  "server/features/assistants/hermes-tool-guard.js": 1,
-  "server/http/routes/assistant-hermes.js": 2,
 };
 
-// The files named after a runtime outside its module. This list may only shrink.
-const runtimeNamedFileAllowlist = [
-  // Hermes's own services, wiring and backup paths: into its adapter.
-  "server/application/hermes-wiring.js",
-  "server/features/assistants/hermes-browser-upload.js",
-  "server/features/assistants/hermes-dream-chats.js",
-  "server/features/assistants/hermes-dream-guard.js",
-  "server/features/assistants/hermes-dream-prompt.js",
-  "server/features/assistants/hermes-dream-store.js",
-  "server/features/assistants/hermes-dream.js",
-  "server/features/assistants/hermes-dreams.js",
-  "server/features/assistants/hermes-generated-images.js",
-  "server/features/assistants/hermes-home-guard.js",
-  "server/features/assistants/hermes-image-migration.js",
-  "server/features/assistants/hermes-routine-approvals.js",
-  "server/features/assistants/hermes-tool-guard.js",
-  // OpenClaw's MCP command line: into its adapter.
-  "server/features/mcp-servers/openclaw-mcp-cli.js",
-  "server/features/operations/hermes-backup-paths.js",
-];
+// No file outside the runtime modules is named after a runtime: Hermes's services,
+// wiring, routes and backup paths and OpenClaw's MCP command line live in their
+// adapters since step 5.
+const runtimeNamedFileAllowlist = [];
 
 test("runtime rule idLiterals: no product code outside the runtime modules names a runtime", () => {
   assert.deepEqual(runtimeIdLiterals(sources), sortedByKey(runtimeIdAllowlist), hint);

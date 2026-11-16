@@ -53,3 +53,10 @@ export function isPrivateHermesTree(relative) {
   const inside = home.exec(relative)?.[1];
   return inside !== undefined && !publicHome.test(inside) && !publicFolder.test(inside);
 }
+
+/** What host backups ask of a runtime's private folder (../runtime-backup-paths.js). */
+export const hermesBackupPaths = Object.freeze({
+  excluded: isHermesExcluded,
+  browserTree: isHermesBrowserTree,
+  privateTree: isPrivateHermesTree,
+});

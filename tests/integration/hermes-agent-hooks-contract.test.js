@@ -6,7 +6,7 @@ import { applicationFixture, enabledAssistants } from "../helpers/application.js
 import { eventually } from "../helpers/hermes-fake-runtime.js";
 import { contractRecord, hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
 import { guardProcess } from "../helpers/process-guard.js";
-import { hermesFleetOf } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesFleetOf } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 // A hook run end to end on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME): the
 // owner creates a hook for a Hermes agent through the hook routes and sends its test

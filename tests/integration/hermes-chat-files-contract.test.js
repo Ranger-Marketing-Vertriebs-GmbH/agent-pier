@@ -11,7 +11,7 @@ import { hermesFleetApp, json } from "../helpers/hermes-app.js";
 import {
   homeRefusal,
   splitSearchRefusal,
-} from "../../server/features/assistants/hermes-home-guard.js";
+} from "../../server/features/assistants/runtimes/hermes/tools/hermes-home-guard.js";
 import { agentPath } from "../../server/features/assistants/agent-attachment-notes.js";
 
 // Chat files on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME). An agent shared

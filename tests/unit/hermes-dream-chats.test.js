@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {
   dreamChatBudget,
   dreamChats,
-} from "../../server/features/assistants/hermes-dream-chats.js";
-import { dreamInput } from "../../server/features/assistants/hermes-dream-prompt.js";
+} from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-chats.js";
+import { dreamInput } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-prompt.js";
 
 const day = Date.UTC(2026, 10, 8);
 const at = (minutes) => day + minutes * 60000;

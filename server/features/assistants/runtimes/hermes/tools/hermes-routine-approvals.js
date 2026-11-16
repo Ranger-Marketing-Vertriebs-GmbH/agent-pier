@@ -1,11 +1,6 @@
-import { assistantProblem, textValue } from "./assistant-validation.js";
-import { personalShell } from "./native-capabilities.js";
-import {
-  hostReady,
-  routineRunOf,
-  runtimeFor,
-  runtimeIdOf,
-} from "./runtimes/runtime-for.js";
+import { assistantProblem, textValue } from "../../../assistant-validation.js";
+import { personalShell } from "../../../native-capabilities.js";
+import { hostReady, routineRunOf, runtimeFor, runtimeIdOf } from "../../runtime-for.js";
 
 // Why the owner's question for a routine run did not allow it, for the model.
 export const routineApprovalRefusals = Object.freeze({

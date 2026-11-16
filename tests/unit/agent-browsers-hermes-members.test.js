@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";

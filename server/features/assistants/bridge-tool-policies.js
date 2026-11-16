@@ -1,38 +1,30 @@
-import { hermesGuard } from "./hermes-tool-guard.js";
-import { hermesRoutineApproval } from "./hermes-routine-approvals.js";
-import { hermesBrowserUpload } from "./hermes-browser-upload.js";
+import { runtimeToolRoutes } from "./runtimes/runtime-services.js";
 
-/**
- * The bridge routes that answer the team plugin's tool hooks from an `assistants`
- * service of the same name: image_generate (image-policy.js) and pdf (pdf-policy.js),
- * the Hermes team plugin's guard (hermes-tool-guard.js) and the Hermes guard
- * plugin's question in a routine run (hermes-routine-approvals.js) and the Hermes
- * team plugin's browser upload (hermes-browser-upload.js). A closed bridge or a
- * missing service refuses; the hook then blocks the call.
- */
-export const toolPolicyRoutes = {
-  // A Hermes agent's file changes (team members) and browser calls.
-  "/hermes-guard": "hermesGuard",
-  // A Hermes routine run's command the owner is asked about; waits for the answer.
-  "/hermes-approval": "hermesRoutineApproval",
-  // A Hermes agent's browser upload of files AgentPier staged for it.
-  "/hermes-browser-upload": "hermesBrowserUpload",
+// The policies of an `assistants` service of the same name.
+const policyRoutes = {
   // Every image_generate call is checked and audited.
   "/image-policy": "imagePolicy",
   // Every pdf call reads with the model AgentPier names for its agent.
   "/pdf-policy": "pdfPolicy",
 };
 
+/**
+ * The bridge routes that answer tool hooks: image_generate (image-policy.js) and pdf
+ * (pdf-policy.js) from an `assistants` service of the same name, and the routes a
+ * runtime's own plugins call, which that runtime answers (runtimes/runtime-services.js
+ * runtimeToolRoutes; Hermes's guard, routine approval and browser upload). A closed
+ * bridge or a missing service refuses; the hook then blocks the call.
+ */
+export const toolPolicyRoutes = () => [
+  ...Object.keys(runtimeToolRoutes()),
+  ...Object.keys(policyRoutes),
+];
+
 export function toolPolicy(bridge, url, input) {
-  if (url === "/hermes-guard")
-    return bridge.closed ? { allow: false } : hermesGuard(bridge, input);
-  if (url === "/hermes-approval")
-    return bridge.closed ? { allow: false } : hermesRoutineApproval(bridge, input);
-  if (url === "/hermes-browser-upload")
-    return bridge.closed
-      ? { ok: false, message: "AgentPier is not reachable right now; try again shortly." }
-      : hermesBrowserUpload(bridge, input);
-  const policy = bridge.assistants[toolPolicyRoutes[url]];
+  const routes = runtimeToolRoutes();
+  if (Object.hasOwn(routes, url))
+    return bridge.closed ? { ...routes[url].closed } : routes[url].answer(bridge, input);
+  const policy = bridge.assistants[policyRoutes[url]];
   if (bridge.closed || !policy) return { allow: false, reason: "unavailable" };
   return policy.check(input);
 }

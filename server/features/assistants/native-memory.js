@@ -7,7 +7,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
 import { memoryFor, runtimeFor, traitOf } from "./runtimes/runtime-for.js";
-import { diaryListing, diaryNote } from "./hermes-dream-store.js";
+import { dreamDiary } from "./runtimes/runtime-services.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -20,7 +20,7 @@ const projectFile = (file, name) => ({
 // are the agent's own working layer, read and rewritten in its workspace.
 const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/;
 // OpenClaw's Dream Diary: a file in the workspace root, shown read-only. A Hermes
-// agent's diary lives in its dream store (hermes-dream-store.js) under the same name;
+// agent's diary lives in its dream store (runtime-services.js dreamDiary) under the same name;
 // a DREAMS.md in its workspace is never listed or read.
 const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
@@ -78,9 +78,9 @@ export class NativeMemory {
     const agent = this.assistants.store.getAssistant(id);
     return traitOf(agent, "agentFiles", "memoryFormat") !== "entries";
   }
-  // The store of Hermes's nightly dreams (DreamingBackups sets it), if any.
-  get hermesDiary() {
-    return this.assistants.hermesDreams?.store;
+  // The store of the dreams agents run by themselves (DreamingBackups sets it), if any.
+  get dreamStore() {
+    return this.assistants.agentDreams?.store;
   }
   root(id) {
     const agent = this.assistants.store.getAssistant(id);
@@ -115,7 +115,7 @@ export class NativeMemory {
       };
     };
     if (!this.dayNotes(id)) {
-      const diary = diaryListing(this.hermesDiary, id);
+      const diary = dreamDiary.listing(this.dreamStore, id);
       if (diary) files.push(diary);
     } else {
       try {
@@ -168,7 +168,7 @@ export class NativeMemory {
     const root = this.root(id),
       file = path.join(root, name);
     if (diary && !this.dayNotes(id)) {
-      const note = diaryNote(this.hermesDiary, id);
+      const note = dreamDiary.note(this.dreamStore, id);
       if (!note) throw assistantProblem("notFound", 404);
       return note;
     }

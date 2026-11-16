@@ -10,7 +10,7 @@ import {
 } from "../../server/features/assistants/browser-launch-check.js";
 import { WebToolsChanges } from "../../server/features/assistants/web-tools-changes.js";
 import { browserStatus } from "../../server/features/assistants/runtime-view.js";
-import { hermesApplyWiring } from "../../server/application/hermes-wiring.js";
+import { hermesApplyWiring } from "../../server/features/assistants/runtimes/hermes/wiring.js";
 
 const sandboxLine =
   "[1:1:ERROR:zygote_host_impl_linux.cc(130)] No usable sandbox! If you are running on Ubuntu 23.10+ ...";

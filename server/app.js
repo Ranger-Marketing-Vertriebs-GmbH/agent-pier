@@ -62,6 +62,7 @@ import express from "express";
 import compression from "compression";
 import http from "node:http";
 import { createServices } from "./application/services.js";
+import { startRuntimes } from "./features/assistants/runtimes/runtime-wiring.js";
 import { confineRepositoryPrograms } from "./features/nono/sandboxed-repositories.js";
 import { attachLive, liveWriteSignals } from "./application/live-wiring.js";
 import { readStampHeader } from "./lib/read-stamp.js";
@@ -379,8 +380,9 @@ export async function createApplication(config) {
     services.autoResume.initialize().catch(report);
   });
   whenListening.push(() => services.assistantFeature.start());
-  // Installs or stages the pinned Hermes runtime when the owner enabled Hermes.
-  whenListening.push(() => services.hermesRuntime?.start());
+  // Each runtime's own start (runtime-wiring.js): the pinned Hermes runtime is
+  // installed or staged when the owner enabled Hermes.
+  whenListening.push(() => startRuntimes(services));
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(buildHeader(buildIdentity(config.buildDocument)));

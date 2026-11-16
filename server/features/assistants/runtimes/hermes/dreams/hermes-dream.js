@@ -4,10 +4,7 @@ import {
   hermesDreamInstructions,
   parseDream,
 } from "./hermes-dream-prompt.js";
-import {
-  hermesMemoryChars as memoryChars,
-  hermesMemoryLimits as memoryLimits,
-} from "./runtimes/runtime-for.js";
+import { memoryChars, memoryLimits } from "../hermes-config/memory.js";
 
 /*
  * One nightly dream of one Hermes agent: both memory files read through the agent's

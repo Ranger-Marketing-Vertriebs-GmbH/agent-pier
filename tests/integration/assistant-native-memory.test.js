@@ -321,13 +321,13 @@ async function hermesDiaryFixture(t) {
   const f = await dreamFixture(t);
   const { DatabaseSync } = await import("node:sqlite");
   const { HermesDreamStore } =
-    await import("../../server/features/assistants/hermes-dream-store.js");
+    await import("../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-store.js");
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
   const agent = f.store.getAssistant(f.id);
   f.store.getAssistant = () => ({ ...agent, runtime: "hermes" });
   const dreams = new HermesDreamStore(db);
-  f.assistants.hermesDreams = { store: dreams };
+  f.assistants.agentDreams = { store: dreams };
   return { ...f, dreams };
 }
 const night = (day, extra = {}) => ({
@@ -389,7 +389,7 @@ test("a DREAMS.md in a Hermes workspace is ignored", async (t) => {
   assert.deepEqual((await f.memory.files(f.id)).files, []);
   await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 404 });
   // Without the dream service (dreaming never set up) there is no diary either.
-  delete f.assistants.hermesDreams;
+  delete f.assistants.agentDreams;
   f.dreams.append(f.id, night(8));
   assert.deepEqual((await f.memory.files(f.id)).files, []);
   await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 404 });

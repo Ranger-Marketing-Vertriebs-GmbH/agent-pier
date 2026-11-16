@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
-import { HermesDreamStore } from "../../server/features/assistants/hermes-dream-store.js";
+import { HermesDreamStore } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-store.js";
 
 function opened(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-dream-store-"));

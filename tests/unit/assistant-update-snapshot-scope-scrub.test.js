@@ -7,8 +7,8 @@ import { randomUUID } from "node:crypto";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import {
-  hermesUpdateScope,
-  openClawUpdateScope,
+  ownProcessUpdateScope,
+  sharedHostUpdateScope,
 } from "../../server/features/assistants/runtime-update-scope.js";
 import {
   createUpdateSnapshot,
@@ -73,8 +73,8 @@ test("an OpenClaw snapshot stays runtime-scoped after a login move scrubs it", a
   const secret = "sk-hermes-secret-0123456789";
   write(path.join(home, ".env"), `AUXILIARY_AGENTPIER_API_KEY=${secret}\n`);
 
-  const claw = await snapshotOf(openclaw, openClawUpdateScope(store));
-  const herm = await snapshotOf(hermes, hermesUpdateScope(store));
+  const claw = await snapshotOf(openclaw, sharedHostUpdateScope(store));
+  const herm = await snapshotOf(hermes, ownProcessUpdateScope(store));
   const saved = (snapshot, id) =>
     fs.existsSync(path.join(snapshot.directory, "payload", "workspaces", id));
   assert.equal(saved(claw, "herm"), false, "OpenClaw's snapshot leaves Hermes's folder");
@@ -91,7 +91,7 @@ test("an OpenClaw snapshot stays runtime-scoped after a login move scrubs it", a
   write(work("claw", "notes.md"), "claw half migrated");
   write(work("herm", "notes.md"), "herm newer");
   const restored = await restoreUpdateSnapshot(openclaw, claw.directory, [], {
-    scope: openClawUpdateScope(store),
+    scope: sharedHostUpdateScope(store),
   });
   assert.equal(restored.credentialsWithheld, false);
   assert.equal(profiles().profiles[profileId].refresh, undefined, "no second refresher");
@@ -103,7 +103,7 @@ test("an OpenClaw snapshot stays runtime-scoped after a login move scrubs it", a
   // A Hermes rollback still brings back its agent's key and leaves OpenClaw's folder.
   write(path.join(home, ".env"), "AUXILIARY_AGENTPIER_API_KEY=changed\n");
   const back = await restoreUpdateSnapshot(hermes, herm.directory, [], {
-    scope: hermesUpdateScope(store),
+    scope: ownProcessUpdateScope(store),
   });
   assert.equal(back.credentialsWithheld, false);
   assert.equal(read(path.join(home, ".env")), `AUXILIARY_AGENTPIER_API_KEY=${secret}\n`);

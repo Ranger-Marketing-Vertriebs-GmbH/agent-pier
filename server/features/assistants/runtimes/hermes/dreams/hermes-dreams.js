@@ -1,9 +1,9 @@
-import { backupHermesMemory, localTime } from "./dreaming-backups.js";
+import { backupMemoryFiles, localTime } from "../../../dreaming-backups.js";
 import { dreamOnce } from "./hermes-dream.js";
 import { dreamChatBudget, dreamChats } from "./hermes-dream-chats.js";
-import { memoryEnabled } from "./native-capabilities.js";
-import { NativeMemory } from "./native-memory.js";
-import { hostReady, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { memoryEnabled } from "../../../native-capabilities.js";
+import { NativeMemory } from "../../../native-memory.js";
+import { hostReady, runtimeFor, runtimeIdOf } from "../../runtime-for.js";
 
 /*
  * Hermes's nightly dream, once a night per agent at the owner's dreaming hour
@@ -162,7 +162,7 @@ export class HermesDreams {
           chats: read.chats,
           admit: (fn) => this.assistants.admit(fn),
           backup: (contents) =>
-            backupHermesMemory(this.assistants.runtime.paths, agent, contents, {
+            backupMemoryFiles(this.assistants.runtime.paths, agent, contents, {
               keep: this.keep,
               now: this.clock(),
             }),

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { dreamGuard } from "../../server/features/assistants/hermes-dream-guard.js";
+import { dreamGuard } from "../../server/features/assistants/runtimes/hermes/dreams/hermes-dream-guard.js";
 
 const before = {
   "MEMORY.md": "📌 Owner drinks tea\n§\nplain",

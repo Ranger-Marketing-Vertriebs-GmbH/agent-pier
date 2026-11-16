@@ -6,7 +6,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
-import { oauthStatus } from "./openclaw-mcp-cli.js";
+import { oauthStatus } from "./oauth-status.js";
 import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
 import {
   compilerFor,
@@ -85,7 +85,7 @@ export function heldByLogout(definition, deferred) {
 
 export class McpOAuthLogins {
   /**
-   * - `cli`: openclaw-mcp-cli wrapper (startLogin, completeLogin, logout, status).
+   * - `cli`: the runtime's MCP command line (startLogin, completeLogin, logout, status).
    * - `servers`: the McpServerStore.
    * - `runtime`: the RuntimeSupervisor (`mcp` snapshot, `client`).
    * - `admit(operation)`: the assistants' admission lock (store edits, config writes).

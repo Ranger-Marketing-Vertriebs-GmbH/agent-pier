@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hermesBrowserUpload } from "../../server/features/assistants/hermes-browser-upload.js";
+import { hermesBrowserUpload } from "../../server/features/assistants/runtimes/hermes/tools/hermes-browser-upload.js";
 import {
   setFileInputFiles,
   uploadTab,
@@ -8,7 +8,7 @@ import {
 import { browserRefusals } from "../../server/features/assistants/team-plugin/tool-guard.js";
 import { teamPluginFiles } from "../../server/features/assistants/runtimes/hermes/hermes-config/team-plugin.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 const tab = (targetId, url) => ({
   targetId,

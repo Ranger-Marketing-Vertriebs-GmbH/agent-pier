@@ -56,7 +56,7 @@ import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { McpPackages } from "../features/mcp-packages/mcp-packages.js";
 import { createManagedTools, managedBindingsChanged } from "./craft-wiring.js";
-import { wireHermesRuntime } from "./hermes-wiring.js";
+import { wireRuntimes } from "../features/assistants/runtimes/runtime-wiring.js";
 import { createPreviewService } from "./preview-wiring.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
 import { CliOAuthStatus } from "../features/mcp-servers/cli-oauth-status.js";
@@ -558,8 +558,8 @@ export async function createServices(config) {
   notifications.inboxCount = async () => (await inbox.summary()).counts.all;
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
-  // The owner's Hermes Agent opt-in and its pinned runtime (hermes-wiring.js).
-  wireHermesRuntime({ config, services });
+  // Each runtime's own services (runtime-wiring.js; Hermes: the owner's opt-in).
+  wireRuntimes(services, { config });
   services.craftRebuilds = createCraftRebuilds(services); // craft-rebuilds-wiring.js
   // Every job write reaches the live job topics (services.live, once listening).
   installer.onChange = () => toolJobsChanged(services.live);

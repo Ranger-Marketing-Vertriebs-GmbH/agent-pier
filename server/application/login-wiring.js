@@ -12,7 +12,7 @@ import { mcpRoute } from "../features/mcp-servers/mcp-proxy.js";
 import {
   supervisorMcpCli,
   sweepLogoutConfigs,
-} from "../features/mcp-servers/openclaw-mcp-cli.js";
+} from "../features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 
 // The logins AgentPier holds for the runtimes (ChatGPT, MCP OAuth) and the loopback
 // proxy through which the runtimes use them, as the assistant graph wires them.

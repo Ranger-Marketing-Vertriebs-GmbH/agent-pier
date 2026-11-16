@@ -9,7 +9,7 @@ import { attachmentsAllowed, chatFile } from "./attachment-access.js";
 import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 import { routineOrigin } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
-import { keepGeneratedImage } from "./hermes-generated-images.js";
+import { generatedImages } from "./runtimes/runtime-services.js";
 import { routineRunOf } from "./runtimes/runtime-for.js";
 
 /**
@@ -41,7 +41,7 @@ import { routineRunOf } from "./runtimes/runtime-for.js";
  * With `generated` (only the Hermes team plugin's image hook passes it) the file is
  * an image the Hermes agent created, by its name in Hermes's image cache: it is
  * shared like any file and kept in the chat's file folder for the agent
- * (hermes-generated-images.js), whose path the result names as `image`.
+ * (runtime-services.js generatedImages), whose path the result names as `image`.
  */
 /**
  * What the tool result tells the agent about who sees the file now: the owner in his
@@ -133,7 +133,7 @@ export class AgentShares {
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
     const { path: image = null, ...source } = input.generated
-      ? await keepGeneratedImage(a, agent, conversation, input.generated)
+      ? await generatedImages.keep(a, agent, conversation, input.generated)
       : await readTurnFile(a, invocation, agent, conversation, input);
     invocation.assertCurrent();
     const caption = (input.caption || "").trim();

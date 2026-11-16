@@ -8,7 +8,7 @@ import { applicationFixture, enabledAssistants } from "../helpers/application.js
 import { eventually } from "../helpers/hermes-fake-runtime.js";
 import { contractRecord, hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
 import { guardProcess } from "../helpers/process-guard.js";
-import { hermesFleetOf } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { hermesFleetOf } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 
 // AgentPier's routines end to end on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME):
 // a routine the owner creates for a Hermes agent through the routine routes becomes a

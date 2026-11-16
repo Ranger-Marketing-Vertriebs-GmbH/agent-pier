@@ -15,7 +15,7 @@ import {
   sleep,
 } from "../helpers/mcp-oauth-cli-harness.js";
 import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
-import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { createMcpCli } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 
 // Uses scripts/provision-assistant-contracts.mjs; see docs/mcp-oauth-qualification.md.
 const installed = process.env.AGENTPIER_MCP_CONTRACT_RUNTIME;

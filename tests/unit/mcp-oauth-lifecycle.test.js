@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { McpCliError } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { McpCliError } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { local, oauthFixture as setup, refusal } from "../helpers/mcp-oauth-fixture.js";
 
 const v1 = "https://mcp.example.com/v1";

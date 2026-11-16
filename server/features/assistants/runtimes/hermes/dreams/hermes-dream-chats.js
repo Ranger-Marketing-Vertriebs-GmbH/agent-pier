@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { publicMessages } from "./conversations.js";
-import { turnKind } from "./goal-turns.js";
+import { publicMessages } from "../../../conversations.js";
+import { turnKind } from "../../../goal-turns.js";
 import { dreamBudget, dreamMessageLimit } from "./hermes-dream-prompt.js";
 
 /*

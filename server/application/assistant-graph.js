@@ -1,4 +1,4 @@
-import { openClawUpdateScope } from "../features/assistants/runtime-update-scope.js";
+import { sharedHostUpdateScope } from "../features/assistants/runtime-update-scope.js";
 import path from "node:path";
 import { ImagePolicy } from "../features/assistants/image-policy.js";
 import { NativeRoutines } from "../features/assistants/native-routines.js";
@@ -50,10 +50,10 @@ import {
 } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
-  hermesAgentFleet,
-  hermesApplyWiring,
-  openClawProfiles,
-} from "./hermes-wiring.js";
+  ownProcessWiring,
+  wireAgentHosts,
+} from "../features/assistants/runtimes/runtime-wiring.js";
+import { sharedHostAgents } from "../features/assistants/runtimes/runtime-for.js";
 import {
   AssistantMaintenance,
   needsAssistantMaintenance,
@@ -101,8 +101,9 @@ export function constructAssistantGraph(host, created = {}) {
     ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"],
   );
   const store = (created.store = new AssistantStore({ dataDir }));
-  // Hermes agents run in their own process sets (hermes-wiring.js).
-  const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store, created });
+  // Agents of a runtime with a host per agent run on hosts of their own, which that
+  // runtime's wiring builds and attaches (runtime-wiring.js; Hermes's fleet).
+  wireAgentHosts(assistantRuntime, { dataDir, store, created });
   // AgentPier's ChatGPT logins and the loopback proxy the runtimes use them through.
   const { runtimeProxy, assistantModelAccounts, assistantModelLogin } = loginServices(
     { dataDir, runtime: assistantRuntime },
@@ -265,7 +266,6 @@ export function constructAssistantGraph(host, created = {}) {
   // Workflows and agent lifecycle find services by name: this graph's, else the host's.
   const scope = Object.assign(Object.create(host), {
     assistantRuntime,
-    hermesFleet,
     assistants,
     assistantTeams,
     assistantModelAccounts,
@@ -301,7 +301,7 @@ export function constructAssistantGraph(host, created = {}) {
     // MCP OAuth logins cleared since the snapshot are logged out again.
     onRolledBack: ({ createdAt }) => scope.assistantMcpOAuth?.afterRollback(createdAt),
     // Hermes agents' folders of the shared workspace root stay theirs.
-    scope: () => openClawUpdateScope(store),
+    scope: () => sharedHostUpdateScope(store),
     affected: () => {
       const profiles = store.listAssistants();
       const members = profiles.filter(temporaryMember).length;
@@ -467,7 +467,7 @@ export function connectAssistantServices(graph) {
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
-    ...hermesApplyWiring({ bridge, webTools: webToolsChanges, proxy }),
+    ...ownProcessWiring({ bridge, webTools: webToolsChanges, proxy }),
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     ...writeGuardWiring({
@@ -528,7 +528,7 @@ export function connectAssistantServices(graph) {
       // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
       // The start's desired state, read from the stores now (agent-desired-state.js).
-      const openClaw = openClawProfiles(store.listAssistants());
+      const shared = sharedHostAgents(store.listAssistants());
       // The browser app is checked to start before detection chooses it (Linux).
       await webToolsChanges.prepareBrowser();
       return desiredState({
@@ -536,8 +536,8 @@ export function connectAssistantServices(graph) {
         connection: await bridge.start(),
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
-        // Hermes agents run in their own process sets, never in OpenClaw's.
-        profiles: openClaw,
+        // Agents on hosts of their own are never compiled into the shared host.
+        profiles: shared,
         // SSH grants (assistant-access.js sshAgents), rebuilds (craft/agent-craft.js).
         sshAgents: workflows.access.sshAgents(),
         craft: !!configuration.craftAvailable?.(),
@@ -551,8 +551,8 @@ export function connectAssistantServices(graph) {
           proxy: mcpChanges.proxy("openclaw"),
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
-        githubShell: workflows.github.shellPaths(openClaw),
-        sshShell: workflows.agentSsh?.shellPaths(openClaw),
+        githubShell: workflows.github.shellPaths(shared),
+        sshShell: workflows.agentSsh?.shellPaths(shared),
         webTools: {
           search: webSearch.resolve(),
           browser: webToolsChanges.detect(),

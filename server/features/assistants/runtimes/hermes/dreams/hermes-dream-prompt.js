@@ -1,10 +1,10 @@
-import { reviewEntries, reviewInput } from "./memory-review-prompt.js";
+import { reviewEntries, reviewInput } from "../../../memory-review-prompt.js";
 import {
-  hermesEntryDelimiter as entryDelimiter,
-  hermesMemoryEntries as memoryEntries,
-  hermesMemoryLimits as memoryLimits,
-  hermesPinMarker as pinMarker,
-} from "./runtimes/runtime-for.js";
+  entryDelimiter,
+  memoryEntries,
+  memoryLimits,
+  pinMarker,
+} from "../hermes-config/memory.js";
 
 // The nightly dream (the memory consolidation of a Hermes agent): one call on the
 // agent's model with no chat history. The model answers with entry ids and new

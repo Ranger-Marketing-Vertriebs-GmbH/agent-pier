@@ -18,7 +18,7 @@ import {
   defaultBusyRetryDelaysMs,
   leaseLocked,
   parseLoginOutput,
-} from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 
 // The hand-run OpenClaw CLI of assistant-mcp-oauth-contract.test.js.
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AgentQuestions } from "../../server/features/assistants/agent-questions.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { TelegramIngress } from "../../server/features/assistant-channels/telegram-ingress.js";
 
 const key = "agent:ap-h:hermes:s1";

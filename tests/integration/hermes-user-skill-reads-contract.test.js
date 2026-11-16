@@ -8,7 +8,7 @@ import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import { eventually } from "../helpers/hermes-fake-runtime.js";
 import { hermesSkip } from "../helpers/hermes-native.js";
 import { hermesFleetApp } from "../helpers/hermes-app.js";
-import { homeRefusal } from "../../server/features/assistants/hermes-home-guard.js";
+import { homeRefusal } from "../../server/features/assistants/runtimes/hermes/tools/hermes-home-guard.js";
 
 // Which catalog skills a Hermes agent of a restricted user reads on the pinned Hermes
 // (AGENTPIER-262). Hermes offers each switched-on catalog skill from its own folder of
