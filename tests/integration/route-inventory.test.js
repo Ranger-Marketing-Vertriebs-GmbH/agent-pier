@@ -18,6 +18,8 @@ test("inventory lists every registered API route once", async (t) => {
     "GET /api/mcp-servers/oauth/callback",
     "GET /api/connections/usage",
     "GET /api/connections/problems",
+    "GET /api/sessions/:id/tasks/:taskId/transcript",
+    "GET /api/sessions/:id/tasks/:taskId/output",
   ])
     assert.ok(keys.includes(expected), expected);
   assert.deepEqual(

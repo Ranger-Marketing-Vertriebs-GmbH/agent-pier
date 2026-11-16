@@ -123,6 +123,7 @@ import { storageCleanupRoutes } from "./http/routes/storage-cleanup.js";
 import { extensionsRoutes } from "./http/routes/extensions.js";
 import { pluginsRoutes } from "./http/routes/plugins.js";
 import { chatRoutes } from "./http/routes/chat.js";
+import { chatTaskRoutes } from "./http/routes/chat-tasks.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
 import { reaRoutes } from "./http/routes/rea.js";
@@ -494,6 +495,7 @@ export async function createApplication(config) {
   mount(agencyRoutes(services));
   mount(pluginsRoutes(services));
   mount(chatRoutes(services));
+  mount(chatTaskRoutes(services));
   mount(modelsRoutes(services));
   mount(toolsRoutes(services));
   mount(reaRoutes(services));

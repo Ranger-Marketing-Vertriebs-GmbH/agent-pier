@@ -59,6 +59,8 @@ export const chat = Object.freeze({
   readOnlyHistoryRequired: "Nur lesende Verlaufsoperationen sind erlaubt.",
   codexDisconnected: "Codex-Verbindung wurde beendet.",
   codexReadTimeout: "Das Lesen des Codex-Verlaufs hat zu lange gedauert.",
+  taskUnknown: "Diese Aufgabe gehört nicht zur Session.",
+  taskTranscriptUnavailable: "Der Verlauf dieser Aufgabe ist nicht lesbar.",
 });
 export const chatAttachmentCopy = {
   invalidSession: "Ungültige Session für den Datei-Upload.",

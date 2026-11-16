@@ -57,6 +57,8 @@ export const chat = Object.freeze({
   readOnlyHistoryRequired: "Only read-only history operations are allowed.",
   codexDisconnected: "The Codex connection was closed.",
   codexReadTimeout: "Reading the Codex history took too long.",
+  taskUnknown: "This task does not belong to the session.",
+  taskTranscriptUnavailable: "The transcript of this task cannot be read.",
 });
 export const chatAttachmentCopy = {
   invalidSession: "Invalid session for file upload.",

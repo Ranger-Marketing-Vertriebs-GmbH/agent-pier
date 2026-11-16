@@ -2,7 +2,7 @@ import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 
 // Paging over a fully read history, shared by history-page.js and the CLI histories.
-const PAGE_MESSAGES = 50;
+export const PAGE_MESSAGES = 50;
 export function splitPage(messages, continuation) {
   const start = Math.max(0, messages.length - PAGE_MESSAGES);
   return {

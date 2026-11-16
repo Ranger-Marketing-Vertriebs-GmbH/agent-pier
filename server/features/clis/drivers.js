@@ -157,7 +157,9 @@ const drivers = new Map();
  *   folders to watch while a chat has no known sources, slashCommands(scan, env,
  *   cwd): discovers custom commands, transcriptFiles(home): the transcript walk
  *   plan of a CLI with `capabilities.transcriptCleanup`, models?(history, session):
- *   the models its picker can display (Codex). normalize and observe take what the
+ *   the models its picker can display (Codex), readSubagent?(history, session,
+ *   parentId, taskId): the normalized transcript of one of the session thread's own
+ *   subagents (the task sheet). normalize and observe take what the
  *   CLI's own reader produced, so their arguments differ: Codex normalize(thread) and
  *   observe(thread, records), Claude Code normalize(records) and observe(records),
  *   OpenCode normalize(exported) and observe(exported).
@@ -254,6 +256,7 @@ export function cliDriver(id) {
         read: histories[id].read,
         readPage: histories[id].readPage,
         readReloadContext: histories[id].readReloadContext,
+        readSubagent: histories[id].readSubagent,
         normalize: histories[id].normalize,
         observe: histories[id].observe,
         watchRoots: histories[id].watchRoots,
