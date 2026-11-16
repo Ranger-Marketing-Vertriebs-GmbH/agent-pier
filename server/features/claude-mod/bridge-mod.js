@@ -44,10 +44,8 @@ const kept = new Set([
   "prompt.dropped",
   "command.result",
 ]);
-// The command ids and stopped agents a copy remembers; a poll answering only with
-// commands this copy already ran waits this long before the next poll.
+// The command ids and stopped agents a copy remembers.
 const maxRemembered = 64;
-const repeatMs = 1000;
 const taskId = (value) =>
   typeof value === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(value) ? value : null;
 const taskTypes = new Set(["local_bash", "local_agent"]);
@@ -116,6 +114,10 @@ export class Bridge {
     this.stoppedAgents = new Set();
     this.stopping = new Set();
     this.suppress = new Set();
+    // This copy's name on its polls: AgentPier gives a command to each copy once, so
+    // a copy that replaced this one (a reload) gets a pending stop again.
+    this.instance =
+      Math.random().toString(36).slice(2, 12).padEnd(10, "0") + Date.now().toString(36);
   }
   use(io) {
     this.io = io;
@@ -137,6 +139,7 @@ export class Bridge {
         headers: {
           authorization: `Bearer ${config.token}`,
           "x-agentpier-session": config.session,
+          "x-agentpier-instance": this.instance,
         },
       });
       // No command channel here (an older AgentPier, another launch): stop asking.
@@ -147,10 +150,9 @@ export class Bridge {
       const answer = quietly(() => JSON.parse(response.text || "{}")) || {};
       if (Array.isArray(answer.suppress))
         this.suppress = new Set(answer.suppress.map(taskId).filter(Boolean));
+      // A newer copy of the mod polls now (a reload): this one leaves it the channel.
+      if (answer.superseded === true) this.pollOff = true;
       const commands = Array.isArray(answer.commands) ? answer.commands : [];
-      // A command this copy already ran comes again until AgentPier has its result.
-      if (commands.length && commands.every((command) => this.ran.has(command?.id)))
-        wait = repeatMs;
       for (const command of commands) this.runCommand(command);
     } catch {
       this.pollFailures++;
@@ -183,8 +185,10 @@ export class Bridge {
         const text = String(
           typeof answer.result === "string" ? answer.result : answer.text || "",
         );
-        // Finished or never there: nothing left to stop.
-        if (/No task found/.test(text)) return { ok: false, gone: true };
+        // Finished or never there: nothing left to stop. Claude Code answers "No task
+        // found" for an unknown id and "is not running (status: …)" for one that ended.
+        if (/No task found|is not running \(status: /.test(text))
+          return { ok: false, gone: true };
         return { ok: false, reason: text.slice(0, maxReason) };
       }
       const type = answer?.result?.task_type;
@@ -199,10 +203,12 @@ export class Bridge {
   /**
    * The reason to drop a prompt, or undefined: the task notification of an agent
    * that this copy stopped or AgentPier's last poll named, unless it says the agent
-   * finished on its own.
+   * finished on its own. A prompt that carries more than one notification enters.
    */
   dropReason(e) {
     if (e?.origin?.kind !== "task-notification" || typeof e.text !== "string") return;
+    if (e.text.split("<task-notification>").length !== 2) return;
+    if (e.text.split("<task-id>").length !== 2) return;
     const id = /<task-id>([^<]{1,80})<\/task-id>/.exec(e.text)?.[1];
     const status = /<status>([^<]{1,40})<\/status>/.exec(e.text)?.[1];
     if (status && status !== "killed" && status !== "stopped") return;

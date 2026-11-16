@@ -111,12 +111,23 @@ test("a task the CLI no longer knows is reported gone, other errors with their r
             text: "<tool_use_error>No task found with ID: b4qyjbxhd</tool_use_error>",
             isError: true,
           }
-        : task_id === "bthrows"
-          ? Promise.reject(Error("Tool call aborted"))
-          : { result: "Error: " + "x".repeat(900), text: "", isError: true },
+        : task_id === "b315qta8x"
+          ? {
+              // Claude Code 2.1.326 for a shell that completed a moment ago.
+              result: "Error: Task b315qta8x is not running (status: completed)",
+              text: "",
+              isError: true,
+            }
+          : task_id === "bthrows"
+            ? Promise.reject(Error("Tool call aborted"))
+            : { result: "Error: " + "x".repeat(900), text: "", isError: true },
   });
   assert.deepEqual(
     await bridge.runCommand({ id: "c2", name: "task.stop", taskId: "b4qyjbxhd" }),
+    { ok: false, gone: true },
+  );
+  assert.deepEqual(
+    await bridge.runCommand({ id: "c2b", name: "task.stop", taskId: "b315qta8x" }),
     { ok: false, gone: true },
   );
   const refused = await bridge.runCommand({ id: "c3", name: "task.stop", taskId: "bx" });
@@ -249,7 +260,7 @@ test("the driver needs a connected channel and Claude Code 2.1.325", async () =>
   const driver = claudeTaskDriver({ commands, mod: { cli: () => cli } });
   const session = { id: "s", tool: "claude", status: "running" };
   assert.equal(driver.connected(session), false);
-  commands.poll({ id: "s" }, new Promise(() => {}));
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1");
   assert.equal(driver.connected(session), false, "2.1.324 is too old");
   cli = "2.1.325";
   assert.equal(driver.connected(session), true);
@@ -264,25 +275,112 @@ test("an agent stop asks for its notification to be suppressed, a shell stop doe
   const commands = new ClaudeModCommands({ holdMs: 25000 });
   const driver = claudeTaskDriver({ commands, mod: { cli: () => "2.1.325" } });
   const session = { id: "s", tool: "claude", status: "running" };
-  const first = commands.poll({ id: "s" }, new Promise(() => {}));
+  const first = commands.poll({ id: "s" }, new Promise(() => {}), "i1");
   const agent = driver.stop(session, { kind: "agent", id: "a1", entry: {} });
   const answer = await first;
   assert.deepEqual(answer.suppress, ["a1"]);
   assert.equal(answer.commands[0].taskId, "a1");
-  // Within the grace after the answered poll; the next poll redelivers both.
+  // Within the grace after the answered poll; the same copy never gets a1 again.
   const shell = driver.stop(session, { kind: "shell", id: "b1", entry: {} });
-  const second = await commands.poll({ id: "s" }, new Promise(() => {}));
-  const [again, shellCommand] = second.commands;
-  assert.equal(again.id, answer.commands[0].id);
+  const second = await commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  const [shellCommand] = second.commands;
+  assert.equal(second.commands.length, 1);
   assert.equal(shellCommand.taskId, "b1");
-  assert.deepEqual((await commands.poll({ id: "s" }, new Promise(() => {}))).suppress, [
-    "a1",
-  ]);
+  assert.deepEqual(commands.suppressed("s"), ["a1"]);
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1");
   commands.result("s", { id: answer.commands[0].id, ok: true });
   commands.result("s", { id: shellCommand.id, ok: false, reason: "busy" });
   assert.deepEqual(await agent, { ok: true });
   assert.deepEqual(await shell, { ok: false, reason: "busy" });
+  // A stop that went through keeps its agent's notification suppressed.
+  assert.deepEqual(commands.suppressed("s"), ["a1"]);
   commands.forget("s");
+});
+
+test("an agent stop that never happened leaves no suppress entry behind", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const driver = claudeTaskDriver({ commands, mod: { cli: () => "2.1.325" } });
+  const session = { id: "s", tool: "claude", status: "running" };
+  // No mod polls: the channel is down.
+  await assert.rejects(driver.stop(session, { kind: "agent", id: "a1", entry: {} }), {
+    code: "TASK_STOP_CHANNEL_DOWN",
+  });
+  assert.deepEqual(commands.suppressed("s"), []);
+  // The mod never answers.
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  commands.suppress("s", "a2");
+  await assert.rejects(
+    commands.send("s", { name: "task.stop", taskId: "a2" }, { timeoutMs: 20 }),
+    { code: "TASK_STOP_TIMEOUT" },
+  );
+  assert.deepEqual(commands.suppressed("s"), []);
+  // The mod refused.
+  const open = commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  commands.suppress("s", "a3");
+  const refused = commands.send("s", { name: "task.stop", taskId: "a3" });
+  commands.result("s", { id: (await open).commands[0].id, ok: false, reason: "no" });
+  await refused;
+  assert.deepEqual(commands.suppressed("s"), []);
+  commands.forget("s");
+});
+
+test("a late success, after the stop service gave up waiting, keeps the suppress entry", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const open = commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  commands.suppress("s", "a1");
+  const sent = commands.send(
+    "s",
+    { name: "task.stop", taskId: "a1" },
+    { timeoutMs: 500 },
+  );
+  const [command] = (await open).commands;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  commands.result("s", { id: command.id, ok: true });
+  assert.deepEqual(await sent, { ok: true });
+  assert.deepEqual(commands.suppressed("s"), ["a1"]);
+  commands.forget("s");
+});
+
+test("a command's id is always the generated one", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const open = commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  commands.send("s", { id: "chosen", name: "task.stop", taskId: "b1" }).catch(() => {});
+  const [command] = (await open).commands;
+  assert.notEqual(command.id, "chosen");
+  assert.match(command.id, /^[0-9a-f-]{36}$/);
+  commands.forget("s");
+});
+
+test("one prompt with two task notifications is never dropped for one of them", async () => {
+  const { bridge } = bridgeWith();
+  await bridge.runCommand({ id: "c9", name: "task.stop", taskId: "ae70c6020167ba525" });
+  const both = {
+    origin: { kind: "task-notification" },
+    text:
+      "<task-notification>\n<task-id>ae70c6020167ba525</task-id>\n</task-notification>\n" +
+      "<task-notification>\n<task-id>aea912a2b4b704f01</task-id>\n</task-notification>",
+  };
+  assert.equal(bridge.dropReason(both), undefined);
+});
+
+test("each mod copy names itself on its polls; a replaced copy stops polling", async () => {
+  const one = bridgeWith();
+  const two = bridgeWith();
+  await settle();
+  const id = (copy) => copy.polls[0].headers["x-agentpier-instance"];
+  assert.match(id(one), /^[A-Za-z0-9_-]{8,64}$/);
+  assert.notEqual(id(one), id(two));
+  const replaced = bridgeWith({
+    poll: async () => ({
+      status: 200,
+      ok: true,
+      headers: {},
+      text: JSON.stringify({ commands: [], suppress: [], superseded: true }),
+    }),
+  });
+  await settle();
+  assert.equal(replaced.polls.length, 1);
+  assert.equal(replaced.timers.length, 0);
 });
 
 test("suppressed ids live ten minutes, at most 64", () => {
