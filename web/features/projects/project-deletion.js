@@ -69,10 +69,8 @@ export function gitWarnings(report) {
     if (git.worktreesChecked === false || git.unpushedBranches === null)
       add(path, "unchecked", copy.gitUnchecked(path), true);
     for (const tree of git.worktrees ?? []) {
-      if (tree.checked === false) {
+      if (tree.checked === false)
         add(tree.path, "tree-unchecked", copy.gitUnchecked(tree.path), true);
-        continue;
-      }
       if (tree.changes > 0) add(tree.path, "changes", copy.gitChanges(tree.changes));
       // Commits on a branch count in unpushedBranches; a detached HEAD's do not.
       if (!tree.branch && tree.unpushed > 0 && !(git.unpushedBranches > 0))

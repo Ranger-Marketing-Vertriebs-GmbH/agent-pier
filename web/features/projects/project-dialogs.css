@@ -78,8 +78,9 @@ dialog.project-dialog[open] {
 .project-deletion-warning {
   color: var(--warning);
 }
-.project-deletion-processes {
+.project-deletion-section .project-deletion-processes {
   list-style: none;
+  padding-left: 0;
 }
 .project-deletion-processes li {
   display: grid;
