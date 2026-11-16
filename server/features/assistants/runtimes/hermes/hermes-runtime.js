@@ -1,5 +1,6 @@
 import path from "node:path";
-import { available, defineAgentRuntime } from "../agent-runtime.js";
+import { defineAgentRuntime } from "../agent-runtime.js";
+import { hermesDescriptor } from "./descriptor.js";
 import { HermesSupervisor } from "./hermes-supervisor.js";
 import { createHermesHost } from "./hermes-host.js";
 import { hermesSessions } from "./hermes-sessions.js";
@@ -32,13 +33,13 @@ import { HermesBrowser } from "./hermes-browser.js";
  * connection, hermes-models.js), channels (the owner's Telegram through
  * AgentPier's channel layer, hermes-channels.js), channelBots (the agent's own bot
  * for other people on Hermes's Telegram adapter, hermes-config/telegram.js) and the
- * browser on a Chromium AgentPier runs for the agent (hermes-browser.js);
- * every-command approval, which only Hermes has (ADR 0006 decision 5); and the
+ * browser on a Chromium AgentPier runs for the agent (hermes-browser.js); and the
  * owner's advanced settings it has an equivalent of (hermes-config/advanced.js).
+ * How it behaves within them, such as its every-command approval (ADR 0006
+ * decision 5), are the traits of its descriptor (descriptor.js).
  */
 export const hermesCapabilities = Object.freeze({
   ...hermesConfigCapabilities,
-  everyCommandApproval: available(),
 });
 
 const isRunning = (availability) => !["disabled", "failed"].includes(availability);
@@ -226,8 +227,9 @@ export function createHermesRuntime({
     admitting: () => false,
   };
   const runtime = defineAgentRuntime({
-    id: "hermes",
+    id: hermesDescriptor.id,
     capabilities: hermesCapabilities,
+    traits: hermesDescriptor.traits,
     host,
     sessions: hermesSessions(supervisor, {
       reasoning: () => homeReasoning(supervisor.agentPaths().hermesHome),

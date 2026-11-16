@@ -6,6 +6,7 @@ import {
   fixtureFetch,
 } from "../helpers/application.js";
 import { RUNTIME_CAPABILITIES } from "../../server/features/assistants/runtimes/agent-runtime.js";
+import { DEFAULT_TRAITS } from "../../server/features/assistants/runtimes/runtime-traits.js";
 
 // ADR 0006: agents record their runtime; the agent API names it with its capabilities.
 test("the agent API takes an optional runtime and answers each agent's runtime", async (t) => {
@@ -59,14 +60,14 @@ test("the agent API takes an optional runtime and answers each agent's runtime",
     assert.deepEqual(Object.keys(agent.runtimeInfo.capabilities), [
       ...RUNTIME_CAPABILITIES,
     ]);
-    // Everything but "Every command": OpenClaw's "With approval" asks for each.
+    // Everything, with the default traits: no "Every command" among the shell
+    // levels, because OpenClaw's "With approval" asks for each.
     for (const [name, capability] of Object.entries(agent.runtimeInfo.capabilities))
-      assert.deepEqual(
-        capability,
-        name === "everyCommandApproval"
-          ? { available: false, reason: "approvalAsksEveryCommand" }
-          : { available: true },
-      );
+      assert.deepEqual(capability, { available: true, ...DEFAULT_TRAITS[name] });
+    assert.equal(
+      agent.runtimeInfo.capabilities.approvals.shellLevels.includes("every"),
+      false,
+    );
   }
 
   // The runtime stays the one chosen at creation.

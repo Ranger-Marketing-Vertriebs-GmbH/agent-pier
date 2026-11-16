@@ -8,8 +8,12 @@ import {
   hermesAvailable,
   hermesFleetOf,
   ownProcess,
-  runtimeFor,
+  traitOf,
 } from "./runtimes/runtime-for.js";
+
+// Whether the agent's runtime has the shell level that asks before every command.
+const offersEveryCommand = (agent) =>
+  traitOf(agent, "approvals", "shellLevels").includes("every");
 
 /**
  * Refuses a new agent's runtime choice this AgentPier cannot run now: a Hermes agent
@@ -19,7 +23,7 @@ import {
 export function refuseRuntimeChoice(supervisor, input, accounts) {
   if (ownProcess(input) && !hermesAvailable(supervisor))
     throw assistantProblem("hermesUnavailable", 409);
-  if (input.shellEveryCommand === true && !ownProcess(input))
+  if (input.shellEveryCommand === true && !offersEveryCommand(input))
     throw assistantProblem("shellEveryCommandUnsupported", 400);
   refuseModelChoice(input, input.model, accounts);
 }
@@ -33,7 +37,7 @@ export function refuseRuntimeChoice(supervisor, input, accounts) {
  */
 export function refuseModelChoice(agent, model, accounts) {
   if (
-    ownProcess(agent) &&
+    traitOf(agent, "models", "chatgptLogin") === "agentpierHeld" &&
     typeof model?.connectionId === "string" &&
     model.connectionId.startsWith("openclaw:") &&
     accounts?.holderOf(model.connectionId) !== "agentpier"
@@ -47,10 +51,7 @@ export function refuseModelChoice(agent, model, accounts) {
  * (refuseModelChoice).
  */
 export function refuseEveryCommand(supervisor, agent, changes, accounts) {
-  if (
-    changes.shellEveryCommand === true &&
-    !runtimeFor(agent, supervisor).capabilities().everyCommandApproval.available
-  )
+  if (changes.shellEveryCommand === true && !offersEveryCommand(agent))
     throw assistantProblem("shellEveryCommandUnsupported", 400);
   refuseModelChoice(agent, changes.model, accounts);
 }

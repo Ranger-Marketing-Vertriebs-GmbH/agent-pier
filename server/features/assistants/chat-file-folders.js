@@ -1,6 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
+// The descriptors alone: the Hermes compiler imports this module, so the whole port
+// (runtime-for.js) would be an import cycle.
+import { traitOf } from "./runtimes/runtime-descriptors.js";
 
 // A Hermes agent keeps each chat's uploads in a folder of that chat alone,
 // `<assistants>/chat-files/<agent id>/<chat id>/`, outside its work folder: a search
@@ -16,8 +19,11 @@ const ignoreExisting = (error) => {
   if (error.code !== "EEXIST") throw error;
 };
 
-/** Whether an agent keeps its chat uploads in per-chat folders (a Hermes agent). */
-export const keepsChatFolders = (agent) => agent?.runtime === "hermes";
+/**
+ * Whether an agent keeps its chat uploads in per-chat folders: its runtime's
+ * `sessions.chatFolders` trait (a Hermes agent).
+ */
+export const keepsChatFolders = (agent) => traitOf(agent, "sessions", "chatFolders");
 
 /** `<assistants>/chat-files`, beside the workspace root; `config.chatFiles` in tests. */
 export function chatFilesRoot(config) {

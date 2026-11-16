@@ -1,3 +1,5 @@
+import { DEFAULT_TRAITS, resolveTraits } from "./runtime-traits.js";
+
 /**
  * The agent runtime port (docs/adr/0006-assistant-runtime-port.md). Feature code talks
  * to an `AgentRuntime` resolved per agent (runtime-for.js), never to a runtime's own
@@ -316,18 +318,17 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // owner's overrides of runtime settings beyond AgentPier's model (config.compiler
 // `advancedSettings`; OpenClaw and Hermes have them, a runtime without reports it
 // unavailable);
-// `everyCommandApproval`, a shell level beside "approval" on which every command asks
-// the owner (Hermes, whose "approval" asks only for dangerous commands; OpenClaw's
-// "approval" already asks for every command, so it reports the option unavailable);
 // `channelBots`, an agent's own Telegram bot for other people, which the runtime runs
 // itself (OpenClaw's Telegram channel), beside the owner's chat AgentPier's channel
 // layer serves for every runtime (`channels`).
 export const RUNTIME_CAPABILITIES = Object.freeze([
   ...RUNTIME_PORTS,
   "advancedSettings",
-  "everyCommandApproval",
   "channelBots",
 ]);
+// How a runtime behaves within a capability is a trait (runtime-traits.js), stated in
+// its descriptor and carried beside the capability's availability: "Every command",
+// a shell level only some runtimes have, is `approvals.shellLevels`.
 
 // The runtime of an agent that records none: every agent from before the field, and a
 // new agent created without a choice (ADR 0006, decision 1).
@@ -347,11 +348,31 @@ export function unavailable(reason) {
 }
 
 /**
+ * What a runtime states about itself (docs/adr/0007-runtime-descriptor.md): `{ id,
+ * name, traits }`, frozen. `id` is what agents record, `name` the product name the
+ * owner reads, `traits` the values it states (runtime-traits.js resolveTraits: every
+ * trait, the unstated ones at their default; a wrong statement throws).
+ */
+export function defineRuntimeDescriptor({ id, name, traits = {} } = {}) {
+  if (typeof id !== "string" || !id) throw new TypeError("A runtime needs an id.");
+  if (typeof name !== "string" || !name) throw new TypeError("A runtime needs a name.");
+  return Object.freeze({ id, name, traits: resolveTraits(traits) });
+}
+
+/**
  * Builds an `AgentRuntime`: `{ id, capabilities(), host, sessions, … }`. Sub-ports
  * left out are empty; `capabilities` maps capability ids to available()/unavailable()
- * and defaults to available. The result and its sub-ports are frozen.
+ * and defaults to available; `traits` are its descriptor's (defineRuntimeDescriptor),
+ * the defaults without. `capabilities()` answers each capability's availability with
+ * its traits beside it: `{ available, reason?, …traits }`. The result and its
+ * sub-ports are frozen.
  */
-export function defineAgentRuntime({ id, capabilities = {}, ...ports }) {
+export function defineAgentRuntime({
+  id,
+  capabilities = {},
+  traits = DEFAULT_TRAITS,
+  ...ports
+}) {
   if (typeof id !== "string" || !id) throw new TypeError("A runtime needs an id.");
   const unknown = Object.keys(ports).filter((name) => !RUNTIME_PORTS.includes(name));
   if (unknown.length) throw new TypeError(`Unknown runtime ports: ${unknown.join(", ")}`);
@@ -362,7 +383,10 @@ export function defineAgentRuntime({ id, capabilities = {}, ...ports }) {
     throw new TypeError(`Unknown runtime capabilities: ${strange.join(", ")}`);
   const offered = Object.freeze(
     Object.fromEntries(
-      RUNTIME_CAPABILITIES.map((name) => [name, capabilities[name] || available()]),
+      RUNTIME_CAPABILITIES.map((name) => [
+        name,
+        Object.freeze({ ...(capabilities[name] || available()), ...traits[name] }),
+      ]),
     ),
   );
   return Object.freeze({

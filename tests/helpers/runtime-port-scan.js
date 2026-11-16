@@ -54,6 +54,8 @@ export function gatewayMethods(sources) {
 export const publicPortModules = [
   `${portDirectory}agent-runtime.js`,
   `${portDirectory}runtime-for.js`,
+  `${portDirectory}runtime-traits.js`,
+  `${portDirectory}runtime-descriptors.js`,
 ];
 // Imports and re-exports, static and dynamic: `from "…"`, `import "…"`, `import("…")`.
 const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'`](\.{1,2}\/[^"'`]+)["'`]/g;
