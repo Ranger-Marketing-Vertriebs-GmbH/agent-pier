@@ -24,6 +24,7 @@ import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
 import useHermesRuntime from "../useHermesRuntime.js";
 import useRuntimes from "../useRuntimes.js";
+import { draftRuntimeInfo } from "../runtime-list.js";
 import { offersEveryCommand } from "../shell-level.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
@@ -83,12 +84,14 @@ export default function AgentWizard({ route, navigate }) {
   const [webSearchReady, setWebSearchReady] = useState(null);
   const [createError, setCreateError] = useState("");
   const creation = useWizardCreation();
-  // New agents may choose Hermes while it is switched on and installed.
-  const hermes = hermesReady(useHermesRuntime().state);
-  // How the chosen runtime behaves (its traits), before the agent exists; undefined
-  // until the runtime list arrived.
-  const { infoOf } = useRuntimes();
-  const runtimeInfo = infoOf(d.runtime);
+  const { runtimes, infoOf } = useRuntimes();
+  // New agents may choose Hermes while it is switched on and installed, and once the
+  // runtime list tells how each runtime behaves: without it the steps after the
+  // choice would show the default runtime's shell levels and models.
+  const hermes = hermesReady(useHermesRuntime().state) && runtimes.length > 0;
+  // How the draft's runtime behaves (its traits), before the agent exists. A
+  // duplicate knows it from its source also without the list (runtime-list.js).
+  const runtimeInfo = draftRuntimeInfo(runtimes, d, assistants);
   const finished = useRef(false);
   const sources = hubLists(assistants);
   const duplicable = [...sources.own, ...sources.ofUsers];

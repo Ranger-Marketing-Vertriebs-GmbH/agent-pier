@@ -192,6 +192,12 @@ test("the wizard keeps a runtime per draft and sends Hermes' shell choice", () =
   assert.deepEqual(withRuntime({ ...draft, shell: "every" }, "hermes", [], undefined), {
     runtime: "hermes",
   });
+  // The default runtime's shell levels are the defaults, known without the list:
+  // leaving a duplicate of a Hermes agent never keeps "every" on it.
+  assert.deepEqual(withRuntime({ ...draft, shell: "every" }, "", [], undefined), {
+    runtime: "",
+    shell: "approval",
+  });
   // The draft alone says whether every command asks: "every" is only ever chosen
   // where the runtime offers it, and the server refuses it elsewhere.
   const hermes = { ...draft, runtime: "hermes", shell: "every" };

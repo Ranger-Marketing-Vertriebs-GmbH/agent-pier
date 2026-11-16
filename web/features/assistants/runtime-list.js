@@ -19,3 +19,15 @@ export const runtimeInfoOf = (runtimes, id) =>
       ? runtimes.find((runtime) => runtime.id === id)
       : runtimes[0]
     : undefined;
+
+/**
+ * The view of the runtime a wizard draft `d` runs on: the list's, else, for a
+ * duplicate, its source's own view among `assistants` (the source runs on the same
+ * runtime, and its view came with the agents list). So a duplicate knows how its
+ * runtime behaves although the runtime list did not arrive.
+ */
+export const draftRuntimeInfo = (runtimes, d, assistants) =>
+  runtimeInfoOf(runtimes, d?.runtime) ??
+  (d?.duplicateOf
+    ? assistants?.find((agent) => agent.id === d.duplicateOf)?.runtimeInfo
+    : undefined);
