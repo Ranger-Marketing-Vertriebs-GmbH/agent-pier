@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createCodexProxy } from "./codex-proxy.js";
+import { codexTaskCommands } from "./codex-tasks.js";
 import { NativeRequestChannel } from "./native-channel.js";
 import { recordNativeActivity } from "../sessions/native-session-activity.js";
 import { stopOwnedGroup } from "../pipelines/native-owned-group.js";
@@ -39,7 +40,8 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
   )
     throw Error("Invalid Codex request launch");
   const args = remoteLaunchArgs(adapterArgs(launch.args, env), { env, cwd: launch.cwd });
-  const channel = new NativeRequestChannel({ env });
+  // Commands stop a subagent or a background terminal through the proxy.
+  const channel = new NativeRequestChannel({ env, commands: true });
   const keeper = fileURLToPath(new URL("./codex-owned-backend.js", import.meta.url));
   const backend = spawn(process.execPath, [keeper], {
     cwd: launch.cwd,
@@ -85,6 +87,7 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
       channel.activity(update.event, update);
     },
   });
+  channel.onCommand = codexTaskCommands(proxy);
   if (backendError) {
     await proxy.close();
     channel.close();

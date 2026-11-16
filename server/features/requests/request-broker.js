@@ -381,6 +381,7 @@ export class RequestBroker {
     }
     if (push.type === "stream-end" && push.runId) socket.runs?.delete(push.runId);
     if (push.type === "preparing") socket.preparing = Boolean(push.name);
+    if (push.type === "tasks") return this.commands.tasks(socket, push); // native-commands.js
     send(socket, (await this.notify(owner.id, push))?.reply); // A claim's result.
   }
   launched(sessionId) {

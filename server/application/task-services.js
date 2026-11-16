@@ -5,12 +5,15 @@ import { ClaudeModCommands } from "../features/claude-mod/claude-mod-commands.js
 import { claudeTaskDriver } from "../features/claude-mod/claude-task-driver.js";
 import { NativeCommands } from "../features/requests/native-commands.js";
 import { openCodeTaskDriver } from "../features/chat/opencode-task-driver.js";
+import { CodexTaskState } from "../features/chat/codex-task-state.js";
+import { codexTaskDriver } from "../features/chat/codex-task-driver.js";
 
 // Claude Code's host aborts a mod's `$.http.fetch` after 30 s (measured on 2.1.325);
 // a command poll is answered well before.
 const CLAUDE_COMMAND_HOLD_MS = 25000;
 const CLAUDE_TOOL = "claude";
 const OPENCODE_TOOL = "opencode";
+const CODEX_TOOL = "codex";
 
 /**
  * What the chat's task sheet reads and controls, as one shared set: the reads of
@@ -21,7 +24,8 @@ const OPENCODE_TOOL = "opencode";
  * its long-poll); `useClaudeMod(mod)` hands it the ClaudeModBridge, which routes the
  * mod's results and hello to it, and registers the Claude Code driver.
  * `nativeCommands` sends commands over the native request channel (the broker serves
- * it); the OpenCode driver stops subagents through it.
+ * it); the OpenCode driver stops subagents through it, the Codex driver subagents
+ * and background terminals, which `codexTasks` (the proxy's reports, live only) lists.
  */
 export function createTaskServices({ config, sessions, chat, history, chatEvents }) {
   const taskReads = new TaskReads({ sessions, chat, history });
@@ -44,10 +48,19 @@ export function createTaskServices({ config, sessions, chat, history, chatEvents
       claudeTaskDriver({ commands: claudeCommands, mod }),
     );
   };
-  const nativeCommands = new NativeCommands({
+  const codexTasks = new CodexTaskState({
     onChange: (id) => taskControl.channelChanged(id),
   });
+  const nativeCommands = new NativeCommands({
+    onChange: (id) => taskControl.channelChanged(id),
+    // What a Codex launch's proxy reports it can stop; its channel's end forgets it.
+    onTasks: (id, push) => (push ? codexTasks.report(id, push) : codexTasks.forget(id)),
+  });
   taskControl.register(OPENCODE_TOOL, openCodeTaskDriver({ commands: nativeCommands }));
+  taskControl.register(
+    CODEX_TOOL,
+    codexTaskDriver({ commands: nativeCommands, state: codexTasks }),
+  );
   // The request broker's options for both command channels it serves.
   const brokerCommands = { modCommands: claudeCommands, commands: nativeCommands };
   return {

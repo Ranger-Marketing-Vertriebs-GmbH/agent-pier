@@ -21,9 +21,15 @@ const MAX_PENDING = 64;
  * Held in memory: a closed socket or a timeout ends what it had pending.
  */
 export class NativeCommands {
-  /** `onChange(sessionId)` hears that a session's command channel came up or went down. */
-  constructor({ onChange = () => {} } = {}) {
+  /**
+   * `onChange(sessionId)` hears that a session's command channel came up or went
+   * down. `onTasks(sessionId, push)` hears the tasks the commands socket reports it
+   * can stop (a `tasks` push, codex-tasks.js), and `onTasks(sessionId, null)` once that
+   * socket closed.
+   */
+  constructor({ onChange = () => {}, onTasks = () => {} } = {}) {
     this.onChange = onChange;
+    this.onTasks = onTasks;
     // The commands socket of each session.
     this.sockets = new Map();
     this.pending = new Map();
@@ -51,7 +57,20 @@ export class NativeCommands {
     const id = socket.owner?.id;
     if (this.sockets.get(id) !== socket) return;
     this.sockets.delete(id);
+    this.reportTasks(id, null);
     this.changed(id);
+  }
+  /** A `tasks` push counts only from the session's commands socket. */
+  tasks(socket, push) {
+    const id = socket.owner?.id;
+    if (id && this.sockets.get(id) === socket) this.reportTasks(id, push);
+  }
+  reportTasks(sessionId, push) {
+    try {
+      this.onTasks(sessionId, push);
+    } catch {
+      /* Advisory: the next report replaces it. */
+    }
   }
   /** A message of an authenticated socket; true when it was a command result. */
   receive(socket, message) {

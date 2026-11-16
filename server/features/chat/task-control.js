@@ -30,6 +30,14 @@ function guarded(read, fallback) {
   }
 }
 
+/** The listed shells plus those only a driver knows live (Codex), never persisted. */
+function withLiveShells(shells, live) {
+  const extra = guarded(live, []);
+  if (!Array.isArray(extra) || !extra.length) return shells;
+  const ids = new Set(shells.map((entry) => entry.id));
+  return [...shells, ...extra.filter((entry) => !ids.has(entry.id))];
+}
+
 /** The name a note gives a task: one line, no quotes, cut short. */
 function label(entry) {
   return String(entry.name || entry.description || entry.command || "")
@@ -45,7 +53,8 @@ const noteText = (entry) =>
  * says whether its command channel is up, whether it can stop a given task and does
  * the stop: { connected(session), canStop(session, task), stop(session, task) } with
  * task { kind: "agent" | "shell", id, entry }; stop resolves { ok: true } or
- * { ok: false, reason, gone? }.
+ * { ok: false, reason, gone? }. A driver's optional `shells(session, snapshot)` adds
+ * shells it knows from live state alone (Codex's proxy) to the listed ones.
  */
 export class TaskControl {
   constructor({ sessions, chat, reads, stops, onChange, timeoutMs = 10000 }) {
@@ -73,9 +82,15 @@ export class TaskControl {
     if (!observability) return snapshot;
     const driver = this.drivers.get(session.tool);
     const live = session.status === "running" && !observability.stale;
+    const listed = {
+      subagents: observability.subagents || [],
+      shells: withLiveShells(observability.shells || [], () =>
+        driver?.shells?.(session, snapshot),
+      ),
+    };
     const tasks = ([key, kind]) => [
       key,
-      (observability[key] || []).map((entry) => {
+      listed[key].map((entry) => {
         const stopped = !FINISHED.has(entry.status) && this.stops.has(session, entry.id);
         const status = stopped ? "stopped" : entry.status;
         const task = { kind, id: entry.id, entry: { ...entry, status } };
