@@ -21,7 +21,7 @@ import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
-import useSubagentPresence from "./useSubagentPresence.js";
+import { groupSubagents } from "./background-tasks.js";
 import useScrollbarWidth from "./useScrollbarWidth.js";
 export default function ChatView({
   active,
@@ -135,11 +135,8 @@ export default function ChatView({
   useScrollbarWidth(output);
   const subagentsLive =
     session.status === "running" && !restored && !data?.observability?.stale;
-  const subagents = useSubagentPresence(
-    data?.observability?.subagents,
-    subagentsLive,
-    session.id,
-  );
+  const grouped = groupSubagents(data?.observability?.subagents, subagentsLive);
+  const subagents = [...grouped.running, ...grouped.finished];
   return (
     <div className="chat-layout">
       <Tasks
