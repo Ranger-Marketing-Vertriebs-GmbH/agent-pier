@@ -3,9 +3,8 @@
 ---
 
 Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
-(slots and built surfaces) and 4 (described surfaces, advanced settings per runtime)
-implemented; of step 5 the server readers (decision 6). Hermes's own services and
-per-agent options follow.
+(slots and built surfaces), 4 (described surfaces, advanced settings per runtime) and
+5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Per-agent options follow.
 
 Date: 2026-11-16
 
@@ -101,8 +100,9 @@ advanced settings (decision 5) are implemented; per-agent options are not yet.
 `tests/unit/runtime-id-rules.test.js` fails when product code outside
 `server/features/assistants/runtimes/` and `web/features/assistants/runtimes/` holds a
 runtime id as a string literal, or a file there is named after a runtime. Its
-allowlists start with the places that existed and may only shrink; each group names
-the step that empties it. Permanent entries are `"openclaw"` as something other than
+allowlists started with the places that existed and may only shrink; since step 5
+no file is named after a runtime, and the literals left are the permanent entries:
+`"openclaw"` as something other than
 an agent's runtime: the holder of a login, the consumer of AgentPier's MCP proxy, the
 source of an allowlist entry, and the name of OpenClaw's temporary folder
 (`browser-upload-staging.js`).
@@ -110,10 +110,22 @@ source of an allowlist entry, and the name of OpenClaw's temporary folder
 The same test lists the product files that import a web runtime module: the slot and
 the search index, no page.
 
-The rule sees literals and file names. It does not see a helper that hides the
-comparison: `ownProcess()` in `runtime-for.js` compares the runtime id inside the
-runtime modules and is called from about 14 feature files outside them. Those calls
-go with step 5.
+A third list covers what literals and file names do not show: every identifier
+outside the runtime modules that spells a runtime's name as a word part, in an
+import, a call, a member, a key or a declaration (`hermesFleetOf`,
+`services.hermesRuntime`, `hermes.state()`, `stripOpenClawRows`). The scanner reads
+code without comments, strings and template literals; a regular expression counts, so
+a pattern that spells a runtime's folder is found too. Its allowlist holds, each with
+its reason, what names OpenClaw as something other than an agent's runtime (the
+holder of a login, its temporary folder), formats OpenClaw defines and AgentPier
+reads as data (`metadata.openclaw` of a skill, `__openclaw` on a transcript message),
+the host backup's knowledge of the built-in runtime's state folder, and the product
+name on the built-in runtime's host page.
+
+What the rule still cannot see: a helper with a neutral name that compares a runtime
+id inside the runtime modules (review keeps `runtime-for.js` to helpers that ask a
+trait or the agent's runtime), an expression inside a template literal, a name built
+at run time, and prose.
 
 ### 4. Slots and built surfaces
 
@@ -266,10 +278,76 @@ Moved so far, each off the rule's allowlist:
 | `agent-browsers.js`                                                      | the key `hermes` of a browser AgentPier runs itself | the key `own`                                                          |
 | `server/application/assistants.js`                                       | starts the fleet when an agent's runtime is Hermes  | when an agent's trait `host.process` is `perAgent`                     |
 
-Left for the second half: the Hermes service modules beside the adapter
-(`hermes-*.js`, `hermes-wiring.js`, the Hermes routes), the helpers `ownProcess`,
-`hermesFleetOf` and `hermesAvailable`, and the re-exports of Hermes's memory parsing
-from `runtime-for.js`, which only the nightly dream (`hermes-dream*.js`) still reads.
+### 7. A runtime's own services live in its adapter and are wired through the port
+
+Hermes's services lived beside the adapter and were imported by name: its nightly
+dreams, the guards behind its team plugin, its browser upload, routine approvals and
+generated images, its backup path rules, its routes and its wiring in
+`server/application/`. They live in `runtimes/hermes/` now (`dreams/`, `tools/`,
+`hermes-backup-paths.js`, `hermes-routes.js`, `wiring.js`), and OpenClaw's MCP
+command line in `runtimes/openclaw/`. Three port modules reach them:
+
+- **`runtime-wiring.js`**, for the composition roots. A runtime with services of its
+  own has a `<id>/wiring.js` with up to three hooks, each called in registry order:
+  - `wire(services, context)`, once per application
+    (`wireRuntimes(services, { config })` in `application/services.js`). It makes what
+    lives as long as the application and returns `{ services, install, routes,
+listening }`. `wireRuntimes` merges that generically: the services onto
+    `services` by their names (Hermes: `hermesRuntime`, the owner's switch), `install`
+    as `services.runtimeInstalls[id]` (the runtime list's install state), `routes`
+    and `listening` into `services.runtimeWiring`, which the agent routes mount
+    (`runtimeRouters`) and the server calls once it listens (`startRuntimes`).
+  - `agentHosts(supervisor, context)`, once per assistant graph (`wireAgentHosts`):
+    the graph is built anew whenever agents are switched on, so the hosts of a
+    runtime with a host per agent cannot come from `wire`. Hermes builds its fleet and
+    attaches it (`attachAgentHosts`).
+  - `applyInputs(connected)`, once per connected graph (`ownProcessWiring`): what an
+    apply of one of its agents reads beside the agent's record.
+
+  OpenClaw has no wiring: it is the built-in runtime, whose supervisor the assistant
+  graph constructs itself. A rule lets a composition root import the built-in
+  runtime's adapter and no other.
+
+- **`runtime-services.js`**, for feature code: what a runtime brings to a feature
+  AgentPier shares. `runtimeToolRoutes()` are the team bridge's routes a runtime's own
+  plugins call (Hermes's guard, routine approval and browser upload, at their old
+  URLs), `agentDreams(options)` and `dreamDiary` the dreams of agents that dream by
+  themselves, `generatedImages` the images an agent creates in a home of its own.
+- **`runtime-backup-paths.js`**, for host backups: a runtime's rules over paths of
+  its private folder (excluded, private, sealed browser profiles, credentials). It
+  imports those rules alone, so backup and restore load no adapter.
+
+The parts of `runtime-services.js` and `runtime-backup-paths.js` are not returned by
+`wire`: their callers are modules without the application's services (a restore, a
+bridge request, a quota check), and `wire` runs only in the server process.
+
+`runtime-for.js` holds each supervisor's agent hosts by runtime id and answers by
+the agent's runtime:
+
+| Was                                              | Is                                                                                             |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `ownProcess(agent)` compared the id              | reads the trait `host.process`                                                                 |
+| `attachHermesFleet`, `hermesFleetOf`             | `attachAgentHosts(supervisor, id, hosts)`, `agentHosts(supervisor, agent)`, `agentHostSets`    |
+| `hermesAvailable(supervisor)`                    | `runtimeReady(supervisor, agent)`; `assertRuntimeReady` refuses with the runtime's own refusal |
+| the fleet's `on("status")` in feature code       | `onAgentHostStatus(supervisor, listener)`                                                      |
+| `openClawProfiles` in the wiring                 | `sharedHostAgents(profiles)`                                                                   |
+| a Hermes key pattern in `chat-removal.js`        | `ownHostSessionKey(sessionKey)`                                                                |
+| `openClawFrameEvent`                             | `sharedHostFrameEvent`                                                                         |
+| `hermes*` memory re-exports                      | gone; the dream imports `hermes-config/memory.js` in its adapter                               |
+| `openClawUpdateScope`, `hermesUpdateScope`       | `sharedHostUpdateScope`, `ownProcessUpdateScope` (`runtime-update-scope.js`)                   |
+| `assistants.hermesDreams`, `config.hermesInputs` | `assistants.agentDreams`, `config.hostInputs`                                                  |
+
+The translated refusal `hermesUnavailable` keeps its key and text; the registry entry
+of a runtime with a host per agent names its refusal, and feature code raises it
+through `assertRuntimeReady`. The two entry checks that are authorization checks
+(`tools/hermes-tool-guard.js`, `tools/hermes-browser-upload.js`) refuse an agent of
+another or an unknown runtime as before; a test pins that.
+
+Nothing is constructed, started or stopped earlier or later than before: the switch
+after the assistant feature, the fleet where the graph built it, the agents' own
+hosts after the shared host's start, the fleet's close after the shared host's.
+`tests/unit/runtime-wiring.test.js` pins the wiring and the order of the agent
+services' start.
 
 ## Delivery order
 
@@ -279,8 +357,8 @@ from `runtime-for.js`, which only the nightly dream (`hermes-dream*.js`) still r
 3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's;
    its search entry. Done.
 4. Described surfaces; advanced settings per runtime. Done.
-5. Server: port methods for memory and the readers of a runtime id (done); Hermes's
-   own services move into its adapter.
+5. Server: port methods for memory and the readers of a runtime id; Hermes's own
+   services in its adapter, wired through the port. Done.
 6. Per-agent options, with "Learns its own skills" as the first shared option.
 7. Mixture of Agents on Hermes; the memory wiki on OpenClaw.
 
@@ -305,5 +383,8 @@ from `runtime-for.js`, which only the nightly dream (`hermes-dream*.js`) still r
   not become surfaces.
 - A runtime's web module is listed twice, with and without its components; a test
   keeps the two equal.
-- Until the later steps land, the allowlist of the rule shows what is left, except
-  the comparisons behind helpers such as `ownProcess()`, which it cannot see.
+- The allowlists of the rule hold the permanent exceptions; a new name of a runtime
+  outside the runtime modules fails the build, whether a literal, a file or an
+  identifier.
+- A part of `runtime-services.js` exists once today (Hermes's). A second runtime
+  bringing the same part needs a choice by the agent's runtime there.

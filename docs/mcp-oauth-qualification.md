@@ -376,7 +376,7 @@ contracts passed against 2026.9.9 with the other native contracts.
 failed." and a `doctor` hint, which leaves nothing to classify. The `Reason:` lines
 quoted in this document (`Missing MCP OAuth authorization session`,
 `InvalidGrantError`, `database is locked`) therefore reach AgentPier only because
-`createMcpCli` (`server/features/mcp-servers/openclaw-mcp-cli.js`) runs every
+`createMcpCli` (`server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js`) runs every
 `openclaw` command with `OPENCLAW_DEBUG=1`. OpenClaw reads the variable only when it
 formats a failure; as a side effect it adds a stack trace to stderr, which
 AgentPier ignores. The CLI contract runs its commands the same way and asserts that
