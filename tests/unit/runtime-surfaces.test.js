@@ -30,7 +30,7 @@ const surface = (extra = {}) => ({
 });
 
 test("the slots are AgentPier's: a fixed list the port exports", () => {
-  assert.deepEqual(RUNTIME_SLOTS, ["hub.runtime"]);
+  assert.deepEqual(RUNTIME_SLOTS, ["hub.runtime", "hub.runtime.advanced"]);
   assert.ok(Object.isFrozen(RUNTIME_SLOTS));
 });
 
@@ -52,7 +52,8 @@ test("a wrong surface fails as the module loads, naming what is wrong", () => {
     [[surface(), surface()], /x: duplicate surface id install/],
     [[surface({ slot: "hub.nowhere" })], /install: unknown slot "hub\.nowhere"/],
     [[surface({ slot: undefined })], /install: unknown slot/],
-    [[surface({ kind: "described" })], /install: unknown kind "described"/],
+    // A described surface is checked in runtime-described-surfaces.test.js.
+    [[surface({ kind: "sketched" })], /install: unknown kind "sketched"/],
     [[surface({ kind: undefined })], /install: unknown kind/],
     [[surface({ shows: "never" })], /install: unknown shows "never"/],
     [[surface({ fields: [] })], /install: unknown key fields/],

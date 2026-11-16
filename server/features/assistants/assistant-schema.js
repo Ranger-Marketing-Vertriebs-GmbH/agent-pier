@@ -14,6 +14,7 @@ export function migrateAssistants(db) {
     CREATE INDEX IF NOT EXISTS agent_attachments_conversation ON agent_attachments(conversation_id, request_id);
     CREATE TABLE IF NOT EXISTS queued_messages (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id), client_key TEXT NOT NULL, text TEXT NOT NULL, team_allowed INTEGER NOT NULL, attachments TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_append TEXT, deliverable_since INTEGER, retrying INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS openclaw_overrides (path TEXT PRIMARY KEY, value TEXT NOT NULL, revision INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS runtime_settings (runtime TEXT NOT NULL, field TEXT NOT NULL, value TEXT NOT NULL, revision INTEGER NOT NULL, PRIMARY KEY (runtime, field));
   `);
   // Queue tables made by earlier builds of this change lack the later columns.
   const columns = new Set(
