@@ -108,6 +108,8 @@ test("duplicate copies exactly the fields of 5.3.1 and nothing else", () => {
     createImages: false,
     shell: "approval",
     skills: ["curl", "gh"],
+    // The source never chose: the copy follows its runtime's default too.
+    skillLearning: null,
     projectIds: ["p1", "p2"],
     projectFiles: { p1: "write" },
     pipelineIds: ["pl"],

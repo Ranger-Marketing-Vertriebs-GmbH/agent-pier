@@ -45,6 +45,7 @@ const conflictLabels = {
   shell: () => assistantShellCopy.title,
   skills: () => assistantSkillsCopy.title,
   shopping: () => assistantShoppingCopy.title,
+  skillLearning: () => assistantSkillsCopy.learning.title,
 };
 
 /**

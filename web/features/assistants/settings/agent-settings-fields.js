@@ -32,6 +32,7 @@ export const capabilityFormKeys = [
   "shell",
   "skills",
   "shopping",
+  "skillLearning",
 ];
 // MCP servers are granted in the Access tab, saved with the agent's PATCH.
 export const mcpKeys = ["mcpServers"];
@@ -299,6 +300,8 @@ export const capabilityServer = (assistant) => ({
   skills: sortedIds(assistant?.skills),
   // The built-in Shopping skill's switch: on unless stored off (built-in-skills.js).
   shopping: assistant?.shopping !== false,
+  // "Learns its own skills": the effective value the server sends (skill-learning.js).
+  skillLearning: assistant?.skillLearning === true,
 });
 
 /** One PATCH for the Capabilities tab; only changed parts are sent. */
@@ -325,6 +328,13 @@ export function capabilityPatch({ values, base, assistant }) {
   // A task member follows its lead's switch and never saves its own.
   if (!followsLeadModel(assistant) && changed("shopping"))
     patch.shopping = values.shopping;
+  // Never for a task member (it follows its lead) or a locked agent of users.
+  if (
+    shellEligible(assistant) &&
+    !assistant.skillLearningLocked &&
+    changed("skillLearning")
+  )
+    patch.skillLearning = values.skillLearning;
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
     patch.heartbeat = { ...heartbeatForm(assistant), enabled: false };

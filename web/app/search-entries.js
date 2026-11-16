@@ -338,6 +338,8 @@ export function pageEntries() {
 // An agent's tabs and the old tab names that lead to them.
 const tabAliases = {
   identity: ["profileTab"],
+  // What the tab holds: "Learns its own skills" and the names people search it by.
+  capabilities: ["skillLearning", "selfLearning", "learnSkills", "skillWorkshop"],
   access: ["workTab"],
   automation: ["routinesTab"],
   channels: ["telegramTab"],

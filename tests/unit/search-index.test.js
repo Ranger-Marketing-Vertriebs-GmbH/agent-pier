@@ -563,3 +563,25 @@ test("a surface's search entry shows when the surface shows", () => {
   assert.equal(has(withRuntimes([hermesListed(true)], false)), false);
   assert.equal(results("Hermes", index).length, 0);
 });
+
+test("an agent's 'Learns its own skills' is found by its names in both languages", () => {
+  for (const query of [
+    "Ops Lernt eigene Skills",
+    "Ops Learns its own skills",
+    "Ops self-learning",
+    "Ops selbst lernen",
+    "Ops Skills lernen",
+    "Ops Skill Workshop",
+  ]) {
+    const hit = results(query).find((item) => item.group === "agents");
+    assert.equal(hit?.id, "agent:ops:capabilities", query);
+    assert.equal(pathOf(hit), "/agents/ops/settings?tab=capabilities", query);
+  }
+  const entry = index.find((item) => item.id === "agent:ops:capabilities");
+  assert.ok(
+    entry.aliases.some((alias) => alias.de === "Ops-Wache · Lernt eigene Skills"),
+  );
+  assert.ok(
+    entry.aliases.some((alias) => alias.en === "Ops-Wache · Learns its own skills"),
+  );
+});

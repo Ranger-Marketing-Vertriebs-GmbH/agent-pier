@@ -3,6 +3,16 @@ export const assistantSkillsCopy = {
   intro:
     "Skills teach the agent a tool, mostly a command-line program. Switch on the bundled or catalog skills this agent may use; install catalog skills in Agents › Skills.",
   row: "Skills",
+  learning: {
+    title: "Learns its own skills",
+    description:
+      "The agent reviews finished work in the background and saves reusable procedures as its own skills. This costs additional model calls on the agent's model, and the review may read the agent's other chats and its memory.",
+    offStillWrites:
+      "While this is off, the agent still writes a skill when you ask it to.",
+    offNoSkills: "While this is off, the agent cannot save skills of its own.",
+    userAgent: (runtime) =>
+      `Locked for agents of users on ${runtime}: learned skills would bypass the skill list that limits what they read.`,
+  },
   shellOff: "Most skills run command-line programs and need shell access.",
   pageHint: (runtime) =>
     `Skills bundled with ${runtime} and skills from the skill catalog are offered; install catalog skills in Agents › Skills. A skill is a hint, not a permission: shell access decides what the agent can run. Descriptions come from ${runtime} and stay in English.`,

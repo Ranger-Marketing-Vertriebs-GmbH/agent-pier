@@ -100,5 +100,10 @@ export const searchCopy = {
     removeProject: "Remove project",
     // The talk grant on an agent's Projects page.
     sessionTalk: "Sessions talk to agents",
+    // "Learns its own skills" in an agent's Capabilities tab.
+    skillLearning: "Learns its own skills",
+    selfLearning: "self-learning",
+    learnSkills: "learn skills",
+    skillWorkshop: "Skill workshop",
   },
 };
