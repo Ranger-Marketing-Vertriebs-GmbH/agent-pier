@@ -48,6 +48,26 @@ test("the agent API takes an optional runtime and answers each agent's runtime",
   const hermes = await call("POST", "/assistants", body({ runtime: "hermes" }));
   assert.equal(hermes.status, 409);
   assert.equal((await hermes.json()).messageKey, "assistants.hermesUnavailable");
+
+  // The runtimes a new agent may choose, with how each would behave (ADR 0007): the
+  // wizard reads a runtime's traits here before an agent exists.
+  const runtimes = await call("GET", "/assistant-runtimes");
+  assert.equal(runtimes.status, 200);
+  const listedRuntimes = (await runtimes.json()).runtimes;
+  assert.deepEqual(
+    listedRuntimes.map((r) => [r.id, r.name]),
+    [
+      ["openclaw", "OpenClaw"],
+      ["hermes", "Hermes Agent"],
+    ],
+  );
+  assert.equal(
+    listedRuntimes[0].capabilities.approvals.shellLevels.includes("every"),
+    false,
+  );
+  assert.equal(listedRuntimes[0].capabilities.routines.available, true);
+  assert.equal(listedRuntimes[1].capabilities.host.install, "optional");
+  assert.equal(listedRuntimes[1].capabilities.models.chatgptLogin, "agentpierHeld");
   assert.equal(application.assistants.store.listAssistants().length, 2);
 
   const list = await (await call("GET", "/assistants")).json();
