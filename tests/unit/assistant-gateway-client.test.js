@@ -382,7 +382,12 @@ test("an answer after the timeout reaches the caller's onLate once", async (t) =
   assert.deepEqual(late, [{ ok: true, payload: { value: 42 } }]);
   assert.equal(client.late.size, 0);
   // Without onLate a late answer is dropped, as before.
-  await assert.rejects(client.call("slow", {}, { timeoutMs: 10 }), { code: "TIMEOUT" });
+  // The error names the unanswered method and its budget.
+  await assert.rejects(client.call("slow", {}, { timeoutMs: 10 }), {
+    code: "TIMEOUT",
+    method: "slow",
+    timeoutMs: 10,
+  });
   assert.equal(client.late.size, 0);
 });
 

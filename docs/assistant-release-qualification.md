@@ -783,6 +783,12 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   `runtimes/openclaw/gateway-client.js`), like `agents.create`. `config.patch` keeps
   10 s: one that reloads a plugin waits for the running turns that use it, and the
   dreaming contract pins that a save during a turn times out and converges later.
+  The contract still failed on macos-latest (41 s and 52 s). Under local load its
+  first `config.patch`
+  (the model provider, answered once applied while a fresh Gateway still loads its
+  handlers) took about 5 s and more than 10 s on efficiency cores. Its setup now
+  repeats a timed-out apply, as the app converges one, and a `TIMEOUT` names the
+  `method` and `timeoutMs` of the unanswered call.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

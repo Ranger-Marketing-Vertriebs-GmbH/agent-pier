@@ -68,6 +68,20 @@ test(
         ],
       },
     });
+    // The first config.patch of a fresh Gateway (the model provider) is answered only
+    // once OpenClaw applied it, while it still loads and prewarms its handlers: about
+    // 0.8 s on a fast host, 5 s under load and more than its 10 s budget on a slow
+    // runner. AgentPier converges a timed-out configuration write with the next apply,
+    // and so does this setup; the deletion below is what the contract checks.
+    const apply = async (id) => {
+      for (let n = 0; ; n++)
+        try {
+          return await config.apply(id);
+        } catch (error) {
+          if (error.code !== "TIMEOUT" || error.method !== "config.patch" || n >= 2)
+            throw error;
+        }
+    };
     const agents = [];
     for (const name of ["Kept", "Deleted"]) {
       const a = store.createAssistant({
@@ -75,7 +89,7 @@ test(
         instructions: "Reply briefly.",
         model: { connectionId: c.id, modelId: "echo-model" },
       });
-      await config.apply(a.id);
+      await apply(a.id);
       agents.push(a);
     }
     const [kept, deleted] = agents;

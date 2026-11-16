@@ -251,7 +251,8 @@ export class GatewayClient extends EventEmitter {
           expiry.unref?.();
           this.late.set(id, { onLate, expiry });
         }
-        reject(gatewayError("TIMEOUT"));
+        // The method names the call that went unanswered in logs and test failures.
+        reject(Object.assign(gatewayError("TIMEOUT"), { method, timeoutMs }));
       }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer, final });
       this.ws.send(JSON.stringify({ type: "req", id, method, params }), (error) => {
