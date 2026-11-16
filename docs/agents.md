@@ -688,9 +688,12 @@ A switch with fresh chats also has the new model review the agent's memory; see
   - Learned skills appear on the agent's skills page as **On: the agent wrote or
     installed this skill itself**, without a switch. A task member has no switch: on
     Hermes it follows its lead's, on OpenClaw it never learns.
-  - The switch applies while the agent service keeps running; a duplicate keeps it.
-    Search for it with ⌘K ("Learns its own skills", "self-learning", "Skill
-    workshop").
+  - Switching it off keeps the skills the agent already learned: they stay listed
+    and in use.
+  - The switch applies while the agent service keeps running; a Hermes agent's own
+    processes restart with it. It is refused while the agent works, like other
+    capability changes. A duplicate keeps the choice. Search for it with ⌘K ("Learns
+    its own skills", "self-learning", "Skill workshop").
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent

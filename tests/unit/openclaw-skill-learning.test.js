@@ -316,3 +316,30 @@ test("the skills port reports a learned skill as one the agent wrote itself", as
   // It cannot be assigned or switched off through AgentPier's list.
   assert.equal(JSON.stringify(byName["deploy-staging"]).includes("/state/"), false);
 });
+
+test("a live MCP apply keeps the learning tool in the global list a start writes", () => {
+  const profiles = [agent("a1", { skillLearning: true }), agent("a2")];
+  const started = compile(profiles);
+  const compiler = compilerFor(null);
+  // The start's web tools, as McpChanges hands them over (runtime.webTools).
+  const web = started.tools.allow.filter(
+    (tool) => !nativeTools.includes(tool) && tool !== learningTool,
+  );
+  const live = (learning) =>
+    compiler
+      .mcpLive({
+        desired: desiredState({ profiles }),
+        webTools: { tools: web },
+        learning,
+      })
+      .build(started);
+  assert.ok(started.tools.allow.includes(learningTool));
+  assert.deepEqual(
+    live(compiler.hostLearns(profiles)).patch.tools.allow,
+    started.tools.allow,
+  );
+  // Nobody learns (also: not told): the list a start writes without the tool.
+  const off = compile([agent("a1"), agent("a2")]);
+  assert.deepEqual(live(false).patch.tools.allow, off.tools.allow);
+  assert.deepEqual(live(undefined).patch.tools.allow, off.tools.allow);
+});
