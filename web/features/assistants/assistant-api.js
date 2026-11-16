@@ -341,6 +341,8 @@ export const assistantApi = {
       "DELETE",
     ),
   operate: (action) => api(`/assistant-runtime/${action}`, "POST", {}),
+  // Every runtime a new agent may run on, with its traits (runtime-list.js).
+  runtimes: (signal) => api("/assistant-runtimes", "GET", undefined, signal),
   // Hermes Agent, the second agent runtime: its switch, install state and update.
   hermes: (signal) => api("/assistant-runtime/hermes", "GET", undefined, signal),
   setHermes: (enabled) => api("/assistant-runtime/hermes", "PUT", { enabled }),
