@@ -58,11 +58,12 @@ always sets `manual` or `off`. The guard plugin's `pre_tool_call` hook returns
 to a running process. Its message carries the command itself, and its rule key hashes
 the exact text, so "always" allows that one command again and never every command.
 Every-command approval is a Hermes-only option: the agent's settings offer **Every
-command** beside **Dangerous commands** (`approval`) where the runtime reports the
-`everyCommandApproval` capability, and store it as `shell: "approval"` with
-`shellEveryCommand: true`. The desired state keeps AgentPier's three levels; the
-runtime passes the choice to the compiler (`strict`). OpenClaw reports the capability
-unavailable, because its "approval" already asks before every command. A dangerous
+command** beside **Dangerous commands** (`approval`) where the runtime's trait
+`approvals.shellLevels` has `every` ([ADR 0007](adr/0007-runtime-descriptor.md)), and
+store it as `shell: "approval"` with `shellEveryCommand: true`. The desired state
+keeps AgentPier's three levels; the runtime passes the choice to the compiler
+(`strict`). OpenClaw's levels have no `every`, because its "approval" already asks
+before every command. A dangerous
 command under every-command approval asks once: Hermes asks a plugin's question
 first and then runs its own dangerous-command check, so the guard leaves the shell
 commands Hermes flags as dangerous (`tools/approval_detection.py`) to that check,
@@ -886,16 +887,31 @@ approval resync skip them. Their chats reconcile on their own
 set's connection (`chat-reconcile.js`, `run-reconciler.js`), and the run events of
 every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 
-| Capability                                                  | Hermes                              |
-| ----------------------------------------------------------- | ----------------------------------- |
-| host, sessions, events, approvals, config, agents, routines | available                           |
-| agentFiles, skills                                          | available                           |
-| models                                                      | available (no account sign-ins)     |
-| channels                                                    | available (the owner's Telegram)    |
-| channelBots                                                 | available (Hermes's own adapter)    |
-| browser                                                     | available (AgentPier's Chromium)    |
-| everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| advancedSettings                                            | available (those Hermes maps)       |
+| Capability                                                  | Hermes                           |
+| ----------------------------------------------------------- | -------------------------------- |
+| host, sessions, events, approvals, config, agents, routines | available                        |
+| agentFiles, skills                                          | available                        |
+| models                                                      | available (no account sign-ins)  |
+| channels                                                    | available (the owner's Telegram) |
+| channelBots                                                 | available (Hermes's own adapter) |
+| browser                                                     | available (AgentPier's Chromium) |
+| advancedSettings                                            | available (those Hermes maps)    |
+
+How Hermes behaves within them are the traits of its descriptor
+(`runtimes/hermes/descriptor.js`, [ADR 0007](adr/0007-runtime-descriptor.md)); every
+other value is OpenClaw's, the default:
+
+| Trait                     | Hermes                                | OpenClaw        |
+| ------------------------- | ------------------------------------- | --------------- |
+| `approvals.shellLevels`   | `off`, `approval`, `every`, `full`    | without `every` |
+| `approvals.allowlist`     | `exactCommands` (AgentPier remembers) | `patterns`      |
+| `agentFiles.memoryFormat` | `entries` with character limits       | `markdown`      |
+| `agentFiles.dreaming`     | `agent` (each agent's nightly dream)  | `host`          |
+| `models.chatgptLogin`     | `agentpierHeld`                       | `any`           |
+| `channelBots.peopleApply` | `restart`                             | `live`          |
+| `sessions.chatFolders`    | `true`                                | `false`         |
+| `host.process`            | `perAgent`                            | `shared`        |
+| `host.install`            | `optional`                            | `builtin`       |
 
 Teams have no capability of their own: a Hermes agent offers them as OpenClaw does.
 

@@ -293,7 +293,10 @@ Feature code is moving behind an agent runtime port, so that agents can later ru
 another runtime than OpenClaw. `server/features/assistants/runtimes/agent-runtime.js`
 names the sub-ports (`host`, `sessions`, `events`, `agents`, `agentFiles`, `config`,
 `approvals`, `routines`, `skills`, `browser`, `models`, `channels`) and the
-`capabilities()` shape (per capability `available`, plus a reason id when it is not);
+`capabilities()` shape (per capability `available`, plus a reason id when it is not,
+and the runtime's traits for it: how it behaves there, stated in its descriptor,
+`runtimes/<id>/descriptor.js`, and read with `traitOf` instead of comparing a runtime
+id, [ADR 0007](adr/0007-runtime-descriptor.md));
 `runtimes/runtime-for.js` resolves the runtime of an agent, today always the OpenClaw
 adapter in `runtimes/openclaw/`, which is the only place meant to call the Gateway
 client. The adapter's `host` sub-port wraps the supervisor: `ready()`, `status()` with
