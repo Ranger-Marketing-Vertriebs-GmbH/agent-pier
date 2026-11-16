@@ -15,6 +15,11 @@ export const traitDefaults = Object.freeze({
   agentFiles: Object.freeze({ memoryFormat: "markdown", dreaming: "host" }),
   models: Object.freeze({ chatgptLogin: "any" }),
   channelBots: Object.freeze({ peopleApply: "live" }),
+  skills: Object.freeze({
+    learnsByDefault: false,
+    userAgentsLearn: false,
+    writesWhenAsked: false,
+  }),
   sessions: Object.freeze({ chatFolders: false }),
   host: Object.freeze({ process: "shared", install: "builtin" }),
 });

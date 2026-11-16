@@ -68,9 +68,14 @@ function validateAvatar(value) {
 }
 /** Whether a saved patch changes the agent's compiled entry, so it applies live. */
 export const recompiles = (patch) =>
-  ["capabilities", "skills", "browserVisible", "shopping", "shellEveryCommand"].some(
-    (key) => key in patch,
-  );
+  [
+    "capabilities",
+    "skills",
+    "browserVisible",
+    "shopping",
+    "shellEveryCommand",
+    "skillLearning",
+  ].some((key) => key in patch);
 export function validateDefinition(input, partial = false) {
   if (
     !input ||
@@ -92,6 +97,7 @@ export function validateDefinition(input, partial = false) {
           "avatar",
           "runtime",
           "shellEveryCommand",
+          "skillLearning",
         ].includes(k),
     ) ||
     ("confirmInstructions" in input &&
@@ -122,6 +128,11 @@ export function validateDefinition(input, partial = false) {
   if ("shopping" in input) {
     if (typeof input.shopping !== "boolean") throw assistantProblem("invalid");
     result.shopping = input.shopping;
+  }
+  // "Learns its own skills" (skill-learning.js); absent means the runtime's default.
+  if ("skillLearning" in input) {
+    if (typeof input.skillLearning !== "boolean") throw assistantProblem("invalid");
+    result.skillLearning = input.skillLearning;
   }
   if ("skills" in input) result.skills = validateSkills(input.skills);
   if ("avatar" in input) result.avatar = validateAvatar(input.avatar);

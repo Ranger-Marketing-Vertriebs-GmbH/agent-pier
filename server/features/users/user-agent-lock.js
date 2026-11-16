@@ -1,6 +1,7 @@
 import { lockedTools } from "../assistants/native-capabilities.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { isUserAgent } from "./user-access.js";
+import { refuseLearning } from "../assistants/skill-learning.js";
 
 export { lockedTools };
 
@@ -42,9 +43,13 @@ export function refuseUserAgent(agent) {
   if (isUserAgent(agent)) throw userAgentLocked();
 }
 
-/** A settings patch: a user agent keeps shell "off" and no visible browser window. */
+/**
+ * A settings patch: a user agent keeps shell "off" and no visible browser window, and
+ * learns no skills of its own where its runtime refuses that (skill-learning.js).
+ */
 export function refuseLockedSettings(agent, patch = {}) {
   if (!isUserAgent(agent)) return;
+  refuseLearning(agent, patch);
   if (("shell" in patch && patch.shell !== "off") || patch.browserVisible === true)
     throw userAgentLocked();
 }

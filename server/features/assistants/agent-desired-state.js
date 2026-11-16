@@ -11,6 +11,7 @@ import {
   webCapabilityKeys,
 } from "./native-capabilities.js";
 import { compiledSkillNames } from "./built-in-skills.js";
+import { learnsSkills } from "./skill-learning.js";
 import { agentProfileName } from "./browser-profile-names.js";
 import { isShared, isUserAgent } from "../users/user-access.js";
 import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
@@ -86,7 +87,12 @@ export function desiredAgent(
     tools: toolGrants(profile, { ssh: !!ssh, craft: !!craft }),
     shell: { level: personalShell(profile), pathPrepend: [...shellPath] },
     memory: memoryEnabled(profile),
-    skills: { assigned: personalSkills(profile), compiled: compiledSkillNames(profile) },
+    skills: {
+      assigned: personalSkills(profile),
+      compiled: compiledSkillNames(profile),
+      // "Learns its own skills" (skill-learning.js); a task member follows its lead.
+      learning: learnsSkills(inherits && lead ? lead : profile),
+    },
     mcp: { eligible: mcpEligible(profile), servers: [...new Set(mcp)] },
     web: Object.fromEntries(
       webCapabilityKeys.map((key) => [key, capabilities[key] || released.includes(key)]),

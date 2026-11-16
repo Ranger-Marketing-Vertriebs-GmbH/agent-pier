@@ -13,6 +13,7 @@ const lockedKeys = new Set([
   "confirmStdio",
   "mcpServers",
   "skills",
+  "skillLearning",
   "heartbeat",
   "model",
   "userAccess",

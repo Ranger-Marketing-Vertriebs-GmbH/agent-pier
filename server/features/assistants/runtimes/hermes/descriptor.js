@@ -26,6 +26,10 @@ export const hermesDescriptor = defineRuntimeDescriptor({
     models: { chatgptLogin: "agentpierHeld" },
     // The agent's own bot reads its people at the start of the agent's processes.
     channelBots: { peopleApply: "restart" },
+    // Every agent reviews its work and writes skills unless AgentPier switches the
+    // review off (hermes-config/skills.js); the skills stay in the agent's own home,
+    // so a user's agent may learn too, and `skill_manage` stays with learning off.
+    skills: { learnsByDefault: true, userAgentsLearn: true, writesWhenAsked: true },
     // Each chat's uploads live in a folder of that chat (chat-file-folders.js).
     sessions: { chatFolders: true },
     // One process set per agent (ADR 0006 decision 4), installed by the owner.

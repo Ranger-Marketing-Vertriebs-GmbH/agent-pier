@@ -8,6 +8,8 @@ export const users = Object.freeze({
   agentRequired: "Only agents of users can be assigned to users.",
   agentOwnFixed: "An own agent stays with its user. Create a new agent for anyone else.",
   level: "Your level for this agent does not allow this.",
+  agentSkillLearning:
+    "Agents of users do not learn skills of their own on this runtime: learned skills would bypass the skill list that limits what they read.",
   agentRestartNeeded:
     "Switching this needs a restart of the agent service, which only the owner can start. Ask the owner.",
   agentsChoice: "Choose whether the user's own agents are archived or kept.",

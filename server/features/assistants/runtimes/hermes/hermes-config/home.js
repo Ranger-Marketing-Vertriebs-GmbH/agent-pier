@@ -16,7 +16,7 @@ import {
   guardPlugin,
 } from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
-import { builtInOffered, skillEntries } from "./skills.js";
+import { builtInOffered, learningEntry, skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
 import { webDirectory, webEnvNames, webHome } from "./web.js";
@@ -251,6 +251,7 @@ export function compileHome(
     // The guard's question waits for the owner (hermes_cli/plugins.py, at most 600 s).
     [["plugins", "hook_callback_timeout"], cronAsks ? guardHookTimeoutS : undefined],
     ...skills.entries,
+    learningEntry(agent),
     ...(servers
       ? [
           [

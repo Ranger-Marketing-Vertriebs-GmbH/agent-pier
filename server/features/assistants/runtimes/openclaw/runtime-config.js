@@ -13,6 +13,7 @@ import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
 import { dreamingSection } from "./openclaw-config/dreaming.js";
 import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
+import { applyLearning, hostLearns } from "./openclaw-config/skill-learning.js";
 import {
   applyTelegram,
   configuredAgents,
@@ -295,14 +296,6 @@ export function compileOpenClawConfig({
         rememberAcrossConversations: false,
       },
     };
-    // Enabling cron must not also opt agents into automatic skill maintenance.
-    config.skills = {
-      ...config.skills,
-      workshop: {
-        ...config.skills?.workshop,
-        autonomous: { mode: "off" },
-      },
-    };
     config.tools.allow = [...nativeTools];
     config.tools.fs = { workspaceOnly: true };
     config.cron = {
@@ -319,6 +312,10 @@ export function compileOpenClawConfig({
     // Without bindings to usable servers nothing is added.
     const mcpServers = mcpSections({ profiles: agents, ...host.mcp });
     applyMcp(config, mcpServers);
+    // Enabling cron must not also opt agents into automatic skill maintenance: the
+    // review mode is "off" unless an agent learns its own skills, and only such an
+    // agent holds the tool (openclaw-config/skill-learning.js).
+    applyLearning(config, hostLearns(agents));
     const available = webToolsAvailability(host.webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {

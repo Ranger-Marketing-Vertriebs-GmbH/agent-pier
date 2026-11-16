@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { shellTools } from "../../../native-capabilities.js";
 import { agentEntry } from "./agent-entry.js";
+import { learningAllow, learningApplied, learningModeChange } from "./skill-learning.js";
 
 /**
  * The global tools.allow with exec and process present exactly when `wanted`, or
@@ -33,11 +34,13 @@ export const providerPatch = ({ model } = {}) =>
  * now, the host's concurrency and the global shell tools. `state()`, read inside the
  * build as the write runs: agentEntry's options, plus `managed` (the team or native
  * tools are wired, so the entry's tools, skills and memory belong to AgentPier),
- * `hostCapacity` (a function: the host's member slots, when wired) and `shellGlobal`
- * (whether some agent has shell, undefined while that is not managed).
+ * `hostCapacity` (a function: the host's member slots, when wired), `shellGlobal`
+ * (whether some agent has shell, undefined while that is not managed) and
+ * `learningGlobal` (whether some agent learns its own skills, likewise: the global
+ * tool and the Gateway-wide review mode, skill-learning.js).
  */
 export function agentPatch(config, desired, state) {
-  const { managed, hostCapacity, shellGlobal, ...entryOptions } = state();
+  const { managed, hostCapacity, shellGlobal, learningGlobal, ...entryOptions } = state();
   const agentRuntime = desired.model?.agentRuntime;
   const agents = config.agents;
   const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
@@ -89,12 +92,17 @@ export function agentPatch(config, desired, state) {
     replacePaths.push(`agents.entries.${desired.runtimeAgentId}.skills`);
   if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.tools?.deny))
     replacePaths.push(`agents.entries.${desired.runtimeAgentId}.tools.deny`);
-  const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
+  const shellGlobalAllow = shellAllow(config.tools?.allow, shellGlobal);
+  const globalAllow =
+    learningAllow(shellGlobalAllow ?? config.tools?.allow, learningGlobal) ??
+    shellGlobalAllow;
   if (globalAllow) replacePaths.push("tools.allow");
+  const mode = learningModeChange(config, learningGlobal);
   return {
     patch: {
       agents: patch,
       ...(globalAllow && { tools: { allow: globalAllow } }),
+      ...(mode && { skills: { workshop: { autonomous: { mode } } } }),
     },
     replacePaths,
   };
@@ -103,12 +111,14 @@ export function agentPatch(config, desired, state) {
 /**
  * Whether the running configuration `config` holds anything else for the desired
  * agent than its apply wrote (`expected`): its tools (`tools`), exec override and
- * skills while `managed`, the global shell tools while `shellGlobal` is managed, its
+ * skills while `managed`, the global shell tools while `shellGlobal` is managed, the
+ * learning tool and review mode while `learningGlobal` is, its
  * memory search while `memory` is (a boolean), and the agent runtime and model of
  * its model connection, when it names one. True means the apply did not take.
  */
 export function agentDrift(config, desired, expected) {
   const { managed, tools: allowed, exec, skills, shellGlobal, memory } = expected;
+  if (!learningApplied(config, expected.learningGlobal)) return true;
   const { runtimeAgentId, model: connection } = desired;
   const agentRuntime = connection?.agentRuntime;
   const entries = config?.agents?.entries;

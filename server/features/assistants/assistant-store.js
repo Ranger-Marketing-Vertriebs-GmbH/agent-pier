@@ -15,6 +15,7 @@ import { validateDefinition, assistantProblem } from "./assistant-validation.js"
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { DEFAULT_RUNTIME } from "./runtimes/agent-runtime.js";
 import { assertRuntime } from "./runtimes/runtime-for.js";
+import { learningLocked, learnsSkills, refuseLearning } from "./skill-learning.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
 // at most 100 messages; the chat's poll and every server-side reader ask for the
@@ -83,6 +84,9 @@ export class AssistantStore {
       runtimeAgentId: `ap-${id}`,
       archivedAt: null,
     };
+    // A new user agent never starts learning where its runtime refuses it: this is
+    // the one write every creation runs through (a duplicate, a template's agent).
+    refuseLearning(record, values);
     this.db
       .prepare("INSERT INTO assistants VALUES (?,?,?)")
       .run(id, 1, JSON.stringify(record));
@@ -232,6 +236,12 @@ export class AssistantStore {
       if (fields.skills.length) throw assistantProblem("invalid");
       delete fields.skills;
     }
+    // Likewise learning: a task member follows its lead and may only restate that.
+    if ("skillLearning" in fields && !personalEligible(current)) {
+      if (fields.skillLearning !== learnsSkills(current))
+        throw assistantProblem("invalid");
+      delete fields.skillLearning;
+    }
     const result = { ...persisted(current), ...fields, revision: revision + 1 };
     if (temporaryMember(current)) {
       if (followLead) delete result.ownModel;
@@ -261,6 +271,8 @@ export class AssistantStore {
     if (!Number.isSafeInteger(revision) || current.revision !== revision)
       throw assistantProblem("conflict", 409);
     const result = { ...current, userAccess: value, revision: revision + 1 };
+    // Learning ends for good where the agent's runtime refuses it to user agents.
+    if (learningLocked(result)) delete result.skillLearning;
     if (
       !this.db
         .prepare("UPDATE assistants SET body=?,revision=? WHERE id=? AND revision=?")
