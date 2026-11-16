@@ -41,7 +41,6 @@ export const commonCopy = {
   binding: "Verknüpfe …",
   bind: "Verknüpfen",
   pendingTask: "Offen",
-  tasks: "Aufgaben",
   notInstalled: "Nicht installiert",
   startSession: "Session starten",
   confirmRemoval: "Entfernen bestätigen",

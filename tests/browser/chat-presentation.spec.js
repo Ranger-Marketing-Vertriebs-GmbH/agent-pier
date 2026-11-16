@@ -177,11 +177,10 @@ test("unknown usage remains unknown while a native limit may be shown independen
   await expect(context).toContainText("Kontextverbrauch nicht verfügbar");
 });
 
-test("mobile task drawer lists working subagents first with their task immediately visible", async ({
+test("the mobile tasks sheet lists working subagents first with their task immediately visible", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // Worker beta finished just before the view opened, so it is still listed.
   await page.clock.install({ time: new Date("2026-09-06T10:00:00Z") });
   await fixture(page, {
     observability: {

@@ -137,6 +137,11 @@ export default function ChatView({
   const subagents = [...grouped.running, ...grouped.finished];
   const tasks = data?.tasks || [];
   const line = tasksLine({ ...grouped, tasks });
+  // A sheet whose content vanished closes for good instead of reopening later.
+  const nothingToShow = !line;
+  useEffect(() => {
+    if (tasksOpen && nothingToShow) closeTasks();
+  }, [tasksOpen, nothingToShow, closeTasks]);
   return (
     <div className="chat-layout">
       {tasksOpen && active && line && (

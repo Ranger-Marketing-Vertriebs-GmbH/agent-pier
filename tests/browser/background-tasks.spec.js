@@ -142,6 +142,10 @@ test("the appearing line keeps a chat that follows the bottom pinned", async ({
   publish();
   await expect(line(page)).toHaveText("1 laufende Aufgabe");
   await expect.poll(gap).toBeLessThan(2);
+  data.observability.subagents = [];
+  publish();
+  await expect(line(page)).toHaveCount(0);
+  await expect.poll(gap).toBeLessThan(2);
 });
 
 test("Escape returns focus to the opener, from the line and from the header", async ({
@@ -177,6 +181,65 @@ test("on a phone the sheet rises from the bottom over the full width", async ({
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
+});
+
+test("a sheet whose content vanished stays closed when tasks come back", async ({
+  page,
+}) => {
+  const { data, publish } = await subagentFixture(page);
+  await line(page).click();
+  await expect(sheet(page)).toBeVisible();
+  const agents = data.observability.subagents;
+  data.observability.subagents = [];
+  publish();
+  await expect(sheet(page)).toBeHidden();
+  await expect(line(page)).toHaveCount(0);
+  data.observability.subagents = agents;
+  publish();
+  await expect(line(page)).toHaveText("1 laufende Aufgabe");
+  await expect(sheet(page)).toBeHidden();
+});
+
+test("focus returns to the line even when the click did not focus it", async ({
+  page,
+}) => {
+  await subagentFixture(page);
+  // Safari does not focus a clicked button; a scripted click behaves the same.
+  await page.locator(".chat-composer textarea").focus();
+  await line(page).evaluate((element) => element.click());
+  await expect(sheet(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet(page)).toBeHidden();
+  await expect(line(page)).toBeFocused();
+});
+
+test("a click beside the sheet closes it", async ({ page }) => {
+  await subagentFixture(page);
+  await line(page).click();
+  await expect(sheet(page)).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(sheet(page)).toBeHidden();
+});
+
+test("stale data never lets the line claim a running task", async ({ page }) => {
+  const { data, publish } = await subagentFixture(page);
+  await expect(line(page)).toHaveText("1 laufende Aufgabe");
+  data.observability.stale = true;
+  publish();
+  await expect(line(page)).toHaveText("Hintergrundaufgaben");
+});
+
+test("on a phone the line and the group headings are full touch targets", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await subagentFixture(page);
+  expect((await line(page).boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await line(page).click();
+  for (const id of ["running", "completed"])
+    expect(
+      (await group(page, id).locator("summary").boundingBox()).height,
+    ).toBeGreaterThanOrEqual(44);
 });
 
 test.describe("English", () => {

@@ -25,6 +25,18 @@
 .background-tasks-group[open] > summary {
   margin-bottom: 2px;
 }
+/* Phones: the line and the group headings are full touch targets. */
+@media (max-width: 700px) {
+  .background-tasks-line,
+  .background-tasks-group > summary {
+    min-height: var(--touch-target);
+  }
+  .background-tasks-group > summary {
+    display: flex;
+    align-items: center;
+    padding-block: 0;
+  }
+}
 .subagent-entry {
   display: grid;
   gap: 4px;
