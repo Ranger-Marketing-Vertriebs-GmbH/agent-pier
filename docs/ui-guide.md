@@ -525,7 +525,7 @@ accent. Never encode a state by colour alone: add text or an icon.
   same path as Escape (`close` unless `closeDisabled`, `onCancel`); otherwise it snaps
   back, without animation under reduced motion. With `closeDisabled` the sheet only
   stretches like a rubber band. A tap or drag on the backdrop never moves it. Full-height panels without a handle
-  (`SidePanel`, `ImageViewer`, the task drawer, the launch dialog) do not drag.
+  (`SidePanel`, `ImageViewer`, the launch dialog) do not drag.
 - A row's ⋯ menu may open as a sheet on phones: given `sheet` (title and optional
   subtitle), `RowMenu` shows the same items in a `Sheet` with Cancel (the Projects page
   does this for projects and groups; the gallery's **Dialogs and sheets** shows both).
