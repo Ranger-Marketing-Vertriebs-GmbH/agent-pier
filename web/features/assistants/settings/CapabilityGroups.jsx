@@ -22,6 +22,7 @@ import {
   shellEligible,
   shellLevels,
 } from "../shell-level.js";
+import { traitOf } from "../runtime-traits.js";
 import { agentRoute, isPersonal, webCapabilityKeys } from "./agent-settings-fields.js";
 import useCount from "./useCount.js";
 
@@ -46,8 +47,9 @@ export function MemoryGroup({ assistant, draft, go, notes = true }) {
   const saved = Boolean(assistant) && assistant.capabilities?.memory === true;
   const { dreaming } = useDreaming();
   const permanent = !assistant || (isPersonal(assistant) && !assistant.archivedAt);
-  // Dreaming is OpenClaw's: a Hermes agent's memory stays its own switch.
-  const dreams = (assistant?.runtimeInfo?.id || draft.values.runtime) !== "hermes";
+  // Dreaming is the host's (OpenClaw's) where the runtime says so; on a runtime whose
+  // agents dream by themselves (Hermes) the memory stays its own switch.
+  const dreams = traitOf(assistant?.runtimeInfo, "agentFiles", "dreaming") === "host";
   const locked =
     dreaming?.enabled === true && permanent && dreams && draft.values.memory === true;
   return (

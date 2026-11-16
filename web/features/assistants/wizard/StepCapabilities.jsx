@@ -45,7 +45,14 @@ const texts = {
  * images need ChatGPT, so "+ Modell verbinden"); it never blocks creating. Shell uses
  * the settings' control (confirmations as today); agents of users keep it locked.
  */
-export default function StepCapabilities({ d, set, runtime, models, everyCommand }) {
+export default function StepCapabilities({
+  d,
+  set,
+  runtime,
+  runtimeInfo,
+  models,
+  everyCommand,
+}) {
   const id = useId();
   const [search, setSearch] = useState(null);
   const [pdf, setPdf] = useState(null);
@@ -64,8 +71,8 @@ export default function StepCapabilities({ d, set, runtime, models, everyCommand
   useEffect(() => {
     loadServices();
   }, []);
-  // A Hermes agent needs a ChatGPT login AgentPier holds (runtime-capabilities.js).
-  const imageState = imagesFor(models, { runtimeInfo: { id: d.runtime || "openclaw" } });
+  // Some runtimes need a ChatGPT login AgentPier holds (runtime-capabilities.js).
+  const imageState = imagesFor(models, runtimeInfo);
   const reasons = {
     webSearch: search && search.ready === false ? personal().searchUnavailable : "",
     browser: runtime?.browser?.available === false ? personal().browserUnavailable : "",

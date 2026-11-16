@@ -89,7 +89,7 @@ export default function ProfileFields({
             <div className="agent-field">
               <AssistantModelFields
                 key={modelKey}
-                models={modelsFor(models, assistant?.runtimeInfo?.id)}
+                models={modelsFor(models, assistant?.runtimeInfo)}
                 connectionId={connectionId}
                 modelId={modelId}
                 setConnection={(value) => draft.set("connectionId", value)}

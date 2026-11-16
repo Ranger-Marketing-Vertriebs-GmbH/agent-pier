@@ -38,10 +38,14 @@ const hermesInfo = {
     host: { available: true },
     sessions: { available: true },
     events: { available: true },
-    approvals: { available: true },
+    // Hermes's traits (ADR 0007): "Every command" is one of its shell levels.
+    approvals: {
+      available: true,
+      shellLevels: ["off", "approval", "every", "full"],
+      allowlist: "exactCommands",
+    },
     config: { available: true },
     agents: { available: true },
-    everyCommandApproval: { available: true },
     agentFiles: unavailable(),
     routines: unavailable(),
     skills: unavailable(),
@@ -352,7 +356,13 @@ test("an OpenClaw agent keeps its three shell levels and sends no every-command 
         id: "openclaw",
         name: "OpenClaw",
         version: "2026.10.3",
-        capabilities: { everyCommandApproval: unavailable("approvalAsksEveryCommand") },
+        capabilities: {
+          approvals: {
+            available: true,
+            shellLevels: ["off", "approval", "full"],
+            allowlist: "patterns",
+          },
+        },
       },
       shell: "off",
     },
