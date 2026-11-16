@@ -60,3 +60,11 @@ Route shape, module boundaries (likely `server/application/project-deletion.js` 
 6. **Dangerous paths:** also refuse the home directory's direct children (e.g. `~/Projects`, `~/Documents`, `~/Desktop`), any mount point, and the checkout/install the running AgentPier server runs from.
 7. **Preflight time:** each check is bounded (Git per worktree 10 s, process scan 10 s). A check that does not finish is shown as "could not be checked" and counts as a warning, not a blocker, except the process scan, whose timeout blocks (retry offered).
 8. **Audit:** `project.deleted` records project id, path, nested project ids, ended processes/sessions, and whether unsaved Git work was reported; `source: "owner"`.
+
+## Projects whose folder is already gone (owner request 2026-11-16)
+
+- A project whose registered folder no longer exists (deleted or moved outside AgentPier) stays in the list today. The project list and detail mark it **"Folder missing"** (de: „Ordner fehlt“), computed on read and pushed on `projects.changed`; a missing volume (unmounted disk, network share) is shown as **"Drive not available"** instead and is not treated as deleted.
+- Its delete action reads **"Remove from AgentPier…"**. The dialog says the folder is already gone and only AgentPier's data is removed; no name typing is needed, a plain confirm suffices. Preflight runs only the checks that still make sense: running sessions/agent coding sessions/runs for the project (block, with "Stop sessions"), nested registered projects under the missing path (removed too), access grants (informational). No process scan, no Git checks.
+- The data removal is the same walk as a normal delete; the folder step is skipped. If the folder reappears between preflight and confirm (same path exists again), the server refuses and the dialog switches to the full delete flow.
+- The project list gets a filter or a "Folder missing (n)" hint so several stale projects can be found; deleting them stays one by one (bulk delete remains a non-goal).
+- Danger-path rules do not apply (nothing on disk is touched).
