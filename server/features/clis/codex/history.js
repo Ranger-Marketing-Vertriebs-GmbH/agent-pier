@@ -9,6 +9,7 @@ import { reconcileCodexTail } from "../../chat/codex-live-tail.js";
 import { splitPage } from "../../chat/history-page-split.js";
 import { discoverCodex } from "../../chat/slash-discovery-others.js";
 import { configRoot, dataRoot } from "./profile.js";
+import { readThreadTurns } from "./child-thread.js";
 
 // Codex history: threads read through the read-only app-server client
 // (history-client.js), supplemented by the rollout files under CODEX_HOME.
@@ -96,35 +97,7 @@ export async function read(history, session, id) {
   );
   if (thread?.cwd !== session.cwd)
     throw problem(serverMessages.chat.historyProjectMismatch, 409);
-  let full;
-  try {
-    full = (
-      await history.codexRequest(session, (client) =>
-        client.request("thread/read", {
-          threadId: id,
-          includeTurns: true,
-        }),
-      )
-    ).thread;
-  } catch (error) {
-    if (error.status !== 409) throw error;
-    const turns = [];
-    let cursor;
-    do {
-      const page = await history.codexRequest(session, (client) =>
-        client.request("thread/turns/list", {
-          threadId: id,
-          limit: 100,
-          itemsView: "full",
-          sortDirection: "desc",
-          ...(cursor ? { cursor } : {}),
-        }),
-      );
-      turns.push(...(page.data || []));
-      cursor = page.nextCursor;
-    } while (cursor);
-    full = { ...thread, turns: turns.reverse() };
-  }
+  const full = await readThreadTurns(history, session, id, thread);
   const result = { ...normalizeCodex(full), observability: observeCodex(full) };
   if (thread.path) {
     const env = history.environment(session),

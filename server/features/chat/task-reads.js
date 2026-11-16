@@ -53,6 +53,14 @@ async function trustedOutputPath(file, roots, uid, sessionId, taskId) {
   return null;
 }
 
+/** Each root plus its real path: the CLI may report either spelling (/tmp, /private/tmp). */
+async function withRealRoots(roots) {
+  const real = await Promise.all(
+    roots.map((root) => fs.realpath(root).catch(() => null)),
+  );
+  return [...new Set([...roots, ...real.filter(Boolean)])];
+}
+
 /** The last bytes of a file, from a character boundary; null when it cannot be read. */
 async function readTail(file) {
   let handle;
@@ -120,7 +128,7 @@ export class TaskReads {
     const file = this.chat.shellOutputFile(sessionId, taskId);
     const trusted = await trustedOutputPath(
       file,
-      [this.tempRoots].flat(),
+      await withRealRoots([this.tempRoots].flat()),
       this.uid,
       state.providerSessionId,
       taskId,

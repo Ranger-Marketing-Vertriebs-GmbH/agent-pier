@@ -33,6 +33,7 @@ async function app(
   const project = path.join(root, "projects", "slug");
   fs.mkdirSync(temp, { recursive: true });
   const outputs = new Map();
+  const opened = [];
   const session = { id: "s1", tool, cwd: "/work", status: "running" };
   const chat = {
     read: async (id) => {
@@ -43,7 +44,10 @@ async function app(
         observability: { subagents, shells },
       };
     },
-    shellOutputFile: (id, shell) => (id === "s1" ? (outputs.get(shell) ?? null) : null),
+    shellOutputFile: (id, shell) => {
+      opened.push(["shellOutputFile", id, shell]);
+      return id === "s1" ? (outputs.get(shell) ?? null) : null;
+    },
   };
   const sessions = {
     get: async (id) => {
@@ -57,7 +61,10 @@ async function app(
     uid: 4242,
     tempRoots: [temp],
     history: {
-      claudeFile: async () => path.join(project, `${NATIVE}.jsonl`),
+      claudeFile: async () => {
+        opened.push(["claudeFile"]);
+        return path.join(project, `${NATIVE}.jsonl`);
+      },
       ...history,
     },
   });
@@ -78,7 +85,7 @@ async function app(
     const response = await fetch(`${base}/api/sessions/${suffix}`);
     return { status: response.status, body: await response.json() };
   };
-  return { get, root, temp, project, outputs };
+  return { get, root, temp, project, outputs, opened };
 }
 
 const subagent = (id, status = "completed") => ({ id, name: "x", task: "t", status });
@@ -113,6 +120,7 @@ test("ids the observability does not list never open a file", async (t) => {
     assert.equal(res.status, 404);
     assert.equal((await f.get(output(id))).status, 404);
   }
+  assert.deepEqual(f.opened, []); // no file was looked up for an unlisted id
   assert.equal((await f.get("missing/tasks/x/transcript")).status, 404);
   assert.equal((await f.get("missing/tasks/x/output")).status, 404);
 });
@@ -352,4 +360,59 @@ test("an OpenCode child session needs the session as its parent", async (t) => {
   assert.equal(ok.body.messages[0].text, "child says hi");
   assert.equal(ok.body.partial, false);
   assert.equal((await f.get(transcript("ses_foreign"))).status, 404);
+});
+
+test("a temp root that is a link serves paths reported under either spelling", async (t) => {
+  const f = await app(t, { shells: [shell(SHELL)] });
+  // The system temp folder may itself sit behind a link (/var on macOS).
+  const real = path.join(fs.realpathSync(f.root), "real-tmp");
+  const link = path.join(f.root, "link-tmp");
+  const tail = path.join("claude-4242", "slug", NATIVE, "tasks", `${SHELL}.output`);
+  write(path.join(real, tail), SECRET);
+  fs.symlinkSync(real, link);
+  const reads = new TaskReads({
+    sessions: { get: async () => ({ id: "s1" }) },
+    chat: {
+      read: async () => ({
+        providerSessionId: NATIVE,
+        observability: { shells: [shell(SHELL)] },
+      }),
+      shellOutputFile: () => f.outputs.get(SHELL),
+    },
+    uid: 4242,
+    tempRoots: [link],
+    history: {},
+  });
+  for (const reported of [path.join(real, tail), path.join(link, tail)]) {
+    f.outputs.set(SHELL, reported);
+    assert.deepEqual(await reads.output("s1", SHELL), {
+      text: SECRET,
+      truncated: false,
+      gone: false,
+    });
+  }
+});
+
+test("a Codex child with paginated turns is read through the paging fallback", async (t) => {
+  const calls = [];
+  const item = codexChild(NATIVE).turns[0].items[0];
+  const history = {
+    codexRequest: async (_session, run) =>
+      run({
+        request: async (method, params) => {
+          calls.push(method);
+          if (method === "thread/turns/list")
+            return params.cursor
+              ? { data: [{ id: "t1", items: [item] }] }
+              : { data: [{ id: "t2", items: [] }], nextCursor: "c1" };
+          if (params.includeTurns) throw problem("Paginated", 409);
+          return { thread: codexChild(NATIVE, { turns: undefined }) };
+        },
+      }),
+  };
+  const f = await app(t, { tool: "codex", subagents: [subagent("child1")], history });
+  const { status, body } = await f.get(transcript("child1"));
+  assert.equal(status, 200);
+  assert.equal(body.messages[0].text, "go");
+  assert.equal(calls.filter((m) => m === "thread/turns/list").length, 2);
 });

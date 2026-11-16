@@ -6,7 +6,8 @@ import { normalizeCodex } from "../../chat/history-parsers.js";
 const MAX_DEPTH = 4;
 const unknownTask = () => problem(serverMessages.chat.taskUnknown, 404);
 
-async function turnsOf(history, session, id, thread) {
+/** The thread with all its turns: `includeTurns`, or paged `thread/turns/list` when the store is paginated (409). */
+export async function readThreadTurns(history, session, id, thread) {
   try {
     return (
       await history.codexRequest(session, (client) =>
@@ -60,7 +61,7 @@ export async function readCodexChild(history, session, parentId, childId) {
     throw problem(serverMessages.chat.historyProjectMismatch, 409);
   // A running child answers with the steps finished so far.
   return {
-    ...normalizeCodex(await turnsOf(history, session, childId, child)),
+    ...normalizeCodex(await readThreadTurns(history, session, childId, child)),
     partialWhileRunning: true,
   };
 }
