@@ -14,7 +14,7 @@ function timeZones() {
 }
 
 /**
- * OpenClaw's value while the setting is unset, in the field's own unit: a number
+ * The value that applies while the setting is unset, in the field's own unit: a number
  * from the server (with our note, e.g. "48 hours"), an option label, or our words
  * where it depends on the host or the model.
  */
@@ -29,7 +29,7 @@ export function fallbackText(setting) {
   return text.fallback;
 }
 
-/** Options of a select setting; "" is OpenClaw's default and comes first. */
+/** Options of a select setting; "" is the default and comes first. */
 export function settingOptions(setting, value) {
   const text = copy.settings[setting.id];
   const values = setting.format === "timeZone" ? timeZones() : setting.options || [];
@@ -81,24 +81,32 @@ function Control({ setting, value, onChange, disabled, ...aria }) {
   );
 }
 
+// A scope pill's words and its longer title (advanced-scopes.js settingScope).
+const pillText = (pill) =>
+  pill.kind === "only"
+    ? [copy.runtimeOnly(pill.name), copy.runtimeOnlyLabel(pill.name, pill.other)]
+    : [copy.runtimeRestart(pill.name), copy.runtimeRestartLabel(pill.name)];
+
 /**
- * One allowed setting: our label, its default and how it takes effect, the help as
- * a disclosure, a control by type and a reset to OpenClaw's default. While Hermes
- * agents exist, `hermes` adds how they take it: "none" (OpenClaw only), "restart"
- * (they restart) or "hot" (nothing to add).
+ * One shared setting: our label, its default and how it takes effect, the help as
+ * a disclosure, a control by type and a reset to the default. `scope`
+ * (advanced-scopes.js settingScope) says how the first runtime that takes it does
+ * (`taken`: its badge, and whether it can be changed) and adds a pill per further
+ * runtime with agents: "<name> only", or that its agents restart.
  */
 export default function AdvancedSettingRow({
   setting,
   value,
   onChange,
   disabled,
-  hermes = null,
+  scope = { taken: null, pills: [] },
 }) {
   const text = copy.settings[setting.id];
   const info = useInfoHint();
   const id = useId();
-  const restart = setting.reloadKind === "restart";
-  const locked = disabled || !setting.available;
+  const available = scope.taken?.available === true;
+  const restart = scope.taken?.apply === "restart";
+  const locked = disabled || !available;
   return (
     <>
       <div className="list-row two-line advanced-setting-row">
@@ -109,10 +117,8 @@ export default function AdvancedSettingRow({
               {text.unit && <span className="advanced-setting-unit"> ({text.unit})</span>}
             </span>
             <span className="list-row-sub" id={`${id}-sub`}>
-              {setting.available
-                ? copy.defaultValue(fallbackText(setting))
-                : copy.unavailable}
-              {setting.available && (
+              {available ? copy.defaultValue(fallbackText(setting)) : copy.unavailable}
+              {available && (
                 <span
                   className={`list-row-pill advanced-setting-badge${restart ? "" : " live"}`}
                   title={restart ? copy.restartLabel : copy.liveLabel}
@@ -120,16 +126,18 @@ export default function AdvancedSettingRow({
                   {restart ? copy.restart : copy.live}
                 </span>
               )}
-              {(hermes === "none" || hermes === "restart") && (
-                <span
-                  className="list-row-pill advanced-setting-badge scope"
-                  title={
-                    hermes === "none" ? copy.openClawOnlyLabel : copy.hermesRestartLabel
-                  }
-                >
-                  {hermes === "none" ? copy.openClawOnly : copy.hermesRestart}
-                </span>
-              )}
+              {scope.pills.map((pill) => {
+                const [words, title] = pillText(pill);
+                return (
+                  <span
+                    key={`${pill.kind}:${pill.name}`}
+                    className="list-row-pill advanced-setting-badge scope"
+                    title={title}
+                  >
+                    {words}
+                  </span>
+                );
+              })}
             </span>
           </span>
         </label>

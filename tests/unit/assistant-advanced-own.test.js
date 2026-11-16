@@ -9,6 +9,7 @@ import {
 } from "../../server/features/assistants/runtimes/runtime-settings.js";
 import { advancedRuntimes } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
+import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { desiredState } from "../../server/features/assistants/agent-desired-state.js";
 import {
   fixtureCompiler,
@@ -159,10 +160,13 @@ test("a live or next-turn field is stored and reaches the runtime at once", asyn
   assert.deepEqual(
     audit.map((entry) => [entry.action, entry.resourceId, entry.outcome, entry.details]),
     [
-      ["setting.updated", "fixture.effort", "success", { runtime: "fixture" }],
-      ["setting.updated", "fixture.delegation", "success", { runtime: "fixture" }],
+      ["setting.updated", "fixture-effort", "success", { runtime: "fixture" }],
+      ["setting.updated", "fixture-delegation", "success", { runtime: "fixture" }],
     ],
   );
+  // The audit log's own schema takes them, without any value.
+  for (const entry of audit)
+    assert.deepEqual(auditEvent(entry).details, {}, entry.resourceId);
   // null resets the field to its default.
   const reset = await advanced.saveOwn("fixture", "effort", null);
   assert.equal(valuesOf(reset).effort, null);

@@ -214,6 +214,28 @@ export function NumberRow({ value, onChange, min, max, step, disabled, ...row })
   );
 }
 
+/** One line of text: a short value such as a name. */
+export function TextRow({ value, onChange, maxLength, placeholder, disabled, ...row }) {
+  return (
+    <ControlRow
+      kind="text"
+      {...row}
+      control={(props) => (
+        <input
+          {...props}
+          type="text"
+          className="list-row-text"
+          value={value}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    />
+  );
+}
+
 export function SelectRow({ value, options, onChange, disabled, ...row }) {
   return (
     <ControlRow

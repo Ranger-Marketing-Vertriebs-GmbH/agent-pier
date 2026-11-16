@@ -9,6 +9,7 @@ import {
   NumberRow,
   RadioRow,
   SelectRow,
+  TextRow,
   ToggleRow,
 } from "../../components/ListRow.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
@@ -19,6 +20,7 @@ export default function ControlsSection() {
   const s = copy.sample;
   const [toggle, setToggle] = useState(true);
   const [number, setNumber] = useState(5);
+  const [text, setText] = useState("");
   const [select, setSelect] = useState("a");
   const [radio, setRadio] = useState("a");
   const [checkbox, setCheckbox] = useState(true);
@@ -27,7 +29,10 @@ export default function ControlsSection() {
   const [box, setBox] = useState(false);
   return (
     <GallerySection id="controls">
-      <Specimen label="ToggleRow · NumberRow · SelectRow · RadioRow · CheckboxRow" wide>
+      <Specimen
+        label="ToggleRow · NumberRow · TextRow · SelectRow · RadioRow · CheckboxRow"
+        wide
+      >
         <ListCard label={copy.sections.controls}>
           <ToggleRow
             label={s.toggle}
@@ -48,6 +53,7 @@ export default function ControlsSection() {
             max={10}
             onChange={setNumber}
           />
+          <TextRow label={s.text} value={text} maxLength={40} onChange={setText} />
           <SelectRow
             label={s.select}
             value={select}

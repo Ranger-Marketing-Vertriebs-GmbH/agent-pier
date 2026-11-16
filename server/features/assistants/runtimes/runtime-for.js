@@ -82,6 +82,17 @@ export {
 // no adapter (runtime-descriptors.js); they are part of this module's interface too.
 export { RUNTIME_IDS, runtimeIdOf, traitOf };
 
+// The advanced settings for all agents (advanced-config.js): AgentPier's shared ones,
+// and what a runtime describes of its own.
+export { sharedSetting, sharedSettings, validSharedValue } from "./shared-settings.js";
+export {
+  RuntimeSettingStore,
+  hostFields,
+  ownSettings,
+  storedSettings,
+} from "./runtime-settings.js";
+export { validFieldValue } from "./runtime-surfaces.js";
+
 // One OpenClaw adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
 // The Hermes fleet of each supervisor. A supervisor without one (a test double, a

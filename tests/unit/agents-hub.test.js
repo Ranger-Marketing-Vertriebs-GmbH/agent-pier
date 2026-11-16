@@ -63,14 +63,7 @@ test("the Runtime save chain keeps every existing server call in order", async (
     api,
     setEnabled: async (enabled) => (calls.push(["feature", enabled]), { enabled }),
     refresh: { assistants: async () => {}, dreaming: async () => {} },
-    settings: [
-      {
-        id: "runTimeout",
-        path: "agents.defaults.timeoutSeconds",
-        type: "integer",
-        minimum: 300,
-      },
-    ],
+    settings: [{ id: "runTimeout", type: "integer", minimum: 300 }],
   });
   assert.deepEqual(
     steps.map((s) => s.id),
@@ -99,7 +92,8 @@ test("the Runtime save chain keeps every existing server call in order", async (
     ["team", { revision: 1, hostMaxConcurrent: 6 }],
     [
       "advanced",
-      { path: "agents.defaults.timeoutSeconds", value: null, confirmRestart: true },
+      // A shared setting is named by its id, never by a runtime's path.
+      { setting: "runTimeout", value: null, confirmRestart: true },
     ],
   ]);
   // A refused switch (agents could not start) fails its step.

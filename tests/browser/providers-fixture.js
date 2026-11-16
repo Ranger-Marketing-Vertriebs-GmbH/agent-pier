@@ -228,7 +228,23 @@ export async function fixture(page, { account, session } = {}) {
     // Agenten › Laufzeit › Erweitert (empty) and the Vorlagen catalog (empty).
     if (method === "GET" && path === "/api/assistant-advanced-settings")
       return route.fulfill({
-        json: { gateway: { qualified: true, running: true }, settings: [] },
+        json: {
+          runtimes: [
+            {
+              id: "openclaw",
+              name: "OpenClaw",
+              shortName: "OpenClaw",
+              process: "shared",
+              enabled: true,
+              running: true,
+              version: null,
+              qualified: true,
+              agents: 0,
+              own: [],
+            },
+          ],
+          settings: [],
+        },
       });
     if (method === "GET" && path === "/api/agency/templates")
       return route.fulfill({

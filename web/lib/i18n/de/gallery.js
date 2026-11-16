@@ -61,6 +61,7 @@ export const galleryCopy = {
     gateControl: "Braucht eine Fähigkeit der Laufzeit",
     toggleSub: "Ein Schalter speichert über die Speicherleiste",
     number: "Zahl",
+    text: "Kurzer Text",
     select: "Auswahl",
     radioA: "Erste Option",
     radioB: "Zweite Option",

@@ -8,14 +8,16 @@ export const assistantAdvancedCopy = {
     "Der Agentendienst läuft gerade nicht. Gespeicherte Änderungen gelten beim nächsten Start.",
   unqualified: (version) =>
     `Die installierte Agentenlaufzeit ${version} ist für diese Einstellungen nicht freigegeben. Gespeicherte Werte bleiben erhalten und gelten wieder, sobald die freigegebene Version läuft.`,
-  hermesApplies: "Einstellungen ohne „Nur OpenClaw“ gelten auch für Hermes-Agenten.",
-  hermesRestart: "Startet Hermes-Agenten neu",
-  hermesRestartLabel: "Hermes-Agenten starten neu, um eine Änderung zu übernehmen",
-  hermesUnqualified: (version) =>
-    `Hermes Agent ${version} ist für diese Einstellungen nicht freigegeben. Hermes-Agenten starten mit den Standards von Hermes, bis die freigegebene Version läuft.`,
-  openClawOnly: "Nur OpenClaw",
-  openClawOnlyLabel:
-    "Gilt nur für OpenClaw-Agenten; Hermes-Agenten behalten den Standard von Hermes",
+  runtimeApplies: (only, name) =>
+    `Einstellungen ohne „Nur ${only}“ gelten auch für ${name}-Agenten.`,
+  runtimeRestart: (name) => `Startet ${name}-Agenten neu`,
+  runtimeRestartLabel: (name) =>
+    `${name}-Agenten starten neu, um eine Änderung zu übernehmen`,
+  runtimeUnqualified: (product, version, name) =>
+    `${product} ${version} ist für diese Einstellungen nicht freigegeben. ${name}-Agenten starten mit den Standards von ${name}, bis die freigegebene Version läuft.`,
+  runtimeOnly: (name) => `Nur ${name}`,
+  runtimeOnlyLabel: (name, other) =>
+    `Gilt nur für ${name}-Agenten; ${other}-Agenten behalten den Standard von ${other}`,
   loading: "Einstellungen werden geladen …",
   loadFailed: "Die erweiterten Einstellungen konnten nicht geladen werden.",
   save: "Einstellungen speichern",
@@ -25,8 +27,12 @@ export const assistantAdvancedCopy = {
   },
   live: "Sofort",
   restart: "Neustart nötig",
+  nextTurn: "Nächste Nachricht",
   liveLabel: "Wird sofort wirksam",
   restartLabel: "Wird nach einem Neustart des Agentendienstes wirksam",
+  on: "An",
+  off: "Aus",
+  emptyText: "leer",
   unavailable: "Mit der installierten Agentenlaufzeit nicht verfügbar",
   defaultValue: (value) => `Standard: ${value}`,
   defaultOption: (value) => `Standard (${value})`,
@@ -34,6 +40,8 @@ export const assistantAdvancedCopy = {
   resetLabel: (label) => `${label} auf den Standard zurücksetzen`,
   outOfRange: (label, min, max) =>
     `${label}: Erlaubt sind ganze Zahlen von ${min} bis ${max}.`,
+  ownRange: (label, min, max) => `${label}: Erlaubt sind Werte von ${min} bis ${max}.`,
+  invalidValue: (label) => `${label}: Dieser Wert ist nicht erlaubt.`,
   settings: {
     runTimeout: {
       label: "Zeitlimit pro Auftrag",

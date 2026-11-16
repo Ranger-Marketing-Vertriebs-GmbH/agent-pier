@@ -13,6 +13,15 @@ const places = {
     parent: [() => assistantCopy.title, () => agentsHubCopy.tabs.runtime],
     route: () => agentsHubRoute("runtime", "runtimes"),
   },
+  // A runtime's own advanced rows: found under Agents › Runtime › Advanced.
+  "hub.runtime.advanced": {
+    parent: [
+      () => assistantCopy.title,
+      () => agentsHubCopy.tabs.runtime,
+      () => agentsHubCopy.runtime.advanced,
+    ],
+    route: () => agentsHubRoute("runtime", "advanced"),
+  },
 };
 
 /**
