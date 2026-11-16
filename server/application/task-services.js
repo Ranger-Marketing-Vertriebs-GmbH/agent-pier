@@ -3,11 +3,14 @@ import { TaskReads } from "../features/chat/task-reads.js";
 import { TaskStopStore } from "../features/chat/task-stop-store.js";
 import { ClaudeModCommands } from "../features/claude-mod/claude-mod-commands.js";
 import { claudeTaskDriver } from "../features/claude-mod/claude-task-driver.js";
+import { NativeCommands } from "../features/requests/native-commands.js";
+import { openCodeTaskDriver } from "../features/chat/opencode-task-driver.js";
 
 // Claude Code's host aborts a mod's `$.http.fetch` after 30 s (measured on 2.1.325);
 // a command poll is answered well before.
 const CLAUDE_COMMAND_HOLD_MS = 25000;
 const CLAUDE_TOOL = "claude";
+const OPENCODE_TOOL = "opencode";
 
 /**
  * What the chat's task sheet reads and controls, as one shared set: the reads of
@@ -17,6 +20,8 @@ const CLAUDE_TOOL = "claude";
  * `claudeCommands` is the bridge mod's command channel (the request broker serves
  * its long-poll); `useClaudeMod(mod)` hands it the ClaudeModBridge, which routes the
  * mod's results and hello to it, and registers the Claude Code driver.
+ * `nativeCommands` sends commands over the native request channel (the broker serves
+ * it); the OpenCode driver stops subagents through it.
  */
 export function createTaskServices({ config, sessions, chat, history, chatEvents }) {
   const taskReads = new TaskReads({ sessions, chat, history });
@@ -39,5 +44,18 @@ export function createTaskServices({ config, sessions, chat, history, chatEvents
       claudeTaskDriver({ commands: claudeCommands, mod }),
     );
   };
-  return { taskReads, taskControl, claudeCommands, useClaudeMod };
+  const nativeCommands = new NativeCommands({
+    onChange: (id) => taskControl.channelChanged(id),
+  });
+  taskControl.register(OPENCODE_TOOL, openCodeTaskDriver({ commands: nativeCommands }));
+  // The request broker's options for both command channels it serves.
+  const brokerCommands = { modCommands: claudeCommands, commands: nativeCommands };
+  return {
+    taskReads,
+    taskControl,
+    claudeCommands,
+    nativeCommands,
+    brokerCommands,
+    useClaudeMod,
+  };
 }

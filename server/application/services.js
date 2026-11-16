@@ -402,7 +402,7 @@ export async function createServices(config) {
   requests = new RequestBroker({
     dataDir: config.dataDir,
     sessions,
-    commands: tasks.claudeCommands, // The bridge mod's command long-poll.
+    ...tasks.brokerCommands, // The mod's long-poll and the native channel's commands.
     onEvent: (event) => {
       events.current?.emit(event);
       inbox?.changed();

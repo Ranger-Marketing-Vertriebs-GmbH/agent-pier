@@ -3,10 +3,34 @@ import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 export const id = "agentpier-requests";
+/** The session the TUI shows, or null. */
+const currentSession = (api) =>
+  api.route?.current?.name === "session" ? api.route.current.params?.sessionID : null;
+/** Whether the SDK client can read and abort sessions, which session.abort needs. */
+export const openCodeCommandsSupported = (api) =>
+  typeof api?.client?.session?.get === "function" &&
+  typeof api.client.session.abort === "function";
+/**
+ * The commands AgentPier may send this TUI (native-commands.js), a closed set:
+ * `session.abort` stops one subagent, and only a child session of the session the
+ * TUI shows now; anything else is refused before OpenCode is asked.
+ */
+export function openCodeCommands(api) {
+  return async (name, params) => {
+    if (name !== "session.abort") throw Error("unknown command");
+    const sessionID = params?.sessionId;
+    const parent = currentSession(api);
+    if (typeof sessionID !== "string" || !sessionID || !parent || sessionID === parent)
+      throw Error("not a child");
+    const found = await api.client.session.get({ sessionID }, { throwOnError: true });
+    if (found?.data?.parentID !== parent) throw Error("not a child");
+    const result = await api.client.session.abort({ sessionID }, { throwOnError: true });
+    if (result?.error || result?.data === false) throw Error("not aborted");
+  };
+}
 export function observeOpenCode(api, channel) {
   const seen = new Map();
-  const current = () =>
-    api.route.current?.name === "session" ? api.route.current.params?.sessionID : null;
+  const current = () => currentSession(api);
   function update() {
     const sessionId = current();
     const live = new Set();
@@ -90,7 +114,9 @@ export async function tui(api) {
     !api.client?.question?.reply
   )
     return;
-  const observer = observeOpenCode(api, new NativeRequestChannel());
+  const channel = new NativeRequestChannel({ commands: openCodeCommandsSupported(api) });
+  channel.onCommand = openCodeCommands(api);
+  const observer = observeOpenCode(api, channel);
   const update = () => {
     try {
       observer.update();

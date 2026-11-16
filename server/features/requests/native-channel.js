@@ -6,12 +6,16 @@ import { maxReplyText } from "./native-push.js";
 
 // Replies a channel holds at once; the oldest is forgotten first.
 const maxRuns = 16;
+// Results of the latest commands, so a command id seen again does not run again.
+const maxCommandResults = 32;
 
 /** Reconnectable native-side channel. Only the native owner decides whether a request still exists. */
 export class NativeRequestChannel {
   /**
    * `epoch` continues another invocation's channel (claude-hook-handover.js);
    * `onReady(message)` hears each ready, before pending requests are republished.
+   * `commands` offers server-originated commands; `onCommand(name, params)` runs each
+   * one and resolves its data (a throw refuses it with the error's message).
    */
   constructor({
     env = process.env,
@@ -19,8 +23,14 @@ export class NativeRequestChannel {
     onReady = () => {},
     adapterVersion,
     epoch,
+    commands = false,
   } = {}) {
     this.onDisconnect = onDisconnect;
+    this.commands = commands === true;
+    this.onCommand = async () => {
+      throw Error("unknown command");
+    };
+    this.commandResults = new Map();
     this.onReady = onReady;
     this.adapterVersion = adapterVersion;
     this.launch = JSON.parse(fs.readFileSync(env.AGENTPIER_REQUEST_FILE, "utf8"));
@@ -46,6 +56,7 @@ export class NativeRequestChannel {
         token: this.launch.token,
         epoch: this.epoch,
         ...(this.adapterVersion ? { adapterVersion: this.adapterVersion } : {}),
+        ...(this.commands ? { commands: true } : {}),
       }),
     );
     socket.on("error", () => {});
@@ -65,6 +76,8 @@ export class NativeRequestChannel {
         if (this.preparingTool)
           send(socket, { type: "preparing", name: this.preparingTool });
       }
+      if (message.type === "command" && this.commands)
+        return void this.command(socket, message);
       if (message.type !== "answer") return;
       const entry = this.pending.get(message.key);
       if (!entry || entry.status !== "pending")
@@ -96,6 +109,26 @@ export class NativeRequestChannel {
         this.timer.unref?.();
       }
     });
+  }
+  /** Run a server command once per id and answer on the socket it came on. */
+  async command(socket, { id, name, params }) {
+    if (typeof id !== "string" || !id || id.length > 100) return;
+    let result = this.commandResults.get(id);
+    if (!result) {
+      result = Promise.resolve()
+        .then(() => this.onCommand(name, params))
+        .then(
+          (data) => ({ ok: true, ...(data !== undefined ? { data } : {}) }),
+          (error) => ({
+            ok: false,
+            reason: String(error?.message ?? error).slice(0, 500),
+          }),
+        );
+      this.commandResults.set(id, result);
+      if (this.commandResults.size > maxCommandResults)
+        this.commandResults.delete(this.commandResults.keys().next().value);
+    }
+    send(socket, { type: "command-result", id, ...(await result) });
   }
   publish(key, request, deliver) {
     if (this.pending.has(key)) return;
