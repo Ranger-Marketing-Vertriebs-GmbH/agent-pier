@@ -193,6 +193,7 @@ export async function createApplication(config) {
   services.directory = directoryResolver(config.home);
   // Refuses new work in folders being deleted (ProjectDeletion).
   services.deletionGuard = new DeletionGuard(() => services.memory?.deletions);
+  services.repositories.startGuard = (target) => services.deletionGuard.refuse(target);
   Object.assign(services, createSessionLifecycle(services));
   services.reload = new SessionReload({ services });
   services.reload.onChange = (id) => reloadChanged(services.live, id);

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { waitsForAgents } from "./deletion-errors.js";
 import { inside } from "./deletion-paths.js";
 
 function refusal() {
@@ -9,6 +10,11 @@ function refusal() {
     code: "PROJECT_DELETING",
   });
 }
+
+const unreadable = () =>
+  Object.assign(problem(serverMessages.projectDeletion.deletionsUnreadable, 503), {
+    code: "PROJECT_DELETIONS_UNREADABLE",
+  });
 
 function realOrResolved(target) {
   const resolved = path.resolve(target);
@@ -21,22 +27,27 @@ function realOrResolved(target) {
 
 /**
  * Refuses every start path for a folder whose deletion is recorded. `records` is read
- * on each call, so a closed or not yet open memory covers nothing.
+ * on each call, so a closed or not yet open memory covers nothing; records an open
+ * memory cannot read refuse everything (503) rather than let work start unchecked. A
+ * deletion that only waits for the agents covers its project ids, not its folder.
  */
 export class DeletionGuard {
   constructor(records) {
     this.records = records;
   }
   #list() {
+    const records = this.records();
+    if (!records) return [];
     try {
-      return this.records()?.list() ?? [];
-    } catch {
-      return [];
+      return records.list();
+    } catch (error) {
+      if (records.db?.isOpen === false) return [];
+      throw Object.assign(unreadable(), { cause: error });
     }
   }
   covers(cwd) {
     if (typeof cwd !== "string" || !cwd) return false;
-    const list = this.#list();
+    const list = this.#list().filter((record) => !waitsForAgents(record));
     if (!list.length) return false;
     const candidates = new Set([path.resolve(cwd), realOrResolved(cwd)]);
     return list.some((record) =>

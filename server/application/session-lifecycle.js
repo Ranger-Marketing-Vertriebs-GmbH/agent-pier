@@ -164,6 +164,8 @@ export function createSessionLifecycle(services) {
     const cwd = await directory(
       body.cwd || (login ? config.home : preferences.get().defaultCwd),
     );
+    // The folder the session starts in, after the default and `~` are resolved.
+    services.deletionGuard?.refuse(cwd);
     const name = nameValue(
       body.name ||
         `${account.name}${login ? serverMessages.sessions.loginNameSuffix : ""}`,

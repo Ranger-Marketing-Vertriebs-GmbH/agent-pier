@@ -26,7 +26,13 @@ function content(body) {
   };
 }
 
-export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates }) {
+export function memoryRoutes({
+  memory,
+  directory,
+  gitRemotes,
+  projectDuplicates,
+  deletionGuard,
+}) {
   const router = Router();
   router.get("/memory/projects", async (request, response) => {
     // Only the projects hub asks (?duplicates=1) which row of a shared folder is
@@ -59,7 +65,10 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
     ),
   );
   router.post("/memory/projects", async (request, response) => {
-    const project = await memory.register(await directory(request.body?.cwd));
+    const cwd = await directory(request.body?.cwd);
+    // No new project inside a folder being deleted.
+    deletionGuard?.refuse(cwd);
+    const project = await memory.register(cwd);
     if (!project) throw problem(serverMessages.memory.projectFolderExcluded, 422);
     response.status(201).json(project);
   });

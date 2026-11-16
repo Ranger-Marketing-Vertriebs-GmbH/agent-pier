@@ -74,3 +74,43 @@ test("a failed deletion still refuses new work in its folder", (t) => {
   assert.throws(() => guard.refuse(path.join(app, "src")), { code: "PROJECT_DELETING" });
   assert.throws(() => guard.refuseProject("p1"), { code: "PROJECT_DELETING" });
 });
+
+test("records an open memory cannot read refuse every start; a closed one none", (t) => {
+  const { app } = folders(t);
+  let isOpen = true;
+  const broken = {
+    db: {
+      get isOpen() {
+        return isOpen;
+      },
+    },
+    list: () => {
+      throw Object.assign(new Error("database is locked"), { code: "ERR_SQLITE_ERROR" });
+    },
+  };
+  const guard = new DeletionGuard(() => broken);
+  const unreadable = { status: 503, code: "PROJECT_DELETIONS_UNREADABLE" };
+  assert.throws(() => guard.refuse(app), unreadable);
+  assert.throws(() => guard.refuseProject("p1"), unreadable);
+  assert.throws(() => guard.covers(app), unreadable);
+  isOpen = false;
+  assert.equal(guard.covers(app), false);
+  assert.doesNotThrow(() => guard.refuseProject("p1"));
+});
+
+test("a deletion that waits for the agents covers its project ids, not its folder", (t) => {
+  const { app } = folders(t);
+  const guard = new DeletionGuard(() => ({
+    list: () => [
+      {
+        path: app,
+        state: "failed",
+        error: "PROJECT_AGENTS_OFF",
+        body: { projectIds: ["p1"] },
+      },
+    ],
+  }));
+  assert.equal(guard.covers(app), false);
+  assert.doesNotThrow(() => guard.refuse(path.join(app, "src")));
+  assert.throws(() => guard.refuseProject("p1"), { code: "PROJECT_DELETING" });
+});

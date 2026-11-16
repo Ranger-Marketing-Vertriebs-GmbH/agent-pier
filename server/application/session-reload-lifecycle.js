@@ -131,6 +131,10 @@ export function createReloadLifecycle(services) {
     };
   }
   async function restartReload(session, plan) {
+    // A reload or auto-resume starts the session again: not in a folder being deleted.
+    services.deletionGuard?.refuse(session.cwd);
+    if (session.memory?.projectId)
+      services.deletionGuard?.refuseProject(session.memory.projectId);
     const {
       accounts,
       sessions,
