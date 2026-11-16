@@ -293,6 +293,37 @@ test("a save names a shared setting by id and a runtime's own by runtime and fie
   assert.equal(seen.length, 4);
 });
 
+test("only an emptied number resets an own field; an emptied text is saved empty", async () => {
+  const calls = [];
+  const api = { saveAdvancedSetting: async (body) => (calls.push(body), {}) };
+  const field = (extra) => ({ surface: "tuning", apply: "live", ...extra });
+  const fields = [
+    field({ id: "greeting", type: "text", default: "Hello" }),
+    field({ id: "note", type: "text", default: "" }),
+    field({ id: "workers", type: "number", default: 2 }),
+  ];
+  const steps = runtimeSteps({
+    api,
+    setEnabled: async () => ({}),
+    refresh: { assistants: async () => {}, dreaming: async () => {} },
+    own: fields.map((entry) => ({
+      runtime: "fixture",
+      field: entry,
+      key: ownKey("fixture", entry.id),
+      text: { label: entry.id },
+    })),
+  }).slice(5);
+  const values = Object.fromEntries(fields.map(({ id }) => [ownKey("fixture", id), ""]));
+  for (const step of steps) await step.run({ values });
+  assert.deepEqual(calls, [
+    // A text with a default of its own can be emptied.
+    { runtime: "fixture", field: "greeting", value: "" },
+    // Empty is this text's default: a reset.
+    { runtime: "fixture", field: "note", value: null },
+    { runtime: "fixture", field: "workers", value: null },
+  ]);
+});
+
 test("slotEntries: built and described surfaces of a slot that show", () => {
   const runtimes = [
     {

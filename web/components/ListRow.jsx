@@ -224,7 +224,7 @@ export function TextRow({ value, onChange, maxLength, placeholder, disabled, ...
         <input
           {...props}
           type="text"
-          className="list-row-text"
+          className="list-row-text-input"
           value={value}
           maxLength={maxLength}
           placeholder={placeholder}

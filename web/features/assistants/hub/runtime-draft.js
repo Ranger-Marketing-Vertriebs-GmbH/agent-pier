@@ -182,8 +182,11 @@ export function runtimeSteps({
           runtime,
           field: field.id,
           // The default (and an emptied number) resets the field, so it follows its
-          // default again.
-          value: value === "" || value === field.default ? null : value,
+          // default again. An emptied text is a value: the empty text.
+          value:
+            (field.type === "number" && value === "") || value === field.default
+              ? null
+              : value,
           ...confirmations,
         });
         onAdvanced?.(next);

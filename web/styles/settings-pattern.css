@@ -164,7 +164,7 @@ label.list-row-main {
   font-size: 13px;
   text-align: right;
 }
-.list-row input.list-row-text {
+.list-row input.list-row-text-input {
   flex: 0 1 45%;
   min-width: 0;
   height: 34px;
