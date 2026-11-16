@@ -31,7 +31,9 @@ import { hermesMemory } from "./hermes/hermes-memory.js";
 // it writes an agent's memory files (memoryFor). A runtime with a host per agent
 // (trait `host.process: "perAgent"`) also brings `idleHosts`, the agent hosts of a
 // supervisor none were attached to, and `unavailable`, the translated refusal for an
-// agent that cannot run on it now.
+// agent that cannot run on it now, and how its session keys are told (`sessionKey`,
+// `sessionAgent`), next to `runOf` for its routine runs.
+const hermesSessionKey = /^agent:([A-Za-z0-9][A-Za-z0-9_-]{0,63}):hermes:/;
 const registry = Object.freeze({
   [openClawDescriptor.id]: Object.freeze({
     descriptor: openClawDescriptor,
@@ -60,6 +62,13 @@ const registry = Object.freeze({
       }),
     // A fleet that never starts: its agents stay unavailable.
     idleHosts: () => new HermesFleet({ dataDir: null }),
+    // Its session keys, `agent:<runtimeAgentId>:hermes:<id>`: whether a key is one,
+    // and the runtime agent id of one it could have made (hermes-run-state.js).
+    sessionKey: (sessionKey) => hermesSessionKey.test(sessionKey),
+    sessionAgent: (sessionKey) => {
+      const agentId = hermesSessionKey.exec(sessionKey)?.[1];
+      return agentId && storedIdOf(agentId, sessionKey) ? agentId : null;
+    },
     unavailable: "hermesUnavailable",
   }),
 });
@@ -210,18 +219,14 @@ export function runtimeFor(agent, supervisor) {
  * know a session but not its agent (reconciliation, aborts, history reads).
  */
 export function runtimeForSession(sessionKey, supervisor) {
-  const hermes = hermesSessionAgent(sessionKey);
-  return hermes
-    ? runtimeFor({ runtime: "hermes", runtimeAgentId: hermes }, supervisor)
-    : runtimeFor(null, supervisor);
-}
-
-// The runtime agent id a Hermes session key names, or null.
-function hermesSessionAgent(sessionKey) {
-  const match = /^agent:([A-Za-z0-9][A-Za-z0-9_-]{0,63}):hermes:/.exec(
-    typeof sessionKey === "string" ? sessionKey : "",
-  );
-  return match && storedIdOf(match[1], sessionKey) ? match[1] : null;
+  const key = typeof sessionKey === "string" ? sessionKey : "";
+  // Each runtime with a host per agent tells its own keys (the registry's
+  // `sessionAgent`); every other key is the shared host's.
+  for (const id of perAgentIds) {
+    const runtimeAgentId = registry[id].sessionAgent(key);
+    if (runtimeAgentId) return runtimeFor({ runtime: id, runtimeAgentId }, supervisor);
+  }
+  return runtimeFor(null, supervisor);
 }
 
 /**
@@ -229,9 +234,8 @@ function hermesSessionAgent(sessionKey) {
  * agent's, hermes/hermes-run-state.js sessionKeyOf), whatever became of the agent.
  */
 export const ownHostSessionKey = (sessionKey) =>
-  /^agent:[A-Za-z0-9][A-Za-z0-9_-]{0,63}:hermes:/.test(
-    typeof sessionKey === "string" ? sessionKey : "",
-  );
+  typeof sessionKey === "string" &&
+  perAgentIds.some((id) => registry[id].sessionKey(sessionKey));
 
 /**
  * Run events of every agent behind `supervisor` that runs on a host of its own (the

@@ -875,7 +875,13 @@ the adapter's sub-ports, the compiler (`hermes-config/`), the nightly dreams
 (`dreams/`), what answers the team plugin's hooks and keeps the agents' images
 (`tools/`: the guards, the browser upload, the routine approvals, generated images),
 the backup path rules (`hermes-backup-paths.js`), the owner's routes
-(`hermes-routes.js`) and the wiring (`wiring.js`). No code outside names Hermes: the
+(`hermes-routes.js`) and the wiring (`wiring.js`). Product code outside
+`server/features/assistants/runtimes/` and `web/features/assistants/runtimes/` spells
+no runtime's name in a string literal, a file name or an identifier, apart from the
+listed exceptions of `tests/unit/runtime-id-rules.test.js`; the port's own modules in
+`runtimes/` (`runtime-for.js`, `runtime-wiring.js`, `runtime-services.js`,
+`runtime-backup-paths.js`) do name Hermes, and comments and log texts may
+([ADR 0007](adr/0007-runtime-descriptor.md), Known limits of the rule). The
 composition roots call `wireRuntimes`, `wireAgentHosts` and `ownProcessWiring`
 (`runtimes/runtime-wiring.js`), which call Hermes's `wire` (the owner's switch, its
 install state for the runtime list, its routes, its start once the server listens),

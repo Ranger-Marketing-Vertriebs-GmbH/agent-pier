@@ -22,6 +22,9 @@ import * as hermesWiring from "./hermes/wiring.js";
 //
 // Read at each call, never when this module loads: a wiring imports feature modules.
 const wirings = () => ({ [hermesDescriptor.id]: hermesWiring });
+/** The ids of the runtimes with a wiring: each with a `<id>/wiring.js`. */
+export const wiredRuntimes = () => Object.keys(wirings());
+
 // Every runtime's hook `name`, in registry order: `[id, hook]`.
 const hooks = (name) =>
   RUNTIME_IDS.map((id) => [id, wirings()[id]?.[name]]).filter(([, hook]) => hook);

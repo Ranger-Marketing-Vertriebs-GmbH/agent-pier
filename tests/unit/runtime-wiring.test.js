@@ -9,14 +9,17 @@ import {
   startRuntimes,
   wireAgentHosts,
   wireRuntimes,
+  wiredRuntimes,
 } from "../../server/features/assistants/runtimes/runtime-wiring.js";
 import {
   agentDreams,
   dreamDiary,
   generatedImages,
   runtimeToolRoutes,
+  serviceRuntimes,
 } from "../../server/features/assistants/runtimes/runtime-services.js";
 import {
+  backupRuleRuntimes,
   isPrivateRuntimeTree,
   isRuntimeBrowserTree,
   isRuntimeCredential,
@@ -32,7 +35,9 @@ import {
   assertRuntimeReady,
   attachAgentHosts,
   ownHostSessionKey,
+  RUNTIME_IDS,
   ownProcess,
+  runtimeForSession,
   runtimeReady,
   sharedHostAgents,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
@@ -42,7 +47,10 @@ import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/he
 import { hermesFleetOf } from "../../server/features/assistants/runtimes/hermes/hermes-hosts.js";
 import { hermesGuard } from "../../server/features/assistants/runtimes/hermes/tools/hermes-tool-guard.js";
 import { hermesBrowserUpload } from "../../server/features/assistants/runtimes/hermes/tools/hermes-browser-upload.js";
-import { hermesRoutineApproval } from "../../server/features/assistants/runtimes/hermes/tools/hermes-routine-approvals.js";
+import {
+  hermesRoutineApproval,
+  routineApprovalRefusals,
+} from "../../server/features/assistants/runtimes/hermes/tools/hermes-routine-approvals.js";
 import {
   browserRefusals,
   writeRefusals,
@@ -439,4 +447,115 @@ test("the agent services start the shared host, then the agents' own hosts", asy
         `own=${own} enabled=${enabled}`,
       );
     }
+});
+
+// The same entry check on the guard plugin's question in a routine run.
+test("Hermes's routine approval refuses an agent of another or an unknown runtime", async () => {
+  const agents = {
+    "ap-o": { id: "o", runtime: "openclaw", runtimeAgentId: "ap-o", shell: "approval" },
+    "ap-d": { id: "d", runtimeAgentId: "ap-d", shell: "approval" },
+    "ap-u": { id: "u", runtime: "later", runtimeAgentId: "ap-u", shell: "approval" },
+  };
+  const calls = [];
+  const origin = (agent, key) => {
+    calls.push([agent.id, key]);
+    return { routineId: "j" };
+  };
+  const bridge = {
+    closed: false,
+    // A shared host that is ready: only the entry check stands in the way.
+    assistants: {
+      runtime: { client: { ready: true }, status: () => ({ availability: "ready" }) },
+      routines: { runOrigin: origin, hooks: { runOrigin: origin } },
+    },
+    agentOf: (id) => agents[id] ?? null,
+  };
+  for (const agentId of ["ap-o", "ap-d", "ap-u", "ap-none"])
+    for (const sessionKey of [
+      `agent:${agentId}:cron:j:run:1`,
+      `agent:${agentId}:hermes:cron:j:1`,
+    ])
+      assert.deepEqual(
+        await hermesRoutineApproval(bridge, {
+          agentId,
+          sessionKey,
+          command: "rm -rf x",
+          kind: "command",
+        }),
+        { allow: false, message: routineApprovalRefusals.unanswered },
+        `${agentId} ${sessionKey}`,
+      );
+  // No run was looked up and nobody was asked for them.
+  assert.deepEqual(calls, []);
+});
+
+test("the registry tells each runtime's session keys", () => {
+  const supervisor = { client: { ready: true }, status: () => ({}) };
+  const shared = runtimeForSession("agent:ap-a1:main", supervisor);
+  assert.equal(shared.id, "openclaw");
+  for (const key of ["agent:ap-a1:hermes:s1", "agent:ap-a1:hermes:cron:j:1"]) {
+    assert.equal(ownHostSessionKey(key), true, key);
+    const runtime = runtimeForSession(key, supervisor);
+    assert.equal(runtime.id, hermes, key);
+    assert.equal(runtime, hermesFleetOf(supervisor).runtimeOf("ap-a1"), key);
+  }
+  // An OpenClaw key, garbage and what is no string are the shared host's, and so is
+  // a key Hermes could not have made (no stored id, a malformed routine run).
+  for (const key of [
+    "agent:ap-a1:main",
+    "agent:ap-a1:cron:j:run:1",
+    "agent::hermes:s1",
+    "x:agent:a:hermes:s",
+    "hermes",
+    "",
+    null,
+    undefined,
+    7,
+    {},
+    ["agent:ap-a1:hermes:s1"],
+  ]) {
+    assert.equal(ownHostSessionKey(key), false, String(key));
+    assert.equal(runtimeForSession(key, supervisor), shared, String(key));
+  }
+  for (const key of ["agent:ap-a1:hermes:", "agent:ap-a1:hermes:cron:j"]) {
+    assert.equal(ownHostSessionKey(key), true, key);
+    assert.equal(runtimeForSession(key, supervisor), shared, key);
+  }
+  assert.throws(() => runtimeForSession("agent:ap-a1:hermes:s1", null), TypeError);
+});
+
+// The lists of runtime-wiring.js, runtime-services.js and runtime-backup-paths.js are
+// kept by hand beside the registry. A runtime left out of the backup rules would have
+// its credentials archived unsealed, so the lists are checked against the registry
+// and the adapters on disk.
+test("no runtime is missing from the wiring, the services or the backup rules", () => {
+  const adapters = path.resolve(
+    import.meta.dirname,
+    "../../server/features/assistants/runtimes",
+  );
+  const has = (id, file) => fs.existsSync(path.join(adapters, id, file));
+  const perAgent = RUNTIME_IDS.filter((id) => ownProcess({ runtime: id }));
+  assert.deepEqual(perAgent, [hermes]);
+  for (const id of perAgent)
+    assert.ok(backupRuleRuntimes().includes(id), `${id}: backup rules`);
+  assert.deepEqual(
+    wiredRuntimes(),
+    RUNTIME_IDS.filter((id) => has(id, "wiring.js")),
+  );
+  assert.deepEqual(
+    serviceRuntimes(),
+    RUNTIME_IDS.filter((id) => has(id, "services.js")),
+  );
+  for (const listed of [backupRuleRuntimes(), wiredRuntimes(), serviceRuntimes()])
+    for (const id of listed) assert.ok(RUNTIME_IDS.includes(id), id);
+  // Every rule a backup asks is there: a missing one would throw at the first file.
+  for (const relative of ["hermes/state/ap-a/.env", "workspaces/a/x"])
+    for (const ask of [
+      isRuntimeExcluded,
+      isRuntimeBrowserTree,
+      isPrivateRuntimeTree,
+      isRuntimeCredential,
+      isRuntimeSnapshotCredential,
+    ])
+      assert.equal(typeof ask(relative), "boolean");
 });

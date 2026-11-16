@@ -10,6 +10,34 @@ import { runtimeForSession } from "./runtimes/runtime-for.js";
 // cancelled, and an item that is new or changed since the dialog opened (another
 // revision) means nothing is touched at all.
 
+const itemLimit = 500;
+const shortText = (value) =>
+  typeof value === "string" && value.length > 0 && value.length <= 300;
+// `{ resolveBlockers: true, items: [{ id, revision }] }`: the blocker items the owner
+// confirmed in "Pause agents and update", or null when the body is not exactly that.
+export function resolution(body) {
+  const { resolveBlockers, items, ...rest } = body;
+  if (
+    resolveBlockers !== true ||
+    Object.keys(rest).length ||
+    !Array.isArray(items) ||
+    items.length > itemLimit ||
+    !items.every(
+      (i) =>
+        i &&
+        typeof i === "object" &&
+        Object.keys(i).length === 2 &&
+        shortText(i.id) &&
+        shortText(i.revision),
+    )
+  )
+    return null;
+  return {
+    resolveBlockers: true,
+    items: items.map(({ id, revision }) => ({ id, revision })),
+  };
+}
+
 const unknownOutcome = new Set(["uncertain", "interrupted"]);
 const waitStepMs = 500;
 
