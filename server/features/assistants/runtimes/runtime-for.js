@@ -9,11 +9,13 @@ import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 import { sharedAgentAdapter } from "./openclaw/shared-prompts.js";
 import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
 import { openClawAdvanced } from "./openclaw/openclaw-advanced.js";
+import { openClawMemory } from "./openclaw/openclaw-memory.js";
 import { hermesCompiler } from "./hermes/hermes-compiler.js";
 import { HermesFleet } from "./hermes/hermes-fleet.js";
 import { storedIdOf } from "./hermes/hermes-run-state.js";
 import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
 import { hermesAdvanced } from "./hermes/hermes-advanced.js";
+import { hermesMemory } from "./hermes/hermes-memory.js";
 
 // The runtimes this AgentPier ships, by the id agents record (`agent.runtime`). Each
 // names its product, resolves an agent's adapter behind the host it runs on, and
@@ -24,7 +26,8 @@ import { hermesAdvanced } from "./hermes/hermes-advanced.js";
 // each agent's gateway cron, their runs in `agent:<agent>:hermes:cron:<job>:<id>`.
 // What each states about itself (its name, its traits) is its descriptor
 // (docs/adr/0007-runtime-descriptor.md). `advanced` makes the port through which its
-// host takes the advanced settings for all agents (advancedRuntimes).
+// host takes the advanced settings for all agents (advancedRuntimes); `memory` is how
+// it writes an agent's memory files (memoryFor).
 const registry = Object.freeze({
   [openClawDescriptor.id]: Object.freeze({
     descriptor: openClawDescriptor,
@@ -34,6 +37,7 @@ const registry = Object.freeze({
       return agent?.userAccess?.mode === "shared" ? sharedAgentAdapter(adapter) : adapter;
     },
     compiler: openClawCompiler,
+    memory: openClawMemory,
     runOf: cronRunOf,
     advanced: (supervisor) =>
       openClawAdvanced(supervisor, () => openClawAdapter(supervisor)),
@@ -42,6 +46,7 @@ const registry = Object.freeze({
     descriptor: hermesDescriptor,
     resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
     compiler: hermesCompiler,
+    memory: hermesMemory,
     runOf: hermesCronRunOf,
     advanced: (supervisor) =>
       hermesAdvanced({
@@ -65,9 +70,9 @@ function openClawAdapter(supervisor) {
 export { openClawRunEvent as openClawFrameEvent } from "./openclaw/openclaw-events.js";
 
 /**
- * What separates two entries of a Hermes memory file (memory-entries.js), the limits
- * and character count a restored entry is checked against (memory-archive.js), and
- * the entries and pins the nightly dream reads (hermes-dream*.js).
+ * Hermes's own memory parsing, for the nightly dream alone (hermes-dream*.js), which
+ * moves into the adapter. Everything else reads an agent's memory format through
+ * memoryFor.
  */
 export {
   entryDelimiter as hermesEntryDelimiter,
@@ -267,6 +272,16 @@ export function runtimeDetails(agent, supervisor) {
  */
 export const compilerFor = (agent) =>
   registry[assertRuntime(runtimeIdOf(agent), 409)].compiler;
+
+/**
+ * How the runtime that runs `agent` (runtimeIdOf) writes its memory files: the pure
+ * part of its agentFiles sub-port (agent-runtime.js `agentFiles.memory`), the same
+ * object as `runtimeFor(agent, supervisor).agentFiles.memory`. It reads only the
+ * text it is given, so it needs no host. A runtime this AgentPier lacks answers the
+ * default runtime's format, as its traits answer the defaults (traitOf).
+ */
+export const memoryFor = (agent) =>
+  (registry[runtimeIdOf(agent)] ?? registry[DEFAULT_RUNTIME]).memory;
 
 // The advanced host ports of each supervisor, by runtime id: made once, so what a
 // port remembers of its host (OpenClaw's reload kinds per version) is kept.

@@ -8,6 +8,7 @@ import {
   pendingAdmission,
   settledAdmission,
 } from "./agent-admission.js";
+import { openClawMemory } from "./openclaw-memory.js";
 
 // Binds the methods `over(current)` builds to the supervisor's client of each call,
 // with `on(connection)` binding them to the client behind a handle of
@@ -72,7 +73,8 @@ function agentsOver(current) {
  * The agentFiles sub-port: an agent's workspace files the Gateway serves
  * (AGENTS.md, MEMORY.md, …) and its memory search. `get` answers `{ file }` with
  * OpenClaw's `content`, `hash` or `missing`; `set` writes only over the expected
- * hash or absence it is given.
+ * hash or absence it is given. `memory` is how OpenClaw writes its memory files
+ * (openclaw-memory.js), pure and the same in every view.
  */
 export const openClawAgentFiles = (supervisor, clientOf) =>
   boundPort(agentFilesOver, supervisor, clientOf);
@@ -80,6 +82,7 @@ export const openClawAgentFiles = (supervisor, clientOf) =>
 function agentFilesOver(current) {
   const call = async (...args) => current().call(...args);
   return {
+    memory: openClawMemory,
     get: ({ agentId, name }) => call("agents.files.get", { agentId, name }),
     set: ({ agentId, name, content, expectedHash, expectedMissing }) =>
       call("agents.files.set", {

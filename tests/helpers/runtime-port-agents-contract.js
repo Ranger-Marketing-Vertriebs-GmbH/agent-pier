@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { memoryFor } from "../../server/features/assistants/runtimes/runtime-for.js";
 
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 const unavailable = (error) => error.code === "UNAVAILABLE" && error.status === 503;
@@ -215,6 +216,8 @@ export function fakeAgentPorts({ reach, connection }) {
       admitting: () => false,
     },
     agentFiles: {
+      // The default runtime's memory format: the fake keeps Markdown too.
+      memory: memoryFor(null),
       get: ({ agentId, name }) =>
         reach(() => {
           const content = files.get(fileKey(agentId, name));
@@ -265,6 +268,7 @@ export function fakeAgentPorts({ reach, connection }) {
       watchAdoption: () => watcher(connection() !== null),
     },
   };
+  // Answered without the connection; so is what is no method (the memory format).
   const sync = [
     "degraded",
     "noteRefusal",
@@ -283,7 +287,7 @@ export function fakeAgentPorts({ reach, connection }) {
       Object.fromEntries(
         Object.entries(methods[port]).map(([name, method]) => [
           name,
-          sync.includes(name)
+          sync.includes(name) || typeof method !== "function"
             ? method
             : (...args) => (bound && bound === connection() ? method(...args) : closed()),
         ]),

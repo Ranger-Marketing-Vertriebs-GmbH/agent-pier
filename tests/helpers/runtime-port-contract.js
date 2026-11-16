@@ -22,6 +22,7 @@ import {
 import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-contract.js";
 import { fakeToolPorts, toolsContract } from "./runtime-port-tools-contract.js";
 import { configContract, fakeDesiredConfig } from "./runtime-port-config-contract.js";
+import { memoryContract } from "./runtime-port-memory-contract.js";
 import {
   fakeLifecyclePorts,
   lifecycleContract,
@@ -138,6 +139,13 @@ export function runtimePortContract(name, make) {
   sessionExtrasContract(name, make);
   toolsContract(name, make);
   configContract(name, make);
+  memoryContract(name, async () => ({ memory: (await make({})).agentFiles.memory }));
+
+  test(`${name}: agentFiles.memory is the same in a connection's view`, async () => {
+    const runtime = await make({});
+    const view = runtime.agentFiles.on(runtime.host.connection());
+    assert.equal(view.memory, runtime.agentFiles.memory);
+  });
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });

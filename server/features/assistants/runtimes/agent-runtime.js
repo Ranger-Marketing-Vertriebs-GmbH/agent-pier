@@ -142,6 +142,16 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     over the expected hash (or absence) given.
  *   - searchMemory({ agentId, query, maxResults }): `{ ok, output: { details:
  *     { results } } }`.
+ *   - memory: synchronously, how the runtime writes an agent's memory files, the
+ *     same object in every view and the one runtime-for.js `memoryFor(agent)`
+ *     returns without a host. Pure: it reads only the text it is given.
+ *     entries(content): the entries of a file's text, `[{ text, start, end }]`:
+ *     `text` the entry as the owner reads it, `start`/`end` the whole entry in
+ *     `content`. without(content, texts): `content` without every entry whose text
+ *     is one of `texts`, everything else byte for byte. appended(content, text):
+ *     `content` with `text` as its last entry. limit(name): the characters file
+ *     `name` may hold, or null; chars(content): what `content` counts against it.
+ *     `pinMarker`: what an entry the agent must keep starts with, or null.
  *   - on(connection), as sessions.on.
  * - config: apply the compiled desired state; whether a restart is needed.
  *   The desired state is AgentPier's, runtime-neutral (ADR 0006 decision 3), built
