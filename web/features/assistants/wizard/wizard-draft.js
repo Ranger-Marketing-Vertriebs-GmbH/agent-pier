@@ -1,6 +1,7 @@
 // Pure rules of the new agent wizard (handoff 5.3): its draft, its steps, what a
 // duplicate copies (5.3.1) and what the summary names. No request is made here.
-import { shellChoice } from "../shell-level.js";
+import { offersEveryCommand, shellChoice } from "../shell-level.js";
+import { traitOf } from "../runtime-traits.js";
 import {
   sortedGrants,
   sortedIds,
@@ -114,16 +115,22 @@ export function duplicateFields(agent, policy, team, copyName) {
 }
 
 /**
- * The draft fields for runtime `runtime` ("" lets the server choose OpenClaw). Only
- * Hermes asks before every command: elsewhere "Every command" becomes "With approval".
- * A Hermes agent cannot use a ChatGPT account (runtime-capabilities.js modelsFor),
- * so a chosen one is cleared.
+ * The draft fields for runtime `runtime` ("" lets the server choose its default),
+ * whose view is `runtimeInfo` (runtime-list.js runtimeInfoOf). On a runtime without
+ * the "Every command" shell level that choice becomes "With approval", and on one
+ * that needs a ChatGPT login AgentPier holds (runtime-capabilities.js modelsFor)
+ * another chosen login is cleared. While the view is unknown (the runtime list has
+ * not arrived) nothing the owner chose is taken back: the server refuses what the
+ * runtime cannot run.
  */
-export const withRuntime = (d, runtime, models = []) => ({
+export const withRuntime = (d, runtime, models = [], runtimeInfo) => ({
   runtime,
-  ...(runtime !== "hermes" && d.shell === "every" ? { shell: "approval" } : {}),
-  // A Hermes agent keeps a chosen ChatGPT login only when AgentPier holds it.
-  ...(runtime === "hermes" &&
+  ...(runtimeInfo && !offersEveryCommand(runtimeInfo) && d.shell === "every"
+    ? { shell: "approval" }
+    : {}),
+  // Such a runtime keeps a chosen ChatGPT login only when AgentPier holds it.
+  ...(runtimeInfo &&
+  traitOf(runtimeInfo, "models", "chatgptLogin") === "agentpierHeld" &&
   d.connectionId?.startsWith("openclaw:") &&
   models.find((m) => m.id === d.connectionId)?.holder !== "agentpier"
     ? { connectionId: "", modelId: "" }

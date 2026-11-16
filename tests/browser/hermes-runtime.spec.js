@@ -197,6 +197,17 @@ test("an unknown error code falls back; a server without Hermes shows no group",
 async function wizard(page, hermes, assistants) {
   const state = await setupAssistantSettings(page, { assistants });
   await hermesRoutes(page, [hermes]);
+  // The runtimes a new agent may choose, with their traits (ADR 0007).
+  await page.route(/\/api\/assistant-runtimes$/, (route) =>
+    route.fulfill({
+      json: {
+        runtimes: [
+          { id: "openclaw", name: "OpenClaw", version: "2026.10.3", capabilities: {} },
+          { ...hermesInfo, version: null },
+        ],
+      },
+    }),
+  );
   const sent = [];
   await page.route(/\/api\/assistants/, async (route) => {
     const request = route.request();
