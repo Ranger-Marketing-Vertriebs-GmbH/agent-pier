@@ -37,6 +37,7 @@ import { projectsRoute } from "../features/projects/routes.js";
 import { settingsTabOf } from "../features/operations/routes.js";
 import { termsOf } from "./search-index.js";
 import { chatActionEntries, pinboardEntry } from "./agent-chat-entries.js";
+import { projectActionEntries } from "./project-search-entries.js";
 
 /** `{ de, en }` of a label read from the reactive catalogs. */
 export const bilingual = (read) => ({
@@ -519,18 +520,7 @@ export function actionEntries() {
       route: connectionsRoute("tickets"),
       pending: "plane-add",
     }),
-    action(
-      "start-tickets",
-      () => searchCopy.actions.startTickets,
-      bilingual(text.projects),
-      { action: "start-tickets", pending: "tickets-sequence" },
-    ),
-    action(
-      "add-label-rule",
-      () => searchCopy.actions.addLabelRule,
-      bilingual(text.projects),
-      { action: "add-label-rule", pending: "ticket-rule-add" },
-    ),
+    ...projectActionEntries(action, bilingual(text.projects), bilingual),
     action(
       "session-changes",
       () => searchCopy.actions.showChanges,

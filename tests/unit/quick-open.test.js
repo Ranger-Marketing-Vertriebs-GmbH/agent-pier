@@ -318,6 +318,19 @@ test("Add label rule is an owner action only, not in the user's search", () => {
   );
 });
 
+test("Delete project is an owner action only, not in the user's search", () => {
+  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
+  const action = (query) => flat(searchEntries(owners, query))[0];
+  assert.equal(action("Delete project").id, "action:delete-project");
+  assert.equal(action("Remove project").id, "action:delete-project");
+  assert.equal(action("Projekt löschen").id, "action:delete-project");
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.equal(
+    users.some((item) => item.id === "action:delete-project"),
+    false,
+  );
+});
+
 test("Craft Anything is an owner page only, not in the user's search", () => {
   const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
   assert.ok(
