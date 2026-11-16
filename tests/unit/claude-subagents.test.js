@@ -58,7 +58,7 @@ test("a task notification completes an agent even without a hand-back", () => {
   };
   assert.equal(
     statuses(observeClaude([...upTo("launch-broken"), killed])).agentreview01,
-    "unknown",
+    "stopped",
   );
 });
 
@@ -178,12 +178,12 @@ test("long hand-back reports are bounded before they reach a chat row", () => {
 test("a successful TaskStop ends a background agent without claiming success", () => {
   const stop = taskStop("agentstyles02");
   const all = [...records(), ...stop];
-  assert.equal(statuses(observeClaude(all)).agentstyles02, "unknown");
+  assert.equal(statuses(observeClaude(all)).agentstyles02, "stopped");
   const row = normalizeClaude(all).messages.find(
     (message) => message.id === "toolu_styles",
   );
-  assert.equal(row.status, "unknown");
-  assert.equal(row.subagent.status, "unknown");
+  assert.equal(row.status, "stopped");
+  assert.equal(row.subagent.status, "stopped");
   // A failed stop request changes nothing.
   stop[1].message.content[0].is_error = true;
   assert.equal(statuses(observeClaude([...records(), ...stop])).agentstyles02, "running");

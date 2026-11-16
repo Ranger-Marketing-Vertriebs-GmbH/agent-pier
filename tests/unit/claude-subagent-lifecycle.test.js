@@ -35,7 +35,7 @@ test("chat rows and the observer apply one precedence rule to event sequences", 
     "killed then completed": [["killed"], ["completed"], "completed"],
     "completed then failed": [["completed"], ["failed"], "failed"],
     "failed then hand-back": [["failed"], "handback", "completed"],
-    "killed only": [["killed"], null, "unknown"],
+    "killed only": [["killed"], null, "stopped"],
   };
   for (const [name, [first, second, expected]] of Object.entries(sequences)) {
     const event = (value) =>

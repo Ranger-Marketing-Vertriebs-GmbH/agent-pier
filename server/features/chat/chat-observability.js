@@ -1,4 +1,10 @@
-import { emptyContext, list, tokens, timestamp } from "./observability-values.js";
+import {
+  emptyContext,
+  list,
+  tokens,
+  timestamp,
+  putShell,
+} from "./observability-values.js";
 import { applyContextWindow } from "./context-window.js";
 import {
   normalizeTotals,
@@ -16,6 +22,30 @@ function compaction(value) {
   return conversationTokens === null
     ? null
     : { conversationTokens, observedAt: timestamp(value.observedAt) };
+}
+
+/** Shells as the browser sees them: no file paths, and no live state of a dead session. */
+function normalizeShells(value, session) {
+  const shells = new Map();
+  // Through putShell, so every limit holds for saved snapshots as well.
+  for (const raw of list(value)) putShell(shells, raw?.id, raw);
+  return [...shells.values()].map((entry) => {
+    const { id, command, status, updatedAt, exitCode, startedAt, description } = entry;
+    return {
+      id,
+      command,
+      ...(description ? { description } : {}),
+      status: session?.status !== "running" && status === "running" ? "unknown" : status,
+      ...(exitCode === undefined ? {} : { exitCode }),
+      ...(startedAt ? { startedAt } : {}),
+      updatedAt,
+      ...(typeof entry.ownerAgentId === "string"
+        ? { ownerAgentId: entry.ownerAgentId }
+        : {}),
+      canStop: false,
+      hasOutput: false,
+    };
+  });
 }
 
 /** The single merge point for live pages and saved snapshots. */
@@ -48,7 +78,11 @@ export function finalizeObservability(
         ? { status: "unknown" }
         : {}),
       usage: agentUsage(agent, usage),
+      canStop: false,
+      hasTranscript: false,
     })),
+    shells: normalizeShells(value?.shells, session),
+    stopNotes: [],
     stale: stale || Boolean(value?.stale),
   };
 }

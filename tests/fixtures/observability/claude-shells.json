@@ -1,0 +1,236 @@
+[
+  {
+    "isSidechain": false,
+    "message": {
+      "id": "msg_011Ch7DmMcStoa8QhbaqWGQ6",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_018CkAmh9nsUXBAFYNBXwZjX",
+          "name": "Bash",
+          "input": {
+            "command": "sleep 300",
+            "description": "Sleep for 300 seconds in background",
+            "run_in_background": true
+          }
+        }
+      ],
+      "input_transformations": [],
+      "diagnostics": null,
+      "context_management": null
+    },
+    "toolInputStreamMs": 562,
+    "wireToolInputs": {
+      "toolu_018CkAmh9nsUXBAFYNBXwZjX": {
+        "command": "sleep 300",
+        "description": "Sleep for 300 seconds in background",
+        "run_in_background": true
+      }
+    },
+    "apiBlockIndex": 1,
+    "requestRef": "68acf2c6-a645-44c2-9827-563e04e45fcb",
+    "requestedModel": "claude-opus-5-5",
+    "promptCacheRequested": "1h",
+    "type": "assistant",
+    "uuid": "55ee101b-f9df-44ee-bfe2-967f5f5d3690",
+    "timestamp": "2026-11-16T20:15:19.658Z",
+    "advisorModel": "claude-opus-5-5",
+    "effort": "medium",
+    "perTurnEffort": "medium",
+    "madeBy": "model",
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "type": "user",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "tool_use_id": "toolu_018CkAmh9nsUXBAFYNBXwZjX",
+          "type": "tool_result",
+          "content": "Command running in background with ID: biedr05v9. Output is being written to: /tmp/claude-501/-fixture-project/fixture-session/tasks/biedr05v9.output. You will be notified when it completes — do not poll that file or sleep while waiting. Read the file only if the user asks for progress, or if you need a line it prints before you can go on, such as a server's ready line or port.",
+          "is_error": false
+        }
+      ]
+    },
+    "uuid": "1126d0ca-6320-401f-8baa-2d57cf52450a",
+    "timestamp": "2026-11-16T20:15:19.689Z",
+    "toolUseResult": {
+      "stdout": "",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false,
+      "backgroundTaskId": "biedr05v9"
+    },
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "message": {
+      "id": "msg_011Ch7Dqm3Dco6dkSHUwhswZ",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01Uv6jskMFoEKXF4ETHq2X62",
+          "name": "Agent",
+          "input": {
+            "description": "Run python sleep command",
+            "subagent_type": "general-purpose",
+            "prompt": "Run exactly this Bash command in the foreground with timeout 300000: python3 -c \"import time; time.sleep(240)\" . Then reply done."
+          }
+        }
+      ],
+      "input_transformations": [],
+      "diagnostics": null,
+      "context_management": null
+    },
+    "toolInputStreamMs": 848,
+    "wireToolInputs": {
+      "toolu_01Uv6jskMFoEKXF4ETHq2X62": {
+        "description": "Run python sleep command",
+        "subagent_type": "general-purpose",
+        "prompt": "Run exactly this Bash command in the foreground with timeout 300000: python3 -c \"import time; time.sleep(240)\" . Then reply done."
+      }
+    },
+    "apiBlockIndex": 0,
+    "requestRef": "d1d6cdd6-14e7-42a0-b430-f9ed1a3d37e5",
+    "requestedModel": "claude-opus-5-5",
+    "promptCacheRequested": "1h",
+    "type": "assistant",
+    "uuid": "14beba44-0137-4595-bb7a-078e38c69602",
+    "timestamp": "2026-11-16T20:16:19.271Z",
+    "advisorModel": "claude-opus-5-5",
+    "effort": "medium",
+    "perTurnEffort": "medium",
+    "madeBy": "model",
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "type": "user",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "tool_use_id": "toolu_01Uv6jskMFoEKXF4ETHq2X62",
+          "type": "tool_result",
+          "content": [
+            {
+              "type": "text",
+              "text": "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\nagentId: ad8fe347eb34a68b1 (internal ID - do not mention to user. Use SendMessage with to: 'ad8fe347eb34a68b1', summary: '<5-10 word recap>' to continue this agent.)\nThe agent is working in the background. You will be notified automatically when it completes. You know nothing about its results until that notification arrives — do not report, assume, or predict them; continue other work or respond to the user in the meantime.\nDo not duplicate this agent's work — avoid working with the same files or topics it is using.\noutput_file: /tmp/claude-501/-fixture-project/fixture-session/tasks/ad8fe347eb34a68b1.output\nDo NOT Read or tail this file via the shell tool — it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you'll get a completion notification."
+            }
+          ]
+        }
+      ]
+    },
+    "uuid": "ed6ebd8e-f15a-4a1a-8b7a-f4a2feec5744",
+    "timestamp": "2026-11-16T20:16:19.279Z",
+    "toolUseResult": {
+      "isAsync": true,
+      "status": "async_launched",
+      "agentId": "ad8fe347eb34a68b1",
+      "description": "Run python sleep command",
+      "resolvedModel": "claude-opus-5-5",
+      "prompt": "Run exactly this Bash command in the foreground with timeout 300000: python3 -c \"import time; time.sleep(240)\" . Then reply done.",
+      "outputFile": "/tmp/claude-501/-fixture-project/fixture-session/tasks/ad8fe347eb34a68b1.output",
+      "canReadOutputFile": true,
+      "canContinueAgent": true
+    },
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "type": "user",
+    "message": {
+      "role": "user",
+      "content": "<task-notification>\n<task-id>ad8fe347eb34a68b1</task-id>\n<tool-use-id>toolu_01Uv6jskMFoEKXF4ETHq2X62</tool-use-id>\n<output-file>/tmp/claude-501/-fixture-project/fixture-session/tasks/ad8fe347eb34a68b1.output</output-file>\n<status>killed</status>\n<summary>Agent \"Run python sleep command\" was stopped by Claude</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n</task-notification>"
+    },
+    "uuid": "4955f215-f8af-4ec7-8587-8c8ca5bd3d6f",
+    "timestamp": "2026-11-16T20:17:20.131Z",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mwjpepu6-d9dc77f2"
+    },
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "message": {
+      "id": "msg_011Ch7Dyea19bNK3bAu38dCt",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01H1omJqzGznw3o1a6FF97Yj",
+          "name": "Bash",
+          "input": {
+            "command": "sleep 400",
+            "description": "Sleep for 400 seconds in background",
+            "run_in_background": true
+          }
+        }
+      ],
+      "input_transformations": [],
+      "diagnostics": null,
+      "context_management": null
+    },
+    "toolInputStreamMs": 694,
+    "wireToolInputs": {
+      "toolu_01H1omJqzGznw3o1a6FF97Yj": {
+        "command": "sleep 400",
+        "description": "Sleep for 400 seconds in background",
+        "run_in_background": true
+      }
+    },
+    "apiBlockIndex": 0,
+    "requestRef": "0e58dbc2-9fac-4db3-9483-d3f4c1f11ddc",
+    "requestedModel": "claude-opus-5-5",
+    "promptCacheRequested": "1h",
+    "type": "assistant",
+    "uuid": "929f8c0a-5e57-4059-9bfb-574b5b373f1d",
+    "timestamp": "2026-11-16T20:18:05.988Z",
+    "advisorModel": "claude-opus-5-5",
+    "effort": "medium",
+    "perTurnEffort": "medium",
+    "madeBy": "model",
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  },
+  {
+    "isSidechain": false,
+    "type": "user",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "tool_use_id": "toolu_01H1omJqzGznw3o1a6FF97Yj",
+          "type": "tool_result",
+          "content": "Command running in background with ID: b4qyjbxhd. Output is being written to: /tmp/claude-501/-fixture-project/fixture-session/tasks/b4qyjbxhd.output. You will be notified when it completes — do not poll that file or sleep while waiting. Read the file only if the user asks for progress, or if you need a line it prints before you can go on, such as a server's ready line or port.",
+          "is_error": false
+        }
+      ]
+    },
+    "uuid": "3bdbb853-7181-4e42-8375-f727a965b88b",
+    "timestamp": "2026-11-16T20:18:06.023Z",
+    "toolUseResult": {
+      "stdout": "",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false,
+      "backgroundTaskId": "b4qyjbxhd"
+    },
+    "sessionId": "fixture-session",
+    "version": "2.1.325"
+  }
+]

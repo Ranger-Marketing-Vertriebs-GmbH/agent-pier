@@ -27,10 +27,11 @@ export function asyncLaunch(result) {
   return value.isAsync === true || ["async_launched", "launched"].includes(value.status);
 }
 
-/** Notification states: only an explicit completion or failure is conclusive. */
+/** Notification states: a completion, failure or stop the CLI reports explicitly. */
 export function notificationStatus(value) {
   if (value === "completed") return "completed";
   if (["failed", "error", "errored"].includes(value)) return "failed";
+  if (["killed", "stopped"].includes(value)) return "stopped";
   return "unknown";
 }
 
@@ -157,17 +158,20 @@ export function subagentEvent(source) {
       status: "completed",
       report: handbackReport(string(record.origin.body)),
     };
-  if (key?.kind === "stopped") return { ...key, status: "unknown" };
+  if (key?.kind === "stopped") return { ...key, status: "stopped" };
   return null;
 }
 
 /**
  * One precedence rule for chat rows and the observer: within one launch the
- * latest event wins, but an inconclusive state (killed, stopped) never replaces
- * a reported completion or failure. A new launch starts over as running.
+ * latest event wins, but a stop or an inconclusive state never replaces a
+ * reported completion or failure. A new launch starts over as running.
  */
 export function settleStatus(current, next) {
-  return next === "unknown" && ["completed", "failed"].includes(current) ? current : next;
+  return ["stopped", "unknown"].includes(next) &&
+    ["completed", "failed"].includes(current)
+    ? current
+    : next;
 }
 
 /** Collects launches and lifecycle events so Agent rows show their real state. */

@@ -61,7 +61,7 @@ test("subagentKey and subagentEvent read both attachment forms", () => {
   );
   assert.equal(
     subagentEvent(queuedNotification("toolu_q", "agentq", "killed")).status,
-    "unknown",
+    "stopped",
   );
   const back = queuedHandback("agentq", "Queued report");
   assert.deepEqual(subagentKey(back), { kind: "handback", agentId: "agentq" });
@@ -85,11 +85,11 @@ test("unrelated or cancellable records never complete a subagent", () => {
   }
 });
 
-test("an attachment-only notification ends an async launch (killed is inconclusive, not running)", () => {
+test("an attachment-only notification ends an async launch (killed reads as stopped)", () => {
   for (const [status, expected] of [
     ["completed", "completed"],
     ["failed", "failed"],
-    ["killed", "unknown"],
+    ["killed", "stopped"],
   ]) {
     const note = queuedNotification("toolu_q", "agentq", status);
     const records = [

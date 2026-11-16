@@ -87,7 +87,7 @@ test("a TaskStop on a newer page ends the background agent shown on an older pag
   const records = [...background(), ...filler(60), ...taskStop("agentstyles02")];
   const pages = await indexed(t, records);
   const styles = pages[0].find((message) => message.id === "toolu_styles");
-  assert.equal(styles.status, "unknown");
+  assert.equal(styles.status, "stopped");
   assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
 });
 
