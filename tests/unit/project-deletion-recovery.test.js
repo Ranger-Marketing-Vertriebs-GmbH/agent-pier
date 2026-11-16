@@ -127,6 +127,36 @@ test("only another folder identity is a changed folder; stat errors keep their c
   assert.equal(fs.existsSync(g.app), true);
 });
 
+test("a new start replaces a deletion that failed on a changed folder", async (t) => {
+  quietLog(t);
+  const f = await setup(t);
+  await mark(f, { ino: "1" });
+  await f.deletion.resume();
+  await f.deletion.settled(f.app);
+  assert.equal(f.memory.deletions.get(f.app).error, "PROJECT_FOLDER_CHANGED");
+  // A retry would compare the recorded identity again; a fresh check and start
+  // delete the folder that is there now.
+  const report = await f.deletion.preflight(f.app);
+  await f.deletion.start({ path: f.app, token: report.token, name: report.name }, owner);
+  await f.deletion.settled(f.app);
+  assert.equal(fs.existsSync(f.app), false);
+  assert.equal(f.memory.deletions.get(f.app), null);
+  assert.equal(f.memory.hasProject(f.id), false);
+});
+
+test("a deletion that failed for another reason still refuses a new start", async (t) => {
+  quietLog(t);
+  const f = await setup(t);
+  await mark(f);
+  f.memory.deletions.fail(f.app, "EACCES");
+  const report = await f.deletion.preflight(f.app);
+  await assert.rejects(
+    f.deletion.start({ path: f.app, token: report.token, name: report.name }, owner),
+    { code: "PROJECT_DELETING" },
+  );
+  assert.equal(fs.existsSync(f.app), true);
+});
+
 test("paths through a linked parent meet one deletion", async (t) => {
   const f = await setup(t);
   const alias = path.join(f.root, "alias");

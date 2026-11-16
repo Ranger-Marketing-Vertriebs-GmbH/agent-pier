@@ -26,12 +26,18 @@ export default function DeleteProjectDialog({ project, close, deleted }) {
   // Ticked processes: pid -> the start time the report showed.
   const [ticked, setTicked] = useState(() => new Map());
   const blockers = useAsyncAction();
+  // The last blocker action's error; the next action, "Check again" or a confirm
+  // clears it, so the confirm's own error is never hidden behind it.
+  const [blockerError, setBlockerError] = useState("");
   const path = project.path;
   const show = useCallback((next) => {
     setReport(next);
     setTicked(new Map());
   }, []);
-  const rescan = useCallback(() => setVersion((value) => value + 1), []);
+  const rescan = useCallback(() => {
+    setBlockerError("");
+    setVersion((value) => value + 1);
+  }, []);
   useEffect(() => {
     let alive = true;
     setLoadError("");
@@ -51,6 +57,7 @@ export default function DeleteProjectDialog({ project, close, deleted }) {
   // A blocker action answers with the next report; a changed folder reads it again.
   const endBlockers = (body) =>
     blockers.run(async () => {
+      setBlockerError("");
       try {
         show(
           await api("/project-deletion/blockers", "POST", {
@@ -60,8 +67,8 @@ export default function DeleteProjectDialog({ project, close, deleted }) {
           }),
         );
       } catch (error) {
-        if (reread.has(error.code)) rescan();
-        throw error;
+        if (reread.has(error.code)) setVersion((value) => value + 1);
+        setBlockerError(error.message);
       }
     });
   const tick = (item, on) =>
@@ -80,9 +87,10 @@ export default function DeleteProjectDialog({ project, close, deleted }) {
       confirmLabel={missing ? copy.confirmRemove : copy.confirmDelete}
       confirmDisabled={!confirmReady(report, typed)}
       busy={blockers.busy}
-      error={loadError || blockers.error}
+      error={loadError || blockerError}
       onCancel={close}
       onConfirm={async () => {
+        setBlockerError("");
         try {
           await api("/project-deletion", "POST", {
             path,

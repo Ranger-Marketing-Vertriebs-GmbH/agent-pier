@@ -5,6 +5,7 @@ import { projectDir } from "../lib/config.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 import { auditActor } from "../features/audit/audit-actor.js";
+import { replaceableDeletion } from "../features/projects/deletion-errors.js";
 import { inside } from "../features/projects/deletion-paths.js";
 import { endProcess } from "../features/projects/folder-processes.js";
 import { normalizeProjectPath } from "../features/projects/project-groups.js";
@@ -405,11 +406,9 @@ export class ProjectDeletion {
 
   // A folder whose deletion, or that of a folder around or inside it, is recorded.
   #refuseRecorded(key) {
-    // A missing folder that came back: a new start deletes it with its contents.
-    const replaceable = (record) =>
-      record.path === key &&
-      record.state === "failed" &&
-      record.error === "PROJECT_FOLDER_REAPPEARED";
+    // A failed deletion that a retry cannot finish (a missing folder that came back,
+    // a folder replaced or refused): a new start deletes the folder there now.
+    const replaceable = (record) => record.path === key && replaceableDeletion(record);
     const recorded = this.records
       .list()
       .some(
