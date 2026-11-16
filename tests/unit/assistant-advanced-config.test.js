@@ -12,7 +12,17 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/advanced-settings.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
+// The shared setting's id names it on the page and in a save; the override store
+// keeps it under OpenClaw's path.
+const run = "runTimeout";
 const timeout = "agents.defaults.timeoutSeconds";
+// OpenClaw as the page's answer names it: its state, and how it takes a setting.
+const gatewayOf = ({ runtimes }) => {
+  const { running, version, qualified } = runtimes.find((r) => r.id === "openclaw");
+  return { running, version, qualified };
+};
+const taken = (setting) => setting.runtimes.openclaw;
+const row = ({ settings }, id = run) => settings.find((s) => s.id === id);
 
 function fakeGateway({ kinds = {}, refuse = false } = {}) {
   const gateway = {
@@ -101,19 +111,22 @@ function setup({
 test("a stopped Gateway lists every allowed setting with the qualified facts", async () => {
   const { advanced, overrides } = setup({ availability: "disabled", version: null });
   overrides.set(timeout, 900);
-  const { gateway, settings } = await advanced.get();
-  assert.deepEqual(gateway, { running: false, version: null, qualified: true });
+  const listed = await advanced.get();
+  const { settings } = listed;
+  assert.deepEqual(gatewayOf(listed), { running: false, version: null, qualified: true });
   assert.deepEqual(
-    settings.map((s) => s.path),
-    advancedSettings.map((s) => s.path),
+    settings.map((s) => s.id),
+    advancedSettings.map((s) => s.id),
   );
-  const run = settings.find((s) => s.path === timeout);
-  assert.equal(run.override, 900);
-  assert.equal(run.current, null);
-  assert.equal(run.reloadKind, "hot");
-  assert.equal(run.available, true);
-  assert.equal(run.minimum, 300);
-  assert.equal(run.fallback, 172800);
+  // A row names no runtime's path.
+  assert.ok(settings.every((s) => !Object.hasOwn(s, "path")));
+  const limit = row(listed);
+  assert.equal(limit.override, 900);
+  assert.equal(taken(limit).current, null);
+  assert.equal(taken(limit).apply, "hot");
+  assert.equal(taken(limit).available, true);
+  assert.equal(limit.minimum, 300);
+  assert.equal(limit.fallback, 172800);
   assert.deepEqual(settings.find((s) => s.id === "imageQuality").options, [
     "auto",
     "efficient",
@@ -124,9 +137,9 @@ test("a stopped Gateway lists every allowed setting with the qualified facts", a
 
 test("a stopped Gateway stores the change for its next start", async () => {
   const { advanced, overrides, audit } = setup({ availability: "disabled" });
-  await advanced.save(timeout, 900);
+  await advanced.save(run, 900);
   assert.equal(overrides.get(timeout).value, 900);
-  await advanced.save(timeout, null);
+  await advanced.save(run, null);
   assert.equal(overrides.get(timeout), null);
   assert.deepEqual(
     audit.map((entry) => entry.details),
@@ -142,9 +155,11 @@ test("invalid paths and values are refused before anything is stored", async () 
   for (const [target, value] of [
     ["gateway.auth.token", "x"],
     ["models.providers.p.baseUrl", "http://x"],
-    [timeout, 10],
-    [timeout, "900"],
-    ["agents.defaults.thinkingDefault", "loud"],
+    // A path is no setting id.
+    [timeout, 900],
+    [run, 10],
+    [run, "900"],
+    ["thinkingDefault", "loud"],
   ])
     await assert.rejects(advanced.save(target, value), { status: 400 }, target);
   assert.deepEqual(overrides.list(), []);
@@ -156,13 +171,13 @@ test("invalid paths and values are refused before anything is stored", async () 
 
 test("a hot setting applies live and a reset removes it from the Gateway", async () => {
   const { advanced, overrides, gateway, admitted } = setup();
-  const result = await advanced.save(timeout, 900);
+  const result = await advanced.save(run, 900);
   assert.equal(gateway.config.agents.defaults.timeoutSeconds, 900);
   assert.equal(overrides.get(timeout).value, 900);
-  assert.equal(result.settings.find((s) => s.path === timeout).current, 900);
+  assert.equal(taken(row(result)).current, 900);
   assert.ok(admitted.length);
-  await advanced.save("attachments.ttlHours", 72);
-  await advanced.save("attachments.ttlHours", null);
+  await advanced.save("mediaRetention", 72);
+  await advanced.save("mediaRetention", null);
   assert.equal(gateway.config.attachments?.ttlHours, undefined);
   assert.equal(overrides.get("attachments.ttlHours"), null);
   const patches = gateway.calls.filter(([m]) => m === "config.patch");
@@ -173,7 +188,7 @@ test("a hot setting applies live and a reset removes it from the Gateway", async
 
 test("a value the Gateway refuses is not stored and leaks no detail", async () => {
   const { advanced, overrides } = setup({ gateway: fakeGateway({ refuse: true }) });
-  await assert.rejects(advanced.save(timeout, 900), (error) => {
+  await assert.rejects(advanced.save(run, 900), (error) => {
     assert.equal(error.status, 400);
     assert.equal(error.message.includes("/secret/path"), false);
     return true;
@@ -184,17 +199,17 @@ test("a value the Gateway refuses is not stored and leaks no detail", async () =
 test("a restart setting asks first and restarts with the stored value", async () => {
   const gateway = fakeGateway({ kinds: { [timeout]: "restart" } });
   const { advanced, overrides, synchronization } = setup({ gateway });
-  await assert.rejects(advanced.save(timeout, 900), (error) => {
+  await assert.rejects(advanced.save(run, 900), (error) => {
     assert.equal(error.code, "ASSISTANT_RESTART_REQUIRED");
     assert.equal(error.status, 409);
     assert.deepEqual(error.affected.agents, [{ id: "a", name: "Home" }]);
     return true;
   });
   assert.equal(overrides.get(timeout), null);
-  const result = await advanced.save(timeout, 900, { confirmed: true });
+  const result = await advanced.save(run, 900, { confirmed: true });
   assert.equal(synchronization.restarts, 1);
   assert.equal(overrides.get(timeout).value, 900);
-  assert.equal(result.settings.find((s) => s.path === timeout).reloadKind, "restart");
+  assert.equal(taken(row(result)).apply, "restart");
 });
 
 test("a failed restart restores the previous override", async () => {
@@ -207,7 +222,7 @@ test("a failed restart restores the previous override", async () => {
     },
   });
   overrides.set(timeout, 700);
-  await assert.rejects(advanced.save(timeout, 900, { confirmed: true }), {
+  await assert.rejects(advanced.save(run, 900, { confirmed: true }), {
     status: 503,
   });
   assert.equal(overrides.get(timeout).value, 700);
@@ -229,9 +244,8 @@ test("a failed restart restores the previous override", async () => {
 test("a path the running Gateway does not know is shown but not editable", async () => {
   const gateway = fakeGateway({ kinds: { [timeout]: undefined } });
   const { advanced } = setup({ gateway });
-  const { settings } = await advanced.get();
-  assert.equal(settings.find((s) => s.path === timeout).available, false);
-  await assert.rejects(advanced.save(timeout, 900), {
+  assert.equal(taken(row(await advanced.get())).available, false);
+  await assert.rejects(advanced.save(run, 900), {
     status: 409,
     key: "advancedSettingUnavailable",
   });
@@ -244,13 +258,13 @@ test("a path the running Gateway does not know is shown but not editable", async
 test("another runtime version or a Gateway in transition refuses changes", async () => {
   const other = setup({ version: "2026.9.8" });
   const listed = await other.advanced.get();
-  assert.equal(listed.gateway.qualified, false);
-  assert.ok(listed.settings.every((s) => !s.available));
-  await assert.rejects(other.advanced.save(timeout, 900), {
+  assert.equal(gatewayOf(listed).qualified, false);
+  assert.ok(listed.settings.every((s) => !taken(s).available));
+  await assert.rejects(other.advanced.save(run, 900), {
     key: "advancedSettingUnavailable",
   });
   const starting = setup({ availability: "starting" });
-  await assert.rejects(starting.advanced.save(timeout, 900), {
+  await assert.rejects(starting.advanced.save(run, 900), {
     status: 409,
     key: "active",
   });
@@ -266,13 +280,13 @@ test("a stopped Gateway takes the installed runtime's version into account", asy
   );
   const rolledBack = setup({ availability: "disabled", version: null, paths: { root } });
   const listed = await rolledBack.advanced.get();
-  assert.deepEqual(listed.gateway, {
+  assert.deepEqual(gatewayOf(listed), {
     running: false,
     version: "2026.9.8",
     qualified: false,
   });
-  assert.ok(listed.settings.every((s) => !s.available));
-  await assert.rejects(rolledBack.advanced.save(timeout, 900), {
+  assert.ok(listed.settings.every((s) => !taken(s).available));
+  await assert.rejects(rolledBack.advanced.save(run, 900), {
     key: "advancedSettingUnavailable",
   });
   fs.writeFileSync(
@@ -280,7 +294,7 @@ test("a stopped Gateway takes the installed runtime's version into account", asy
     JSON.stringify({ version: advancedSettingsRuntime }),
   );
   const current = setup({ availability: "disabled", version: null, paths: { root } });
-  assert.equal((await current.advanced.get()).gateway.qualified, true);
+  assert.equal(gatewayOf(await current.advanced.get()).qualified, true);
 });
 
 test("a rollback while the Gateway is stopped follows the installed runtime", async (t) => {
@@ -297,14 +311,14 @@ test("a rollback while the Gateway is stopped follows the installed runtime", as
     paths: { root },
   });
   const listed = await stopped.advanced.get();
-  assert.equal(listed.gateway.version, "2026.9.8");
-  assert.equal(listed.gateway.qualified, false);
-  assert.ok(listed.settings.every((s) => !s.available));
-  await assert.rejects(stopped.advanced.save(timeout, 900), {
+  assert.equal(gatewayOf(listed).version, "2026.9.8");
+  assert.equal(gatewayOf(listed).qualified, false);
+  assert.ok(listed.settings.every((s) => !taken(s).available));
+  await assert.rejects(stopped.advanced.save(run, 900), {
     key: "advancedSettingUnavailable",
   });
   assert.deepEqual(stopped.overrides.list(), []);
   // A ready Gateway reports what it actually runs.
   const ready = setup({ version: advancedSettingsRuntime, paths: { root } });
-  assert.equal((await ready.advanced.get()).gateway.qualified, true);
+  assert.equal(gatewayOf(await ready.advanced.get()).qualified, true);
 });

@@ -176,10 +176,15 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     state and the start's own facts (OpenClaw: existing, paths, port, token,
  *     overrides, runtime, tls, shell, skillShadows); the same inputs always yield
  *     the same configuration and leave `desired` as it was. `advancedSettings`
- *     (`{ list, byPath, byId, validate, runtime }`; OpenClaw's, which defines the
- *     settings, also `bounds`, `valid` and `auditable`) exists exactly while the
- *     `advancedSettings` capability is available; Hermes lists the settings it maps,
- *     by id, with its own key as `path`.
+ *     (`{ list, byPath, byId, validate, runtime }`) exists exactly while the
+ *     `advancedSettings` capability is available: the shared advanced settings
+ *     (shared-settings.js, AgentPier's) the runtime takes, by the shared id, each
+ *     with its own key as `path` and how a running host takes a change as
+ *     `reloadKind` (`hot`, `none`, `restart`); `runtime` is the version the list
+ *     was approved for. OpenClaw's also has `bounds`, `valid` and `auditable`, as
+ *     the override store is keyed by its paths. A runtime that describes advanced
+ *     settings of its own (runtime-surfaces.js, `scope: "host"`) receives their
+ *     values by field id beside the desired state (runtime-settings.js ownSettings).
  *   - applyModel({ desired }), apply({ desired, state }): write one agent's model
  *     connection, then its tools, shell, skills and memory, on the running
  *     configuration as `patch` does; `state()` tells what the runtime offers as the

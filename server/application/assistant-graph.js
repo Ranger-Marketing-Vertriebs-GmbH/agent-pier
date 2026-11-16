@@ -49,6 +49,7 @@ import {
   overridesFor,
 } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
+import { RuntimeSettingStore } from "../features/assistants/runtimes/runtime-settings.js";
 import {
   hermesAgentFleet,
   hermesApplyWiring,
@@ -356,10 +357,16 @@ export function constructAssistantGraph(host, created = {}) {
     browserNetwork: new BrowserNetworkSettings({ dataDir }),
     audit,
   });
-  // The owner's advanced OpenClaw settings; restart changes reuse web tools' confirmation.
+  // The owner's advanced settings for all agents: the shared ones in the override
+  // store, each runtime's own beside it. Restart changes reuse web tools' confirmation.
   const assistantAdvancedConfig = new AdvancedConfig({
     assistants,
     overrides: overrideStore(store),
+    settings: new RuntimeSettingStore(store.db, {
+      // A row that cannot be read is reported by its field, never by value.
+      onSkip: (runtime, field) =>
+        console.warn(`Skipped invalid runtime setting: ${runtime}.${field}`),
+    }),
     synchronization: assistantProviderSynchronization,
     usage: () => assistantWebTools.usage(),
     audit,

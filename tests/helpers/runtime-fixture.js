@@ -40,3 +40,68 @@ export const fixtureDescriptor = defineRuntimeDescriptor({
   traits: { host: { process: "perAgent", install: "optional" } },
   surfaces: [fixtureSurface],
 });
+
+/**
+ * The fixture runtime as advanced-config.js lists a runtime (runtime-for.js
+ * `advancedRuntimes`): its descriptor and how its host takes advanced settings.
+ * `taken`: the shared settings it takes (`{ runtime, list, byId }`), none by default;
+ * `host`: what replaces parts of its host port. Its own `storeOwn` stores at once,
+ * except a `restart` field while it runs: that asks first and restarts
+ * (`restart(operation)`), undoing the stored value when the restart fails.
+ * `applied` collects what reached the host: `[apply, fieldId, value]`.
+ */
+export function fixtureRuntime({
+  running = true,
+  taken = null,
+  restart = async (operation) => operation(),
+  applied = [],
+  host = {},
+} = {}) {
+  return {
+    id: fixtureDescriptor.id,
+    name: fixtureDescriptor.name,
+    shortName: fixtureDescriptor.shortName,
+    process: fixtureDescriptor.traits.host.process,
+    descriptor: fixtureDescriptor,
+    host: {
+      settings: () => taken,
+      status: () => ({
+        enabled: true,
+        running,
+        settled: true,
+        version: "1.0.0",
+        qualified: true,
+      }),
+      async storeOwn(field, value, { confirmed, persist, revert, askRestart }) {
+        if (field.apply !== "restart" || !running) {
+          persist();
+          applied.push([field.apply, field.id, value]);
+          return;
+        }
+        if (!confirmed) askRestart();
+        try {
+          await restart(persist);
+          applied.push([field.apply, field.id, value]);
+        } catch (error) {
+          revert();
+          throw error;
+        }
+      },
+      ...host,
+    },
+  };
+}
+
+/**
+ * The fixture runtime's compiler: its configuration from the desired state and its
+ * own advanced settings (`settings`, runtime-settings.js ownSettings). Pure.
+ */
+export const fixtureCompiler = Object.freeze({
+  compile: ({ desired, settings }) => ({
+    agents: desired.agents.map((agent) => agent.id),
+    delegation: settings.delegation,
+    effort: settings.effort,
+    workers: settings.workers,
+    greeting: settings.greeting,
+  }),
+});
