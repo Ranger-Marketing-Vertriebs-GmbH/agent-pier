@@ -13,6 +13,8 @@ import {
   learningTool,
   learningTools,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/skill-learning.js";
+import { openClawSkills } from "../../server/features/assistants/runtimes/openclaw/openclaw-skills.js";
+import { skillCatalog } from "../../server/features/assistants/agent-skills.js";
 import { isLockedPath } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/locked-core.js";
 import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
@@ -249,4 +251,68 @@ test("only this runtime's agents switch the Gateway's review mode", () => {
     compiler.learningTools(agent("a1", { skillLearning: true }), { nativeReady: true }),
     [learningTool],
   );
+});
+
+// One skills.status entry of a learned skill as OpenClaw 2026.10.9 builds it
+// (dist/status-*.mjs buildSkillStatus, workspace-skill-sources: the root
+// `<agentDir>/workshop-skills` with the source "openclaw-workshop", never blocked by
+// the agent's skill list).
+const none = { bins: [], anyBins: [], env: [], config: [], os: [] };
+const reported = (name, source, extra = {}) => ({
+  name,
+  description: `${name} skill`,
+  source,
+  bundled: source === "openclaw-bundled",
+  filePath: `/state/agents/ap-a1/agent/workshop-skills/${name}/SKILL.md`,
+  baseDir: `/state/agents/ap-a1/agent/workshop-skills/${name}`,
+  disabled: false,
+  blockedByAgentFilter: source !== "openclaw-workshop",
+  eligible: true,
+  requirements: { ...none },
+  missing: { ...none },
+  ...extra,
+});
+
+test("the skills port reports a learned skill as one the agent wrote itself", async () => {
+  const report = {
+    workspaceDir: "/w",
+    skills: [
+      reported("weather", "openclaw-bundled"),
+      reported("deploy-staging", "openclaw-workshop"),
+    ],
+  };
+  const calls = [];
+  const client = {
+    call: async (method, params) => {
+      calls.push([method, params]);
+      return structuredClone(report);
+    },
+  };
+  const skills = openClawSkills({ client, status: () => ({ version: "2026.10.9" }) });
+  const answer = await skills.status({ agentId: "ap-a1" });
+  assert.deepEqual(calls, [["skills.status", { agentId: "ap-a1" }]]);
+  // Only the learned skill gains the port's normalized origin; the rest is OpenClaw's.
+  assert.deepEqual(answer.skills[0], report.skills[0]);
+  assert.deepEqual(answer.skills[1], { ...report.skills[1], origin: "local" });
+  assert.equal(answer.workspaceDir, "/w");
+  // An answer without a list passes through.
+  client.call = async () => ({ fallback: true });
+  assert.deepEqual(await skills.status(), { fallback: true });
+
+  // The agent's skills page lists it as on, without a switch, beside the bundled ones
+  // (whose names still come from the installation, not from this report).
+  const page = skillCatalog({
+    report: answer,
+    bundled: new Set(["weather", "github"]),
+    assistant: agent("a1", { skills: ["weather"] }),
+  });
+  const byName = Object.fromEntries(page.skills.map((skill) => [skill.name, skill]));
+  assert.deepEqual(Object.keys(byName), ["deploy-staging", "github", "weather"]);
+  assert.equal(byName["deploy-staging"].state, "selfWritten");
+  assert.equal(byName["deploy-staging"].active, true);
+  assert.equal(byName["deploy-staging"].assigned, false);
+  assert.equal(byName.weather.state, "ready");
+  assert.equal(byName.github.state, "unavailable");
+  // It cannot be assigned or switched off through AgentPier's list.
+  assert.equal(JSON.stringify(byName["deploy-staging"]).includes("/state/"), false);
 });
