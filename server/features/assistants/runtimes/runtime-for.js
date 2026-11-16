@@ -243,16 +243,38 @@ export const compilerFor = (agent) =>
 /**
  * Every runtime this AgentPier ships as runtimeDetails shows it, the default first:
  * what a new agent may choose from and how each would behave, before an agent exists.
- * A runtime with a host per agent has none to ask without an agent, so it answers
- * its traits alone and no version.
+ * Each entry adds `install` and `ready` (whether a new agent may run on it now). A
+ * built-in runtime (trait `host.install`) is `{ kind: "builtin" }` and ready. An
+ * optional one is `{ kind: "optional", ...state }`, the state its entry of `installs`
+ * answers (`{ [runtimeId]: () => state }`, the composition root's `runtimeInstalls`),
+ * ready while that is `enabled` and `installed`; without an entry it is off and not
+ * installed. A runtime with a host per agent has none to ask without an agent, so it
+ * answers its traits alone, and as version the installed one its state names.
  */
-export const runtimeList = (supervisor) =>
-  RUNTIME_IDS.map((id) =>
-    runtimeDetails(
-      { runtime: id },
-      registry[id].descriptor.traits.host.process === "shared" ? supervisor : null,
-    ),
-  );
+export const runtimeList = (supervisor, installs) =>
+  RUNTIME_IDS.map((id) => {
+    const { host } = registry[id].descriptor.traits;
+    const shared = host.process === "shared";
+    const details = runtimeDetails({ runtime: id }, shared ? supervisor : null);
+    if (host.install !== "optional")
+      return { ...details, install: { kind: "builtin" }, ready: true };
+    const install = { kind: "optional", ...installState(installs, id) };
+    return {
+      ...details,
+      version: shared ? details.version : (install.version ?? null),
+      install,
+      ready: install.enabled === true && install.installed === true,
+    };
+  });
+
+// What the install source of runtime `id` answers; off and not installed without one.
+function installState(installs, id) {
+  const read = installs && Object.hasOwn(installs, id) ? installs[id] : null;
+  const state = typeof read === "function" ? read() : null;
+  return state && typeof state === "object"
+    ? state
+    : { enabled: false, installed: false };
+}
 
 /** A copy of the agent view `agent` with its `runtimeInfo` (runtimeDetails). */
 export const withRuntime = (agent, supervisor) => ({

@@ -147,7 +147,8 @@ export async function provisionInstallerHermes(
  * The owner's Hermes switch (no UI yet): `state()` reports the opt-in and the
  * installation, `enable()` records it and starts the installation in the background,
  * `disable()` records it; the installation stays for the next opt-in and runtime
- * retention. `onChange()` hears every change of state().
+ * retention. `onChange()` hears every change of state(): the opt-in and its end, an
+ * installation's start and its end or failure.
  */
 export function createHermesSwitch({
   dataDir,
@@ -187,10 +188,12 @@ export function createHermesSwitch({
             job = null;
             self.onChange?.();
           });
+      self.onChange?.();
       return self.state();
     },
     async disable() {
       writeHermesEnabled(dataDir, false);
+      self.onChange?.();
       return self.state();
     },
     // The running installation, for tests and shutdown.

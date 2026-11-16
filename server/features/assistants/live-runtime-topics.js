@@ -1,3 +1,5 @@
+import { runtimeList } from "./runtimes/runtime-for.js";
+
 // The live `runtime.updates` topic: the agent runtime's update status, the value
 // GET /api/assistant-runtime/updates answers. That status is local (the update
 // journal and the staged candidate); no remote check runs. Update actions and the
@@ -32,6 +34,61 @@ export function runtimeUpdatesTopic(services) {
     watch: ({ invalidate }) => followAgentSwitch(services, invalidate),
   };
 }
+
+// The live `runtimes` topic: every runtime a new agent may run on with its traits,
+// its install state and whether it is ready, the value GET /api/assistant-runtimes
+// answers (ADR 0007). An optional runtime's switch announces every change of its
+// install state (runtimesChanged; application/services.js wires Hermes's), the
+// owner's other successful writes signal it too (live-wiring.js liveWriteSignals: an
+// agent created or deleted changes the count a state names), and so do agents
+// switched on or off. While an install or update runs, its state is also sampled
+// every 3 s while a visible tab watches: nothing announces its progress. Owner only.
+export const RUNTIMES_SAMPLE_MS = 3000;
+
+/** The body of GET /api/assistant-runtimes: `{ runtimes }` (runtime-for.js runtimeList). */
+export const runtimesView = (services) => ({
+  runtimes: runtimeList(services.assistantRuntime, services.runtimeInstalls),
+});
+
+const busy = (view) =>
+  view.runtimes.some(
+    ({ install }) => install.installing === true || install.updating === true,
+  );
+
+/** The topic definition for LiveHub#define. */
+export function runtimesTopic(services) {
+  // Whether the last read of a watched topic showed an install or update under way.
+  let running = false;
+  let watched = false;
+  return {
+    name: "runtimes",
+    mode: "state",
+    sampleMs: RUNTIMES_SAMPLE_MS,
+    sampling: () => running,
+    authorize: (principal) => principal?.role === "owner",
+    scopeKey: () => "owner",
+    read() {
+      if (!services.assistants) {
+        running = false;
+        throw notRunning(Boolean(services.assistantFeature?.enabled));
+      }
+      const view = runtimesView(services);
+      running = watched && busy(view);
+      return view;
+    },
+    watch({ invalidate }) {
+      watched = true;
+      const stop = followAgentSwitch(services, invalidate);
+      return () => {
+        watched = running = false;
+        stop?.();
+      };
+    },
+  };
+}
+
+/** An install state changed: the topic is read again (`live`: the hub, once listening). */
+export const runtimesChanged = (live) => live?.invalidate("runtimes");
 
 /**
  * Calls `listener` when agents are switched on or off (services.assistantFeature);

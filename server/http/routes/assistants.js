@@ -43,7 +43,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
 import { runtimeView } from "../../features/assistants/runtime-view.js";
-import { runtimeList } from "../../features/assistants/runtimes/runtime-for.js";
+import { runtimesView } from "../../features/assistants/live-runtime-topics.js";
 import { replyRestartRequired } from "./restart-required.js";
 import { fromSince } from "../../features/users/owner-privacy.js";
 import { sendStatus } from "../../features/assistants/chat-commands.js";
@@ -278,11 +278,10 @@ function activeAssistantRoutes(services) {
       }),
     ),
   );
-  // Every runtime a new agent may run on, with its traits (ADR 0007): the wizard
-  // reads how a runtime behaves before an agent exists.
-  router.get("/assistant-runtimes", (_req, res) =>
-    res.json({ runtimes: runtimeList(assistantRuntime) }),
-  );
+  // Every runtime a new agent may run on, with its traits, its install state and
+  // whether it is ready (ADR 0007): the wizard reads how a runtime behaves before an
+  // agent exists. Pushed as the live topic `runtimes` (live-runtime-topics.js).
+  router.get("/assistant-runtimes", (_req, res) => res.json(runtimesView(services)));
   // The owner's "Restart now" for a pending restart (pending-restart.js): it runs at
   // once and interrupts agent work; nothing pending changes nothing.
   router.post("/assistant-runtime/pending-restart", async (_req, res) => {

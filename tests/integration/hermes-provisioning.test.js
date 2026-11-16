@@ -132,15 +132,37 @@ test("the Hermes switch installs in the background and reports the installation"
   const state = await hermes.enable();
   assert.equal(state.enabled, true);
   assert.equal(state.installing, true);
-  await hermes.settled();
+  // Every transition is announced (the live topic `runtimes`): the opt-in with the
+  // installation's start, then its end.
   assert.equal(changes, 1);
+  await hermes.settled();
+  assert.equal(changes, 2);
   assert.equal(hermes.state().installed, true);
   assert.equal(hermes.state().version, f.manifest.version);
   assert.equal(hermes.state().error, null);
   assert.equal((await hermes.disable()).enabled, false);
+  assert.equal(changes, 3);
   // The installation stays for the next opt-in, which installs nothing.
   assert.equal(hermes.state().installed, true);
   assert.equal((await hermes.enable()).installing, false);
+  assert.equal(changes, 4);
+});
+
+test("a failed Hermes installation is announced with its error", async (t) => {
+  const f = hermesInstallFixture(t);
+  const hermes = createHermesSwitch({
+    dataDir: f.dataDir,
+    install: () => Promise.reject(Object.assign(Error("x"), { code: "HERMES_DOWN" })),
+    manifest: f.manifest,
+  });
+  const seen = [];
+  hermes.onChange = () => seen.push([hermes.state().installing, hermes.state().error]);
+  await hermes.enable();
+  await hermes.settled();
+  assert.deepEqual(seen, [
+    [true, null],
+    [false, "HERMES_DOWN"],
+  ]);
 });
 
 test("a failed Hermes activation restores the snapshot of every agent's home", async (t) => {

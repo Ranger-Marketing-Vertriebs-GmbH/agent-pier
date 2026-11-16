@@ -305,5 +305,6 @@ test("only a successful write outside the frequent areas signals the topics", ()
     "settings.summary",
     "connections.problems",
     "runtime.updates",
+    "runtimes",
   ]);
 });

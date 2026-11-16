@@ -210,6 +210,14 @@ export const liveTopics = Object.freeze({
     interval: 30000,
     sampled: true,
   }),
+  // The runtime list with each runtime's install state (ADR 0007), pushed by every
+  // change of an optional runtime's switch; a running install or update is sampled.
+  runtimes: Object.freeze({
+    mode: "state",
+    path: () => "/assistant-runtimes",
+    interval: 30000,
+    sampled: true,
+  }),
   // An operations job; a running one is sampled (a release helper writes it).
   "job.operation": Object.freeze({
     mode: "state",

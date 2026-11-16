@@ -140,6 +140,12 @@ test("the menu-hint topics name their REST routes; the CLI-facing two are sample
   // The start page's former poll of these sources.
   for (const info of [summary, problems, updates]) assert.equal(info.interval, 30000);
   assert.equal(topicInfo("settings.summary:x"), null);
+  // The runtime list (ADR 0007), sampled while an install or update runs.
+  const runtimes = topicInfo("runtimes");
+  assert.equal(runtimes.path(), "/assistant-runtimes");
+  assert.equal(runtimes.mode, "state");
+  assert.equal(runtimes.sampled, true);
+  assert.equal(topicInfo("runtimes:x"), null);
 });
 
 test("the operations and artifact topics name their routes at their former polls", () => {
