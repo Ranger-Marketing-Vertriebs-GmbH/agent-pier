@@ -1,17 +1,18 @@
 import { validTimeZone } from "../../../heartbeat-schedule.js";
+import { ianaZone, sharedSetting } from "../../shared-settings.js";
 
 /**
- * The OpenClaw configuration paths the owner may change on the advanced settings
- * page (layer 3, openclaw-config/overrides.js). Everything else stays AgentPier's.
+ * How OpenClaw takes the shared advanced settings (../../shared-settings.js, which
+ * are AgentPier's): the openclaw.json path of each one it takes, by the shared id.
+ * These are the only paths the owner may change on the advanced settings page (layer
+ * 3, openclaw-config/overrides.js). Everything else stays AgentPier's.
  *
  * `schema` is copied from OpenClaw's `config.schema` and `reloadKind` from
  * `config.schema.lookup` of `advancedSettingsRuntime`; the native interfaces contract
  * compares both with the running Gateway, and a unit test fails as soon as the pinned
- * runtime differs, so every OpenClaw update reviews this list. `limits` narrow the
- * upstream range to values AgentPier's agents still work with; `fallback` is what
- * OpenClaw uses while the path is unset (null: it depends on the host or the model,
- * which the page names in its own words). Labels and help are AgentPier's own
- * translations, keyed by `id`.
+ * runtime differs, so every OpenClaw update reviews this list. The shared setting's
+ * range narrows the upstream one as `limits`; its group, unit, format and `fallback`
+ * (what OpenClaw uses while the path is unset) are repeated on each entry.
  *
  * Only scalar paths that no compiler step, dedicated page or credential owns belong
  * here; none carries a `sensitive` hint.
@@ -20,23 +21,16 @@ export const advancedSettingsRuntime = "2026.11.3";
 
 const unbounded = Number.MAX_SAFE_INTEGER;
 
-export const advancedSettings = Object.freeze([
+const taken = [
   {
     id: "runTimeout",
     path: "agents.defaults.timeoutSeconds",
-    group: "runs",
     schema: { type: "integer", minimum: 0, maximum: unbounded },
-    // 0 would let a turn run forever and hold its conversation. Below five minutes
-    // one mistyped digit would abort nearly every tool-using turn of every agent.
-    limits: { minimum: 300, maximum: 7 * 24 * 3600 },
-    unit: "seconds",
     reloadKind: "hot",
-    fallback: 48 * 3600,
   },
   {
     id: "thinkingDefault",
     path: "agents.defaults.thinkingDefault",
-    group: "runs",
     schema: {
       type: "string",
       enum: [
@@ -52,54 +46,51 @@ export const advancedSettings = Object.freeze([
       ],
     },
     reloadKind: "hot",
-    fallback: null,
   },
   {
     id: "userTimezone",
     path: "agents.defaults.userTimezone",
-    group: "runs",
     schema: { type: "string" },
-    format: "timeZone",
     reloadKind: "hot",
-    fallback: null,
   },
   {
     id: "imageQuality",
     path: "agents.defaults.imageQuality",
-    group: "media",
     schema: { type: "string", enum: ["auto", "efficient", "balanced", "high"] },
     reloadKind: "hot",
-    fallback: "auto",
   },
   {
     id: "imageMaxDimension",
     path: "agents.defaults.imageMaxDimensionPx",
-    group: "media",
     schema: { type: "integer", exclusiveMinimum: 0, maximum: unbounded },
-    // Providers refuse larger images once a request carries many of them (Anthropic:
-    // 2000 px per side beyond 20 images), which would fail every later turn.
-    limits: { minimum: 256, maximum: 2000 },
-    unit: "pixels",
     reloadKind: "hot",
-    fallback: 1200,
   },
   {
     id: "mediaRetention",
     path: "attachments.ttlHours",
-    group: "media",
     schema: { type: "integer", minimum: 1, maximum: 168 },
-    // Any value turns on a recursive sweep of all stored media, received images and
-    // voice notes included; shorter than the longest default turn (48 h) it could
-    // remove media a running or follow-up turn still needs. Unset sweeps nothing but
-    // outgoing staging.
-    limits: { minimum: 48 },
-    unit: "hours",
     reloadKind: "hot",
-    fallback: null,
   },
-]);
+];
 
-const ianaZone = /^[A-Za-z][A-Za-z0-9_+-]{0,30}(?:\/[A-Za-z0-9_+-]{1,30}){0,2}$/;
+export const advancedSettings = Object.freeze(
+  taken.map(({ id, path, schema, reloadKind }) => {
+    const { group, minimum, maximum, unit, format, fallback } = sharedSetting(id);
+    const bounded = minimum !== undefined || maximum !== undefined;
+    return {
+      id,
+      path,
+      group,
+      schema,
+      ...(bounded && { limits: { minimum, maximum } }),
+      ...(unit && { unit }),
+      ...(format && { format }),
+      reloadKind,
+      fallback,
+    };
+  }),
+);
+
 const byPath = new Map(advancedSettings.map((setting) => [setting.path, setting]));
 
 export function advancedSetting(path) {

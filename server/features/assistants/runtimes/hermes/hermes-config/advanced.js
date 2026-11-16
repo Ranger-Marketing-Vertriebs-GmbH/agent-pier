@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { ianaZone } from "../../shared-settings.js";
 import { readHermesConfig } from "./home-merge.js";
 
-// The owner's advanced settings for all agents (advanced-config.js, Agents › Runtime ›
-// Advanced) on a Hermes agent: the ones with a faithful Hermes equivalent, verified
+// How Hermes takes the shared advanced settings (../../shared-settings.js, which are
+// AgentPier's; advanced-config.js, Agents › Runtime › Advanced): the ones with a
+// faithful Hermes equivalent, by the shared id, verified
 // against Hermes v0.22.5 (hermes_cli/config_defaults.py unless named otherwise).
 // docs/hermes-runtime.md lists each setting and why the others stay OpenClaw's.
 //
@@ -44,7 +46,6 @@ import { readHermesConfig } from "./home-merge.js";
 export const hermesAdvancedRuntime = "0.22.5";
 
 const levels = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
-const ianaZone = /^[A-Za-z][A-Za-z0-9_+-]{0,30}(?:\/[A-Za-z0-9_+-]{1,30}){0,2}$/;
 
 // `path`: the config.yaml key, or the process variable (`env`); `reloadKind`: how a
 // running Hermes agent takes a change.
