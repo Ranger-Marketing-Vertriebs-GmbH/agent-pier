@@ -15,6 +15,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { assistantRoutineModel } from "../helpers/assistant-routine-model.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { testPhases } from "../helpers/test-phases.js";
 
 const previousRoot = process.env.AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME;
 const candidateRoot = process.env.AGENTPIER_ASSISTANT_UPDATE_RUNTIME;
@@ -68,7 +69,8 @@ for (const [variant, title] of Object.entries(variants))
   test(
     `native cross-version ${title}`,
     { skip: !previousRoot || !candidateRoot, timeout: 180000 },
-    async () => {
+    async (t) => {
+      const phase = testPhases(t);
       const rejectCandidate = variant === "reject";
       const dataDir = fs.mkdtempSync(
         path.join(os.tmpdir(), "assistant-version-contract-"),
@@ -84,278 +86,286 @@ for (const [variant, title] of Object.entries(variants))
         ledger = new RequestLedger(store.db);
       const model = await assistantRoutineModel();
       let runtime;
-      try {
-        runtime = new RuntimeSupervisor({
-          dataDir,
-          install: async () => readJSON(path.join(runtime.paths.root, "runtime.json")),
-        });
-        const selection = path.join(runtime.paths.root, "runtime.json");
-        writePrivate(selection, previous);
-        const a = store.createAssistant({
-          name: "Version fixture",
-          model: { connectionId: "fixture", modelId: "fixture-model" },
-          capabilities: { memory: true, reminders: true },
-        });
-        const assistants = {
-          store,
-          ledger,
-          runtime,
-          locks: new Map(),
-          maintenance: false,
-          changed() {},
-          admit: (fn) => Promise.resolve().then(fn),
-          requireReady() {
-            assert.ok(runtime.client?.ready);
-          },
-          reconcile: async () => {},
-        };
-        runtime.maintenance = () => assistants.maintenance;
-        runtime.teamConfiguration = async (installed) => ({
-          directory: provisionTeamPlugin({
-            paths: runtime.paths,
-            runtimeVersion: installed.version,
-          }).directory,
-          connection: { url: "http://127.0.0.1:1", token: "fixture" },
-          native: { token: "fixture-webhook" },
-          hostMaxConcurrent: 4,
-          profiles: store.listAssistants(),
-        });
+      // Also when the test times out: node:test starts the next test while a
+      // timed-out body still runs, and its Gateway would compete with the next one.
+      t.after(async () => {
+        try {
+          await runtime?.close();
+        } finally {
+          store.close();
+          await model.close();
+          fs.rmSync(dataDir, { recursive: true, force: true });
+        }
+      });
+      runtime = new RuntimeSupervisor({
+        dataDir,
+        install: async () => readJSON(path.join(runtime.paths.root, "runtime.json")),
+      });
+      const selection = path.join(runtime.paths.root, "runtime.json");
+      writePrivate(selection, previous);
+      const a = store.createAssistant({
+        name: "Version fixture",
+        model: { connectionId: "fixture", modelId: "fixture-model" },
+        capabilities: { memory: true, reminders: true },
+      });
+      const assistants = {
+        store,
+        ledger,
+        runtime,
+        locks: new Map(),
+        maintenance: false,
+        changed() {},
+        admit: (fn) => Promise.resolve().then(fn),
+        requireReady() {
+          assert.ok(runtime.client?.ready);
+        },
+        reconcile: async () => {},
+      };
+      runtime.maintenance = () => assistants.maintenance;
+      runtime.teamConfiguration = async (installed) => ({
+        directory: provisionTeamPlugin({
+          paths: runtime.paths,
+          runtimeVersion: installed.version,
+        }).directory,
+        connection: { url: "http://127.0.0.1:1", token: "fixture" },
+        native: { token: "fixture-webhook" },
+        hostMaxConcurrent: 4,
+        profiles: store.listAssistants(),
+      });
+      phase(`start ${previous.version}`);
+      await runtime.start();
+      phase("apply the configuration");
+      assistants.config = new AssistantConfig({
+        runtime,
+        store,
+        workspaces: runtime.paths.workspaces,
+        models: {
+          resolve: () => ({
+            providerId: "fixture",
+            modelRef: "fixture/fixture-model",
+            provider: {
+              baseUrl: model.url,
+              api: "openai-completions",
+              apiKey: "fixture-key",
+              models: [
+                {
+                  id: "fixture-model",
+                  name: "Fixture",
+                  contextWindow: 32768,
+                  maxTokens: 4096,
+                },
+              ],
+            },
+            release() {},
+          }),
+        },
+      });
+      assistants.config.nativeReady = () => true;
+      await assistants.config.apply(a.id);
+      const memory = new NativeMemory(assistants),
+        note = await memory.read(a.id, "MEMORY.md");
+      await memory.write(a.id, {
+        name: "MEMORY.md",
+        content: "CROSS_VERSION_NOTE_4729",
+        ...(note.missing ? { expectedMissing: true } : { expectedHash: note.hash }),
+      });
+      phase("model turn");
+      const chat = await createGatewaySession(runtime.client, {
+        agentId: a.runtimeAgentId,
+      });
+      const conversation = store.saveConversation({
+        assistantId: a.id,
+        runtimeSessionKey: chat.key,
+      });
+      const input = {
+        clientRequestId: "cross-version-turn",
+        text: "CROSS_VERSION_HISTORY_4729",
+      };
+      const request = ledger.accept(conversation.id, input),
+        attempt = ledger.recordAttempt(request.id);
+      const sent = await runtime.client.call("sessions.send", {
+        key: chat.key,
+        message: input.text,
+        idempotencyKey: attempt.id,
+      });
+      const result = await runtime.client.call(
+        "agent.wait",
+        { runId: sent.runId, timeoutMs: 45000 },
+        { timeoutMs: 50000 },
+      );
+      assert.equal(result.status, "ok");
+      ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
+      ledger.transition(attempt.id, "completed");
+      const job = await runtime.client.call("cron.add", {
+        name: "Version schedule",
+        enabled: false,
+        deleteAfterRun: false,
+        schedule: { kind: "cron", expr: "0 9 * * *", tz: "Europe/Berlin" },
+        sessionTarget: "main",
+        wakeMode: "next-heartbeat",
+        payload: { kind: "systemEvent", text: "CROSS_VERSION_SCHEDULE" },
+      });
+      if (variant === "legacyRoster") {
+        phase("restart with a legacy roster");
+        // An older install persisted the roster as an `agents.list` array with a
+        // `default` marker and without explicit ownership.
+        await runtime.stop();
+        const c = readJSON(runtime.paths.config);
+        c.agents.list = Object.entries(c.agents.entries).map(([id, e]) => ({
+          id,
+          ...e,
+          ...(id === "main" && { default: true }),
+        }));
+        delete c.agents.entries;
+        delete c.agents.ownership;
+        delete c.agents.defaults?.systemAgent;
+        delete c.talk;
+        writePrivate(runtime.paths.config, c);
         await runtime.start();
-        assistants.config = new AssistantConfig({
-          runtime,
-          store,
-          workspaces: runtime.paths.workspaces,
-          models: {
-            resolve: () => ({
-              providerId: "fixture",
-              modelRef: "fixture/fixture-model",
-              provider: {
-                baseUrl: model.url,
-                api: "openai-completions",
-                apiKey: "fixture-key",
-                models: [
-                  {
-                    id: "fixture-model",
-                    name: "Fixture",
-                    contextWindow: 32768,
-                    maxTokens: 4096,
-                  },
-                ],
-              },
-              release() {},
-            }),
-          },
-        });
-        assistants.config.nativeReady = () => true;
-        await assistants.config.apply(a.id);
-        const memory = new NativeMemory(assistants),
-          note = await memory.read(a.id, "MEMORY.md");
-        await memory.write(a.id, {
-          name: "MEMORY.md",
-          content: "CROSS_VERSION_NOTE_4729",
-          ...(note.missing ? { expectedMissing: true } : { expectedHash: note.hash }),
-        });
-        const chat = await createGatewaySession(runtime.client, {
-          agentId: a.runtimeAgentId,
-        });
-        const conversation = store.saveConversation({
-          assistantId: a.id,
-          runtimeSessionKey: chat.key,
-        });
-        const input = {
-          clientRequestId: "cross-version-turn",
-          text: "CROSS_VERSION_HISTORY_4729",
-        };
-        const request = ledger.accept(conversation.id, input),
-          attempt = ledger.recordAttempt(request.id);
-        const sent = await runtime.client.call("sessions.send", {
-          key: chat.key,
-          message: input.text,
-          idempotencyKey: attempt.id,
-        });
-        const result = await runtime.client.call(
-          "agent.wait",
-          { runId: sent.runId, timeoutMs: 45000 },
-          { timeoutMs: 50000 },
-        );
-        assert.equal(result.status, "ok");
-        ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
-        ledger.transition(attempt.id, "completed");
-        const job = await runtime.client.call("cron.add", {
-          name: "Version schedule",
-          enabled: false,
-          deleteAfterRun: false,
-          schedule: { kind: "cron", expr: "0 9 * * *", tz: "Europe/Berlin" },
-          sessionTarget: "main",
-          wakeMode: "next-heartbeat",
-          payload: { kind: "systemEvent", text: "CROSS_VERSION_SCHEDULE" },
-        });
-        if (variant === "legacyRoster") {
-          // An older install persisted the roster as an `agents.list` array with a
-          // `default` marker and without explicit ownership.
-          await runtime.stop();
-          const c = readJSON(runtime.paths.config);
-          c.agents.list = Object.entries(c.agents.entries).map(([id, e]) => ({
-            id,
-            ...e,
-            ...(id === "main" && { default: true }),
-          }));
-          delete c.agents.entries;
-          delete c.agents.ownership;
-          delete c.agents.defaults?.systemAgent;
-          delete c.talk;
-          writePrivate(runtime.paths.config, c);
-          await runtime.start();
-        }
-        const callsBefore = model.requests.length;
-        const services = {
-          assistants,
-          assistantRuntime: runtime,
-          assistantChannels: {
-            pause: async () => {},
-            resume() {},
-            store: { list: () => [] },
-          },
-          assistantReminders: {
-            webhook: { jobs: new Set() },
-            hasRunning: async () => false,
-          },
-        };
-        const maintenance = new AssistantMaintenance(services),
-          validate = maintenance.validate.bind(maintenance);
-        let candidateObserved = false;
-        maintenance.validate = async () => {
-          await validate();
-          if (runtime.status().version === candidate.version) {
-            candidateObserved = true;
-            if (rejectCandidate) {
-              const current = await runtime.client.call("agents.files.get", {
-                agentId: a.runtimeAgentId,
-                name: "MEMORY.md",
-              });
-              await runtime.client.call("agents.files.set", {
-                agentId: a.runtimeAgentId,
-                name: "MEMORY.md",
-                content: "CANDIDATE_MUTATION",
-                expectedHash: current.file.hash,
-              });
-              throw Error("Injected candidate validation failure");
-            }
+      }
+      const callsBefore = model.requests.length;
+      const services = {
+        assistants,
+        assistantRuntime: runtime,
+        assistantChannels: {
+          pause: async () => {},
+          resume() {},
+          store: { list: () => [] },
+        },
+        assistantReminders: {
+          webhook: { jobs: new Set() },
+          hasRunning: async () => false,
+        },
+      };
+      const maintenance = new AssistantMaintenance(services),
+        validate = maintenance.validate.bind(maintenance);
+      let candidateObserved = false;
+      maintenance.validate = async () => {
+        await validate();
+        if (runtime.status().version === candidate.version) {
+          candidateObserved = true;
+          if (rejectCandidate) {
+            const current = await runtime.client.call("agents.files.get", {
+              agentId: a.runtimeAgentId,
+              name: "MEMORY.md",
+            });
+            await runtime.client.call("agents.files.set", {
+              agentId: a.runtimeAgentId,
+              name: "MEMORY.md",
+              content: "CANDIDATE_MUTATION",
+              expectedHash: current.file.hash,
+            });
+            throw Error("Injected candidate validation failure");
           }
-        };
-        const updates = new RuntimeUpdates({
-          dataDir,
-          runtime,
-          maintenance,
-          stage: async () => candidate,
-        });
-        await updates.stage();
-        assert.equal(runtime.status().version, previous.version);
-        const previousSchemas = schemas(runtime.paths);
-        if (rejectCandidate)
-          await assert.rejects(updates.activate(), { code: "UPDATE_ROLLED_BACK" });
-        else await updates.activate();
-        assert.equal(candidateObserved, true);
-        assert.equal(
-          updates.status().phase,
-          rejectCandidate ? "rolled_back" : "complete",
+        }
+      };
+      const updates = new RuntimeUpdates({
+        dataDir,
+        runtime,
+        maintenance,
+        stage: async () => candidate,
+      });
+      phase("stage");
+      await updates.stage();
+      assert.equal(runtime.status().version, previous.version);
+      const previousSchemas = schemas(runtime.paths);
+      phase(`activate ${candidate.version}`);
+      if (rejectCandidate)
+        await assert.rejects(updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+      else await updates.activate();
+      assert.equal(candidateObserved, true);
+      assert.equal(updates.status().phase, rejectCandidate ? "rolled_back" : "complete");
+      const expected = rejectCandidate ? previous : candidate;
+      assert.equal(runtime.status().version, expected.version);
+      assert.equal(readJSON(selection).version, expected.version);
+      assert.equal(assistants.maintenance, false);
+      phase("restart");
+      await runtime.restart();
+      phase("check the retained state");
+      assert.equal(runtime.status().version, expected.version);
+      const restored = await runtime.client.call("agents.files.get", {
+        agentId: a.runtimeAgentId,
+        name: "MEMORY.md",
+      });
+      assert.equal(restored.file.content, "CROSS_VERSION_NOTE_4729");
+      const jobs = await runtime.client.call("cron.list", {
+        includeDisabled: true,
+        limit: 200,
+      });
+      const retained = jobs.jobs.find((j) => j.id === job.id);
+      assert.equal(retained.enabled, false);
+      assert.equal(retained.schedule.tz, "Europe/Berlin");
+      const history = await runtime.client.call("chat.history", {
+        sessionKey: chat.key,
+        limit: 50,
+      });
+      assert.ok(JSON.stringify(history.messages).includes(input.text));
+      assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
+      // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
+      // (one-way: 2026.10.3 refuses it), 2026.11.2 to 27 (one-way: 2026.10.9
+      // refuses it), and a committed activation must have done so.
+      if (!rejectCandidate && !schema24Runtimes.includes(candidate.version)) {
+        const files = agentDatabases(runtime.paths);
+        assert.ok(
+          files.some((file) =>
+            file.includes(`${path.sep}${a.runtimeAgentId}${path.sep}`),
+          ),
+          `the fixture agent's database is among ${files}`,
         );
-        const expected = rejectCandidate ? previous : candidate;
-        assert.equal(runtime.status().version, expected.version);
-        assert.equal(readJSON(selection).version, expected.version);
-        assert.equal(assistants.maintenance, false);
-        await runtime.restart();
-        assert.equal(runtime.status().version, expected.version);
-        const restored = await runtime.client.call("agents.files.get", {
-          agentId: a.runtimeAgentId,
-          name: "MEMORY.md",
-        });
-        assert.equal(restored.file.content, "CROSS_VERSION_NOTE_4729");
-        const jobs = await runtime.client.call("cron.list", {
-          includeDisabled: true,
-          limit: 200,
-        });
-        const retained = jobs.jobs.find((j) => j.id === job.id);
-        assert.equal(retained.enabled, false);
-        assert.equal(retained.schedule.tz, "Europe/Berlin");
-        const history = await runtime.client.call("chat.history", {
-          sessionKey: chat.key,
-          limit: 50,
-        });
-        assert.ok(JSON.stringify(history.messages).includes(input.text));
-        assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
-        // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
-        // (one-way: 2026.10.3 refuses it), 2026.11.2 to 27 (one-way: 2026.10.9
-        // refuses it), and a committed activation must have done so.
-        if (!rejectCandidate && !schema24Runtimes.includes(candidate.version)) {
-          const files = agentDatabases(runtime.paths);
-          assert.ok(
-            files.some((file) =>
-              file.includes(`${path.sep}${a.runtimeAgentId}${path.sep}`),
-            ),
-            `the fixture agent's database is among ${files}`,
-          );
-          for (const file of files) {
-            const db = new DatabaseSync(file, { readOnly: true });
-            try {
-              assert.equal(
-                db.prepare("PRAGMA user_version").get().user_version,
-                agentSchema(candidate.version),
-                file,
-              );
-            } finally {
-              db.close();
-            }
-            // Doctor's migration keeps them private and leaves no plain copies.
-            for (const copy of [file, `${file}-wal`, `${file}-shm`])
-              if (fs.existsSync(copy))
-                assert.equal(fs.statSync(copy).mode & 0o077, 0, copy);
-            const folder = fs.readdirSync(path.dirname(file));
-            assert.equal(folder.filter((name) => name.endsWith(".bak")).length, 0);
+        for (const file of files) {
+          const db = new DatabaseSync(file, { readOnly: true });
+          try {
+            assert.equal(
+              db.prepare("PRAGMA user_version").get().user_version,
+              agentSchema(candidate.version),
+              file,
+            );
+          } finally {
+            db.close();
           }
-          assert.equal(fs.existsSync(`${runtime.paths.state}.update-captures`), false);
+          // Doctor's migration keeps them private and leaves no plain copies.
+          for (const copy of [file, `${file}-wal`, `${file}-shm`])
+            if (fs.existsSync(copy))
+              assert.equal(fs.statSync(copy).mode & 0o077, 0, copy);
+          const folder = fs.readdirSync(path.dirname(file));
+          assert.equal(folder.filter((name) => name.endsWith(".bak")).length, 0);
         }
-        if (rejectCandidate) {
-          // The rollback after Doctor's run restores the previous schema (24 on
-          // 2026.10.3) and leaves none of Doctor's copies behind.
-          assert.deepEqual(schemas(runtime.paths), previousSchemas);
-          if (previous.version === "2026.10.3")
-            for (const version of Object.values(previousSchemas))
-              assert.equal(version, 24);
-          assert.deepEqual(doctorLeftovers(runtime.paths), []);
+        assert.equal(fs.existsSync(`${runtime.paths.state}.update-captures`), false);
+      }
+      if (rejectCandidate) {
+        // The rollback after Doctor's run restores the previous schema (24 on
+        // 2026.10.3) and leaves none of Doctor's copies behind.
+        assert.deepEqual(schemas(runtime.paths), previousSchemas);
+        if (previous.version === "2026.10.3")
+          for (const version of Object.values(previousSchemas)) assert.equal(version, 24);
+        assert.deepEqual(doctorLeftovers(runtime.paths), []);
+      }
+      // Doctor never sees the provider key; openclaw.json keeps it either way.
+      assert.equal(
+        readJSON(runtime.paths.config).models.providers.fixture.apiKey,
+        "fixture-key",
+      );
+      assert.equal(ledger.getAttempt(attempt.id).state, "completed");
+      assert.equal(ledger.requests(conversation.id).length, 1);
+      assert.equal(
+        model.requests.length,
+        callsBefore,
+        "upgrade, rollback and restart must not replay model turns",
+      );
+      if (variant === "legacyRoster") {
+        const config = readJSON(runtime.paths.config);
+        assert.equal(config.agents.list, undefined);
+        for (const id of ["main", a.runtimeAgentId]) {
+          assert.ok(config.agents.entries[id], `roster keeps ${id}`);
+          assert.equal(config.agents.entries[id].default, undefined);
         }
-        // Doctor never sees the provider key; openclaw.json keeps it either way.
-        assert.equal(
-          readJSON(runtime.paths.config).models.providers.fixture.apiKey,
-          "fixture-key",
-        );
-        assert.equal(ledger.getAttempt(attempt.id).state, "completed");
-        assert.equal(ledger.requests(conversation.id).length, 1);
-        assert.equal(
-          model.requests.length,
-          callsBefore,
-          "upgrade, rollback and restart must not replay model turns",
-        );
-        if (variant === "legacyRoster") {
-          const config = readJSON(runtime.paths.config);
-          assert.equal(config.agents.list, undefined);
-          for (const id of ["main", a.runtimeAgentId]) {
-            assert.ok(config.agents.entries[id], `roster keeps ${id}`);
-            assert.equal(config.agents.entries[id].default, undefined);
-          }
-          assert.equal(config.agents.ownership, "explicit");
-          assert.equal(config.agents.defaults.systemAgent.agentId, "main");
-          assert.equal(config.talk.agentId, "main");
-          const listed = await runtime.client.call("agents.list", {});
-          const ids = (listed.agents || []).map((agent) => agent.id);
-          assert.ok(ids.includes("main"), `agents.list returns main: ${ids}`);
-          assert.ok(ids.includes(a.runtimeAgentId), `agents.list returns ${ids}`);
-        }
-      } finally {
-        await runtime?.close();
-        store.close();
-        await model.close();
-        fs.rmSync(dataDir, { recursive: true, force: true });
+        assert.equal(config.agents.ownership, "explicit");
+        assert.equal(config.agents.defaults.systemAgent.agentId, "main");
+        assert.equal(config.talk.agentId, "main");
+        const listed = await runtime.client.call("agents.list", {});
+        const ids = (listed.agents || []).map((agent) => agent.id);
+        assert.ok(ids.includes("main"), `agents.list returns main: ${ids}`);
+        assert.ok(ids.includes(a.runtimeAgentId), `agents.list returns ${ids}`);
       }
     },
   );
