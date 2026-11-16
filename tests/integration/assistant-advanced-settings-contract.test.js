@@ -130,24 +130,25 @@ test(
       synchronization: {},
     });
     const listed = await advanced.get();
-    assert.equal(listed.gateway.running, true);
-    assert.ok(listed.settings.every((s) => s.available));
+    assert.equal(listed.runtimes[0].running, true);
+    assert.ok(listed.settings.every((s) => s.runtimes[listed.runtimes[0].id].available));
 
     const read = async (target) =>
       valueAt((await runtime.client.call("config.get", {})).config, target);
-    await advanced.save("agents.defaults.timeoutSeconds", 900);
-    await advanced.save("agents.defaults.userTimezone", "Europe/Berlin");
-    await advanced.save("attachments.ttlHours", 72);
+    await advanced.save("runTimeout", 900);
+    await advanced.save("userTimezone", "Europe/Berlin");
+    await advanced.save("mediaRetention", 72);
     assert.equal(await read("agents.defaults.timeoutSeconds"), 900);
     assert.equal(await read("attachments.ttlHours"), 72);
     const saved = await advanced.get();
     assert.equal(
-      saved.settings.find((s) => s.id === "userTimezone").current,
+      saved.settings.find((s) => s.id === "userTimezone").runtimes[saved.runtimes[0].id]
+        .current,
       "Europe/Berlin",
     );
 
     // A null merge removes the path from the running Gateway.
-    await advanced.save("attachments.ttlHours", null);
+    await advanced.save("mediaRetention", null);
     assert.equal(await read("attachments.ttlHours"), undefined);
     t.diagnostic(`attachments after reset=${JSON.stringify(await read("attachments"))}`);
 
@@ -157,7 +158,7 @@ test(
     assert.equal(await read("agents.defaults.timeoutSeconds"), 900);
     assert.equal(await read("agents.defaults.userTimezone"), "Europe/Berlin");
     assert.equal(await read("attachments.ttlHours"), undefined);
-    await advanced.save("agents.defaults.timeoutSeconds", null);
+    await advanced.save("runTimeout", null);
     overrides.remove("agents.defaults.userTimezone");
     await runtime.stop();
     await runtime.start();

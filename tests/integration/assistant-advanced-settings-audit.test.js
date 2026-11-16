@@ -72,16 +72,16 @@ const stopped = { status: () => ({ availability: "disabled", version: null }) };
 test("advanced setting changes reach the audit log with the setting and its values", async (t) => {
   const { put, events } = await app(t, { runtime: stopped });
   for (const [target, value] of [
-    ["agents.defaults.timeoutSeconds", 3600],
-    ["agents.defaults.timeoutSeconds", 7200],
-    ["agents.defaults.thinkingDefault", "high"],
-    ["agents.defaults.userTimezone", "Europe/Berlin"],
-    ["agents.defaults.imageQuality", "balanced"],
-    ["agents.defaults.imageMaxDimensionPx", 1600],
-    ["attachments.ttlHours", 72],
-    ["attachments.ttlHours", null],
+    ["runTimeout", 3600],
+    ["runTimeout", 7200],
+    ["thinkingDefault", "high"],
+    ["userTimezone", "Europe/Berlin"],
+    ["imageQuality", "balanced"],
+    ["imageMaxDimension", 1600],
+    ["mediaRetention", 72],
+    ["mediaRetention", null],
   ]) {
-    const saved = await put({ path: target, value });
+    const saved = await put({ setting: target, value });
     assert.equal(saved.status, 200, JSON.stringify(saved.body));
   }
   const updated = (resourceId, from, to) => ({
@@ -121,7 +121,7 @@ test("a change undone after a failed Gateway restart is audited as rolled back",
   };
   const { put, events } = await app(t, { runtime, synchronization });
   const failed = await put({
-    path: "attachments.ttlHours",
+    setting: "mediaRetention",
     value: 96,
     confirmRestart: true,
   });

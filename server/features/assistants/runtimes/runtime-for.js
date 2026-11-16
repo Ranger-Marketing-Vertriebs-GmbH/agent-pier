@@ -8,10 +8,12 @@ import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 import { sharedAgentAdapter } from "./openclaw/shared-prompts.js";
 import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
+import { openClawAdvanced } from "./openclaw/openclaw-advanced.js";
 import { hermesCompiler } from "./hermes/hermes-compiler.js";
 import { HermesFleet } from "./hermes/hermes-fleet.js";
 import { storedIdOf } from "./hermes/hermes-run-state.js";
 import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
+import { hermesAdvanced } from "./hermes/hermes-advanced.js";
 
 // The runtimes this AgentPier ships, by the id agents record (`agent.runtime`). Each
 // names its product, resolves an agent's adapter behind the host it runs on, and
@@ -21,27 +23,40 @@ import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
 // Hermes fleet attached to that supervisor (attachHermesFleet); its routines run on
 // each agent's gateway cron, their runs in `agent:<agent>:hermes:cron:<job>:<id>`.
 // What each states about itself (its name, its traits) is its descriptor
-// (docs/adr/0007-runtime-descriptor.md).
+// (docs/adr/0007-runtime-descriptor.md). `advanced` makes the port through which its
+// host takes the advanced settings for all agents (advancedRuntimes).
 const registry = Object.freeze({
   [openClawDescriptor.id]: Object.freeze({
     descriptor: openClawDescriptor,
     resolve: (supervisor, agent) => {
-      let adapter = adapters.get(supervisor);
-      if (!adapter)
-        adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
+      const adapter = openClawAdapter(supervisor);
       // An agent shared with users sends no prompt that loads a local image by path.
       return agent?.userAccess?.mode === "shared" ? sharedAgentAdapter(adapter) : adapter;
     },
     compiler: openClawCompiler,
     runOf: cronRunOf,
+    advanced: (supervisor) =>
+      openClawAdvanced(supervisor, () => openClawAdapter(supervisor)),
   }),
   [hermesDescriptor.id]: Object.freeze({
     descriptor: hermesDescriptor,
     resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
     compiler: hermesCompiler,
     runOf: hermesCronRunOf,
+    advanced: (supervisor) =>
+      hermesAdvanced({
+        fleet: () => hermesFleetOf(supervisor),
+        available: () => hermesAvailable(supervisor),
+      }),
   }),
 });
+
+// The one OpenClaw adapter of `supervisor`, made at its first use.
+function openClawAdapter(supervisor) {
+  let adapter = adapters.get(supervisor);
+  if (!adapter) adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
+  return adapter;
+}
 
 /**
  * OpenClaw's own frame (the gateway event hub's `agent` payloads) as a normalized
@@ -241,6 +256,37 @@ export function runtimeDetails(agent, supervisor) {
  */
 export const compilerFor = (agent) =>
   registry[assertRuntime(runtimeIdOf(agent), 409)].compiler;
+
+// The advanced host ports of each supervisor, by runtime id: made once, so what a
+// port remembers of its host (OpenClaw's reload kinds per version) is kept.
+const advancedHosts = new WeakMap();
+
+/**
+ * Every runtime this AgentPier ships as the advanced settings for all agents see it
+ * (advanced-config.js), the default first: `{ id, name, shortName, process,
+ * descriptor, host }`. `process` is its trait `host.process`; `descriptor` states
+ * the advanced fields of its own (runtime-settings.js hostFields); `host` is the port
+ * through which its host behind `supervisor` takes a setting (advanced-config.js
+ * describes the port; openclaw/openclaw-advanced.js, hermes/hermes-advanced.js).
+ */
+export function advancedRuntimes(supervisor) {
+  if (!supervisor || typeof supervisor !== "object")
+    throw new TypeError("advancedRuntimes needs the runtime supervisor.");
+  let hosts = advancedHosts.get(supervisor);
+  if (!hosts) advancedHosts.set(supervisor, (hosts = new Map()));
+  return RUNTIME_IDS.map((id) => {
+    const { descriptor, advanced } = registry[id];
+    if (!hosts.has(id)) hosts.set(id, advanced(supervisor));
+    return Object.freeze({
+      id,
+      name: descriptor.name,
+      shortName: descriptor.shortName,
+      process: descriptor.traits.host.process,
+      descriptor,
+      host: hosts.get(id),
+    });
+  });
+}
 
 /**
  * Every runtime this AgentPier ships as runtimeDetails shows it, the default first:
