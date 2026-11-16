@@ -32,9 +32,7 @@
     min-height: var(--touch-target);
   }
   .background-tasks-group > summary {
-    display: flex;
-    align-items: center;
-    padding-block: 0;
+    padding-block: 13px;
   }
 }
 .subagent-entry {
