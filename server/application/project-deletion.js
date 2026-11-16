@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import { projectDir } from "../lib/config.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 import { auditActor } from "../features/audit/audit-actor.js";
 import { inside } from "../features/projects/deletion-paths.js";
 import { endProcess } from "../features/projects/folder-processes.js";
-import { assertUnchanged } from "../features/projects/project-folder.js";
 import { normalizeProjectPath } from "../features/projects/project-groups.js";
 import { projectDataLeft, removeProjectData } from "./project-data-removal.js";
 import {
@@ -15,7 +15,7 @@ import {
   preflightProbes,
   refusalMessage,
 } from "./project-deletion-preflight.js";
-import { deletionScope, deletionToken } from "./project-deletion-scope.js";
+import { deletionScope, deletionToken, folderKey } from "./project-deletion-scope.js";
 
 const messages = serverMessages.projectDeletion;
 // A failed deletion whose folder and data are gone except the grants of agents that
@@ -26,6 +26,21 @@ const refusal = (message, status, code, extra = {}) =>
   Object.assign(problem(message, status), { code, ...extra });
 const stale = () => refusal(messages.deleteStale, 409, "PROJECT_DELETE_STALE");
 const blocked = () => refusal(messages.deleteBlocked, 409, "PROJECT_DELETE_BLOCKED");
+// After the mark the agents' grants are revoked; an abort does not restore them.
+const abortedBlocked = () =>
+  refusal(messages.abortedBlocked, 409, "PROJECT_DELETE_BLOCKED", {
+    grantsRevoked: true,
+  });
+function aborted(error) {
+  if (error?.code === "PROJECT_DELETE_STALE")
+    return refusal(messages.abortedStale, 409, error.code, { grantsRevoked: true });
+  if (error?.code === "PROJECT_DELETE_BLOCKED") return abortedBlocked();
+  return refusal(messages.aborted, error?.status || 500, "PROJECT_DELETE_ABORTED", {
+    grantsRevoked: true,
+  });
+}
+// One that cannot be stopped stays listed in the report that follows.
+const attempt = (work) => work().catch((error) => log("stop", error));
 const coded = (code) => Object.assign(new Error(code), { code });
 // The re-check after marking reads no Git: unsaved work only warns.
 const skipGit = async () => ({
@@ -34,6 +49,18 @@ const skipGit = async () => ({
   unpushedBranches: null,
   worktreesChecked: true,
 });
+
+/**
+ * The key a deletion of `rawPath` is recorded and queued under: the path with the
+ * links of its parent folders resolved (`/tmp/app` and `/private/tmp/app` on macOS
+ * meet), the folder itself as written, so a link there is refused, not followed.
+ */
+export function deletionKey(rawPath) {
+  const normal = normalizeProjectPath(rawPath);
+  if (!path.isAbsolute(normal) || path.resolve(normal) !== normal || normal === "/")
+    return normal;
+  return path.join(folderKey(path.dirname(normal)), path.basename(normal));
+}
 
 const anyBlocker = (blockers) => Object.values(blockers).some((list) => list.length > 0);
 
@@ -81,7 +108,7 @@ export class ProjectDeletion {
 
   /** The report the delete dialog shows; see preflight(). */
   preflight(rawPath) {
-    return preflight(this.services, rawPath, this.probes);
+    return preflight(this.services, deletionKey(rawPath), this.probes);
   }
 
   /**
@@ -91,7 +118,7 @@ export class ProjectDeletion {
    * same start time. Returns the new report. Nothing is deleted.
    */
   endBlockers({ path: rawPath, token, sessions = false, processes = [] }, _principal) {
-    const key = normalizeProjectPath(rawPath);
+    const key = deletionKey(rawPath);
     return this.#serial(key, async () => {
       this.#refuseRecorded(key);
       const before = await preflight(this.services, key, {
@@ -107,8 +134,11 @@ export class ProjectDeletion {
         if (!ticked.has(item.pid) || ticked.get(item.pid) !== item.startTime) continue;
         if (!item.endable) continue;
         if (item.known?.kind === "session") {
-          await this.#stopSession(item.known.sessionId).catch(() => {});
-          ended.sessionIds.add(item.known.sessionId);
+          const { sessionId } = item.known;
+          await attempt(async () => {
+            await this.#stopSession(sessionId);
+            ended.sessionIds.add(sessionId);
+          });
           continue;
         }
         const result = await this.end(item);
@@ -125,7 +155,7 @@ export class ProjectDeletion {
    * deletion itself continues in the background (settled()).
    */
   start({ path: rawPath, token, name }, principal) {
-    const key = normalizeProjectPath(rawPath);
+    const key = deletionKey(rawPath);
     return this.#serial(key, async () => {
       this.#refuseRecorded(key);
       const scope = await deletionScope(this.services, key);
@@ -155,7 +185,7 @@ export class ProjectDeletion {
         // Nothing was deleted: the folder is no longer being deleted.
         this.records.drop(scope.path);
         this.#changed();
-        throw error;
+        throw aborted(error);
       }
       this.#background(scope.path, principal);
       return { state: "deleting" };
@@ -164,17 +194,17 @@ export class ProjectDeletion {
 
   /** Continues a failed deletion once nothing runs in it. */
   retry(rawPath, principal) {
-    const key = normalizeProjectPath(rawPath);
+    const key = deletionKey(rawPath);
     return this.#serial(key, async () => {
       const record = this.records.get(key);
       if (record?.state !== "failed")
         throw refusal(messages.notFailed, 409, "PROJECT_DELETE_NOT_FAILED");
       this.records.again(key);
       this.#changed();
-      if (anyBlocker(await this.#blockers(record.body))) {
+      if (await this.#stillBlocked(key, record.body)) {
         this.records.fail(key, "PROJECT_DELETE_BLOCKED");
         this.#changed();
-        throw blocked();
+        throw abortedBlocked();
       }
       this.#background(key, principal);
       return { state: "deleting" };
@@ -182,9 +212,10 @@ export class ProjectDeletion {
   }
 
   /**
-   * Finishes the deletions an earlier start left marked, and those that waited for
-   * the agents while they run; one in which a session runs again fails instead.
-   * Failed deletions wait for retry. Never throws.
+   * Finishes, in the background, the deletions an earlier start left marked and those
+   * that waited for the agents while they run; one in which something runs again
+   * fails instead. Failed deletions wait for retry. A folder with queued work (a
+   * deletion just started) is left to it. Never throws.
    */
   async resume() {
     let records;
@@ -197,11 +228,12 @@ export class ProjectDeletion {
       const waited = record.state === "failed" && record.error === AGENTS_OFF;
       if (record.state !== "deleting" && !(waited && this.services.assistantWorkflows))
         continue;
-      await this.#serial(record.path, async () => {
+      if (this.queue.has(record.path)) continue;
+      void this.#serial(record.path, async () => {
         const current = this.records.get(record.path);
         if (!current || (current.state !== "deleting" && current.error !== AGENTS_OFF))
           return;
-        if (anyBlocker(await this.#blockers(current.body))) {
+        if (await this.#stillBlocked(record.path, current.body)) {
           this.records.fail(record.path, "PROJECT_DELETE_BLOCKED");
           this.#changed();
           return;
@@ -214,7 +246,7 @@ export class ProjectDeletion {
 
   /** Waits for the running work of a folder (tests). */
   async settled(rawPath) {
-    const key = normalizeProjectPath(rawPath);
+    const key = deletionKey(rawPath);
     let tail;
     while ((tail = this.queue.get(key))) await tail;
   }
@@ -225,6 +257,7 @@ export class ProjectDeletion {
     const { body } = record;
     try {
       if (!body.folderMissing) await this.#removeFolder(key, body);
+      else if (await exists(key)) throw coded("PROJECT_FOLDER_REAPPEARED");
       await this.removeData(this.services, body, key, principal);
       const left = this.dataLeft(this.services, body, key);
       if (left.length) {
@@ -248,8 +281,9 @@ export class ProjectDeletion {
 
   // Deletes the folder unless it is gone already; only the folder the token named.
   async #removeFolder(key, body) {
+    let now;
     try {
-      await fs.promises.lstat(key);
+      now = await fs.promises.lstat(key, { bigint: true });
     } catch (error) {
       if (["ENOENT", "ENOTDIR"].includes(error?.code)) return;
       throw error;
@@ -260,12 +294,24 @@ export class ProjectDeletion {
       installDir: projectDir,
     });
     if (refused) throw coded("PROJECT_DELETE_REFUSED");
-    try {
-      await assertUnchanged(key, { dev: BigInt(body.dev), ino: BigInt(body.ino) });
-    } catch {
-      throw coded("PROJECT_FOLDER_CHANGED");
-    }
+    const same =
+      now.isDirectory() &&
+      String(now.dev) === String(body.dev) &&
+      String(now.ino) === String(body.ino);
+    if (!same) throw coded("PROJECT_FOLDER_CHANGED");
     await fs.promises.rm(key, { recursive: true, force: false, maxRetries: 2 });
+  }
+
+  // Running work, and for a folder that still exists any process using it; a scan
+  // that does not finish counts as a process.
+  async #stillBlocked(key, body) {
+    if (anyBlocker(await this.#blockers(body))) return true;
+    // A folder that cannot be read is scanned as if it were there.
+    if (body.folderMissing || !(await exists(key).catch(() => true))) return false;
+    const scan = await this.probes
+      .scan([key])
+      .catch(() => ({ status: "failed", processes: [] }));
+    return scan.status !== "ok" || scan.processes.length > 0;
   }
 
   #body(scope, report) {
@@ -330,8 +376,6 @@ export class ProjectDeletion {
 
   async #stopWork(blockers, ended) {
     const { pipelines, pipelineQueue, craftRebuilds } = this.services;
-    // One that cannot be stopped stays listed in the report that follows.
-    const attempt = (work) => work().catch((error) => log("stop", error));
     for (const session of blockers.sessions)
       await attempt(async () => {
         await this.#stopSession(session.id);
@@ -357,9 +401,17 @@ export class ProjectDeletion {
 
   // A folder whose deletion, or that of a folder around or inside it, is recorded.
   #refuseRecorded(key) {
+    // A missing folder that came back: a new start deletes it with its contents.
+    const replaceable = (record) =>
+      record.path === key &&
+      record.state === "failed" &&
+      record.error === "PROJECT_FOLDER_REAPPEARED";
     const recorded = this.records
       .list()
-      .some((record) => inside(record.path, key) || inside(key, record.path));
+      .some(
+        (record) =>
+          !replaceable(record) && (inside(record.path, key) || inside(key, record.path)),
+      );
     if (recorded) throw refusal(messages.projectDeleting, 409, "PROJECT_DELETING");
   }
 
@@ -402,6 +454,16 @@ export class ProjectDeletion {
       if (this.queue.get(key) === tail) this.queue.delete(key);
     });
     return next;
+  }
+}
+
+async function exists(target) {
+  try {
+    await fs.promises.lstat(target);
+    return true;
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR"].includes(error?.code)) return false;
+    throw error;
   }
 }
 

@@ -227,7 +227,8 @@ export async function createApplication(config) {
       `AgentPier could not clean up the project list; it retries next start: ${error?.code || error?.message || "unknown error"}`,
     ),
   );
-  // Deletions an earlier start left unfinished; never throws.
+  // Deletions an earlier start left unfinished continue in the background, so the
+  // server starts without waiting for them; never throws.
   await services.projectDeletion.resume();
   services.operationsEvents = new OperationsEvents(services);
   // Failed release jobs notify the owner once (release-events.js).

@@ -10,6 +10,12 @@ export const projectDeletion = {
     "Something still runs in this project or uses its folder. Stop it and check again.",
   folderReappeared:
     "The folder exists again. Check again to delete it together with its contents.",
+  abortedBlocked:
+    "Something still runs in this project or uses its folder, so nothing was deleted. Agents' access to this project was already removed; grant it again if you keep the project.",
+  abortedStale:
+    "The folder or the projects in it changed, so nothing was deleted. Agents' access to this project was already removed; grant it again if you keep the project.",
+  aborted:
+    "The deletion stopped before anything was deleted. Agents' access to this project was already removed; grant it again if you keep the project.",
   notFailed: "Only a deletion that failed can be retried.",
   refusals: {
     root: "The root of the file system cannot be deleted.",

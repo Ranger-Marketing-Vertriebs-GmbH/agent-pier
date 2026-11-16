@@ -10,6 +10,12 @@ export const projectDeletion = {
     "In diesem Projekt läuft noch etwas oder nutzt seinen Ordner. Beende es und prüfe erneut.",
   folderReappeared:
     "Der Ordner ist wieder da. Prüfe erneut, um ihn samt Inhalt zu löschen.",
+  abortedBlocked:
+    "In diesem Projekt läuft noch etwas oder nutzt seinen Ordner, daher wurde nichts gelöscht. Der Zugriff der Agenten auf dieses Projekt wurde bereits entfernt; erteile ihn neu, wenn du das Projekt behältst.",
+  abortedStale:
+    "Der Ordner oder die Projekte darin haben sich geändert, daher wurde nichts gelöscht. Der Zugriff der Agenten auf dieses Projekt wurde bereits entfernt; erteile ihn neu, wenn du das Projekt behältst.",
+  aborted:
+    "Das Löschen wurde abgebrochen, bevor etwas gelöscht wurde. Der Zugriff der Agenten auf dieses Projekt wurde bereits entfernt; erteile ihn neu, wenn du das Projekt behältst.",
   notFailed: "Nur ein fehlgeschlagenes Löschen kann wiederholt werden.",
   refusals: {
     root: "Die Wurzel des Dateisystems kann nicht gelöscht werden.",
