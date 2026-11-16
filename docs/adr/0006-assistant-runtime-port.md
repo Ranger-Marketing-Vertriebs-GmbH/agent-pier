@@ -61,7 +61,10 @@ one OpenClaw and one Hermes implementation:
 
 Every port also exposes `capabilities()`. A capability a runtime lacks is shown to the
 owner with the reason, never silently hidden, and the backend refuses the operation with
-a translated message.
+a translated message. [ADR 0007](0007-runtime-descriptor.md) refines this: how a
+runtime behaves within a capability is a trait it states in its descriptor, carried
+beside the capability, and `everyCommandApproval` became the trait
+`approvals.shellLevels`.
 
 Adapters live in `server/features/assistants/runtimes/openclaw/` and
 `server/features/assistants/runtimes/hermes/`. `gateway-client.js`, `gateway-protocol.js`,
