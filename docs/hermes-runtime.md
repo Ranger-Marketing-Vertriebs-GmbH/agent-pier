@@ -541,11 +541,17 @@ while no team bridge runs (`teams`).
 
 ### Advanced settings
 
-The owner's [advanced settings for all agents](agents.md#turn-agents-on) reach Hermes
-agents where Hermes v0.22.5 has a faithful equivalent (`hermes-config/advanced.js`).
-They are stored once, with OpenClaw's overrides; while at least one Hermes agent
+The owner's [advanced settings for all agents](agents.md#turn-agents-on) are
+AgentPier's (`runtimes/shared-settings.js`): each runtime states which of them it
+takes and how ([ADR 0007](adr/0007-runtime-descriptor.md), decision 5). Hermes takes
+the ones Hermes v0.22.5 has a faithful equivalent of, by the shared setting's id
+(`hermes-config/advanced.js`): its own key, the translation of the value, and whether
+a running agent takes a change live or restarts. They are stored once, in the store
+OpenClaw's overrides always used. While Hermes is on and at least one Hermes agent
 exists, the page marks the others **OpenClaw only** and Time zone **Restarts Hermes
-agents**.
+agents**; both texts take the runtimes' names from the server, so the page itself
+names no runtime. Hermes describes no advanced setting of its own yet; one would
+show as a row under **Hermes Agent** on the same page.
 
 | Setting              | Hermes                   | Notes                                                                                                                                                                                                                                                                                                                                                                                    |
 | -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

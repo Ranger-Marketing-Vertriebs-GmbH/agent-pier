@@ -2,9 +2,9 @@
 
 ---
 
-Status: accepted; steps 1 (traits), 2 (the runtime list with install state) and 3
-(slots and built surfaces) implemented. Described surfaces, per-agent options and the
-server-side moves follow.
+Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
+(slots and built surfaces) and 4 (described surfaces, advanced settings per runtime)
+implemented. Per-agent options and the server-side moves follow.
 
 Date: 2026-11-16
 
@@ -37,8 +37,8 @@ device nodes).
 ### 1. Each runtime has a descriptor
 
 `server/features/assistants/runtimes/<id>/descriptor.js` states what the runtime says
-about itself: its id, its product name, its traits and its surfaces
-(`defineRuntimeDescriptor`).
+about itself: its id, its product name (and `shortName`, what its agents go by in a
+sentence: "Hermes agents"), its traits and its surfaces (`defineRuntimeDescriptor`).
 The registry of `runtime-for.js` is built from the descriptors.
 `runtime-descriptors.js` holds them without importing an adapter, so any module may
 read one.
@@ -92,8 +92,8 @@ is either _described_ (fields AgentPier renders, validates, stores and hands to 
 runtime's compiler) or _built_ (a component in the runtime's web module). Per-agent
 options of one runtime are stored in the agent's profile under `runtimeOptions`. An
 option both runtimes have is a field of AgentPier's own agent model, mapped by each
-compiler. Built surfaces are implemented (decision 4); described surfaces and
-per-agent options are not yet.
+compiler. Built surfaces (decision 4) and described surfaces for a runtime's
+advanced settings (decision 5) are implemented; per-agent options are not yet.
 
 ### 3. No runtime ids outside the runtime modules
 
@@ -118,11 +118,12 @@ go with step 5.
 
 A **slot** is a named place on a page AgentPier owns. AgentPier owns the list
 (`RUNTIME_SLOTS`, `runtimes/runtime-surfaces.js`, exported from the port) and adds a
-slot with the first surface that needs it. Today there is one: `hub.runtime`, a group
-of Agents › Runtime.
+slot with the first surface that needs it. Today there are two: `hub.runtime`, a
+group of Agents › Runtime, and `hub.runtime.advanced`, the runtime's own rows in
+Agents › Runtime › Advanced (decision 5).
 
 A descriptor states its surfaces as `surfaces: [{ id, slot, kind, shows }]`. `kind`
-is `built` (`described` comes with step 4 and is refused until then). `shows` says
+is `built` or `described` (decision 5). `shows` says
 when the surface is on screen: `whileEnabled` (the default) while a new agent may run
 on the runtime, the list entry's `ready`; `always` also before, as the install group
 of an optional runtime must. A missing or repeated id and an unknown slot, kind,
@@ -159,6 +160,65 @@ without their components in `runtimes/search.js`, because the search index loads
 before any runtime UI and Node's tests load no JSX; the same test keeps both lists
 equal. Users never see Agents › Runtime, so their search holds no surface.
 
+### 5. Described surfaces and the advanced settings
+
+A **described** surface is a list of fields instead of a component:
+`{ id, slot, kind: "described", scope, fields }`, each field `{ id, type: "toggle" |
+"select" | "number" | "text", options?, min?, max?, step?, unit?, default, apply:
+"live" | "nextTurn" | "restart" }`. `scope: "host"` is the runtime's advanced settings
+for all its agents, at the slot `hub.runtime.advanced`. An unknown type, a select
+without options, bounds on anything but a number, a default the field itself refuses
+and a field id used twice in one runtime fail when the module loads. AgentPier
+renders the fields with the UI guide's rows (`ToggleRow`, `SelectRow`, `NumberRow`,
+`TextRow`), validates a write against the same description and stores it. Labels and
+hints never come from the server: the runtime's web module registers them from its
+catalog namespace (`web/features/assistants/runtimes/fields.js`), and a unit test
+fails for a shipped descriptor's field without a label or a hint in either language.
+No shipped runtime describes a field yet; a runtime only tests know covers the
+mechanism.
+
+The advanced settings for all agents (Agents › Runtime › Advanced) are of two kinds:
+
+- A **shared** setting is AgentPier's: id, group, type, options, range, unit and
+  default are defined once, in `runtimes/shared-settings.js`, which names no runtime.
+  A runtime takes it when its compiler's `advancedSettings` names the id, with the
+  runtime's own key as `path` (an `openclaw.json` path, a Hermes `config.yaml` key
+  or process variable), the translation of the value (Hermes: "off" is "none", no
+  "adaptive") and how a running host takes a change as `reloadKind` (`hot`, `none`,
+  `restart`). Each list is approved for one runtime version.
+- A runtime's **own** setting is a described field of its descriptor.
+
+`advanced-config.js` names no runtime. It iterates the registry
+(`runtime-for.js` `advancedRuntimes`), where each runtime brings a host port
+(`openclaw/openclaw-advanced.js`, `hermes/hermes-advanced.js`): its state (enabled,
+running, version, whether that version is approved), optionally what the running host
+answers at read time (OpenClaw reads each path's reload kind and its value from the
+Gateway, once per version), and what a save does. A save of a shared setting runs
+through each taking runtime that writes its host itself (OpenClaw: a live patch, or a
+confirmed restart that undoes the stored value when it fails) and then tells every
+taking runtime (Hermes applies its agents). A save of a runtime's own setting goes to
+that runtime's port (`storeOwn`), which makes the host take it as the field's `apply`
+says; a `restart` field asks with the confirmation the shared settings use.
+
+`GET /api/assistant-advanced-settings` answers `{ runtimes, settings }`: per runtime
+`{ id, name, shortName, process, enabled, running, version, qualified, agents, own }`
+(`own`: its described fields with their stored value, null while the default
+applies), and per shared setting its description, the stored `override` and
+`runtimes: { [id]: { apply, available, current } }` for each runtime that takes it.
+`PUT` takes `{ setting, value }` for a shared setting or `{ runtime, field, value }`
+for a runtime's own, each with `confirmRestart`. The page renders from that answer:
+"{name} only" and "Restarts {name} agents" take the runtimes' short names and show
+while a further runtime is on and has agents, as before.
+
+Storage: the shared settings stay in the override store as they were
+(`openclaw_overrides`, keyed by OpenClaw's path), so no row moves and an older
+AgentPier reads it unchanged. A runtime's own settings go to a new table beside it,
+`runtime_settings`, keyed by runtime id and field id, which an older AgentPier never
+reads. A stored value whose field the descriptor no longer names, or no longer
+accepts, is ignored. The runtime's compiler receives its own values by field id,
+stored or default, beside the desired state (`runtime-settings.js` `ownSettings`); the
+adapter that describes the first field passes them into its compile.
+
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
@@ -166,7 +226,7 @@ equal. Users never see Agents › Runtime, so their search holds no surface.
    wizard's runtime chooser reads it. Done.
 3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's;
    its search entry. Done.
-4. Described surfaces; advanced settings per runtime.
+4. Described surfaces; advanced settings per runtime. Done.
 5. Server: port methods for memory; Hermes's own services move into its adapter.
 6. Per-agent options, with "Learns its own skills" as the first shared option.
 7. Mixture of Agents on Hermes; the memory wiki on OpenClaw.
