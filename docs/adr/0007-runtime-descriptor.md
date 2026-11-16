@@ -4,7 +4,8 @@
 
 Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
 (slots and built surfaces) and 4 (described surfaces, advanced settings per runtime)
-implemented. Per-agent options and the server-side moves follow.
+implemented; of step 5 the server readers (decision 6). Hermes's own services and
+per-agent options follow.
 
 Date: 2026-11-16
 
@@ -232,6 +233,44 @@ a setting of its own never restarts the agent service. The shared settings are l
 and saved only while the default runtime, whose path keys the store, offers advanced
 settings.
 
+### 6. Server code outside the adapter asks traits and port methods
+
+A comparison with a runtime id in server feature code is one of three things, and
+each has its replacement:
+
+- It **picks behaviour** (does this agent keep notes under `memory/`, does it run on
+  a process set of its own): the code reads a trait, `traitOf(agent, feature, trait)`.
+- It **picks an implementation** (what an entry of a memory file is, how one is
+  removed or appended, which limit a file has): both adapters implement a port
+  method. For memory that is `agentFiles.memory` (`runtimes/memory-format.js`,
+  `openclaw/openclaw-memory.js`, `hermes/hermes-memory.js`): `entries(content)`,
+  `without(content, texts)`, `appended(content, text)`, `limit(name)`,
+  `chars(content)` and `pinMarker`. It is pure, so `memoryFor(agent)`
+  (`runtime-for.js`) answers the same object without a host, as `compilerFor` does
+  for the compiler; a runtime this AgentPier lacks answers the default runtime's
+  format, as its traits answer the defaults. Its contract is pinned for every adapter
+  in `tests/helpers/runtime-port-memory-contract.js`.
+- It **carries a runtime id through feature code** as a parameter: the code carries
+  the agent, or the trait value and what the format states, instead.
+
+Moved so far, each off the rule's allowlist:
+
+| File                                                                     | Was                                                 | Is                                                                     |
+| ------------------------------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------- |
+| `memory-entries.js`                                                      | parsed both formats by runtime id                   | `memoryFor(agent).entries` / `.without`                                |
+| `memory-archive.js`                                                      | notes allowed, entry appended, limit checked by id  | trait `agentFiles.memoryFormat`; `memory.appended`, `.limit`, `.chars` |
+| `memory-review.js`, `memory-review-prompt.js`, `memory-review-answer.js` | a `runtime` parameter, root files only by id        | the agent as parameter; trait `agentFiles.memoryFormat`                |
+| `native-memory.js`                                                       | day notes and a file's `limit` by id                | trait `agentFiles.memoryFormat`; `memory.limit`                        |
+| `assistant-bootstrap.js`, `own-process-guidance.js`                      | `memoryKind: "hermes"`                              | `memoryFormat` (the trait's value) and `pinMarker` (the format's)      |
+| `assistant-maintenance.js`                                               | sessions of the runtime with the id `openclaw`      | sessions of the runtime under maintenance (`runtimeFor(null, …).id`)   |
+| `agent-browsers.js`                                                      | the key `hermes` of a browser AgentPier runs itself | the key `own`                                                          |
+| `server/application/assistants.js`                                       | starts the fleet when an agent's runtime is Hermes  | when an agent's trait `host.process` is `perAgent`                     |
+
+Left for the second half: the Hermes service modules beside the adapter
+(`hermes-*.js`, `hermes-wiring.js`, the Hermes routes), the helpers `ownProcess`,
+`hermesFleetOf` and `hermesAvailable`, and the re-exports of Hermes's memory parsing
+from `runtime-for.js`, which only the nightly dream (`hermes-dream*.js`) still reads.
+
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
@@ -240,7 +279,8 @@ settings.
 3. Slots and built surfaces; the Hermes group of the Runtime tab becomes Hermes's;
    its search entry. Done.
 4. Described surfaces; advanced settings per runtime. Done.
-5. Server: port methods for memory; Hermes's own services move into its adapter.
+5. Server: port methods for memory and the readers of a runtime id (done); Hermes's
+   own services move into its adapter.
 6. Per-agent options, with "Learns its own skills" as the first shared option.
 7. Mixture of Agents on Hermes; the memory wiki on OpenClaw.
 

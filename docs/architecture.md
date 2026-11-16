@@ -329,7 +329,10 @@ payload alongside: reply text, tool steps (`run-steps.js`) and approval details 
 still read from that payload. The `agents` sub-port lists, creates, updates and
 deletes the runtime-side agent, waits until a new one is listed and reports which
 agents the current connection refused to admit; the `agentFiles` sub-port reads and
-writes an agent's workspace files over their expected hash and searches its memory;
+writes an agent's workspace files over their expected hash and searches its memory,
+and states how the runtime writes a memory file (`agentFiles.memory`: its entries,
+an entry removed or appended, a file's character limit, the pin marker), which
+`memoryFor(agent)` answers without a host;
 the `config` sub-port reads the live configuration with its hash, looks up whether a
 path reloads without a restart, applies a change built from the current
 configuration and watches until the Gateway adopted it. The `approvals` sub-port
