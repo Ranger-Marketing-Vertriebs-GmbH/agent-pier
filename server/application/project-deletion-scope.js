@@ -28,7 +28,7 @@ function realOrNull(value) {
  * `/private/tmp/app` (macOS) or a path through a link meet, and a link inside a
  * folder that points elsewhere names the place it points to.
  */
-function folderKey(value) {
+export function folderKey(value) {
   const tail = [];
   let dir = path.resolve(value);
   for (;;) {

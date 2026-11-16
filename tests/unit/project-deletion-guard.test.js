@@ -63,3 +63,14 @@ test("refuse throws PROJECT_DELETING with 409", (t) => {
   assert.doesNotThrow(() => guard.refuse(path.join(app, "..")));
   assert.doesNotThrow(() => guard.refuseProject("p2"));
 });
+
+test("a failed deletion still refuses new work in its folder", (t) => {
+  const { app } = folders(t);
+  const guard = new DeletionGuard(() => ({
+    list: () => [
+      { path: app, state: "failed", error: "EACCES", body: { projectIds: ["p1"] } },
+    ],
+  }));
+  assert.throws(() => guard.refuse(path.join(app, "src")), { code: "PROJECT_DELETING" });
+  assert.throws(() => guard.refuseProject("p1"), { code: "PROJECT_DELETING" });
+});

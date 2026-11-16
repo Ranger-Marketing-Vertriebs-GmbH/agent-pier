@@ -52,6 +52,8 @@ for (const [agents, options] of [
       await mark(f.application, folder);
       fs.rmSync(folder, { recursive: true });
       await f.restart();
+      // The start does not wait for the deletion; it finishes in the background.
+      await f.application.projectDeletion.settled(folder);
       assert.equal(f.application.memory.deletions.get(folder), null);
       assert.equal(f.application.memory.hasProject(id), false);
       const events = f.application.audit.list({ action: "project.deleted" }).events;
@@ -79,6 +81,7 @@ test(
     });
     await mark(f.application, folder);
     await f.restart();
+    await f.application.projectDeletion.settled(folder);
     const record = f.application.memory.deletions.get(folder);
     assert.equal(record.state, "failed");
     assert.equal(record.error, "PROJECT_DELETE_BLOCKED");
