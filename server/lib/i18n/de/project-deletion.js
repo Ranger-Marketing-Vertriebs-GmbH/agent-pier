@@ -3,6 +3,14 @@ export const projectDeletion = {
   projectNotFound: "In diesem Ordner ist kein Projekt registriert.",
   sessionsUnreadable:
     "Die Session-Daten ließen sich nicht lesen, daher sind die Sessions des Projekts nicht bekannt. Versuche es erneut.",
+  deleteStale:
+    "Der Ordner oder die Projekte darin haben sich seit der Prüfung geändert. Prüfe erneut, bevor du löschst.",
+  deleteName: "Gib den Namen des Projekts ein, um das Löschen zu bestätigen.",
+  deleteBlocked:
+    "In diesem Projekt läuft noch etwas oder nutzt seinen Ordner. Beende es und prüfe erneut.",
+  folderReappeared:
+    "Der Ordner ist wieder da. Prüfe erneut, um ihn samt Inhalt zu löschen.",
+  notFailed: "Nur ein fehlgeschlagenes Löschen kann wiederholt werden.",
   refusals: {
     root: "Die Wurzel des Dateisystems kann nicht gelöscht werden.",
     home: "Dein Benutzerordner kann nicht gelöscht werden.",

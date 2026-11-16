@@ -67,6 +67,8 @@ import { readStampHeader } from "./lib/read-stamp.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
 import { cleanUpProjects } from "./application/project-cleanup.js";
+import { ProjectDeletion } from "./application/project-deletion.js";
+import { DeletionGuard } from "./features/projects/deletion-guard.js";
 import { ticketProjectMoves } from "./features/tickets/project-moves.js";
 import { ProjectDuplicates } from "./application/project-duplicates.js";
 import { pipelineDefinitionRoutes } from "./http/routes/pipeline-definitions.js";
@@ -188,6 +190,8 @@ export async function createApplication(config) {
     home: config.home,
   });
   services.directory = directoryResolver(config.home);
+  // Refuses new work in folders being deleted (ProjectDeletion).
+  services.deletionGuard = new DeletionGuard(() => services.memory?.deletions);
   Object.assign(services, createSessionLifecycle(services));
   services.reload = new SessionReload({ services });
   services.reload.onChange = (id) => reloadChanged(services.live, id);
@@ -215,6 +219,7 @@ export async function createApplication(config) {
   });
   services.projectDuplicates = new ProjectDuplicates(services);
   await services.projectDuplicates.resume();
+  services.projectDeletion = new ProjectDeletion(services);
   // A failed one-off cleanup keeps no marker, so the next start retries it.
   // The cleanup handles no credentials, so its error code or message is safe to log.
   await cleanUpProjects(services).catch((error) =>
@@ -222,6 +227,8 @@ export async function createApplication(config) {
       `AgentPier could not clean up the project list; it retries next start: ${error?.code || error?.message || "unknown error"}`,
     ),
   );
+  // Deletions an earlier start left unfinished; never throws.
+  await services.projectDeletion.resume();
   services.operationsEvents = new OperationsEvents(services);
   // Failed release jobs notify the owner once (release-events.js).
   services.operationsEvents.releaseFailures = new ReleaseFailureEvents({

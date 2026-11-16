@@ -24,6 +24,7 @@ import { restartAuditDetails } from "./audit-restart-details.js";
 import { memoryArchiveAuditDetails } from "./audit-memory-archive-details.js";
 import { previewAuditDetails } from "./audit-preview-details.js";
 import { loginAuditDetails } from "./audit-login-details.js";
+import { projectDeletionAuditDetails } from "./audit-project-deletion-details.js";
 import { codingCliIds, isCodingCli } from "../clis/catalog.js";
 const memberGrantKeys = new Set([
   "memory",
@@ -565,6 +566,7 @@ export function auditEvent(input) {
     memoryArchiveAuditDetails(details, event);
   if (input.resourceType === "preview") previewAuditDetails(details, event);
   if (input.resourceType === "login") loginAuditDetails(details, event);
+  projectDeletionAuditDetails(details, event, auditId);
   userAuditDetails(input, event, auditId);
   return event;
 }
