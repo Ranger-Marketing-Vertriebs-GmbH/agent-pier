@@ -47,59 +47,6 @@
   padding: 0;
   font-size: inherit;
 }
-.chat-subagents {
-  padding-top: 18px;
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-}
-.chat-subagents h3 {
-  font-size: 12px;
-  margin: 0 0 10px;
-}
-.subagent-entry {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  overflow: hidden;
-  /* Matches SUBAGENT_FADE_MS, after which a finished agent leaves the list.
-     accessibility.css drops the transition for reduced motion. */
-  transition: opacity 400ms ease;
-}
-.subagent-entry.fading {
-  opacity: 0;
-}
-.subagent-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 10px;
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
-.subagent-status {
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-  flex-shrink: 0;
-}
-.subagent-status.running {
-  color: var(--accent);
-}
-.subagent-status.failed {
-  color: #f0a08f;
-}
-.subagent-entry p {
-  font-size: 11px;
-  line-height: 1.6;
-  padding: 0 10px;
-  overflow-wrap: anywhere;
-}
-.subagent-entry time {
-  display: block;
-  color: var(--muted);
-  font-size: var(--font-size-xs);
-  padding: 0 10px 10px;
-}
 @media (max-width: 700px) {
   .chat-observability {
     padding: 5px 12px;

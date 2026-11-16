@@ -81,9 +81,6 @@ export const chatViewCopy = {
   historyFailed: "Older messages could not be loaded.",
 
   chatMainAriaLabel: "Chat",
-  hideTasks: "Hide tasks",
-  showTasks: "Show tasks",
-  tasksToggle: "☷ Tasks",
   changeConversation: "Switch conversation",
   terminalFallback: "Terminal ↗",
   terminalApprovals: "Approvals in terminal ↗",
@@ -99,10 +96,15 @@ export const conversationPickerCopy = {
   noConversationsDescription:
     "No conversations yet. Refresh the list after the first message.",
 };
-export const taskPanelCopy = {
-  taskHeadingAriaLabel: "Close tasks",
-  contentAriaLabel: "Task progress",
-  tasksEmpty: "The CLI has not created any tasks yet.",
+export const backgroundTasksCopy = {
+  title: "Background tasks",
+  running: "Running",
+  completed: "Completed",
+  todos: "To-dos",
+  runningLine: (count) => (count === 1 ? "1 running task" : `${count} running tasks`),
+  todosLine: (done, total) => `Tasks ${done}/${total}`,
+  kindAgent: "Agent",
+  progress: "Task progress",
 };
 export const chatAttachmentCopy = {
   attachments: "Attachments",

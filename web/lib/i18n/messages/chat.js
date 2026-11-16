@@ -13,7 +13,10 @@ export const conversationPickerCopy = localizedCopy(
   de.conversationPickerCopy,
   en.conversationPickerCopy,
 );
-export const taskPanelCopy = localizedCopy(de.taskPanelCopy, en.taskPanelCopy);
+export const backgroundTasksCopy = localizedCopy(
+  de.backgroundTasksCopy,
+  en.backgroundTasksCopy,
+);
 export const chatAttachmentCopy = localizedCopy(
   de.chatAttachmentCopy,
   en.chatAttachmentCopy,

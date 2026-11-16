@@ -83,9 +83,6 @@ export const chatViewCopy = {
   historyFailed: "Ältere Nachrichten konnten nicht geladen werden.",
 
   chatMainAriaLabel: "Chat",
-  hideTasks: "Aufgaben ausblenden",
-  showTasks: "Aufgaben einblenden",
-  tasksToggle: "☷ Aufgaben",
   changeConversation: "Verlauf wechseln",
   terminalFallback: "Terminal ↗",
   terminalApprovals: "Freigaben im Terminal ↗",
@@ -101,10 +98,16 @@ export const conversationPickerCopy = {
   noConversationsDescription:
     "Noch kein Verlauf vorhanden. Nach der ersten Nachricht kannst du die Liste aktualisieren.",
 };
-export const taskPanelCopy = {
-  taskHeadingAriaLabel: "Aufgaben schließen",
-  contentAriaLabel: "Aufgabenfortschritt",
-  tasksEmpty: "Das CLI hat noch keine Aufgaben angelegt.",
+export const backgroundTasksCopy = {
+  title: "Hintergrundaufgaben",
+  running: "Laufend",
+  completed: "Abgeschlossen",
+  todos: "To-dos",
+  runningLine: (count) =>
+    count === 1 ? "1 laufende Aufgabe" : `${count} laufende Aufgaben`,
+  todosLine: (done, total) => `Aufgaben ${done}/${total}`,
+  kindAgent: "Agent",
+  progress: "Aufgabenfortschritt",
 };
 export const chatAttachmentCopy = {
   attachments: "Anhänge",

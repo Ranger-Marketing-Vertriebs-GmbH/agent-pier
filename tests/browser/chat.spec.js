@@ -2,7 +2,7 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { stubContext } from "../helpers/live-stub.js";
 import { baseURL as base } from "../helpers/browser.js";
-test("mobile tasks open from the left without taking message height and close with Escape", async ({
+test("mobile tasks open as a sheet without taking message height and close with Escape", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -10,29 +10,20 @@ test("mobile tasks open from the left without taking message height and close wi
   await page.goto(base + "/sessions/chat-demo/chat");
   await expect(page.getByLabel("Chatverlauf")).toContainText("Chatansicht");
   const before = await page.getByLabel("Chatverlauf").boundingBox();
-  await page.getByRole("button", { name: "Aufgaben einblenden", exact: true }).click();
-  const tasks = page.getByLabel("Aufgabenliste");
+  const line = page.getByRole("button", { name: "Aufgaben 1/3", exact: true });
+  await line.click();
+  const tasks = page.getByRole("dialog", { name: "Hintergrundaufgaben" });
   await expect(tasks).toBeVisible();
-  const box = await tasks.boundingBox();
-  expect(box.width).toBeLessThanOrEqual(300);
-  expect(box.x).toBeLessThanOrEqual(before.x);
-  expect(box.height).toBeGreaterThan(400);
+  await expect(tasks).toContainText("Mobile Darstellung prüfen");
   expect((await page.getByLabel("Chatverlauf").boundingBox()).height).toBe(before.height);
-  await expect(page.getByRole("dialog", { name: "Aufgabenliste" })).toBeVisible();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   expect(
     await tasks.evaluate((element) => element.contains(document.activeElement)),
   ).toBe(true);
-  await page.screenshot({
-    path: "/tmp/agentpier-tasks-left-mobile.png",
-    animations: "disabled",
-  });
   await page.keyboard.press("Escape");
   await expect(tasks).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Aufgaben einblenden", exact: true }),
-  ).toBeFocused();
+  await expect(line).toBeFocused();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
@@ -58,11 +49,11 @@ for (const height of [844, 500])
     expect(messages.height).toBeGreaterThanOrEqual(height === 844 ? 430 : 105);
     expect(composer.y + composer.height).toBeLessThanOrEqual(height);
     expect(sockets).toHaveLength(0);
-    await page.getByRole("button", { name: "Aufgaben einblenden", exact: true }).click();
+    await page.getByRole("button", { name: "Aufgaben 1/3", exact: true }).click();
     await expect(
       page.getByText("Mobile Darstellung prüfen", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Aufgaben schließen", exact: true }).click();
+    await page.getByRole("button", { name: "Dialog schließen", exact: true }).click();
     await page.getByRole("button", { name: "Weitere Aktionen", exact: true }).click();
     for (const name of ["Session umbenennen", "Session stoppen"])
       await expect(page.getByRole("menuitem", { name })).toBeVisible();
@@ -167,7 +158,7 @@ async function fixture(page) {
   });
   return { data, inputs, sockets, publish };
 }
-test("reader has structured Markdown and live tasks on the left; native terminal remains intact", async ({
+test("reader has structured Markdown and live tasks in the sheet; native terminal remains intact", async ({
   page,
 }) => {
   const { data, publish } = await fixture(page);
@@ -175,20 +166,22 @@ test("reader has structured Markdown and live tasks on the left; native terminal
   await page.getByRole("button", { name: "Chat", exact: true }).click();
   await expect(page.getByLabel("Chatverlauf")).toContainText("Chatansicht");
   await expect(page.locator(".message-content strong")).toHaveText("Chatansicht");
-  await expect(page.getByLabel("Aufgabenliste")).toContainText(
-    "Mobile Darstellung prüfen",
-  );
-  const tasks = await page.getByLabel("Aufgabenliste").boundingBox(),
-    chat = await page.getByLabel("Chatverlauf").boundingBox();
-  expect(tasks.x + tasks.width).toBeLessThanOrEqual(chat.x + 1);
+  const tasks = page.getByRole("dialog", { name: "Hintergrundaufgaben" });
+  await expect(tasks).toBeHidden();
+  await page.getByRole("button", { name: "Aufgaben 1/3", exact: true }).click();
+  await expect(tasks).toContainText("Mobile Darstellung prüfen");
+  data.tasks[1].status = "completed";
+  publish();
+  await expect(page.getByLabel("Aufgabenfortschritt")).toHaveAttribute("value", "2");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Aufgaben 2/3", exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel("Chatverlauf")).not.toContainText("TUI_STATUS_ONLY");
   await expect(page.locator(".chat-tool pre")).not.toBeVisible();
   await page.locator(".chat-tool-group > .activity-row-head").click();
   await page.locator(".chat-tool summary").click();
   await expect(page.locator(".chat-tool pre")).toContainText("return <Chat />;");
-  data.tasks[1].status = "completed";
-  publish();
-  await expect(page.getByLabel("Aufgabenfortschritt")).toHaveAttribute("value", "2");
   await page.screenshot({
     path: "test-results/agentpier-chat-desktop.png",
     fullPage: true,
@@ -196,7 +189,6 @@ test("reader has structured Markdown and live tasks on the left; native terminal
   });
   await page.getByRole("button", { name: "Terminal", exact: true }).click();
   await expect(page.getByLabel("Interaktives Terminal")).toBeVisible();
-  await expect(page.getByLabel("Aufgabenliste")).not.toBeVisible();
   await page.screenshot({
     path: "test-results/agentpier-unicode-terminal.png",
     fullPage: true,
@@ -211,12 +203,12 @@ test("mobile defaults to chat, collapses tasks and sends to the running session 
   await page.goto(base + "/#chat-demo");
   await expect(page.getByLabel("Chatverlauf")).toContainText("Nachrichten bleiben");
   expect(sockets.length).toBe(0);
-  await expect(page.getByLabel("Aufgabenliste")).toBeHidden();
-  await page.getByRole("button", { name: "Aufgaben einblenden", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Hintergrundaufgaben" })).toBeHidden();
+  await page.getByRole("button", { name: "Aufgaben 1/3", exact: true }).click();
   await expect(
     page.getByText("Mobile Darstellung prüfen", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Aufgaben schließen", exact: true }).click();
+  await page.getByRole("button", { name: "Dialog schließen", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Nachricht", exact: true })
     .fill("Prüfe bitte die Änderungen.");
@@ -500,33 +492,4 @@ test("native chat selects the code block text when copying fails", async ({ page
   expect(await page.evaluate(() => getSelection().toString().trim())).toBe(
     'const mode = mobile ? "reader" : "terminal";',
   );
-});
-// WebKit can drop the media query change event at a breakpoint (AGENTPIER-50, -61).
-// The task list must still follow the layout, and later resizes that stay on one
-// side of the breakpoint must keep the reader's own open/closed choice.
-test("tasks follow the breakpoint without its change event and keep the reader's choice", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    const add = MediaQueryList.prototype.addEventListener;
-    MediaQueryList.prototype.addEventListener = function (type, ...rest) {
-      if (type !== "change") add.call(this, type, ...rest);
-    };
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await fixture(page);
-  await page.goto(base + "/sessions/chat-demo/chat");
-  await expect(page.getByLabel("Chatverlauf")).toContainText("Chatansicht");
-  await expect(page.getByLabel("Aufgabenliste")).toBeHidden();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
-  await expect(panel).toBeVisible();
-  await page.getByRole("button", { name: "Aufgaben ausblenden", exact: true }).click();
-  await expect(panel).toBeHidden();
-  await page.setViewportSize({ width: 1200, height: 900 });
-  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-  await expect(page.getByLabel("Aufgabenliste")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Aufgaben einblenden", exact: true }),
-  ).toBeVisible();
 });

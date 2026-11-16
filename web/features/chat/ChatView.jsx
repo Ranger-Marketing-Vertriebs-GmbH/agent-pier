@@ -14,14 +14,15 @@ import {
 import { providerNames } from "./presentation.js";
 import React, { useEffect, useRef, useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";
-import Tasks from "./TaskPanel.jsx";
+import BackgroundTasksLine from "./BackgroundTasksLine.jsx";
+import BackgroundTasksSheet from "./BackgroundTasksSheet.jsx";
 import ChatTranscript from "./ChatTranscript.jsx";
 import ChatLiveReplies from "./ChatLiveReplies.jsx";
 import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
-import { groupSubagents } from "./background-tasks.js";
+import { groupSubagents, tasksLine } from "./background-tasks.js";
 import useScrollbarWidth from "./useScrollbarWidth.js";
 export default function ChatView({
   active,
@@ -42,11 +43,8 @@ export default function ChatView({
     delivery,
     tasksOpen,
     closeTasks,
-    taskId,
-    compactTasks,
     taskTrigger,
     openTasks,
-    toggleTasks,
     setPicking,
     output,
     outputHeight,
@@ -137,17 +135,13 @@ export default function ChatView({
     session.status === "running" && !restored && !data?.observability?.stale;
   const grouped = groupSubagents(data?.observability?.subagents, subagentsLive);
   const subagents = [...grouped.running, ...grouped.finished];
+  const tasks = data?.tasks || [];
+  const line = tasksLine({ ...grouped, tasks });
   return (
     <div className="chat-layout">
-      <Tasks
-        tasks={data?.tasks || []}
-        subagents={subagents}
-        open={tasksOpen}
-        close={closeTasks}
-        id={taskId}
-        compact={compactTasks}
-        active={active}
-      />
+      {tasksOpen && active && line && (
+        <BackgroundTasksSheet {...grouped} tasks={tasks} close={closeTasks} />
+      )}
       <section
         className="chat-main"
         aria-label={copy.chatMainAriaLabel}
@@ -155,21 +149,6 @@ export default function ChatView({
         data-drop-hint={attachmentsCopy.dropHint}
       >
         <div className="chat-context">
-          <button
-            ref={taskTrigger}
-            type="button"
-            className="tasks-toggle"
-            aria-label={tasksOpen ? copy.hideTasks : copy.showTasks}
-            aria-expanded={tasksOpen}
-            aria-controls={taskId}
-            onClick={toggleTasks}
-          >
-            {copy.tasksToggle}{" "}
-            <span>
-              {(data?.tasks || []).filter((task) => task.status === "completed").length}/
-              {data?.tasks?.length || 0}
-            </span>
-          </button>
           <div>
             {data?.providerSessionId && data.manualBindingSupported !== false && (
               <button onClick={() => setPicking((value) => !value)}>
@@ -306,6 +285,7 @@ export default function ChatView({
           data-native-request-pending={requestPending || undefined}
         >
           <ChatScrollToBottom {...{ active, output, stick, scroll }} />
+          <BackgroundTasksLine line={line} onOpen={openTasks} buttonRef={taskTrigger} />
           {session.status === "running" &&
             !restored &&
             data?.nativeInput?.providerSessionId === data?.providerSessionId &&

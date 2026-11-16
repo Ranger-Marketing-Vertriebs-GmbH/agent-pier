@@ -41,6 +41,7 @@
 @import "../features/providers/providers.css";
 @import "../features/chat/observability.css";
 @import "../features/chat/mobile-chat.css";
+@import "../features/chat/background-tasks.css";
 
 .language-select,
 .login-card .language-select {

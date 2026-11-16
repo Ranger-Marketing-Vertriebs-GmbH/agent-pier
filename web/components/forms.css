@@ -32,7 +32,7 @@ dialog::backdrop {
      keeps the selector as weak as `dialog`, so a dialog with its own mobile layout
      (e.g. `.launch-dialog`, the full-height `.side-panel`) overrides it; the image
      viewer and task drawer keep their own geometry. */
-  dialog:where(:not(.image-viewer, .task-drawer)) {
+  dialog:where(:not(.image-viewer)) {
     position: fixed;
     /* Sits on the keyboard while one is open, and never grows above the visible area. */
     inset: auto 0 var(--keyboard-inset, 0px) 0;
