@@ -37,10 +37,22 @@ test("a descriptor needs an id and a name and checks its traits", () => {
   assert.deepEqual(descriptor, {
     id: "x",
     name: "X",
+    // What its agents go by in a sentence; the name unless stated.
+    shortName: "X",
     traits: DEFAULT_TRAITS,
     surfaces: [],
   });
   assert.ok(Object.isFrozen(descriptor));
+  assert.equal(
+    defineRuntimeDescriptor({ id: "x", name: "X Agent", shortName: "X" }).shortName,
+    "X",
+  );
+  assert.throws(
+    () => defineRuntimeDescriptor({ id: "x", name: "X", shortName: "" }),
+    TypeError,
+  );
+  assert.equal(openClawDescriptor.shortName, "OpenClaw");
+  assert.equal(hermesDescriptor.shortName, "Hermes");
 });
 
 test("OpenClaw states the defaults, Hermes its own", () => {
