@@ -213,3 +213,100 @@ test("a snapshot without observability passes through", (t) => {
   const bare = { availability: "unbound", messages: [] };
   assert.deepEqual(control.overlay(session, bare), bare);
 });
+
+test("a throwing driver or reads.flags never breaks the overlay", (t) => {
+  const { control, driver } = setup(t);
+  const entries = () => {
+    const observability = control.overlay(session, snapshot()).observability;
+    return [...observability.subagents, ...observability.shells];
+  };
+  driver.connected = () => {
+    throw new Error("down");
+  };
+  assert.ok(entries().every((entry) => entry.canStop === false));
+  driver.connected = () => true;
+  driver.canStop = () => {
+    throw new Error("boom");
+  };
+  assert.ok(entries().every((entry) => entry.canStop === false));
+  driver.canStop = () => true;
+  control.reads = {
+    flags: () => {
+      throw new Error("flags");
+    },
+  };
+  const all = entries();
+  assert.ok(
+    all.every((entry) => entry.hasTranscript !== true && entry.hasOutput !== true),
+  );
+  assert.ok(all.some((entry) => entry.canStop === true));
+});
+
+test("a driver exception never reaches the browser", async (t) => {
+  const { control, driver } = setup(t);
+  const logged = t.mock.method(console, "error", () => {});
+  driver.stop = async () => {
+    throw new Error("/private/socket/path leaked");
+  };
+  await assert.rejects(control.stop("s1", "agent1"), (error) => {
+    assert.equal(error.code, "TASK_STOP_REFUSED");
+    assert.ok(!JSON.stringify([error.reason, error.message]).includes("/private"));
+    return true;
+  });
+  assert.equal(logged.mock.callCount(), 1);
+});
+
+test("a stop that read the snapshot before the first one finished does not run again", async (t) => {
+  const { control, driver, stops, changes } = setup(t);
+  const before = snapshot();
+  control.chat = { read: async () => before };
+  assert.deepEqual(await control.stop("s1", "agent1"), { stopped: true });
+  await assert.rejects(control.stop("s1", "agent1"), { code: "TASK_STOP_NOT_RUNNING" });
+  assert.equal(driver.calls.length, 1);
+  assert.equal(stops.has(session, "agent1"), true);
+  assert.equal(control.overlay(session, before).observability.stopNotes.length, 1);
+  assert.deepEqual(changes, ["s1"]);
+});
+
+test("a stale snapshot is answered as a down channel", async (t) => {
+  const { control, driver } = setup(t, { snap: snapshot({ stale: true }) });
+  await assert.rejects(control.stop("s1", "agent1"), {
+    code: "TASK_STOP_CHANNEL_DOWN",
+    status: 503,
+  });
+  assert.equal(driver.calls.length, 0);
+});
+
+test("a stop that succeeds after the timeout is still recorded", async (t) => {
+  const { control, driver, stops, changes, snap } = setup(t);
+  driver.stop = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    return { ok: true };
+  };
+  await assert.rejects(control.stop("s1", "agent2"), { code: "TASK_STOP_TIMEOUT" });
+  assert.equal(stops.has(session, "agent2"), false);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(stops.has(session, "agent2"), true);
+  assert.equal(control.overlay(session, snap).observability.stopNotes.length, 1);
+  assert.deepEqual(changes, ["s1"]);
+});
+
+test("a stop that fails after the timeout changes nothing", async (t) => {
+  const { control, driver, stops, changes } = setup(t);
+  driver.stop = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    return { ok: false, reason: "late" };
+  };
+  await assert.rejects(control.stop("s1", "agent2"), { code: "TASK_STOP_TIMEOUT" });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(stops.has(session, "agent2"), false);
+  assert.deepEqual(changes, []);
+});
+
+test("forget drops the stops and the notes of a discarded session", async (t) => {
+  const { control, stops, snap } = setup(t);
+  await control.stop("s1", "agent1");
+  control.forget("s1");
+  assert.equal(stops.has(session, "agent1"), false);
+  assert.deepEqual(control.overlay(session, snap).observability.stopNotes, []);
+});

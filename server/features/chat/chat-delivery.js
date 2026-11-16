@@ -158,6 +158,8 @@ export class ChatDelivery {
       fs.renameSync(temporary, file);
       syncDirectory(path.dirname(file));
     } catch {
+      // A write that failed has not delivered anything.
+      if (consume) delete receipt.notesDelivered;
       throw problem(copy.storage, 503);
     } finally {
       try {
