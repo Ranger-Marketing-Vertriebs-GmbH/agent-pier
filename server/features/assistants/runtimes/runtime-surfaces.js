@@ -29,24 +29,22 @@ const KEYS = Object.freeze(["id", "slot", "kind", "shows"]);
  * runtime and the surface.
  */
 export function resolveSurfaces(stated = [], runtime = "") {
-  const fail = (text) => {
-    throw new TypeError(`Runtime surface of ${runtime}: ${text}`);
-  };
-  if (!Array.isArray(stated)) fail("surfaces must be a list");
+  // Developer errors at module load; they never reach a browser.
+  const wrong = (text) => new TypeError(`Runtime surface of ${runtime}: ${text}`);
+  if (!Array.isArray(stated)) throw wrong("surfaces must be a list");
   const seen = new Set();
   return Object.freeze(
     stated.map((surface) => {
       const { id, slot, kind, shows = SURFACE_SHOWS[0] } = surface || {};
-      if (typeof id !== "string" || !id) fail("a surface needs an id");
-      if (seen.has(id)) fail(`duplicate surface id ${id}`);
+      if (typeof id !== "string" || !id) throw wrong("a surface needs an id");
+      if (seen.has(id)) throw wrong(`duplicate surface id ${id}`);
       seen.add(id);
-      const refuse = (text) => fail(`${id}: ${text}`);
-      if (!RUNTIME_SLOTS.includes(slot)) refuse(`unknown slot ${JSON.stringify(slot)}`);
-      if (!SURFACE_KINDS.includes(kind)) refuse(`unknown kind ${JSON.stringify(kind)}`);
-      if (!SURFACE_SHOWS.includes(shows))
-        refuse(`unknown shows ${JSON.stringify(shows)}`);
+      const unknown = (what, value) => wrong(`${id}: unknown ${what} ${value}`);
+      if (!RUNTIME_SLOTS.includes(slot)) throw unknown("slot", JSON.stringify(slot));
+      if (!SURFACE_KINDS.includes(kind)) throw unknown("kind", JSON.stringify(kind));
+      if (!SURFACE_SHOWS.includes(shows)) throw unknown("shows", JSON.stringify(shows));
       const strange = Object.keys(surface).filter((key) => !KEYS.includes(key));
-      if (strange.length) refuse(`unknown key ${strange.join(", ")}`);
+      if (strange.length) throw unknown("key", strange.join(", "));
       return Object.freeze({ id, slot, kind, shows });
     }),
   );
