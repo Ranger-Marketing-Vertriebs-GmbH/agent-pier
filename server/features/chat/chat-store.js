@@ -36,6 +36,8 @@ export class ChatStore {
     this.lastKnownTotals = new Map();
     // The transcript files the last fresh read used ({paths, readAt}); server-only.
     this.sources = new Map();
+    // Claude shell output files by session and shell id; server-only, never persisted.
+    this.shellFiles = new Map();
     this.maxCursorBytes = maxCursorBytes;
     this.maxCursorEntries = Math.max(1, maxCursorEntries);
     this.history.onIndexed = (event) => this.indexed(event);
@@ -278,6 +280,7 @@ export class ChatStore {
     manualBindingSupported = true,
     { persist = true } = {},
   ) {
+    this.rememberShellFiles(session.id, content.observability?.shells);
     const observability = finalizeObservability(
       {
         ...content.observability,
@@ -306,6 +309,19 @@ export class ChatStore {
         scope: { accountId: session.accountId, tool: session.tool },
       });
     return result;
+  }
+  rememberShellFiles(id, shells) {
+    if (!Array.isArray(shells)) return;
+    const files = new Map(this.shellFiles.get(id));
+    const listed = new Set(shells.map((shell) => shell?.id));
+    for (const key of files.keys()) if (!listed.has(key)) files.delete(key);
+    for (const shell of shells)
+      if (typeof shell?.outputFile === "string") files.set(shell.id, shell.outputFile);
+    this.shellFiles.set(id, files);
+  }
+  /** The raw output path the CLI reported for a listed shell, or null. */
+  shellOutputFile(sessionId, shellId) {
+    return this.shellFiles.get(sessionId)?.get(shellId) ?? null;
   }
   async choices(id) {
     const session = await this.sessions.get(id);
@@ -538,6 +554,7 @@ export class ChatStore {
   remove(id) {
     this.reset(id);
     this.sources.delete(id);
+    this.shellFiles.delete(id);
     this.epochs.delete(id);
     for (const suffix of ["binding", "snapshot"])
       fs.rmSync(this.file(id, suffix), { force: true });

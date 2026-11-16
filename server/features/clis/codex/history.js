@@ -16,6 +16,7 @@ import { configRoot, dataRoot } from "./profile.js";
 
 export const normalize = normalizeCodex;
 export const observe = observeCodex;
+export { readCodexChild as readSubagent } from "./child-thread.js";
 
 const rolloutName =
   /^rollout-.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;

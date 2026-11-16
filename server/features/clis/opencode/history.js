@@ -5,6 +5,7 @@ import { normalizeOpenCode } from "../../chat/history-parsers.js";
 import { observeOpenCode } from "../../chat/opencode-observability.js";
 import { activeOpenCodeExport } from "../../chat/opencode-revert.js";
 import {
+  openCodeParent,
   readOpenCodePage,
   readOpenCodeReloadContext,
 } from "../../chat/opencode-history-page.js";
@@ -16,6 +17,15 @@ import { configRoot, dataRoot } from "./profile.js";
 
 export const normalize = normalizeOpenCode;
 export const observe = observeOpenCode;
+
+/** A child session whose `parent_id` is the session's own OpenCode session. */
+export async function readSubagent(history, session, parentId, childId) {
+  if ((await openCodeParent(history, session, childId)) !== parentId)
+    throw problem(serverMessages.chat.taskUnknown, 404);
+  const content = await readOpenCodePage(history, session, childId);
+  if (!content) throw problem(serverMessages.chat.taskTranscriptUnavailable, 409);
+  return content;
+}
 
 export async function list(history, session) {
   const result = await history.opencode(session, ["session", "list", "--format", "json"]);

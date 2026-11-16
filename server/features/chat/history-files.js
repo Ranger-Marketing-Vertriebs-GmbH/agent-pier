@@ -10,8 +10,8 @@ export function providerId(value) {
     throw problem(serverMessages.chat.invalidHistoryId);
   return value;
 }
-export async function readJsonLines(file, limit = MAX_HISTORY) {
-  const handle = await fs.open(file, "r");
+export async function readJsonLines(file, limit = MAX_HISTORY, flags = "r") {
+  const handle = await fs.open(file, flags);
   try {
     if ((await handle.stat()).size > limit)
       throw problem(serverMessages.chat.historyTooLarge, 413);

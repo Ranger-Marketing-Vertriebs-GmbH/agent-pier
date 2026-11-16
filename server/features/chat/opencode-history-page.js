@@ -58,6 +58,26 @@ function supported(db) {
   });
 }
 
+/** The parent session of an OpenCode child session, or null when it has none. */
+export async function openCodeParent(history, session, childId) {
+  const location = await databaseFile(history, session);
+  if (!location) return null;
+  let db;
+  try {
+    db = openDatabase(location);
+    if (!hasColumns(db, "session", ["parent_id"])) return null;
+    return (
+      db.prepare("SELECT parent_id FROM session WHERE id=?").get(childId)?.parent_id ??
+      null
+    );
+  } catch (error) {
+    if (error.status) throw error;
+    throw unavailable();
+  } finally {
+    db?.close();
+  }
+}
+
 // Matches OpenCode MessageV2.page ordering and hydration, but parts also have a
 // keyset: a single large native message never needs to be exported or cached whole.
 // Source: anomalyco/opencode packages/opencode/src/session/message-v2.ts.

@@ -4,6 +4,7 @@ import { settleStatus, subagentEvent } from "./claude-subagents.js";
 // Background shells of the main loop: a Bash call with run_in_background, joined to
 // its result by tool-use id, then ended by a task notification or a TaskStop result.
 // Sidechain (subagent) records never reach this tracker's state.
+const MAX_PENDING = 100;
 const OUTPUT_LINE = /Output is being written to: (\S+?)\.?(?:\s|$)/;
 
 const resultText = (block) =>
@@ -19,7 +20,7 @@ const reEscape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function trustedOutputFile(path, sessionId, id) {
   if (!sessionId || typeof path !== "string") return null;
   const expected = new RegExp(
-    `/claude-\\d+/[^/]+/${reEscape(sessionId)}/tasks/${reEscape(id)}\\.output$`,
+    `^/(?:[^/]+/)*claude-\\d+/[^/]+/${reEscape(sessionId)}/tasks/${reEscape(id)}\\.output$`,
   );
   return !path.includes("..") && expected.test(path) ? path : null;
 }
@@ -58,6 +59,7 @@ export function claudeShellTracker() {
               command: text(input.command, 1000),
               description: text(input.description, 300),
             });
+          if (pending.size > MAX_PENDING) pending.delete(pending.keys().next().value);
         }
         return;
       }

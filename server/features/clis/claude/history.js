@@ -15,6 +15,7 @@ import { configRoot, dataRoot } from "./profile.js";
 
 export const normalize = normalizeClaude;
 export const observe = observeClaude;
+export { readClaudeSubagent as readSubagent } from "../../chat/claude-subagent-transcript.js";
 
 const transcriptName =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
