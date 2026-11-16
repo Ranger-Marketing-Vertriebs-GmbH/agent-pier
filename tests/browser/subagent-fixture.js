@@ -20,7 +20,7 @@ export const fixtureNow = new Date("2026-09-07T10:00:10Z");
  * A running Claude chat with one completed and one working background subagent.
  * `older` serves an older history page whose subagent row is a frozen snapshot.
  * The page clock starts at `fixtureNow` and stands still once the chat has loaded,
- * so finished agents never expire on a slow run; tests advance it explicitly.
+ * so shown times never depend on how slow a run is; tests advance it explicitly.
  */
 export async function subagentFixture(page, { older = false } = {}) {
   await page.clock.install({ time: fixtureNow });

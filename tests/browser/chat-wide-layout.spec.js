@@ -1,6 +1,6 @@
 // The session chat on a wide window and in a split pane: one reading column for the
-// messages, the user's bubble and the composer; the task list of a pane opens as a
-// drawer inside that pane, not over the whole window.
+// messages, the user's bubble and the composer; the task line of a pane opens the
+// background tasks sheet over the whole window.
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import {

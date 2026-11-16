@@ -58,7 +58,7 @@ export function shouldDismissSheet({ offset, height, velocity }) {
 }
 
 // The grab handle is drawn by CSS only where a dialog is a bottom sheet (phones; not
-// the image viewer, task drawer, launch dialog or side panel), so the drag follows it.
+// the image viewer, launch dialog or side panel), so the drag follows it.
 function handleShown(dialog, zone) {
   const drawn = (element) => {
     const content = getComputedStyle(element, "::before").content;

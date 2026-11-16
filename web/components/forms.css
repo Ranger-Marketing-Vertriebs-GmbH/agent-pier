@@ -31,7 +31,7 @@ dialog::backdrop {
   /* A generic dialog becomes a content-sized bottom sheet on small screens. `:where`
      keeps the selector as weak as `dialog`, so a dialog with its own mobile layout
      (e.g. `.launch-dialog`, the full-height `.side-panel`) overrides it; the image
-     viewer and task drawer keep their own geometry. */
+     viewer keeps its own geometry. */
   dialog:where(:not(.image-viewer)) {
     position: fixed;
     /* Sits on the keyboard while one is open, and never grows above the visible area. */

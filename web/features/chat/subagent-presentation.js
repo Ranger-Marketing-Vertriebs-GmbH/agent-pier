@@ -3,7 +3,7 @@ import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-obse
 export const subagentStatus = (agent) =>
   ["running", "completed", "failed"].includes(agent?.status) ? agent.status : "unknown";
 
-/** Status label shared by chat rows and the task panel. */
+/** Status label shared by chat rows and the background tasks sheet. */
 export const subagentStatusLabel = (status) => copy[subagentStatus({ status })];
 
 /**

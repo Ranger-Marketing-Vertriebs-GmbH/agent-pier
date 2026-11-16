@@ -148,12 +148,6 @@
   flex-wrap: wrap;
 }
 .subagent-usage {
-  margin-left: 8px;
   color: var(--muted);
   font-size: var(--font-size-xs);
-}
-.subagent-entry .subagent-usage {
-  display: block;
-  margin: 0;
-  padding: 0 10px 6px;
 }

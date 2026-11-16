@@ -30,17 +30,23 @@ export default function useChatController({ active, session, request, onConnecti
   const [tasksOpen, setTasksOpen] = useState(false);
   const taskTrigger = useRef(null),
     taskOpener = useRef(null);
-  const closeTasks = () => {
-    setTasksOpen(false);
-    const opener = taskOpener.current?.isConnected
-      ? taskOpener.current
-      : taskTrigger.current;
-    opener?.focus();
-  };
+  const closeTasks = () => setTasksOpen(false);
   const openTasks = (event) => {
     taskOpener.current = event?.currentTarget || taskTrigger.current;
     setTasksOpen(true);
   };
+  // Focus returns once the modal sheet has left: while it is open the page is inert,
+  // and Safari never focused the clicked opener in the first place.
+  const tasksWereOpen = useRef(false);
+  useEffect(() => {
+    if (tasksWereOpen.current && !tasksOpen) {
+      const opener = taskOpener.current?.isConnected
+        ? taskOpener.current
+        : taskTrigger.current;
+      opener?.focus();
+    }
+    tasksWereOpen.current = tasksOpen;
+  }, [tasksOpen]);
   // Synchronous guard: a double Enter must not start a second send before state updates.
   const submitting = useRef(false);
   const output = useRef(null),

@@ -54,7 +54,12 @@ export default function ChatObservability({
       />
       <TokenDetails totals={observability?.totals} limits={observability?.limits} />
       {subagents.length > 0 && (
-        <button type="button" aria-label={copy.showSubagents} onClick={showSubagents}>
+        <button
+          type="button"
+          aria-label={copy.showSubagents}
+          aria-haspopup="dialog"
+          onClick={showSubagents}
+        >
           {subagentHeading(subagents)}
         </button>
       )}
