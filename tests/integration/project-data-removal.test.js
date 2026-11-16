@@ -262,3 +262,37 @@ test(
     assert.deepEqual(a.assistantWorkflows.access.get(agent.id).projectIds, [kept.id]);
   },
 );
+
+test(
+  "a clone saved under another spelling of the folder goes by its id",
+  { timeout },
+  async (t) => {
+    const { f, a, doomed, kept } = await fixture(t);
+    // The scope joined this entry by its real path; it was saved through a link.
+    const link = path.join(f.home, "linked-root");
+    fs.symlinkSync(f.root, link);
+    a.repositories.projects.push({
+      id: "repo-linked",
+      name: "linked",
+      path: path.join(link, "doomed"),
+      url: "",
+    });
+    a.repositories.save();
+    const body = { ...doomed.body, repositoryIds: ["repo-doomed", "repo-linked"] };
+    // A rebuild removed meanwhile (another tab) reads 404; the walk still finishes.
+    const remove = a.craftRebuilds.remove.bind(a.craftRebuilds);
+    a.craftRebuilds.remove = async (id) => {
+      await remove(id);
+      throw Object.assign(new Error("gone"), { status: 404 });
+    };
+
+    await removeProjectData(a, body, doomed.cwd);
+    assert.deepEqual(projectDataLeft(a, body, doomed.cwd), []);
+    const ids = () => a.repositories.listProjects().map((item) => item.id);
+    assert.deepEqual(ids(), ["repo-kept"]);
+    await removeProjectData(a, body, doomed.cwd);
+    assert.deepEqual(projectDataLeft(a, body, doomed.cwd), []);
+    assert.deepEqual(ids(), ["repo-kept"]);
+    assert.deepEqual(projectDataLeft(a, kept.body, kept.cwd), everything);
+  },
+);

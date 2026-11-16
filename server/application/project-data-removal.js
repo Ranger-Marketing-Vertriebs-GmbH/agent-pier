@@ -42,8 +42,12 @@ export async function removeProjectData(services, body, folder, actor = null) {
     if (workflows) removeAgentAccess(workflows, id);
   }
   for (const id of body.rebuildIds)
-    if (services.craftRebuilds?.get(id)) await services.craftRebuilds.remove(id);
-  services.repositories.removeProjects(folder);
+    if (services.craftRebuilds?.get(id))
+      // Removed meanwhile (another tab): gone is what the walk wants.
+      await services.craftRebuilds.remove(id).catch((error) => {
+        if (error?.status !== 404) throw error;
+      });
+  services.repositories.removeProjects(folder, body.repositoryIds);
   services.projectGroups.forget(folder);
   purgeProjects(services.memory, body.projectIds);
 }
@@ -106,7 +110,9 @@ export function projectDataLeft(services, body, folder) {
     craftRebuilds: body.rebuildIds.some((id) => services.craftRebuilds?.get(id)),
     repositories: services.repositories
       .listProjects()
-      .some((item) => inFolder(folder, item.path)),
+      .some(
+        (item) => body.repositoryIds.includes(item.id) || inFolder(folder, item.path),
+      ),
     projectGroups: Object.keys(services.projectGroups.get().assignments).some((key) =>
       inFolder(folder, key),
     ),

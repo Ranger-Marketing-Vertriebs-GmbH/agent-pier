@@ -237,9 +237,14 @@ export class RepositoryStore {
   listProjects() {
     return this.projects.map((item) => ({ ...item }));
   }
-  /** Forgets the cloned projects inside a deleted folder; returns how many. */
-  removeProjects(folder) {
-    const kept = this.projects.filter((item) => !inside(folder, path.resolve(item.path)));
+  /**
+   * Forgets the cloned projects of a deleted folder: those named in `ids` (whatever
+   * spelling of the path they were saved under) and those inside `folder`.
+   */
+  removeProjects(folder, ids = []) {
+    const kept = this.projects.filter(
+      (item) => !ids.includes(item.id) && !inside(folder, path.resolve(item.path)),
+    );
     const removed = this.projects.length - kept.length;
     if (!removed) return 0;
     const before = this.projects;
