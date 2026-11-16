@@ -54,9 +54,37 @@ export function isPrivateHermesTree(relative) {
   return inside !== undefined && !publicHome.test(inside) && !publicFolder.test(inside);
 }
 
+// An agent's HERMES_HOME: its .env holds the model, MCP, bot and speech keys,
+// auth.json Hermes's own provider logins.
+const credential = /^hermes\/state\/[^/]+\/(\.env|auth\.json)$/;
+// The same below Hermes's own folder, as its update journal snapshots it
+// (hermes-paths.js state/<agent>/): the .env and every copy of it, auth.json, and
+// Hermes's own backups of the home, which hold .env copies.
+const snapshotCredential = /^state\/[^/]+\/(\.env(\.[^/]*)?|auth\.json|backups\/.+)$/;
+
+// The browser profile AgentPier runs for a Hermes agent lives in the agent's HOME,
+// named by its runtime agent id (hermes-browser.js). Paths relative to the data
+// directory, as the sealed capture names its members (browser-profile-backup.js).
+const browserProfiles = Object.freeze({
+  // The folder the agents' homes lie in, and the member prefix of their files.
+  prefix: "assistants/hermes/home",
+  // The profile's folder in a home; its files lie below `user-data`.
+  folder: "agentpier-browser",
+  /** The home's name for the agent with the stored id `id`, or null for no folder name. */
+  homeOf: (id) => (/^ap-[A-Za-z0-9-]{1,100}$/.test(`ap-${id}`) ? `ap-${id}` : null),
+  /** Whether member `name` is a file of such a profile. */
+  member: (name) =>
+    /^assistants\/hermes\/home\/ap-[A-Za-z0-9-]{1,100}\/agentpier-browser\/user-data\/.+$/.test(
+      name,
+    ),
+});
+
 /** What host backups ask of a runtime's private folder (../runtime-backup-paths.js). */
 export const hermesBackupPaths = Object.freeze({
   excluded: isHermesExcluded,
   browserTree: isHermesBrowserTree,
   privateTree: isPrivateHermesTree,
+  credential: (relative) => credential.test(relative),
+  snapshotCredential: (relative) => snapshotCredential.test(relative),
+  browserProfiles,
 });

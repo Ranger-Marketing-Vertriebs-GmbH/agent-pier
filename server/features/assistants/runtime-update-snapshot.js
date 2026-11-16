@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { privateFolder } from "./runtime-paths.js";
+import { isRuntimeSnapshotCredential } from "./runtimes/runtime-backup-paths.js";
 import { holdDependencies, returnDependencies } from "./runtime-update-dependencies.js";
 import { agentSecretMember } from "../secrets/secret-format.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
@@ -40,15 +41,13 @@ const workspaceTrees = new Set(["workspaces", "agentWorkspaces"]);
  * one runtime must never revert, or remove, the other's agents' files. Without a
  * scope a tree is the journal's whole.
  */
-// A Hermes home's credentials (hermes-paths.js state/<agent>/): its .env with the
-// model, MCP, bot and speech keys and every copy of it, auth.json with Hermes's own
-// logins, and Hermes's own backups of the home, which hold .env copies. Sealed like
-// a host backup's (backup-credentials.js isCredentialFile, operations/
-// hermes-backup-paths.js), so no snapshot holds a key in plain text.
-const hermesCredential = /^state\/[^/]+\/(\.env(\.[^/]*)?|auth\.json|backups\/.+)$/;
+// The credentials in the folder of a runtime with agent folders of its own (a
+// Hermes home's .env and its copies, auth.json, Hermes's own backups of the home;
+// runtimes/runtime-backup-paths.js). Sealed like a host backup's
+// (backup-credentials.js isCredentialFile), so no snapshot holds a key in plain text.
 /** Whether a snapshot of `paths` seals the file `relative` as a credential. */
 const credentialOf = (paths) => (relative) =>
-  (typeof paths.agentWorkspaces === "string" && hermesCredential.test(relative)) ||
+  (typeof paths.agentWorkspaces === "string" && isRuntimeSnapshotCredential(relative)) ||
   isCredentialFile(relative);
 const owns = (scope, tree, name) =>
   typeof scope?.[tree] === "function" ? !!scope[tree](name) : true;

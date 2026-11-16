@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { runtimeBrowserProfiles } from "../assistants/runtimes/runtime-backup-paths.js";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { agentProfileName } from "../assistants/browser-profile-names.js";
@@ -20,14 +21,13 @@ export const browserAgentsUnreadableOmission =
 export const browserProfilesComponent = "sealed-agent-browser-profiles";
 const prefix = "assistants/state/browser";
 const browserPath = /^assistants\/state\/browser\/agent-[a-z0-9-]{1,58}\/user-data\/.+$/;
-// A Hermes agent's profile in its HOME (runtimes/hermes/hermes-browser.js).
-const hermesPrefix = "assistants/hermes/home";
-const hermesProfile = "agentpier-browser";
-const hermesPath =
-  /^assistants\/hermes\/home\/ap-[A-Za-z0-9-]{1,100}\/agentpier-browser\/user-data\/.+$/;
-/** Whether `name` is an agent browser profile file, which backups archive only sealed. */
+/**
+ * Whether `name` is an agent browser profile file, which backups archive only sealed:
+ * one of the shared browser folder, or of a profile a runtime keeps in its agents'
+ * own homes (runtimes/runtime-backup-paths.js runtimeBrowserProfiles; Hermes's).
+ */
 export const isBrowserProfilePath = (name) =>
-  browserPath.test(name) || hermesPath.test(name);
+  browserPath.test(name) || runtimeBrowserProfiles().some((own) => own.member(name));
 // Chromium's caches and per-process files; Singleton* are links and never followed.
 const skipped = /(^|\/)([^/]*cache|Crashpad|BrowserMetrics|Singleton[^/]*)(\/|$)/i;
 const volatile = /-(wal|shm|journal)$|\.lock$|\.tmp$/;
@@ -144,18 +144,21 @@ export async function captureBrowserProfiles({
     if (/^agent-[a-z0-9-]{1,58}$/.test(name) && owned.has(name) && stat?.isDirectory())
       await visit(userData, `${name}/user-data`);
   }
-  // Hermes agents keep theirs in their own HOME, named by their runtime agent id.
-  const hermesHomes = path.join(dataDir, hermesPrefix);
-  for (const id of [...agents].sort()) {
-    const name = `ap-${id}`;
-    if (!/^ap-[A-Za-z0-9-]{1,100}$/.test(name)) continue;
-    const userData = path.join(hermesHomes, name, hermesProfile, "user-data");
-    const stat = fs.lstatSync(userData, { throwIfNoEntry: false });
-    const parents = [path.join(hermesHomes, name), path.dirname(userData)].map((p) =>
-      fs.lstatSync(p, { throwIfNoEntry: false }),
-    );
-    if (stat?.isDirectory() && parents.every((p) => p?.isDirectory()))
-      await visit(userData, `${name}/${hermesProfile}/user-data`, hermesPrefix);
+  // A runtime's agents with a home of their own keep theirs there, named by their
+  // runtime agent id (Hermes's).
+  for (const own of runtimeBrowserProfiles()) {
+    const homes = path.join(dataDir, own.prefix);
+    for (const id of [...agents].sort()) {
+      const name = own.homeOf(id);
+      if (!name) continue;
+      const userData = path.join(homes, name, own.folder, "user-data");
+      const stat = fs.lstatSync(userData, { throwIfNoEntry: false });
+      const parents = [path.join(homes, name), path.dirname(userData)].map((p) =>
+        fs.lstatSync(p, { throwIfNoEntry: false }),
+      );
+      if (stat?.isDirectory() && parents.every((p) => p?.isDirectory()))
+        await visit(userData, `${name}/${own.folder}/user-data`, own.prefix);
+    }
   }
   if (unreadable) result.omissions.push(browserUnreadableOmission);
   return result;

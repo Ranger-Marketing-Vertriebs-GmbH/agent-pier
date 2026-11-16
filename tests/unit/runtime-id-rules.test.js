@@ -4,6 +4,7 @@ import {
   productSources,
   runtimeIdLiterals,
   runtimeNamedFiles,
+  runtimeNamedIdentifiers,
   webRuntimeImporters,
 } from "../helpers/runtime-id-scan.js";
 
@@ -17,14 +18,10 @@ const hint =
   "read the runtime's trait (traitOf) or move the code into the runtime's module; " +
   "never add to this list";
 
-// The files that still name a runtime id, with how often. This list may only shrink:
-// each group names the step of the runtime descriptor work that empties it.
-// (One exception, once: when the scanner learned to count unquoted object keys
-// (`hermes: …`), the keys that already existed were entered under the step that
-// removes them. Those of advanced-config.js went with step 4, the two of
-// agent-browsers.js with the readers of step 5.)
+// The files that name a runtime id, with how often. This list may only shrink. Since
+// step 5 of the runtime descriptor work it holds the permanent exceptions alone:
+// "openclaw" as something other than an agent's runtime.
 const runtimeIdAllowlist = {
-  // Permanent: "openclaw" as something other than an agent's runtime.
   // The holder of a login (model-accounts.js: "agentpier" or "openclaw").
   "server/features/assistants/model-accounts.js": 6,
   "server/features/assistants/model-account-move.js": 1,
@@ -46,6 +43,39 @@ const runtimeIdAllowlist = {
 // adapters since step 5.
 const runtimeNamedFileAllowlist = [];
 
+// The identifiers outside the runtime modules that spell a runtime's name
+// (`hermesFleetOf`, `services.hermesRuntime`, `stripOpenClawRows`): the helper, the
+// service or the local that hides a comparison the literal rule cannot see. This list
+// may only shrink. What is on it names OpenClaw as something other than an agent's
+// runtime, or reads a format OpenClaw defines.
+const runtimeNamedIdentifierAllowlist = {
+  // The holder of a login ("agentpier" or "openclaw"), in code and as catalog keys.
+  "server/features/mcp-servers/mcp-oauth-holders.js": ["openclaw"],
+  "web/features/assistants/ChatgptAccountDetail.jsx": ["accountHeldByOpenClaw"],
+  "web/features/mcp-servers/McpOAuthStatus.jsx": ["openClawHeld"],
+  // The name of OpenClaw's temporary folder, where it accepts browser uploads.
+  "server/features/assistants/browser-upload-staging.js": ["openclawUploadDir"],
+  // Formats OpenClaw defines and AgentPier reads as data: the `metadata.openclaw`
+  // block of a skill's front matter, and the `__openclaw` field the shared host
+  // stamps on a transcript message (its run id).
+  "server/features/extensions/skill-packages.js": ["openclaw"],
+  "server/features/assistants/completion-runs.js": ["__openclaw"],
+  "server/features/assistants/generated-images.js": ["__openclaw"],
+  // Host backups know the built-in runtime's state folder, the shared layout below
+  // assistants/: `openclaw.json` in two patterns, and the tables of its databases
+  // that are configuration (private-tables.js).
+  "server/features/assistants/backup-credentials.js": ["openclaw"],
+  "server/features/operations/private-content.js": ["openclaw"],
+  "server/features/operations/private-tables.js": [
+    "openClawConfigurationTables",
+    "stripOpenClawRows",
+  ],
+  "server/features/operations/assistant-backup.js": ["stripOpenClawRows"],
+  // The built-in runtime's host page names its product beside the version (ADR
+  // 0007: OpenClaw's host pages are no surfaces).
+  "web/features/assistants/hub/RuntimeServiceGroup.jsx": ["OpenClaw"],
+};
+
 test("runtime rule idLiterals: no product code outside the runtime modules names a runtime", () => {
   assert.deepEqual(runtimeIdLiterals(sources), sortedByKey(runtimeIdAllowlist), hint);
 });
@@ -54,6 +84,14 @@ test("runtime rule namedFiles: no file outside the runtime modules is named afte
   assert.deepEqual(
     runtimeNamedFiles(sources),
     [...runtimeNamedFileAllowlist].sort(),
+    hint,
+  );
+});
+
+test("runtime rule namedIdentifiers: no identifier outside the runtime modules spells a runtime's name", () => {
+  assert.deepEqual(
+    runtimeNamedIdentifiers(sources),
+    sortedByKey(runtimeNamedIdentifierAllowlist),
     hint,
   );
 });
@@ -103,6 +141,43 @@ test("the files the trait, runtime list, surface, settings and reader steps move
       `${file} is scanned`,
     );
     assert.equal(Object.hasOwn(runtimeIdAllowlist, file), false, file);
+    assert.equal(Object.hasOwn(runtimeNamedIdentifierAllowlist, file), false, file);
+  }
+});
+
+test("the files the wiring step moved name no runtime", () => {
+  for (const file of [
+    "server/app.js",
+    "server/application/assistant-graph.js",
+    "server/application/assistants.js",
+    "server/application/services.js",
+    "server/http/routes/assistants.js",
+    "server/features/assistants/agent-attachments.js",
+    "server/features/assistants/agent-deletion.js",
+    "server/features/assistants/agent-hook-runs.js",
+    "server/features/assistants/agent-shares.js",
+    "server/features/assistants/assistant-config.js",
+    "server/features/assistants/assistant-service.js",
+    "server/features/assistants/bridge-tool-policies.js",
+    "server/features/assistants/chat-file-migration.js",
+    "server/features/assistants/chat-reconcile.js",
+    "server/features/assistants/chat-removal.js",
+    "server/features/assistants/dreaming-backups.js",
+    "server/features/assistants/native-memory.js",
+    "server/features/assistants/own-process-agents.js",
+    "server/features/assistants/proxy-access.js",
+    "server/features/assistants/runtime-update-scope.js",
+    "server/features/assistants/runtime-update-snapshot.js",
+    "server/features/assistants/web-tools-changes.js",
+    "server/features/mcp-servers/mcp-oauth-logins.js",
+    "server/features/operations/browser-profile-backup.js",
+    "web/features/assistants/assistant-api.js",
+  ]) {
+    assert.ok(
+      sources.some((source) => source.file === file),
+      `${file} is scanned`,
+    );
+    assert.equal(Object.hasOwn(runtimeNamedIdentifierAllowlist, file), false, file);
   }
 });
 
@@ -161,6 +236,39 @@ test("the id scanner counts unquoted object keys, not ternaries, strings or path
     },
   ]);
   assert.deepEqual(found, { "keys.js": 2, "inline.js": 2, "both.js": 2 });
+});
+
+test("the identifier scanner finds names in code, not in comments, strings or templates", () => {
+  const found = runtimeNamedIdentifiers([
+    {
+      file: "imports.js",
+      text: 'import { hermesFleetOf, openClawFrameEvent as frame } from "./hermes-x.js";',
+    },
+    {
+      file: "calls.js",
+      text: "attachHermesFleet(s, f); services.hermesRuntime?.start(); hermes.state();",
+    },
+    {
+      file: "locals.js",
+      text: "const openClaw = 1; f({ isHermes: true }); x.__openclaw;",
+    },
+    { file: "pattern.js", text: "const config = /^state\\/openclaw\\.json$/;" },
+    // Prose, product copy, paths and message texts are no identifiers.
+    {
+      file: "prose.js",
+      text:
+        'warn("Hermes dreams failed"); // hermesFleetOf(x)\n' +
+        "/* openClawProfiles */ const a = `${hermesX} OpenClaw`;\n" +
+        "const route = '/assistant-runtime/hermes'; const b = m.runtimeUnavailable;",
+    },
+    { file: "words.js", text: "const ephemeral = 1; const openClause = 2; her.mes();" },
+  ]);
+  assert.deepEqual(found, {
+    "imports.js": ["hermesFleetOf", "openClawFrameEvent"],
+    "calls.js": ["attachHermesFleet", "hermes", "hermesRuntime"],
+    "locals.js": ["__openclaw", "isHermes", "openClaw"],
+    "pattern.js": ["openclaw"],
+  });
 });
 
 test("the file scanner finds runtime-named files", () => {
