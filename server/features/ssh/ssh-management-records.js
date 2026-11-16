@@ -192,3 +192,28 @@ export function moveProject(catalog, fromProjectId, target) {
   ]);
   return { ok: true };
 }
+
+/**
+ * Hands a deleted project's key that hosts elsewhere still use over to their project
+ * (to the owner when they belong to several), instead of deleting it. Returns false
+ * when no host uses it.
+ */
+export function handOverKey(catalog, keyId) {
+  const current = catalog.read();
+  const users = [...current.hosts, ...current.sftpHosts].filter(
+    (row) => row.keyId === keyId,
+  );
+  if (!users.length) return false;
+  const owners = new Set(users.map((row) => row.projectId ?? null));
+  const projectId = owners.size === 1 ? [...owners][0] : null;
+  catalog.replacePart(
+    "keys",
+    current.keys.map((key) => (key.id === keyId ? { ...key, projectId } : key)),
+  );
+  return true;
+}
+
+/** Ignores a "not found": what a removal wants is gone already. */
+export function ignoreGone(error) {
+  if (error?.status !== 404) throw error;
+}

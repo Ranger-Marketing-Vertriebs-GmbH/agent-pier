@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { dormantProjectGrants } from "../features/assistants/dormant-project-grants.js";
 import { purgeProjects } from "../features/memory/project-deletions.js";
 import { inside } from "../features/projects/deletion-paths.js";
 import { deleteSession } from "./session-deletion.js";
+import { folderKey } from "./project-deletion-scope.js";
 
 /**
  * Removes everything AgentPier keeps about a deleted project folder, the mirror of
@@ -11,11 +13,26 @@ import { deleteSession } from "./session-deletion.js";
  * risk and queue settings, ticket data, SSH access, secrets, artifacts, remembered
  * approvals, agent grants and creations, Craft rebuild records, cloned-repository
  * entries, group assignments, and last the memory rows. Every step removes what is
- * still there and skips what is gone, so an interrupted walk resumes. Audit history
- * stays. `body` is the deletion record's DeletionBody (ProjectDeletion).
+ * still there and skips what is gone or shared, so an interrupted walk resumes and a
+ * step that cannot remove something another owner still needs (a member grant without
+ * the team service, an SSH key a host elsewhere uses) leaves it instead of failing for
+ * good. Audit history stays. `body` is the deletion record's DeletionBody
+ * (ProjectDeletion). `agentsOnly`: only the agents' grants and session records.
  */
-export async function removeProjectData(services, body, folder, actor = null) {
+export async function removeProjectData(
+  services,
+  body,
+  folder,
+  actor = null,
+  { agentsOnly = false } = {},
+) {
   const workflows = services.assistantWorkflows ?? null;
+  if (agentsOnly) {
+    if (!workflows) return;
+    for (const id of body.sessionIds) workflows.sessions.store.delete(id);
+    for (const id of body.projectIds) removeAgentAccess(workflows, id);
+    return;
+  }
   for (const id of body.sessionIds) {
     const session = await services.sessions.get(id).catch((error) => {
       if (error?.status === 404) return null;
@@ -48,22 +65,36 @@ export async function removeProjectData(services, body, folder, actor = null) {
         if (error?.status !== 404) throw error;
       });
   services.repositories.removeProjects(folder, body.repositoryIds);
-  services.projectGroups.forget(folder);
+  // Assignments saved under another spelling of the folder (a linked parent) too.
+  services.projectGroups.forget(folder, folderKey);
   purgeProjects(services.memory, body.projectIds);
 }
 
-// Grants, unstarted approvals, creations, lead shares and member grants of agents.
+// Grants, unstarted approvals, creations, lead shares and member grants of agents. A
+// share or grant gone meanwhile is what the walk wants.
 function removeAgentAccess(workflows, id) {
   workflows.revokeProject(id, id);
   workflows.projects.store.removeProject(id);
   for (const share of workflows.shares.list((row) => row.projectId === id))
-    workflows.shares.remove(share.id);
+    unlessGone(() => workflows.shares.remove(share.id));
   for (const grant of memberGrants(workflows, id))
-    workflows.memberGrants.revoke(grant.id);
+    unlessGone(() => workflows.memberGrants.revoke(grant.id));
 }
 
+function unlessGone(work) {
+  try {
+    work();
+  } catch (error) {
+    if (error?.status !== 404) throw error;
+  }
+}
+
+// Member grants count only while the team service can revoke them: without it they
+// stay with the team member, naming a project that no longer exists.
 const memberGrants = (workflows, id) =>
-  workflows.memberGrants.list((row) => row.kind === "project" && row.projectId === id);
+  workflows.memberGrants.revocable
+    ? workflows.memberGrants.list((row) => row.kind === "project" && row.projectId === id)
+    : [];
 
 const busFolder = (services, busId) =>
   path.join(services.agentbus.root, "projects", busId);
@@ -71,8 +102,9 @@ const busFolder = (services, busId) =>
 /**
  * The names of the stores that still hold something of the deleted project; `[]`
  * once removeProjectData finished. Asks the stores the way ProjectRebind#remnants
- * does, plus the path-keyed ones. While the agent services are not running but agent
- * data exists, "agentGrants" stays listed: their grants cannot be checked or revoked.
+ * does, plus the path-keyed ones. While the agent services are not running,
+ * "agentGrants" is listed only when their database, read directly, still names one
+ * of the projects: such a grant can be revoked only once they run again.
  */
 export function projectDataLeft(services, body, folder) {
   const { memory, pipelineQueue, pipelineDefinitions, projectRebind } = services;
@@ -103,7 +135,7 @@ export function projectDataLeft(services, body, folder) {
             workflows.shares.list((row) => row.projectId === id).length > 0 ||
             memberGrants(workflows, id).length > 0,
         )
-      : agentDataExists(services),
+      : dormantProjectGrants(services.config.dataDir, body.projectIds),
     agentSessions: Boolean(
       workflows && body.sessionIds.some((id) => workflows.sessions.store.get(id)),
     ),
@@ -113,8 +145,8 @@ export function projectDataLeft(services, body, folder) {
       .some(
         (item) => body.repositoryIds.includes(item.id) || inFolder(folder, item.path),
       ),
-    projectGroups: Object.keys(services.projectGroups.get().assignments).some((key) =>
-      inFolder(folder, key),
+    projectGroups: Object.keys(services.projectGroups.get().assignments).some(
+      (key) => inFolder(folder, key) || inside(folder, folderKey(key)),
     ),
     memory: owns((id) => memory.hasProject(id) || memory.ownsEntries(id)),
   };
@@ -131,11 +163,4 @@ function runExists(services, id) {
     if (error?.status === 404) return false;
     throw error;
   }
-}
-
-// The agent services are off or failed to start, yet their database holds records.
-function agentDataExists(services) {
-  return fs.existsSync(
-    path.join(services.config.dataDir, "assistants", "assistants.sqlite"),
-  );
 }

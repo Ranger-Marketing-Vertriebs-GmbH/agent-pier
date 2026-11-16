@@ -296,3 +296,74 @@ test(
     assert.deepEqual(projectDataLeft(a, kept.body, kept.cwd), everything);
   },
 );
+
+test(
+  "with the agents off, only a grant their database still holds is left",
+  { timeout },
+  async (t) => {
+    const { a, doomed, kept } = await fixture(t);
+    // Everything of A is removed while the agents run; then they are switched off.
+    await removeProjectData(a, doomed.body, doomed.cwd);
+    await a.assistantFeature.disable();
+    assert.equal(a.assistantWorkflows, null);
+    assert.deepEqual(projectDataLeft(a, doomed.body, doomed.cwd), []);
+    // B's grants are still in the database.
+    assert.ok(projectDataLeft(a, kept.body, kept.cwd).includes("agentGrants"));
+  },
+);
+
+test(
+  "grants and keys another owner still needs do not stop the walk",
+  { timeout },
+  async (t) => {
+    const { f, a, doomed, kept } = await fixture(t);
+    const w = a.assistantWorkflows;
+    // A member grant the team service cannot revoke now (503), and one gone (404).
+    const grant = { id: `task:m1:project:${doomed.id}`, kind: "project" };
+    let status = 503;
+    let listed = true;
+    w.memberGrants.list = (filter) =>
+      listed ? [{ ...grant, projectId: doomed.id }].filter(filter) : [];
+    w.memberGrants.revoke = () => {
+      // Revoked by the team meanwhile: listed no more, and 404 here.
+      listed = status !== 404;
+      throw Object.assign(new Error("unavailable"), { status });
+    };
+    Object.defineProperty(w.memberGrants, "revocable", { get: () => status !== 503 });
+    // A's key, used by a host of B.
+    const m = a.sshManagement;
+    const shared = await m.ui("createKey", { name: "Shared", projectId: doomed.id });
+    const { host } = await projectHost(f, kept.id);
+    await m.mutation(() => {
+      const current = m.catalog.read();
+      m.catalog.replacePart(
+        "hosts",
+        current.hosts.map((row) =>
+          row.id === host.id ? { ...row, keyId: shared.id } : row,
+        ),
+      );
+    });
+    // A's group assignment saved through a linked parent folder.
+    const link = path.join(f.home, "linked-root");
+    fs.symlinkSync(f.root, link);
+    const groups = a.projectGroups.get();
+    a.projectGroups.replace({
+      version: groups.version,
+      groups: groups.groups,
+      assignments: {
+        ...groups.assignments,
+        [path.join(link, "doomed")]: groups.groups[0].id,
+      },
+    });
+
+    await removeProjectData(a, doomed.body, doomed.cwd);
+    assert.deepEqual(projectDataLeft(a, doomed.body, doomed.cwd), []);
+    const key = m.catalog.read().keys.find((row) => row.id === shared.id);
+    assert.equal(key.projectId, kept.id);
+    assert.equal(a.sshManagement.knowsProject(doomed.id), false);
+    assert.deepEqual(Object.keys(a.projectGroups.get().assignments), [kept.cwd]);
+    status = 404;
+    await removeProjectData(a, doomed.body, doomed.cwd);
+    assert.deepEqual(projectDataLeft(a, doomed.body, doomed.cwd), []);
+  },
+);
