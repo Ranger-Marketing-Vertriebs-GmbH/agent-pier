@@ -616,7 +616,7 @@ converged later (`assistant-dreaming-contract.test.js`). `agents.delete` gets 30
 its own 30 s): only an archived agent is deleted, so no turn of it holds the answer,
 and on 2026.11.3 the journaled delete took more than 10 s on slow macOS runners. A
 delete that timed out stayed pending with `TIMEOUT` although the Gateway went on to
-finish it.
+finish it. A `TIMEOUT` error carries the unanswered call's `method` and `timeoutMs`.
 
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
