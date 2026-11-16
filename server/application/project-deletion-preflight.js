@@ -113,7 +113,9 @@ export const preflightProbes = {
 // A scan that does not finish, or fails, blocks; so does a missing process table,
 // without which AgentPier's own processes could not be told apart.
 async function folderProcesses(services, folder, probes) {
-  const result = await probes.scan([folder]);
+  const result = await probes
+    .scan([folder])
+    .catch(() => ({ status: "failed", processes: [] }));
   if (result.status !== "ok") return { status: result.status, list: [] };
   if (!result.processes.length) return { status: "ok", list: [] };
   let context;
@@ -131,7 +133,12 @@ async function gitReports(scope, probes) {
   const reports = await Promise.all(
     scope.projects.map(async (project) => ({
       path: project.path,
-      report: await probes.git(project.path),
+      report: await probes.git(project.path).catch(() => ({
+        status: "unchecked",
+        worktrees: [],
+        unpushedBranches: null,
+        worktreesChecked: false,
+      })),
     })),
   );
   const listed = new Set();

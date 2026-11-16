@@ -506,3 +506,50 @@ test("sources that name the folder through a link join the same project", async 
   assert.deepEqual(scope.projects[0].repositoryIds, ["r1"]);
   assert.deepEqual(scope.sessionIds, ["s1"]);
 });
+
+test("a link inside the folder that points outside brings nothing from outside", async (t) => {
+  const f = setup(t);
+  const outside = path.join(f.root, "outside");
+  fs.mkdirSync(outside);
+  const link = path.join(f.app, "vendor-link");
+  fs.symlinkSync(outside, link);
+  f.row("p-main", f.app);
+  f.row("p-out", link);
+  f.repositories.push({ id: "r-out", name: "out", path: link });
+  f.session("s-out", { cwd: link, agentbus: { enabled: true, projectId: bus("d") } });
+  const launches = path.join(f.services.agentbus.root, "projects", bus("d"), "launches");
+  fs.mkdirSync(launches, { recursive: true });
+  fs.writeFileSync(
+    path.join(launches, "s-out.json"),
+    JSON.stringify({ cwd: outside, projectCwd: outside }),
+  );
+  f.runs.set("run-out", { id: "run-out", projectId: null, cwd: link, status: "running" });
+  const scope = await deletionScope(f.services, f.app);
+  assert.deepEqual(
+    scope.projects.map((item) => item.path),
+    [f.app],
+  );
+  assert.deepEqual(scope.projectIds, ["p-main"]);
+  assert.deepEqual(scope.repositoryIds, []);
+  assert.deepEqual(scope.sessionIds, []);
+  assert.deepEqual(scope.runIds, []);
+  assert.equal(scope.busIds.includes(sha256(outside)), false);
+  assert.equal(scope.busIds.includes(bus("d")), false);
+});
+
+test("a failing process scan or Git check is reported, not thrown", async (t) => {
+  const f = setup(t);
+  f.row("p1", f.app);
+  const report = await preflight(f.services, f.app, {
+    scan: async () => {
+      throw new Error("lsof broke");
+    },
+    git: async () => {
+      throw new Error("git broke");
+    },
+  });
+  assert.deepEqual(report.processes, { status: "failed", list: [] });
+  assert.equal(report.git[0].report.status, "unchecked");
+  assert.equal(report.git[0].report.worktreesChecked, false);
+  assert.equal(report.ready, false);
+});

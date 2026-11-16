@@ -22,10 +22,23 @@ function realOrNull(value) {
   }
 }
 
-// The folder a value names on disk now, else as written: one key per folder, so
-// `/tmp/app` and `/private/tmp/app` (macOS) or a path through a link meet.
-const folderKey = (value) =>
-  normalizeProjectPath(realOrNull(value) ?? path.resolve(value));
+/**
+ * The folder a path names on disk now: the real path of its deepest existing
+ * ancestor plus the rest as written. One key per folder, so `/tmp/app` and
+ * `/private/tmp/app` (macOS) or a path through a link meet, and a link inside a
+ * folder that points elsewhere names the place it points to.
+ */
+function folderKey(value) {
+  const tail = [];
+  let dir = path.resolve(value);
+  for (;;) {
+    const real = realOrNull(dir);
+    if (real) return normalizeProjectPath(path.join(real, ...tail));
+    if (path.dirname(dir) === dir) return normalizeProjectPath(path.resolve(value));
+    tail.unshift(path.basename(dir));
+    dir = path.dirname(dir);
+  }
+}
 
 const notFound = () =>
   Object.assign(problem(messages.projectNotFound, 404), { code: "PROJECT_NOT_FOUND" });
@@ -39,13 +52,13 @@ const notFound = () =>
 export async function deletionScope(services, rawPath) {
   const main = normalizeProjectPath(rawPath);
   if (!path.isAbsolute(main) || path.resolve(main) !== main) throw notFound();
-  const bases = [...new Set([main, realOrNull(main)].filter(Boolean))];
+  // Everything compares by folder key: a link inside the folder that points
+  // outside it brings nothing from outside into the scope.
+  const mainKey = folderKey(main);
   const within = (value) =>
     typeof value === "string" &&
     path.isAbsolute(value) &&
-    [path.resolve(value), realOrNull(value)].some(
-      (candidate) => candidate && bases.some((base) => inside(base, candidate)),
-    );
+    inside(mainKey, folderKey(value));
 
   const byPath = new Map();
   const entry = (key) => {
@@ -88,7 +101,6 @@ export async function deletionScope(services, rawPath) {
     entry(key).busIds.add(busId);
   }
 
-  const mainKey = folderKey(main);
   if (!byPath.has(mainKey)) throw notFound();
   const projects = [...byPath.values()]
     .map((item) => describe(item, item.path === mainKey))
