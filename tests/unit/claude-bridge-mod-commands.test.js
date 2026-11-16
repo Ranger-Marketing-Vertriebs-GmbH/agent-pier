@@ -393,3 +393,56 @@ test("suppressed ids live ten minutes, at most 64", () => {
   commands.suppress("s", "fresh");
   assert.deepEqual(commands.suppressed("s"), ["fresh"]);
 });
+
+const held = () => new Promise(() => {});
+const pending = (promise) =>
+  Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve("held"), 20)),
+  ]);
+
+test("an older mod copy that polls after a newer one is turned away, not the newer one", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const owner = { id: "s" };
+  // Copy A polls first, then the reload's copy B takes the channel.
+  const a = commands.poll(owner, held(), "copy-a");
+  const b = commands.poll(owner, held(), "copy-b");
+  assert.deepEqual(await a, { commands: [], suppress: [], superseded: true });
+  // A comes back from a backoff and polls again: it is answered superseded at once,
+  // and B's poll stays open.
+  assert.deepEqual(await commands.poll(owner, held(), "copy-a"), {
+    commands: [],
+    suppress: [],
+    superseded: true,
+  });
+  assert.equal(await pending(b), "held");
+  commands.send("s", { name: "task.stop", taskId: "b1" }).catch(() => {});
+  const answer = await b;
+  assert.equal(answer.commands[0].taskId, "b1");
+  assert.equal(answer.superseded, undefined);
+  commands.forget("s");
+});
+
+test("the same copy polling again replaces its own poll without superseding itself", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const owner = { id: "s" };
+  const first = commands.poll(owner, held(), "copy-a");
+  const second = commands.poll(owner, held(), "copy-a");
+  assert.deepEqual(await first, { commands: [], suppress: [] });
+  assert.equal(await pending(second), "held");
+  commands.forget("s");
+});
+
+test("the record of mod copies per session is bounded at 16", async () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const owner = { id: "s" };
+  for (let i = 0; i < 40; i++) commands.poll(owner, held(), `copy-${i}`);
+  assert.equal(commands.sessions.get("s").seen.size, 16);
+  // The newest copy keeps the channel; an older one still known is turned away.
+  assert.deepEqual(await commands.poll(owner, held(), "copy-30"), {
+    commands: [],
+    suppress: [],
+    superseded: true,
+  });
+  commands.forget("s");
+});

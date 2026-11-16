@@ -40,7 +40,10 @@ export class ClaudeModCommands {
         grace: null,
         pending: new Map(),
         hidden: [],
-        seen: new Set(),
+        // Mod copies by instance id, ranked by first poll (at most MAX_INSTANCES).
+        seen: new Map(),
+        ranks: 0,
+        newest: 0,
       };
       this.sessions.set(sessionId, state);
     }
@@ -67,16 +70,34 @@ export class ClaudeModCommands {
    * the copy is new here while agents are suppressed (a reloaded copy needs the list);
    * else when a command is sent, a newer poll arrives (empty, `superseded` when it
    * comes from another copy) or `holdMs` passed (empty). `closed` resolves when the
-   * request's connection closed; an unanswered poll then ends.
+   * request's connection closed; an unanswered poll then ends. A copy older than the
+   * newest one this server has seen is answered `superseded` at once and leaves the
+   * open poll alone.
    */
   poll(owner, closed, instance = "") {
     const sessionId = owner.id;
     const state = this.session(sessionId);
     const wasConnected = this.connected(sessionId);
-    const fresh = !state.seen.has(instance);
-    state.seen.add(instance);
-    if (state.seen.size > MAX_INSTANCES)
-      state.seen.delete(state.seen.values().next().value);
+    // Copies rank by when this server first saw them: a reload makes a newer one.
+    let rank = state.seen.get(instance);
+    const fresh = rank === undefined;
+    if (fresh) {
+      rank = ++state.ranks;
+      state.seen.set(instance, rank);
+      // The oldest copy goes first; it was turned away when it last polled.
+      if (state.seen.size > MAX_INSTANCES)
+        state.seen.delete(state.seen.keys().next().value);
+    }
+    // A copy older than the newest one (a replaced copy back from a backoff) never
+    // takes the channel from it.
+    if (rank < state.newest)
+      return Promise.resolve({
+        commands: [],
+        suppress: this.suppressed(sessionId),
+        superseded: true,
+      });
+    state.newest = rank;
+    // The open poll is this copy's own earlier one or an older copy's.
     state.poll?.answer([], state.poll.instance !== instance);
     clearTimeout(state.grace);
     return new Promise((resolve) => {
