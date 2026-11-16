@@ -91,7 +91,7 @@ export function dreamInput({ files, chats }) {
     .join("\n");
   const memory = reviewInput(
     fileNames.map((name) => ({ name, content: files[name] ?? "" })),
-    "hermes",
+    { runtime: "hermes" },
   );
   return `Targets (80 % of the limit):\n${limits}\n\n${memory}\n\n=== Chats\n${chatsInput(chats ?? [])}`;
 }
@@ -117,7 +117,7 @@ export function parseDream(text, files) {
   if (!answer || typeof answer !== "object" || Array.isArray(answer)) return null;
   const entries = reviewEntries(
     fileNames.map((name) => ({ name, content: files[name] ?? "" })),
-    "hermes",
+    { runtime: "hermes" },
   );
   const result = { files: {}, counts: {}, summary: "" };
   for (const file of fileNames) {

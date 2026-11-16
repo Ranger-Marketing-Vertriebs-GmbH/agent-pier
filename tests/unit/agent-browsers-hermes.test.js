@@ -56,7 +56,7 @@ test("a Hermes agent's browser call launches its own Chromium first", async () =
     headless: true,
     directory: "/x/user-data",
     agentId: "h1",
-    hermes: true,
+    own: true,
   });
   assert.deepEqual(await browsers.policy({ agentId: "ap-h1", action: "navigate" }), {
     allow: true,

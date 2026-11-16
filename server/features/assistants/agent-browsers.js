@@ -111,7 +111,7 @@ export class AgentBrowsers {
   forget() {
     let had = false;
     for (const [name, entry] of [...this.running])
-      if (!entry.hermes) {
+      if (!entry.own) {
         entry.keeper?.close();
         this.running.delete(name);
         had = true;
@@ -121,7 +121,7 @@ export class AgentBrowsers {
   /**
    * Every profile by name: OpenClaw's compiled ones, and the own profile of each
    * Hermes agent with the browser, whose Chromium AgentPier runs itself
-   * (runtimes/hermes/hermes-browser.js) once its port is chosen (`hermes: true`). A
+   * (runtimes/hermes/hermes-browser.js) once its port is chosen (`own: true`). A
    * Hermes temporary member's is the browser its lead granted it (`member: true`),
    * driven only while it holds a member slot (profileOf).
    */
@@ -138,7 +138,7 @@ export class AgentBrowsers {
         profiles[name] = {
           ...own,
           agentId: assistant.id,
-          hermes: true,
+          own: true,
           ...(member && { member: true }),
         };
     }
@@ -165,7 +165,7 @@ export class AgentBrowsers {
   // The agent a profile belongs to, for a Hermes agent's own profile; else null.
   owner(name) {
     const entry = this.profiles()[name];
-    if (!entry?.hermes) return null;
+    if (!entry?.own) return null;
     try {
       return this.store.getAssistant(entry.agentId);
     } catch {
@@ -213,13 +213,13 @@ export class AgentBrowsers {
       this.release(name);
       return { allow: true, profile: name };
     }
-    if (current && !entry.hermes) current.lastUse = this.now();
+    if (current && !entry.own) current.lastUse = this.now();
     else if (!nonLaunching.has(action)) {
       const reason = await this.admit(name, entry, assistant.id);
       if (reason) return deny(reason);
     }
     // AgentPier launches a Hermes agent's Chromium itself before Hermes attaches.
-    if (entry.hermes)
+    if (entry.own)
       try {
         await this.port(assistant).request({
           method: "POST",
@@ -435,7 +435,7 @@ export class AgentBrowsers {
       lastUse: this.now(),
       headless: entry.headless,
       assistantId,
-      hermes: !!entry.hermes,
+      own: !!entry.own,
     };
     record.keeper = this.keeper(entry.cdpPort, {
       windows: !entry.headless,

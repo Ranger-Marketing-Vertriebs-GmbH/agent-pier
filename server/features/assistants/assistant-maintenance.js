@@ -126,11 +126,12 @@ export class AssistantMaintenance {
         throw assistantProblem("conflict", 409);
     }
     // A deleted user's chat keeps its row, not its native session (user-release.js).
+    // A session of another runtime (an agent's own process set) is not this host's.
     const sessions = runtime.sessions.on(connection);
     for (const c of s.assistants.store.listConversations())
       if (
         !c.userReleased &&
-        runtimeForSession(c.runtimeSessionKey, s.assistantRuntime).id === "openclaw"
+        runtimeForSession(c.runtimeSessionKey, s.assistantRuntime).id === runtime.id
       )
         await sessions.describe({ key: c.runtimeSessionKey });
     if ((await this.blockers()).length) throw assistantProblem("active", 409);

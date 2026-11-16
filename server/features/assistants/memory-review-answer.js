@@ -34,17 +34,17 @@ function firstArray(text) {
 
 /**
  * The entries of a review answer `text` for the reviewed `files` (`[{ name, content
- * }]` of an agent on `runtime`), each item naming an entry by the id the input gave
+ * }]` of `agent`), each item naming an entry by the id the input gave
  * it (memory-review-prompt.js): `{ entries: [{ file, entry, kind, recommendation }],
  * dropped }`, `entry` the file's exact entry text. `dropped` counts the items with
  * an id the review did not send or named before, or an unknown kind or
  * recommendation. Null when the text holds no readable JSON array (a refusal, a
  * broken answer): the caller asks once more.
  */
-export function parseReview(text, files, runtime = "openclaw") {
+export function parseReview(text, files, agent = null) {
   const items = firstArray(text);
   if (!items) return null;
-  const byId = new Map(reviewEntries(files, runtime).map((e) => [e.id, e]));
+  const byId = new Map(reviewEntries(files, agent).map((e) => [e.id, e]));
   const seen = new Set();
   const entries = [];
   let dropped = 0;

@@ -31,14 +31,15 @@ const rootPrefixes = { "MEMORY.md": "M", "USER.md": "U" };
 /**
  * Every entry the review sends (memory-entries.js), in order: `{ id, file, entry,
  * at }`, `entry` the file's exact entry text and `at` where its text starts in the
- * file. `files` are `[{ name, content }]` of an agent on `runtime`.
+ * file. `files` are `[{ name, content }]` of `agent`, whose runtime says what an
+ * entry is; without an agent, the default runtime.
  */
-export function reviewEntries(files, runtime = "openclaw") {
+export function reviewEntries(files, agent = null) {
   const entries = [];
   let note = 0;
   for (const { name, content } of files) {
     const prefix = rootPrefixes[name] ?? `N${++note}.`;
-    memoryEntries(runtime, name, content).forEach(({ text, end }, i) =>
+    memoryEntries(agent, name, content).forEach(({ text, end }, i) =>
       entries.push({
         id: `${prefix}${i + 1}`,
         file: name,
@@ -55,8 +56,8 @@ export function reviewEntries(files, runtime = "openclaw") {
  * entry's text led by `[<id>] ` (a list item after its marker); headings and other
  * lines stay as they are, so the model sees the file's structure.
  */
-export function reviewInput(files, runtime = "openclaw") {
-  const entries = reviewEntries(files, runtime);
+export function reviewInput(files, agent = null) {
+  const entries = reviewEntries(files, agent);
   return files
     .map(({ name, content }) => {
       let text = "";

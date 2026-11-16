@@ -6,7 +6,7 @@ import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
-import { hermesMemoryLimits, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { memoryFor, runtimeFor, traitOf } from "./runtimes/runtime-for.js";
 import { diaryListing, diaryNote } from "./hermes-dream-store.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
@@ -71,11 +71,12 @@ export class NativeMemory {
     this.assistants = assistants;
     this.workspaces = workspaces;
   }
-  // Hermes keeps its memory in MEMORY.md and USER.md only (its memory tool): a note
-  // under its workspace's memory/ is no day note, so it is never rewritten or deleted
-  // as one.
+  // An agent whose memory is separated entries (Hermes, its memory tool) keeps it in
+  // MEMORY.md and USER.md only: a note under its workspace's memory/ is no day note,
+  // so it is never rewritten or deleted as one.
   dayNotes(id) {
-    return runtimeIdOf(this.assistants.store.getAssistant(id)) !== "hermes";
+    const agent = this.assistants.store.getAssistant(id);
+    return traitOf(agent, "agentFiles", "memoryFormat") !== "entries";
   }
   // The store of Hermes's nightly dreams (DreamingBackups sets it), if any.
   get hermesDiary() {
@@ -338,9 +339,9 @@ export class NativeMemory {
         name,
       });
       const file = projectFile(result.file, name);
-      return runtimeIdOf(agent) === "hermes"
-        ? { ...file, limit: hermesMemoryLimits[name] }
-        : file;
+      // A file with a character limit (agentFiles.memory) says it.
+      const limit = memoryFor(agent).limit(name);
+      return limit === null ? file : { ...file, limit };
     });
   }
   // One save path for every note the memory page edits: a root note through the

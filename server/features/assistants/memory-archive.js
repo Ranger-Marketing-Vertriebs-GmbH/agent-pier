@@ -2,12 +2,7 @@ import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { memoryEntries, withoutEntries } from "./memory-entries.js";
 import { NativeMemory, editableNote } from "./native-memory.js";
-import {
-  hermesEntryDelimiter,
-  hermesMemoryChars,
-  hermesMemoryLimits,
-  runtimeIdOf,
-} from "./runtimes/runtime-for.js";
+import { memoryFor, traitOf } from "./runtimes/runtime-for.js";
 
 /**
  * AgentPier's archive of memory entries the owner took out of an agent's memory (the
@@ -109,12 +104,13 @@ function checkedMeta(meta) {
     reviewId: name(meta?.reviewId),
   };
 }
-function checkedEntries(entries, runtime) {
+// `notes`: whether the agent keeps notes under memory/ beside its root files.
+function checkedEntries(entries, notes) {
   if (!Array.isArray(entries) || !entries.length || entries.length > 500)
     throw assistantProblem("invalid");
   for (const { file, entry } of entries)
     if (
-      !(rootFiles.has(file) || (runtime !== "hermes" && editableNote(file))) ||
+      !(rootFiles.has(file) || (notes && editableNote(file))) ||
       typeof entry !== "string" ||
       !entry.trim()
     )
@@ -135,11 +131,11 @@ function writeFile(memory, assistantId, name, content, hash) {
 
 // Whether `name` still holds every one of `texts`; false when it cannot be read, so
 // the archive keeps what may be gone from the file.
-async function stillHeld(memory, assistantId, runtime, name, texts) {
+async function stillHeld(memory, assistantId, agent, name, texts) {
   try {
     const read = await readFile(memory, assistantId, name);
     const present = new Set(
-      read.missing ? [] : memoryEntries(runtime, name, read.content).map((e) => e.text),
+      read.missing ? [] : memoryEntries(agent, name, read.content).map((e) => e.text),
     );
     return texts.every((text) => present.has(text));
   } catch {
@@ -185,8 +181,9 @@ function audit(service, assistantId, verb, count, files) {
  */
 export async function archiveEntries(service, assistantId, entries, meta) {
   const agent = service.store.getAssistant(assistantId);
-  const runtime = runtimeIdOf(agent);
-  const byFile = checkedEntries(entries, runtime);
+  // Memory as separated entries is MEMORY.md and USER.md alone (docs/agents.md).
+  const notes = traitOf(agent, "agentFiles", "memoryFormat") === "markdown";
+  const byFile = checkedEntries(entries, notes);
   const details = checkedMeta(meta);
   const memory = memoryOf(service);
   const archive = memoryArchiveOf(service);
@@ -197,7 +194,7 @@ export async function archiveEntries(service, assistantId, entries, meta) {
     for (const [file, items] of byFile) {
       const read = await readFile(memory, assistantId, file);
       const present = new Set(
-        read.missing ? [] : memoryEntries(runtime, file, read.content).map((e) => e.text),
+        read.missing ? [] : memoryEntries(agent, file, read.content).map((e) => e.text),
       );
       const texts = [...new Set(items.map((item) => item.entry))];
       const found = texts.filter((text) => present.has(text));
@@ -208,7 +205,7 @@ export async function archiveEntries(service, assistantId, entries, meta) {
         changed.push(...found);
         continue;
       }
-      const content = withoutEntries(runtime, file, read.content, found);
+      const content = withoutEntries(agent, file, read.content, found);
       const ids = archive.archive(
         assistantId,
         found.map((text) => ({ file, text })),
@@ -221,7 +218,7 @@ export async function archiveEntries(service, assistantId, entries, meta) {
         // come after the write was applied (a timeout, a dropped connection): the
         // rows go only when the file still holds every entry.
         const refused = error.status === 409 || error.status === 400;
-        if (refused || (await stillHeld(memory, assistantId, runtime, file, found)))
+        if (refused || (await stillHeld(memory, assistantId, agent, file, found)))
           archive.remove(assistantId, ...ids);
         if (!refused) throw error;
         changed.push(...found);
@@ -236,19 +233,10 @@ export async function archiveEntries(service, assistantId, entries, meta) {
   return { archived, changed };
 }
 
-// The file's content with `text` appended as its last entry.
-function appended(runtime, content, text) {
-  if (runtime === "hermes")
-    return memoryEntries(runtime, "", content).length
-      ? `${content}${hermesEntryDelimiter}${text}`
-      : text;
-  if (!content) return `- ${text}\n`;
-  return content.endsWith("\n") ? `${content}- ${text}\n` : `${content}\n- ${text}`;
-}
-
 /**
  * Puts archived entry `archiveId` of agent `assistantId` back at the end of its file
- * (an OpenClaw list item, a Hermes block within Hermes's limit: 409 otherwise) and
+ * (as its runtime writes an entry, within the file's limit if it has one: 409
+ * otherwise; agent-runtime.js `agentFiles.memory`) and
  * drops it from the archive once the file is written: `{ restored: true, file }`.
  * 404 for an unknown entry, 409 when the file changed between read and write or a
  * note is gone. Takes no admission itself, as archiveEntries.
@@ -259,15 +247,15 @@ export async function restoreEntry(service, assistantId, archiveId) {
   const entry =
     typeof archiveId === "string" ? archive.get(assistantId, archiveId) : null;
   if (!entry) throw assistantProblem("notFound", 404);
-  const runtime = runtimeIdOf(agent);
+  const format = memoryFor(agent);
   const memory = memoryOf(service);
   const read = await readFile(memory, assistantId, entry.file);
   // A note is never created again, and a root file is written against its hash.
   if ((read.missing && !rootFiles.has(entry.file)) || (!read.missing && !read.hash))
     throw assistantProblem("conflict", 409);
-  const content = appended(runtime, read.missing ? "" : read.content, entry.text);
-  const limit = hermesMemoryLimits[entry.file];
-  if (runtime === "hermes" && hermesMemoryChars(content) > limit)
+  const content = format.appended(read.missing ? "" : read.content, entry.text);
+  const limit = format.limit(entry.file);
+  if (limit !== null && format.chars(content) > limit)
     throw assistantProblem("memoryTooLarge", 409, entry.file, limit);
   await writeFile(memory, assistantId, entry.file, content, read.hash);
   archive.remove(assistantId, archiveId);
