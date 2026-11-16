@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { readProcessTable } from "../../server/features/system-status/process-stats.js";
 import {
   classifyProcesses,
   endProcess,
@@ -60,7 +61,7 @@ test("a cwd anywhere in the record wins over open files", () => {
 const table = (rows) => new Map(rows.map(([pid, ppid]) => [pid, { pid, ppid }]));
 const found = (...pids) =>
   pids.map((pid) => ({ pid, name: `p${pid}`, uid: 501, uses: "files" }));
-const identity = (pid) => ({ startTime: `t${pid}` });
+const identity = (pid) => ({ startTime: `t${pid}`, executable: `/bin/p${pid}` });
 
 test("the server, its ancestors, tmux, the Gateway and pid 1 are protected", () => {
   const rows = [
@@ -93,6 +94,7 @@ test("the server, its ancestors, tmux, the Gateway and pid 1 are protected", () 
   assert.deepEqual(byPid.get(400), {
     pid: 400,
     startTime: "t400",
+    executable: "/bin/p400",
     name: "p400",
     uses: "files",
     owner: "self",
@@ -102,9 +104,21 @@ test("the server, its ancestors, tmux, the Gateway and pid 1 are protected", () 
   });
 });
 
-test("pid 1 stays protected without a process table", () => {
-  const [p] = classifyProcesses(found(1), { serverPid: 100, uid: 501, identity });
-  assert.equal(p.protected, true);
+test("pid 1, this process and its parent stay protected without a process table", () => {
+  const result = classifyProcesses(found(1, process.pid, process.ppid, 4242), {
+    serverPid: 100,
+    uid: 501,
+    identity,
+  });
+  assert.deepEqual(
+    result.map((p) => [p.pid, p.protected]),
+    [
+      [1, true],
+      [process.pid, true],
+      [process.ppid, true],
+      [4242, false],
+    ],
+  );
 });
 
 test("pane trees are session processes, Gateway children are agent commands", () => {
@@ -222,6 +236,23 @@ test("lsof exit 1 with output counts; without output the scan failed", async () 
   assert.equal(missing.status, "failed");
 });
 
+test("a truncated or killed lsof never counts as a clean scan", async (t) => {
+  const out = lsofRecord(9, "vim", 501, [["cwd", "/elsewhere"]]);
+  for (const error of [
+    { code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER", stdout: out },
+    { code: null, signal: "SIGKILL", stdout: out },
+    { code: 2, stdout: out },
+  ]) {
+    const r = await scanFolderProcesses(["/work/app"], {
+      platform: "darwin",
+      run: async () => {
+        throw Object.assign(new Error("lsof failed"), error);
+      },
+    });
+    assert.deepEqual(r, { status: "failed", processes: [] }, t.name + error.code);
+  }
+});
+
 function fakeProc(procs) {
   const enoent = () => Object.assign(new Error("ENOENT"), { code: "ENOENT" });
   const eacces = () => Object.assign(new Error("EACCES"), { code: "EACCES" });
@@ -281,15 +312,23 @@ test("the /proc fallback stays within the same bound", async () => {
   assert.equal(r.status, "timeout");
 });
 
-function fakeSignals({ startTime = "t1", exitsOn = "SIGTERM", reusedAs = null } = {}) {
+function fakeSignals({
+  startTime = "t1",
+  executable = "/bin/x",
+  exitsOn = "SIGTERM",
+  reusedAs = null,
+  unreadableAfter = null,
+  denied = null,
+} = {}) {
   const sent = [];
   let alive = true;
   let current = startTime;
+  let unreadable = false;
   return {
     sent,
     identity: () => {
-      if (!alive) throw new Error("gone");
-      return { startTime: current };
+      if (!alive || unreadable) throw new Error("unreadable");
+      return { startTime: current, executable };
     },
     signal: (pid, sig) => {
       if (sig === 0) {
@@ -297,7 +336,9 @@ function fakeSignals({ startTime = "t1", exitsOn = "SIGTERM", reusedAs = null } 
         return true;
       }
       if (!alive) throw Object.assign(new Error("ESRCH"), { code: "ESRCH" });
+      if (sig === denied) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
       sent.push([pid, sig]);
+      if (sig === unreadableAfter) unreadable = true;
       if (sig === exitsOn) {
         if (reusedAs) current = reusedAs;
         else alive = false;
@@ -352,6 +393,39 @@ test("endProcess sends TERM, then KILL after the grace period, never to a reused
   assert.deepEqual(gone.sent, []);
 });
 
+test("endProcess never reports a still-running process as ended", async () => {
+  // Identity unreadable before KILL while the pid still exists: no KILL, not ended.
+  const unreadable = fakeSignals({ exitsOn: null, unreadableAfter: "SIGTERM" });
+  assert.equal(
+    await endProcess({ pid: 7, startTime: "t1" }, { graceMs: 30, ...unreadable }),
+    "changed",
+  );
+  assert.deepEqual(unreadable.sent, [[7, "SIGTERM"]]);
+
+  // Same start time, other executable: a reused pid, never signalled.
+  const other = fakeSignals({ executable: "/bin/other" });
+  assert.equal(
+    await endProcess(
+      { pid: 7, startTime: "t1", executable: "/bin/x" },
+      { graceMs: 30, ...other },
+    ),
+    "changed",
+  );
+  assert.deepEqual(other.sent, []);
+
+  // EPERM is mapped, not thrown, so a batch of ends goes on.
+  for (const denied of ["SIGTERM", "SIGKILL"]) {
+    const fake = fakeSignals({ exitsOn: null, denied });
+    assert.equal(
+      await endProcess(
+        { pid: 7, startTime: "t1", executable: "/bin/x" },
+        { graceMs: 30, ...fake },
+      ),
+      "changed",
+    );
+  }
+});
+
 test("endProcess refuses a process without a known start time", async () => {
   const fake = fakeSignals();
   assert.equal(
@@ -389,7 +463,11 @@ test("finds and ends a real child working in the folder", async (t) => {
   const mine = scan.processes.find((p) => p.pid === child.pid);
   assert.ok(mine, "the child is found");
   assert.equal(mine.uses, "cwd");
-  const [proc] = classifyProcesses([mine], { serverPid: process.pid, table: new Map() });
+  const [proc] = classifyProcesses([mine], {
+    serverPid: process.pid,
+    table: await readProcessTable(),
+  });
+  assert.equal(proc.protected, false);
   assert.equal(proc.owner, "self");
   assert.equal(proc.endable, true);
   const exited = new Promise((resolve) => child.once("exit", (_, sig) => resolve(sig)));

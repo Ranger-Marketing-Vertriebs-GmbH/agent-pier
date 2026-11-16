@@ -137,7 +137,10 @@ async function lsofScan(folders, { platform, run, readProc, signal }) {
     if (error?.code === "ENOENT" && platform === "linux")
       return procScan(folders, readProc, signal);
     // lsof exits 1 when one of many processes could not be read; its list still counts.
-    if (signal.aborted || typeof error?.stdout !== "string" || !error.stdout) throw error;
+    // Anything else (a full buffer, a signal) may have cut the list short.
+    if (signal.aborted || error?.code !== 1 || typeof error.stdout !== "string")
+      throw error;
+    if (!error.stdout) throw error;
     stdout = error.stdout;
   }
   return parseLsof(stdout, folders);
@@ -210,7 +213,10 @@ export function classifyProcesses(
   } = {},
 ) {
   const isPid = (pid) => Number.isSafeInteger(pid) && pid > 0;
-  const guarded = new Set([1, serverPid, tmuxPid, gatewayPid].filter(isPid));
+  // This process and its parent stay protected even without a process table.
+  const guarded = new Set(
+    [1, process.pid, process.ppid, serverPid, tmuxPid, gatewayPid].filter(isPid),
+  );
   for (const pid of ancestors(table, serverPid)) guarded.add(pid);
   const trees = processTrees(table, [
     ["gateway", gatewayPid],
@@ -225,9 +231,11 @@ export function classifyProcesses(
   };
   const result = [];
   for (const { pid, name, uid: owner, uses } of found) {
-    let startTime = null;
+    let startTime = null,
+      executable = null;
     try {
-      startTime = identity(pid).startTime || null;
+      ({ startTime = null, executable = null } = identity(pid));
+      startTime ||= null;
     } catch {
       if (!alive(pid)) continue; // Ended since the scan.
     }
@@ -236,6 +244,7 @@ export function classifyProcesses(
     result.push({
       pid,
       startTime,
+      executable,
       name,
       uses,
       owner: mine ? "self" : "other",
@@ -247,36 +256,45 @@ export function classifyProcesses(
   return result;
 }
 
-/** Sends `sig` unless the process is gone; false when it is. */
+/** "sent", "gone" (ESRCH) or "denied" (EPERM: not ours to signal). */
 function send(signal, pid, sig) {
   try {
     signal(pid, sig);
-    return true;
+    return "sent";
   } catch (error) {
-    if (error?.code === "ESRCH") return false;
+    if (error?.code === "ESRCH") return "gone";
+    if (error?.code === "EPERM") return "denied";
     throw error;
   }
 }
 
 /**
- * SIGTERM, then SIGKILL after `graceMs`. The start time is checked before each signal,
- * so a pid reused by another process is never signalled.
+ * SIGTERM, then SIGKILL after `graceMs`. Start time and executable are checked before
+ * each signal, so a pid reused by another process is never signalled. "changed" means
+ * the process could not be confirmed as the one found, or could not be signalled.
  */
 export async function endProcess(
-  { pid, startTime },
+  { pid, startTime, executable = null },
   { graceMs = 5000, signal = process.kill, identity = processIdentity } = {},
 ) {
   if (!Number.isSafeInteger(pid) || pid <= 1 || !startTime) return "changed";
+  // "same", "other" (the pid now names another process), "gone", or "unknown".
   const check = () => {
+    let now;
     try {
-      return identity(pid).startTime === startTime ? "same" : "changed";
+      now = identity(pid);
     } catch {
-      return exists(pid, signal) ? "changed" : "gone";
+      return exists(pid, signal) ? "unknown" : "gone";
     }
+    const same =
+      now.startTime === startTime && (!executable || now.executable === executable);
+    return same ? "same" : "other";
   };
   const before = check();
-  if (before !== "same") return before;
-  if (!send(signal, pid, "SIGTERM")) return "gone";
+  if (before === "gone") return "gone";
+  if (before !== "same") return "changed";
+  const term = send(signal, pid, "SIGTERM");
+  if (term !== "sent") return term === "gone" ? "gone" : "changed";
   const deadline = Date.now() + graceMs;
   while (Date.now() < deadline) {
     await new Promise((resolve) =>
@@ -284,7 +302,9 @@ export async function endProcess(
     );
     if (!exists(pid, signal)) return "ended";
   }
-  if (check() !== "same") return "ended";
-  send(signal, pid, "SIGKILL");
-  return "ended";
+  const after = check();
+  if (after === "gone" || after === "other") return "ended";
+  if (after !== "same") return "changed";
+  const kill = send(signal, pid, "SIGKILL");
+  return kill === "denied" ? "changed" : "ended";
 }
