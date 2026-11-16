@@ -608,6 +608,13 @@ debounce is needed. A turn of a healthy agent that needs a configuration write a
 a start waits with it; in the native contract two agents took about 5 s, and the time
 grows with the number and size of the agent databases.
 
+OpenClaw answers each of these writes only once the active Gateway applied it, so
+`config.patch`, `agents.update` and `agents.delete` get 30 s instead of the client's
+default 10 s (`configWriteTimeoutMs` in `runtimes/openclaw/gateway-client.js`;
+`agents.create` has its own 30 s). On 2026.11.3 the first patch after a start and a
+delete each took more than 10 s on slow macOS runners; a delete that timed out stayed
+pending with `TIMEOUT` although the Gateway went on to finish it.
+
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
 refreshed and every chat subscribes again at once, so a healthy agent's chat that

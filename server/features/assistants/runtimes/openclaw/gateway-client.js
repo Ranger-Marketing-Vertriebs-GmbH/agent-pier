@@ -54,6 +54,14 @@ export const sessionCreateTimeoutMs = 60000;
 // first agent on a slow Intel Mac took more than the default 10 s. Like a session, a
 // timed-out create leaves it unknown whether the agent exists.
 export const agentCreateTimeoutMs = 30000;
+// A configuration write (config.patch, agents.update, agents.delete) is answered only
+// once the active Gateway applied it, and 2026.11.3 does more before that: the first
+// patch after a start about 0.85 s on a fast host (0.2 s on 2026.10.9), a delete
+// about 0.7 s (0.3 s), as it also drains the agent's work and databases and removes
+// its cron jobs. On a slow or busy host each can pass the default 10 s (the deletion
+// contract on macOS runners; 11 to 27 s under full local CPU load). A timed-out write
+// runs on in the Gateway, so its outcome is unknown; each gets agents.create's budget.
+export const configWriteTimeoutMs = 30000;
 // OpenClaw 2026.10.7 refuses a session of an agent whose database it has not
 // admitted with UNAVAILABLE and the refusal as `details` (agent-admission.js).
 const admissionCodes = /^agent-database-[a-z-]{1,60}$/;
