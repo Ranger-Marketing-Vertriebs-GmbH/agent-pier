@@ -43,6 +43,10 @@ export class TaskMemberGrants {
   get teams() {
     return this.w.a.teams?.store || null;
   }
+  /** Whether the owner can revoke grants now (revoke answers 503 otherwise). */
+  get revocable() {
+    return !!this.w.a.teams?.grants;
+  }
   get servers() {
     return this.w.a.mcp?.servers || null;
   }

@@ -22,6 +22,8 @@ import {
   moveProject,
   adoptProject,
   ownsProjectAccess,
+  handOverKey,
+  ignoreGone,
 } from "./ssh-management-records.js";
 import { recordSessionSftp, sftpRecordFields } from "../sftp/sftp-session-audit.js";
 
@@ -172,6 +174,7 @@ export class SshManagement {
   /**
    * Forgets a deleted project: its hosts first (a key in use refuses removal), then
    * its keys, each the way the owner removes them, then its catalog row and receipts.
+   * A key a host of another project still uses is handed over, not deleted.
    */
   async removeProject(projectId) {
     await this.ready;
@@ -182,8 +185,15 @@ export class SshManagement {
           [part].filter((row) => row.projectId === projectId)
           .map((row) => row.id),
       );
-    for (const id of owned("hosts", "sftpHosts")) await this.ui("removeHost", { id });
-    for (const id of owned("keys")) await this.ui("removeKey", { id });
+    for (const id of owned("hosts", "sftpHosts"))
+      await this.ui("removeHost", { id }).catch(ignoreGone);
+    for (const id of owned("keys"))
+      await this.ui("removeKey", { id }).catch(async (error) => {
+        const kept =
+          error?.status === 409 &&
+          (await this.track(() => this.mutation(() => handOverKey(this.catalog, id))));
+        if (!kept) ignoreGone(error);
+      });
     const { receipts, projects } = this.catalog.read();
     if (
       !receipts.some((row) => row.projectId === projectId) &&

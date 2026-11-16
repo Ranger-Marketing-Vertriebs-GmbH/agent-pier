@@ -155,11 +155,15 @@ export class ProjectGroups {
     this.onChange();
     return this.get();
   }
-  /** Drops the group assignments of a deleted folder and the folders inside it. */
-  forget(folder) {
+  /**
+   * Drops the group assignments of a deleted folder and the folders inside it; with
+   * `keyOf`, also those whose key names one of them another way (a linked parent).
+   */
+  forget(folder, keyOf = null) {
     const current = this.get();
+    const gone = (key) => inside(folder, key) || (keyOf && inside(folder, keyOf(key)));
     const assignments = Object.fromEntries(
-      Object.entries(current.assignments).filter(([key]) => !inside(folder, key)),
+      Object.entries(current.assignments).filter(([key]) => !gone(key)),
     );
     if (Object.keys(assignments).length === Object.keys(current.assignments).length)
       return false;
