@@ -64,6 +64,10 @@ export const projectDeletionCopy = {
       "Dieser Ordner enthält AgentPier selbst oder seine Daten oder liegt darin und kann nicht gelöscht werden.",
     mountPoint:
       "Dieser Ordner ist ein eingebundenes Laufwerk und kann nicht gelöscht werden.",
+    containsMount:
+      "In diesem Ordner ist ein Laufwerk eingebunden. Wirf es zuerst aus; AgentPier löscht nie in ein eingebundenes Laufwerk hinein.",
+    mountsUnreadable:
+      "Die Liste der eingebundenen Laufwerke ließ sich nicht lesen, daher kann AgentPier ein Laufwerk in diesem Ordner nicht ausschließen. Versuche es erneut.",
     symlink:
       "Dieser Pfad ist ein Link oder nicht als echter Pfad des Ordners geschrieben; nur der echte Ordner kann gelöscht werden.",
     notDirectory: "Dieser Pfad ist kein Ordner.",
@@ -83,7 +87,7 @@ export const projectDeletionCopy = {
     PROJECT_FOLDER_CHANGED:
       "Der Ordner wurde nach der Prüfung ersetzt und deshalb nicht gelöscht.",
     PROJECT_DELETE_REFUSED:
-      "AgentPier hat das Löschen dieses Ordners verweigert, weil er ein geschützter oder verlinkter Pfad ist.",
+      "AgentPier hat das Löschen dieses Ordners verweigert, weil er ein geschützter oder verlinkter Pfad ist oder darin ein Laufwerk eingebunden ist.",
     PROJECT_DELETE_BLOCKED:
       "Im Projekt läuft wieder etwas oder nutzt seinen Ordner. Beende es und wiederhole dann.",
     PROJECT_FOLDER_REAPPEARED:

@@ -17,6 +17,8 @@ export const projectDeletion = {
   aborted:
     "Das Löschen wurde abgebrochen, bevor etwas gelöscht wurde. Der Zugriff der Agenten auf dieses Projekt wurde bereits entfernt; erteile ihn neu, wenn du das Projekt behältst.",
   notFailed: "Nur ein fehlgeschlagenes Löschen kann wiederholt werden.",
+  deletionsUnreadable:
+    "AgentPier konnte nicht lesen, welche Projektordner gerade gelöscht werden, daher wird vorerst nichts gestartet. Versuche es erneut.",
   refusals: {
     root: "Die Wurzel des Dateisystems kann nicht gelöscht werden.",
     home: "Dein Benutzerordner kann nicht gelöscht werden.",
@@ -28,6 +30,10 @@ export const projectDeletion = {
       "Dieser Ordner enthält AgentPier selbst oder seine Daten oder liegt darin und kann nicht gelöscht werden.",
     mountPoint:
       "Dieser Ordner ist ein eingebundenes Laufwerk und kann nicht gelöscht werden.",
+    containsMount:
+      "In diesem Ordner ist ein Laufwerk eingebunden. Wirf es zuerst aus; AgentPier löscht nie in ein eingebundenes Laufwerk hinein.",
+    mountsUnreadable:
+      "Die Liste der eingebundenen Laufwerke ließ sich nicht lesen, daher kann AgentPier ein Laufwerk in diesem Ordner nicht ausschließen. Versuche es erneut.",
     symlink:
       "Dieser Pfad ist ein Link oder nicht als echter Pfad des Ordners geschrieben; nur der echte Ordner kann gelöscht werden.",
     notDirectory: "Dieser Pfad ist kein Ordner.",

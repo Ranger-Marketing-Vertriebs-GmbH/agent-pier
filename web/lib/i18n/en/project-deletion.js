@@ -57,6 +57,10 @@ export const projectDeletionCopy = {
     agentpier:
       "This folder holds AgentPier itself or its data, or lies inside them, and cannot be deleted.",
     mountPoint: "This folder is a mounted drive and cannot be deleted.",
+    containsMount:
+      "A drive is mounted inside this folder. Unmount it first; AgentPier never deletes into a mounted drive.",
+    mountsUnreadable:
+      "The list of mounted drives could not be read, so AgentPier cannot rule out a drive mounted inside this folder. Try again.",
     symlink:
       "This path is a link or not written as the folder's real path; only the real folder can be deleted.",
     notDirectory: "This path is not a folder.",
@@ -76,7 +80,7 @@ export const projectDeletionCopy = {
     PROJECT_FOLDER_CHANGED:
       "The folder was replaced after the check, so it was not deleted.",
     PROJECT_DELETE_REFUSED:
-      "AgentPier refused to delete this folder because it is a protected or linked path.",
+      "AgentPier refused to delete this folder because it is a protected or linked path or a drive is mounted inside it.",
     PROJECT_DELETE_BLOCKED:
       "Something runs in the project or uses its folder again. Stop it, then retry.",
     PROJECT_FOLDER_REAPPEARED:

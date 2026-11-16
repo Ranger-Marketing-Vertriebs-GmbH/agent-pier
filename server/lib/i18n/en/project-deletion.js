@@ -17,6 +17,8 @@ export const projectDeletion = {
   aborted:
     "The deletion stopped before anything was deleted. Agents' access to this project was already removed; grant it again if you keep the project.",
   notFailed: "Only a deletion that failed can be retried.",
+  deletionsUnreadable:
+    "AgentPier could not read which project folders are being deleted, so nothing is started for now. Try again.",
   refusals: {
     root: "The root of the file system cannot be deleted.",
     home: "Your home folder cannot be deleted.",
@@ -26,6 +28,10 @@ export const projectDeletion = {
     agentpier:
       "This folder holds AgentPier itself or its data, or lies inside them, and cannot be deleted.",
     mountPoint: "This folder is a mounted drive and cannot be deleted.",
+    containsMount:
+      "A drive is mounted inside this folder. Unmount it first; AgentPier never deletes into a mounted drive.",
+    mountsUnreadable:
+      "The list of mounted drives could not be read, so AgentPier cannot rule out a drive mounted inside this folder. Try again.",
     symlink:
       "This path is a link or not written as the folder's real path; only the real folder can be deleted.",
     notDirectory: "This path is not a folder.",
