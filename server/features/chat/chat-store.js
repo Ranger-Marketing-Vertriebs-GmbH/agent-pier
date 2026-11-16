@@ -23,6 +23,8 @@ export class ChatStore {
   }) {
     this.directory = privateDirectory(path.join(dataDir, "chat"));
     this.sessions = sessions;
+    // (session, snapshot) => snapshot, set by the task control; see read().
+    this.overlay = null;
     this.history = history;
     this.bindings = bindings;
     this.events = events;
@@ -329,7 +331,12 @@ export class ChatStore {
       throw problem(serverMessages.chat.historyUnavailable, 409);
     return this.history.list(session);
   }
+  /** The snapshot with the task overlay (stops, flags, notes) applied outside the cache. */
   async read(id) {
+    const snapshot = await this.readSnapshot(id);
+    return this.overlay ? this.overlay(await this.sessions.get(id), snapshot) : snapshot;
+  }
+  async readSnapshot(id) {
     const epoch = this.epoch(id);
     const session = { ...(await this.sessions.get(id)) };
     if (!this.generations.has(id)) this.generations.set(id, randomUUID());

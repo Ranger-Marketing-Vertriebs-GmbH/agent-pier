@@ -5,12 +5,18 @@ import { DeliveryAcceptance } from "../features/chat/delivery-acceptance.js";
  * Chat delivery with one matcher of native acceptance events: a matching event
  * confirms its delivery (`chatDelivery.acceptance` takes the CLIs' sources).
  */
-export function createChatDelivery(options) {
+export function createChatDelivery({ notes, ...options }) {
   const acceptance = new DeliveryAcceptance({
     onMatch: (sessionId, deliveryId, outcome) =>
       chatDelivery.accept(sessionId, deliveryId, outcome),
   });
-  const chatDelivery = new ChatDelivery({ ...options, acceptance });
+  const chatDelivery = new ChatDelivery({
+    ...options,
+    acceptance,
+    // The stop notes a message carries (task-control.js).
+    filterNotes: (id, ids, text) => notes?.notesCarried(id, ids, text),
+    onNotesDelivered: (id, ids) => notes?.consumeNotes(id, ids),
+  });
   return chatDelivery;
 }
 

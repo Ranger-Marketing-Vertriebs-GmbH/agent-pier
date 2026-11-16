@@ -59,6 +59,11 @@ export const chat = Object.freeze({
   codexReadTimeout: "Reading the Codex history took too long.",
   taskUnknown: "This task does not belong to the session.",
   taskTranscriptUnavailable: "The transcript of this task cannot be read.",
+  taskStopUnsupported: "This task cannot be stopped in this CLI.",
+  taskStopNotRunning: "This task is no longer running.",
+  taskStopChannelDown: "The connection to the CLI is down right now. Try again shortly.",
+  taskStopRefused: "The CLI refused to stop the task.",
+  taskStopTimeout: "The CLI did not answer the request to stop the task in time.",
 });
 export const chatAttachmentCopy = {
   invalidSession: "Invalid session for file upload.",
