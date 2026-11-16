@@ -32,5 +32,15 @@ export function ticketProjectMoves({ ticketStore, rules, store, engine, live }) 
         );
       for (const id of [fromId, toId]) ticketsProjectChanged(live(), id);
     },
+    /** Drops a deleted project's ticket data, the queue inside the engine's lock. */
+    async removeProject(projectId) {
+      ticketStore.removeProject(projectId);
+      rules.removeProject(projectId);
+      if (store.queue(projectId))
+        await engine.exclusive(projectId, () => store.removeProject(projectId), {
+          step: false,
+        });
+      ticketsProjectChanged(live(), projectId);
+    },
   };
 }

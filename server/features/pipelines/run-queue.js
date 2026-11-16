@@ -227,6 +227,12 @@ export class RunQueue {
     this.onChange(fromId);
     this.notify(toId);
   }
+  /** Drops every item of a deleted project, in any state; its runs are not touched. */
+  removeProject(projectId) {
+    if (!this.ownsProject(projectId)) return;
+    for (const item of this.store.list(projectId)) this.store.remove(item.id);
+    this.notify(projectId);
+  }
   exists(projectId) {
     try {
       this.projects(projectId);

@@ -264,6 +264,19 @@ export class TicketStore {
       this.startRecords.some((record) => record.projectId === projectId)
     );
   }
+  /** Drops a deleted project's link and start records; an unknown id changes nothing. */
+  removeProject(projectId) {
+    if (!this.ownsProject(projectId)) return;
+    const before = [this.projects, this.startRecords];
+    this.projects = this.projects.filter((link) => link.projectId !== projectId);
+    this.startRecords = this.startRecords.filter((r) => r.projectId !== projectId);
+    try {
+      this.save();
+    } catch (error) {
+      [this.projects, this.startRecords] = before;
+      throw error;
+    }
+  }
   /**
    * Moves a project's link and start records to the project it became. When both have
    * a link they merge field by field, the new project's value winning: its Plane link

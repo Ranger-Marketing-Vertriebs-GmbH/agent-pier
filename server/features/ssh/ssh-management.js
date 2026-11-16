@@ -169,6 +169,41 @@ export class SshManagement {
       this.catalog.read().projects.some((row) => row.id === projectId)
     );
   }
+  /**
+   * Forgets a deleted project: its hosts first (a key in use refuses removal), then
+   * its keys, each the way the owner removes them, then its catalog row and receipts.
+   */
+  async removeProject(projectId) {
+    await this.ready;
+    const owned = (...parts) =>
+      parts.flatMap((part) =>
+        this.catalog
+          .read()
+          [part].filter((row) => row.projectId === projectId)
+          .map((row) => row.id),
+      );
+    for (const id of owned("hosts", "sftpHosts")) await this.ui("removeHost", { id });
+    for (const id of owned("keys")) await this.ui("removeKey", { id });
+    const { receipts, projects } = this.catalog.read();
+    if (
+      !receipts.some((row) => row.projectId === projectId) &&
+      !projects.some((row) => row.id === projectId)
+    )
+      return;
+    await this.track(() =>
+      this.mutation(() => {
+        const { receipts, projects } = this.catalog.read();
+        this.catalog.replacePart(
+          "receipts",
+          receipts.filter((row) => row.projectId !== projectId),
+        );
+        this.catalog.replacePart(
+          "projects",
+          projects.filter((row) => row.id !== projectId),
+        );
+      }),
+    );
+  }
   rememberProject(project) {
     const record = {
       id: project.projectId ?? project.id,
