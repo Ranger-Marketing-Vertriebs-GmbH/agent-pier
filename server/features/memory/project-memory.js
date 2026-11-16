@@ -26,6 +26,7 @@ import {
 } from "./memory-search.js";
 import os from "node:os";
 import { isCodingCli } from "../clis/catalog.js";
+import { DeletionRecords } from "./project-deletions.js";
 const selection = `SELECT ${entryColumns} FROM entries e JOIN revisions r ON r.entry_id=e.id`;
 function source(value) {
   if (value?.kind === "assistant")
@@ -67,6 +68,7 @@ export class ProjectMemory {
     this.home = home;
     this.scope = scope;
     this.closed = false;
+    this.deletions = new DeletionRecords(this.db);
     this.fullText = prepareSearchIndex(
       this.db,
       fullTextSearch && fullTextAvailable(this.db),
