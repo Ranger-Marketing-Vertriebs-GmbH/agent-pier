@@ -3,7 +3,9 @@
 // renamed, moved, merged or removed, by the owner, a session, a pipeline run or an
 // agent creating its own project) or the saved repositories. The page reads its
 // sources (GET /api/memory/projects, GET /api/repositories) again once per `changed`;
-// they read the folders' Git remotes, so they are not pushed. AgentBus projects have
+// they read the folders' Git remotes, so they are not pushed. A project deletion
+// (ProjectDeletion) signals it as well when it starts, fails, is retried and ends, as
+// the lists carry each folder's state and the deletions in progress. AgentBus projects have
 // their own topic (agentbus.changed).
 import { after } from "../sessions/live-state-topic.js";
 

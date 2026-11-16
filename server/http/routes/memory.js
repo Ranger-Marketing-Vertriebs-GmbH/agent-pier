@@ -2,6 +2,10 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { wantsRemotes } from "../../features/repositories/git-remote.js";
+import {
+  annotateFolders,
+  listedDeletions,
+} from "../../application/project-folder-annotations.js";
 
 function pageValue(raw) {
   if (raw === undefined) return 1;
@@ -32,11 +36,13 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
       request.query?.duplicates === "1"
         ? await projectDuplicates.describe(listed)
         : listed;
+    const annotated =
+      gitRemotes && wantsRemotes(request)
+        ? await gitRemotes.annotate(projects, "cwd")
+        : projects;
     response.json({
-      projects:
-        gitRemotes && wantsRemotes(request)
-          ? await gitRemotes.annotate(projects, "cwd")
-          : projects,
+      projects: await annotateFolders(memory, annotated, (project) => project.cwd),
+      deletions: listedDeletions(memory),
     });
   });
   router.get("/memory/projects/:projectId/merge", async (request, response) =>
