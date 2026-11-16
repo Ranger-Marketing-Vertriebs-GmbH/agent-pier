@@ -9,6 +9,8 @@ export const users = Object.freeze({
   agentOwnFixed:
     "Ein eigener Agent bleibt bei seinem Benutzer. Lege für andere einen neuen Agenten an.",
   level: "Das erlaubt deine Stufe für diesen Agenten nicht.",
+  agentSkillLearning:
+    "Agenten von Benutzern lernen auf dieser Laufzeit keine eigenen Skills: Gelernte Skills würden die Skill-Liste umgehen, die begrenzt, was sie lesen.",
   agentRestartNeeded:
     "Dafür muss der Agentendienst neu starten, und das kann nur der Besitzer. Frag den Besitzer.",
   agentsChoice:

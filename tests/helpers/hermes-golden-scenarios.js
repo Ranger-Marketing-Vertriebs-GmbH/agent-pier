@@ -13,10 +13,12 @@ import { hermesAdvancedRuntime } from "../../server/features/assistants/runtimes
 
 export const goldenWorkspace = "/golden/assistants/workspaces/ap-a1";
 
+// A stored Hermes agent records its runtime (ADR 0006), which its traits follow.
 const agent = (extra = {}) => ({
   id: "a1",
   name: "Agent a1",
   runtimeAgentId: "ap-a1",
+  runtime: "hermes",
   revision: 1,
   ...extra,
 });

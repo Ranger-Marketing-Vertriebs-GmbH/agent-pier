@@ -4,6 +4,7 @@ import { decideAudited } from "./approval-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { decideExec } from "./exec-decisions.js";
 import { personalEligible, personalShell, shellLevels } from "./native-capabilities.js";
+import { learnsSkills } from "./skill-learning.js";
 import {
   hostConnection,
   hostReady,
@@ -71,6 +72,8 @@ export function withoutUnchanged(patch, changes, current) {
     shell: () => changes.shell === (current.shell ?? "off"),
     browserVisible: () => changes.browserVisible === (current.browserVisible === true),
     skills: () => isDeepStrictEqual(changes.skills, current.skills ?? []),
+    // The form shows the effective value (the runtime's default while unset).
+    skillLearning: () => changes.skillLearning === learnsSkills(current),
     heartbeat: () => isDeepStrictEqual(changes.heartbeat, current.heartbeat),
   };
   return Object.fromEntries(

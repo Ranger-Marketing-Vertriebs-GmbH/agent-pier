@@ -2,6 +2,7 @@ import { grantedTools, senderLockedTools } from "../../../native-capabilities.js
 import { agentExec } from "./shell.js";
 import { lockEntry } from "../../../../users/user-agent-lock.js";
 import { asDesired } from "./desired-agents.js";
+import { learningTools } from "./skill-learning.js";
 
 // One definition for a Gateway start and a live apply: the same agent (its desired
 // state, agent-desired-state.js) and runtime state always yield the same managed
@@ -40,13 +41,17 @@ export function agentEntry(
   const exec = nativeReady ? agentExec(agent.shell.level, pathPrepend) : undefined;
   if (toolsManaged)
     next.tools = {
-      allow: grantedTools(agent.tools, {
-        teamsReady,
-        nativeReady,
-        writeGuard: guardProven,
-        available,
-        mcpTools,
-      }).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
+      allow: [
+        ...grantedTools(agent.tools, {
+          teamsReady,
+          nativeReady,
+          writeGuard: guardProven,
+          available,
+          mcpTools,
+        }).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
+        // "Learns its own skills" (skill-learning.js): OpenClaw's skill_workshop.
+        ...learningTools(agent, { nativeReady, senderFacing }),
+      ],
       ...(exec && { exec }),
     };
   // The agent's final skill list (agents.defaults.skills is []): the bundled and

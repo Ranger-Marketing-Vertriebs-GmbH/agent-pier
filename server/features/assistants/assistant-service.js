@@ -66,6 +66,7 @@ import {
 } from "./runtimes/runtime-for.js";
 import { logoutAccount } from "./account-logout.js";
 import { followOwnProcesses, refuseEveryCommand } from "./own-process-agents.js";
+import { learningView } from "./skill-learning.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -243,7 +244,9 @@ export class AssistantService {
   }
   /** The profile with its bound MCP server ids and its runtime (runtime-for.js). */
   withMcp(profile) {
-    const decorated = withRuntime(this.shellChanges.decorate(profile), this.runtime);
+    const decorated = learningView(
+      withRuntime(this.shellChanges.decorate(profile), this.runtime),
+    );
     // The badge while the agent's own browser runs (agent-browsers.js).
     if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;
     return this.mcp ? this.mcp.decorate(decorated) : decorated;

@@ -184,7 +184,13 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   assert.equal(hermes.name, "Hermes Agent");
   assert.equal(hermes.version, null);
   assert.deepEqual(hermes.capabilities.routines, { available: true });
-  assert.deepEqual(hermes.capabilities.skills, { available: true });
+  // Hermes agents learn their own skills unless switched off (skill-learning.js).
+  assert.deepEqual(hermes.capabilities.skills, {
+    available: true,
+    learnsByDefault: true,
+    userAgentsLearn: true,
+    writesWhenAsked: true,
+  });
   assert.deepEqual(hermes.capabilities.browser, { available: true });
   // The advanced settings Hermes has an equivalent of (hermes-config/advanced.js).
   assert.deepEqual(hermes.capabilities.advancedSettings, { available: true });

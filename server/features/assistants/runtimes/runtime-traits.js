@@ -39,6 +39,12 @@ const subsetOf = (all, value) => ({
  *   AgentPier holds (`agentpierHeld`), which reaches the runtime through its proxy.
  * - channelBots.peopleApply: how a change of the people an agent's own bot admits
  *   reaches the running agent: `live`, or with a `restart` of the agent.
+ * - skills.learnsByDefault: whether an agent that never chose learns its own skills
+ *   (skill-learning.js): reviews finished work and saves procedures as skills.
+ * - skills.userAgentsLearn: whether an agent of restricted users may learn. False
+ *   where learned skills bypass the skill lists that limit what such an agent reads.
+ * - skills.writesWhenAsked: whether an agent with learning off still writes a skill
+ *   when asked to; false where learning off takes the skill-writing tool away.
  * - sessions.chatFolders: whether each chat keeps its files in a folder of its own.
  * - host.process: one `shared` host for every agent, or a process set `perAgent`.
  * - host.install: `builtin` (comes with switching agents on) or `optional` (the
@@ -55,6 +61,11 @@ export const RUNTIME_TRAITS = Object.freeze({
   }),
   models: Object.freeze({ chatgptLogin: oneOf("any", "agentpierHeld") }),
   channelBots: Object.freeze({ peopleApply: oneOf("live", "restart") }),
+  skills: Object.freeze({
+    learnsByDefault: flag(false),
+    userAgentsLearn: flag(false),
+    writesWhenAsked: flag(false),
+  }),
   sessions: Object.freeze({ chatFolders: flag(false) }),
   host: Object.freeze({
     process: oneOf("shared", "perAgent"),

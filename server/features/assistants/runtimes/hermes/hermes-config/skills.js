@@ -11,7 +11,15 @@ import { builtInSkillNames } from "../../../built-in-skills.js";
 //   (`skills.external_dirs`, one folder per skill, which Hermes scans for SKILL.md);
 //   a skill of the same name in the home wins over it (local before external);
 // - leaves skills the agent writes itself (skill_manage) on and visible: they are
-//   neither bundled nor in the catalog, so nothing names them.
+//   neither bundled nor in the catalog, so nothing names them;
+// - switches the review that writes them off for an agent that does not learn its
+//   own skills (`skills.creation_nudge_interval: 0`). Hermes counts tool iterations
+//   and, at the interval (code default 10, agent/agent_init.py), reviews the turn in
+//   the background for a skill to write (agent/turn_finalizer.py,
+//   agent/background_review.py); 0 never starts that. An agent that learns has no
+//   key, which is Hermes's default. The `skills` toolset stays either way (it also
+//   reads skills), so the agent still writes a skill when asked; the memory review
+//   (`memory.nudge_interval`) and the curator are not touched.
 
 /**
  * AgentPier's built-in skills (built-in-skills.js) the agent gets, each offered from
@@ -21,6 +29,16 @@ import { builtInSkillNames } from "../../../built-in-skills.js";
  */
 export const builtInOffered = (agent, team) =>
   team ? agent.skills.compiled.filter((name) => builtInSkillNames.includes(name)) : [];
+
+/**
+ * The config.yaml entry of "Learns its own skills" for `agent` (a desiredAgent): the
+ * review interval 0 for an agent that does not learn, no key (Hermes's default) for
+ * one that does.
+ */
+export const learningEntry = (agent) => [
+  ["skills", "creation_nudge_interval"],
+  agent.skills.learning === false ? 0 : undefined,
+];
 
 /** Bundled skills Hermes always offers (agent/skill_utils.py ESSENTIAL_SKILLS). */
 export const essentialSkills = Object.freeze(["hermes-agent"]);
