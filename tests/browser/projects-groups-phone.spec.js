@@ -121,7 +121,11 @@ test("the project sheet moves, removes and creates a group", async ({ page }) =>
   await expect(sheet.getByText("Current: No group")).toBeVisible();
   const menu = sheet.getByRole("menu", { name: "Actions for notes" });
   await expect(menu.getByRole("menuitemradio")).toHaveText(["Clients", "Games"]);
-  await expect(menu.getByRole("menuitem")).toHaveText(["New group …"]);
+  // The project's own actions follow the groups; on phones Delete lives only here.
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "New group …",
+    "Delete project …",
+  ]);
   // The sheet spans the phone's width and ends at its bottom edge.
   const { width, y, height } = await sheet.boundingBox();
   expect(Math.round(width)).toBe(390);
