@@ -25,3 +25,7 @@ export function projectActionEntries(action, path, bilingual) {
     ),
   ];
 }
+
+/** Whether a project is on screen, so Delete project may open its dialog. */
+export const projectOnScreen = (route) =>
+  route?.view === "projects" && Boolean(route.projectId);

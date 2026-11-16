@@ -97,8 +97,8 @@ export const searchCopy = {
     reviewChanges: "Review changes",
     // The pins on an agent's memory page.
     memoryPins: "Pin memory entries",
-    // The talk grant on an agent's Projects page.
     removeProject: "Remove project",
+    // The talk grant on an agent's Projects page.
     sessionTalk: "Sessions talk to agents",
   },
 };

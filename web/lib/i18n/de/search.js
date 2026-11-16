@@ -97,8 +97,8 @@ export const searchCopy = {
     reviewChanges: "Änderungen prüfen",
     // Die Pins auf der Gedächtnisseite eines Agenten.
     memoryPins: "Einträge im Gedächtnis anheften",
-    // Die Sprech-Freigabe auf der Projekte-Seite eines Agenten.
     removeProject: "Projekt entfernen",
+    // Die Sprech-Freigabe auf der Projekte-Seite eines Agenten.
     sessionTalk: "Sessions sprechen mit Agenten",
   },
 };

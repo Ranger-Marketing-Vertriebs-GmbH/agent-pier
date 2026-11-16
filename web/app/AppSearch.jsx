@@ -12,6 +12,7 @@ import useAssistants from "../features/assistants/useAssistants.js";
 import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { codingRoute } from "../features/coding/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
+import { projectOnScreen } from "./project-search-entries.js";
 import { pageActionOffered, requestPageAction } from "./page-action.js";
 import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
@@ -83,7 +84,10 @@ export default function AppSearch({
   const choose = (entry) => {
     const target = entry.target;
     setRecent(rememberRecent("owner", entry.id));
-    if (target.pending) requestPageAction(target.pending);
+    // Delete project only opens the dialog of a project that was current; otherwise
+    // it just shows the projects page, so no auto-selected project is offered.
+    const noProject = target.action === "delete-project" && !projectOnScreen(route);
+    if (target.pending && !noProject) requestPageAction(target.pending);
     setOpen(false);
     if (target.session) {
       const session = workspace?.sessions?.find((item) => item.id === target.session);
@@ -102,11 +106,7 @@ export default function AppSearch({
       return undefined;
     if (target.action === "delete-project")
       return navigate(
-        projectsRoute(
-          route?.view === "projects" && route.projectId
-            ? { projectId: route.projectId }
-            : {},
-        ),
+        projectsRoute(projectOnScreen(route) ? { projectId: route.projectId } : {}),
       );
     if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(

@@ -495,3 +495,11 @@ test("new agent group is searchable in both languages and opens its form", () =>
     assert.equal(hit.target.pending, "agent-group-add");
   }
 });
+
+test("Delete project opens the dialog only for a project on screen", async () => {
+  const { projectOnScreen } = await import("../../web/app/project-search-entries.js");
+  assert.equal(projectOnScreen({ view: "projects", projectId: "p1" }), true);
+  assert.equal(projectOnScreen({ view: "projects" }), false);
+  assert.equal(projectOnScreen({ view: "workspace", projectId: "p1" }), false);
+  assert.equal(projectOnScreen(null), false);
+});
