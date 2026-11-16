@@ -51,7 +51,7 @@ export function registerResponses(app) {
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
       error.code === "CLI_UPDATE_REQUIRED" ||
-      /^(?:(?:SSH|SECRET|ARTIFACT|PREVIEW|PROJECT_GROUP|VIEW|PIPELINE|TICKET_RULES|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY|USER)_[A-Z_]+|CHAT_(?:ARCHIVED|MAIN|BUSY|COMMAND|COMMAND_QUEUED|CONFIRM|COMPACT_NOTHING|COMPACT_FAILED|HINT_FAILED)|PROJECT_DELETING|LOGIN_(?:USERNAME|PASSWORD)_INVALID)$/.test(
+      /^(?:(?:SSH|SECRET|ARTIFACT|PREVIEW|PROJECT_GROUP|VIEW|PIPELINE|TICKET_RULES|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY|USER)_[A-Z_]+|CHAT_(?:ARCHIVED|MAIN|BUSY|COMMAND|COMMAND_QUEUED|CONFIRM|COMPACT_NOTHING|COMPACT_FAILED|HINT_FAILED)|PROJECT_DELETING|PROJECT_DELETE_(?:STALE|BLOCKED|REFUSED|ABORTED|NAME|NOT_FAILED)|PROJECT_FOLDER_REAPPEARED|PROJECT_SESSIONS_UNREADABLE|LOGIN_(?:USERNAME|PASSWORD)_INVALID)$/.test(
         error.code || "",
       )
         ? { code: error.code }
@@ -62,6 +62,12 @@ export function registerResponses(app) {
         : {}),
       // Why a run cannot be sent back to a stage (return-blocks.js).
       ...(error.code === "PIPELINE_RETURN_BLOCKED" && typeof error.reason === "string"
+        ? { reason: error.reason }
+        : {}),
+      // Deletion aborted after the agents' grants were revoked (project-deletion.js),
+      // and the refusal that stopped it (project-deletion-preflight.js).
+      ...(error.grantsRevoked === true ? { grantsRevoked: true } : {}),
+      ...(error.code === "PROJECT_DELETE_REFUSED" && typeof error.reason === "string"
         ? { reason: error.reason }
         : {}),
       error: message,

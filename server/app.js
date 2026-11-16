@@ -56,6 +56,7 @@ import { notificationsRoutes } from "./http/routes/notifications.js";
 import { remoteRoutes } from "./http/routes/remote.js";
 import { settingsSummaryRoutes } from "./http/routes/settings-summary.js";
 import { memoryRoutes } from "./http/routes/memory.js";
+import { projectDeletionRoutes } from "./http/routes/project-deletion.js";
 import { providerRoutes } from "./http/routes/providers.js";
 import express from "express";
 import compression from "compression";
@@ -505,6 +506,7 @@ export async function createApplication(config) {
   mount(mcpDirectoryRoutes(services));
   mount(assistantRoutes(services));
   mount(memoryRoutes(services));
+  mount(projectDeletionRoutes(services));
   mount(pipelineDefinitionRoutes(services));
   mount(pipelineRunRoutes(services));
   mount(pipelineQueueRoutes(services));

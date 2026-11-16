@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { annotateFolders } from "../../application/project-folder-annotations.js";
 import { remoteTransport, wantsRemotes } from "../../features/repositories/git-remote.js";
 
 export function repositoriesRoutes(services) {
@@ -16,12 +17,17 @@ export function repositoriesRoutes(services) {
   };
   router.get("/repositories", async (req, res) => {
     const projects = repositories.listProjects();
+    const annotated =
+      gitRemotes && wantsRemotes(req)
+        ? await gitRemotes.annotate(projects, "path")
+        : projects;
     res.json({
       credentials: repositories.listCredentials(),
-      projects:
-        gitRemotes && wantsRemotes(req)
-          ? await gitRemotes.annotate(projects, "path")
-          : projects,
+      projects: await annotateFolders(
+        services.memory,
+        annotated,
+        (project) => project.path,
+      ),
     });
   });
   router.post("/git-credentials", async (req, res) => {
