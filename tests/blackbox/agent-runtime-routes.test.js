@@ -68,6 +68,15 @@ test("the agent API takes an optional runtime and answers each agent's runtime",
   assert.equal(listedRuntimes[0].capabilities.routines.available, true);
   assert.equal(listedRuntimes[1].capabilities.host.install, "optional");
   assert.equal(listedRuntimes[1].capabilities.models.chatgptLogin, "agentpierHeld");
+  // Each with its install state and whether a new agent may run on it now: OpenClaw
+  // is built in, Hermes the owner's opt-in, here still off.
+  assert.deepEqual(listedRuntimes[0].install, { kind: "builtin" });
+  assert.equal(listedRuntimes[0].ready, true);
+  const hermesState = await (await call("GET", "/assistant-runtime/hermes")).json();
+  assert.deepEqual(listedRuntimes[1].install, { kind: "optional", ...hermesState });
+  assert.equal(listedRuntimes[1].install.enabled, false);
+  assert.equal(listedRuntimes[1].ready, false);
+  assert.equal(listedRuntimes[1].version, null);
   assert.equal(application.assistants.store.listAssistants().length, 2);
 
   const list = await (await call("GET", "/assistants")).json();

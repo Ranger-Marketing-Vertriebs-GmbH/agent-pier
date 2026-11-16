@@ -22,6 +22,7 @@ import {
   hermesRunnable,
   hermesSelectedVersion,
 } from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
+import { hermesDescriptor } from "../features/assistants/runtimes/hermes/descriptor.js";
 import { OverrideStore } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { advancedValues } from "../features/assistants/advanced-config.js";
 import {
@@ -239,10 +240,12 @@ export function hermesUpdateMaintenance(services) {
  * refused update as `blockerItems`), and `start()` at
  * server start, which installs or stages the pinned runtime when Hermes is enabled
  * and this AgentPier pins one that is not installed yet (also after an AgentPier
- * update). `services` is the application's, read lazily: agent services exist only
- * while agents are on.
+ * update). `onChange()` hears every change of state(): the switch's own, an
+ * update's start and its end, with the work that refused it. `services` is the
+ * application's, read lazily: agent services exist only while agents are on.
+ * `updates` replaces the update journal (tests).
  */
-export function createHermesRuntime({ config, services = {} }) {
+export function createHermesRuntime({ config, services = {}, updates: journalOf }) {
   const { dataDir } = config;
   const hermes = createHermesSwitch({ dataDir });
   const base = hermes.state;
@@ -285,6 +288,7 @@ export function createHermesRuntime({ config, services = {} }) {
     return hermes.state();
   };
   const journal = () =>
+    journalOf?.() ??
     createHermesUpdates({
       dataDir,
       host: hermesUpdateHost(services),
@@ -313,6 +317,7 @@ export function createHermesRuntime({ config, services = {} }) {
         updating = null;
         hermes.onChange?.();
       });
+    hermes.onChange?.();
     return hermes.state();
   };
   hermes.updating = () => updating || Promise.resolve();
@@ -323,3 +328,12 @@ export function createHermesRuntime({ config, services = {} }) {
   hermes.start = () => stageHermesInBackground({ dataDir });
   return hermes;
 }
+
+/**
+ * The install state of each optional runtime by its id (`services.runtimeInstalls`),
+ * which the runtime list shows (runtime-for.js runtimeList): Hermes's is the owner's
+ * switch, read at each call, so undefined while none is wired.
+ */
+export const runtimeInstallsOf = (services) => ({
+  [hermesDescriptor.id]: () => services.hermesRuntime?.state(),
+});

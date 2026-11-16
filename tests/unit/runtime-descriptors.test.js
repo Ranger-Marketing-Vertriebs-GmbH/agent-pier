@@ -128,3 +128,64 @@ test("the list names every runtime this AgentPier ships", () => {
     ],
   );
 });
+
+// Step 2 of ADR 0007: the list carries each runtime's install state.
+
+test("the list names a built-in runtime ready and an optional one by its install state", () => {
+  const supervisor = { client: null, status: () => ({ version: "2026.10.9" }) };
+  const state = {
+    enabled: true,
+    installed: true,
+    installing: false,
+    updating: false,
+    version: "0.22.5",
+    targetVersion: "0.22.6",
+    updateAvailable: true,
+    error: null,
+    errorCause: null,
+    blockerItems: [],
+    agents: 2,
+    pythonVersion: "3.13.1",
+  };
+  const [openclaw, hermes] = runtimeList(supervisor, {
+    [hermesDescriptor.id]: () => state,
+  });
+  assert.deepEqual(openclaw.install, { kind: "builtin" });
+  assert.equal(openclaw.ready, true);
+  // Every field of the state, none renamed.
+  assert.deepEqual(hermes.install, { kind: "optional", ...state });
+  assert.equal(hermes.ready, true);
+  // A runtime with a host per agent shows its installed version.
+  assert.equal(hermes.version, "0.22.5");
+  assert.deepEqual(Object.keys(openclaw), [
+    "id",
+    "name",
+    "version",
+    "capabilities",
+    "install",
+    "ready",
+  ]);
+});
+
+test("an optional runtime is ready only while switched on and installed", () => {
+  const ready = (state) =>
+    runtimeList(null, { [hermesDescriptor.id]: () => state })[1].ready;
+  assert.equal(ready({ enabled: true, installed: true }), true);
+  assert.equal(ready({ enabled: false, installed: true }), false);
+  assert.equal(ready({ enabled: true, installed: false, installing: true }), false);
+});
+
+test("without an install source an optional runtime is listed off and not installed", () => {
+  for (const installs of [undefined, {}, { [hermesDescriptor.id]: () => undefined }]) {
+    const [openclaw, hermes] = runtimeList(null, installs);
+    assert.deepEqual(openclaw.install, { kind: "builtin" });
+    assert.equal(openclaw.ready, true);
+    assert.deepEqual(hermes.install, {
+      kind: "optional",
+      enabled: false,
+      installed: false,
+    });
+    assert.equal(hermes.ready, false);
+    assert.equal(hermes.version, null);
+  }
+});

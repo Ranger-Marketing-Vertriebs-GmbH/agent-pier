@@ -15,7 +15,10 @@ import {
 } from "../features/pipelines/live-topics.js";
 import { settingsSummaryTopic } from "../features/settings/live-topics.js";
 import { connectionProblemsTopic } from "../features/providers/live-topics.js";
-import { runtimeUpdatesTopic } from "../features/assistants/live-runtime-topics.js";
+import {
+  runtimeUpdatesTopic,
+  runtimesTopic,
+} from "../features/assistants/live-runtime-topics.js";
 import { agentDetailTopics, agentListTopic } from "../features/assistants/live-topics.js";
 import {
   operationJob,
@@ -107,6 +110,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(settingsSummaryTopic(services));
   hub.define(connectionProblemsTopic(services));
   hub.define(runtimeUpdatesTopic(services));
+  hub.define(runtimesTopic(services));
   hub.define(agentListTopic(services));
   for (const topic of agentDetailTopics(services)) hub.define(topic);
   defineJobTopic(hub, operationJob(services));
@@ -161,6 +165,7 @@ export const WRITE_SIGNALED_TOPICS = Object.freeze([
   "settings.summary",
   "connections.problems",
   "runtime.updates",
+  "runtimes",
 ]);
 // Frequent writes that touch none of them: session input and chat, agent chats, the
 // user's own routes, notifications, files, runs and memory.
