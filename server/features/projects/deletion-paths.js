@@ -1,5 +1,6 @@
 import { lstat, realpath, stat as fsStat } from "node:fs/promises";
 import path from "node:path";
+import { readMountPoints } from "./mount-table.js";
 
 // Folders directly below these hold mounted volumes; a missing child there is a
 // drive that is not plugged in, not a deleted project.
@@ -33,6 +34,7 @@ export async function refusedFolder(
     stat = fsStat,
     lstat: lstatFn = lstat,
     realpath: realFn = realpath,
+    mounts = readMountPoints,
   },
 ) {
   const info = await lstatFn(folder);
@@ -54,7 +56,16 @@ export async function refusedFolder(
     stat(resolved),
     stat(path.dirname(resolved)),
   ]);
-  return self.dev !== parent.dev ? "mount-point" : null;
+  if (self.dev !== parent.dev) return "mount-point";
+  // A recursive removal would cross into a drive mounted inside the folder.
+  let points;
+  try {
+    points = await mounts();
+  } catch {
+    return "mounts-unreadable";
+  }
+  if (points.includes(resolved)) return "mount-point";
+  return points.some((point) => inside(resolved, point)) ? "contains-mount" : null;
 }
 
 export async function folderState(folder, { stat = fsStat, timeoutMs = 2000 } = {}) {

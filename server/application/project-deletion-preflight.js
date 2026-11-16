@@ -23,6 +23,8 @@ const refusalKeys = {
   "home-child": "homeChild",
   agentpier: "agentpier",
   "mount-point": "mountPoint",
+  "contains-mount": "containsMount",
+  "mounts-unreadable": "mountsUnreadable",
   symlink: "symlink",
   "not-directory": "notDirectory",
   "drive-unavailable": "driveUnavailable",
