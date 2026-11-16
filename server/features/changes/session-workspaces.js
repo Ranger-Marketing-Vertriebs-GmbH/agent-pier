@@ -19,7 +19,7 @@ const real = (target) => fs.realpath(target).catch(() => null);
 const posix = (value) => value.split(path.sep).join("/");
 
 /** Parses `git worktree list --porcelain -z`; the first entry is the main worktree. */
-function parseWorktrees(output) {
+export function parseWorktrees(output) {
   const entries = [];
   let current = null;
   for (const field of output.split("\0")) {
