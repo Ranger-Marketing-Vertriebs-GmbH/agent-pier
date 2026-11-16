@@ -66,6 +66,41 @@ test("a repository fills the folder state a memory row lacks", () => {
   assert.equal(p.deletion, null);
 });
 
+test("an AgentBus-only project carries its folder state and deletion", () => {
+  const [p] = mergeProjects({
+    memoryProjects: [],
+    repositories: [],
+    busProjects: [
+      {
+        id: "b1",
+        cwd: "/w/gone",
+        sessions: [],
+        folder: "missing",
+        deletion: { state: "failed", error: "EACCES" },
+      },
+    ],
+  });
+  assert.equal(p.folder, "missing");
+  assert.equal(projectState(p), "failed");
+  const [q] = mergeProjects({
+    memoryProjects: [],
+    repositories: [],
+    busProjects: [{ id: "b2", cwd: "/w/away", sessions: [], folder: "missing" }],
+  });
+  assert.equal(projectState(q), "missing");
+  assert.equal(
+    en(() => deleteLabel(q)),
+    "Remove from AgentPier …",
+  );
+});
+
+test("refusals about mounts have their own text", () => {
+  en(() => {
+    assert.match(refusalText("contains-mount"), /mounted inside this folder/);
+    assert.match(refusalText("mounts-unreadable"), /mounted drives could not be read/);
+  });
+});
+
 test("project states: deletion first, then the folder", () => {
   assert.equal(projectState({ folder: "present", deletion: null }), null);
   assert.equal(projectState({ folder: "missing", deletion: null }), "missing");
