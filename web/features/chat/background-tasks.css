@@ -1,0 +1,117 @@
+/* The line above the composer and the sheet it opens (BackgroundTasksLine.jsx,
+   BackgroundTasksSheet.jsx). */
+.background-tasks-line {
+  display: block;
+  margin: 0 0 6px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+.background-tasks-line.muted {
+  color: var(--muted);
+}
+.background-tasks-line:hover {
+  text-decoration: underline;
+}
+.background-tasks-group > summary {
+  padding: 4px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.background-tasks-group[open] > summary {
+  margin-bottom: 2px;
+}
+.subagent-entry {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface-page);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.subagent-entry > strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.subagent-entry > p {
+  margin: 0;
+  color: var(--text-row);
+}
+.subagent-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+.subagent-status {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.subagent-status.running {
+  color: var(--accent);
+}
+.subagent-status.failed {
+  color: var(--error-text);
+}
+.background-tasks progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin: 2px 0 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+.background-tasks progress::-webkit-progress-bar {
+  background: var(--line);
+  border-radius: var(--radius-sm);
+}
+.background-tasks progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+}
+.background-tasks progress::-moz-progress-bar {
+  background: var(--accent);
+}
+.background-tasks-todos {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.background-tasks-todos li {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.background-tasks-todos small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+.background-tasks-todos .task-symbol {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+.background-tasks-todos .task-in_progress .task-symbol,
+.background-tasks-todos .task-completed .task-symbol,
+.background-tasks-todos .task-in_progress small {
+  color: var(--accent);
+}
+.background-tasks-todos .task-completed > div > span {
+  color: var(--muted);
+}

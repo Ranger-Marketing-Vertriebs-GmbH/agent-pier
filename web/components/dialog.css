@@ -393,7 +393,7 @@ label.check-row:has(input:disabled) .check-row-text {
     padding-bottom: 21px;
   }
   /* Grab handle of a bottom sheet; full-height panels and viewers have none. */
-  dialog:where(:not(.image-viewer, .task-drawer, .launch-dialog, .side-panel))
+  dialog:where(:not(.image-viewer, .launch-dialog, .side-panel))
     > .dialog-heading::before {
     content: "";
     position: absolute;
@@ -416,8 +416,7 @@ label.check-row:has(input:disabled) .check-row-text {
   }
   /* The handle drags the sheet down to dismiss it (useSheetDrag.js): its heading takes
      the touch instead of scrolling the dialog or selecting the title. */
-  dialog:where(:not(.image-viewer, .task-drawer, .launch-dialog, .side-panel))
-    > .dialog-heading,
+  dialog:where(:not(.image-viewer, .launch-dialog, .side-panel)) > .dialog-heading,
   dialog.sheet > .sheet-title {
     touch-action: none;
     -webkit-user-select: none;

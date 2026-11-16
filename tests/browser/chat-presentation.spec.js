@@ -2,7 +2,6 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
-import { pauseClockSoon } from "./subagent-fixture.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
 import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 
@@ -207,10 +206,8 @@ test("mobile task drawer lists working subagents first with their task immediate
       ],
     },
   });
-  // Client time stands still once loaded, so Worker beta cannot expire on a slow run.
-  await pauseClockSoon(page);
   await page.getByRole("button", { name: "Unteragenten anzeigen" }).click();
-  const drawer = page.getByRole("dialog", { name: "Aufgabenliste" });
+  const drawer = page.getByRole("dialog", { name: "Hintergrundaufgaben" });
   await expect(drawer).toBeVisible();
   await expect(
     drawer.getByText("Inspect build configuration", { exact: true }),
@@ -221,9 +218,9 @@ test("mobile task drawer lists working subagents first with their task immediate
   await expect(entries.nth(0).locator(".subagent-status")).toHaveText("Arbeitet");
   await expect(entries.nth(1)).toContainText("Worker beta");
   await expect(entries.nth(1).locator(".subagent-status")).toHaveText("Erledigt");
-  await expect(
-    drawer.getByRole("heading", { name: "Unteragenten (2 · 1 aktiv)" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Unteragenten anzeigen" })).toHaveText(
+    "Unteragenten (2 · 1 aktiv)",
+  );
   await page.screenshot({ path: docScreenshot("docs/screenshots/active-subagents.png") });
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
@@ -233,7 +230,7 @@ test("mobile task drawer lists working subagents first with their task immediate
   ).toBe(true);
 });
 
-test("subagent count and visible tasks follow live updates and keep recent completions", async ({
+test("subagent count and visible tasks follow live updates and keep completions", async ({
   page,
 }) => {
   const { data, publish } = await fixture(page, {
@@ -251,7 +248,7 @@ test("subagent count and visible tasks follow live updates and keep recent compl
   const count = page.getByRole("button", { name: "Unteragenten anzeigen" });
   await expect(count).toHaveText("Unteragenten (4 · 1 aktiv)");
   await count.click();
-  const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
+  const panel = page.getByRole("dialog", { name: "Hintergrundaufgaben" });
   await expect(panel.locator(".subagent-entry")).toHaveCount(4);
   await expect(panel.locator(".subagent-entry").first()).toContainText("Check the API");
   data.observability.subagents[0].task = "Verify the error handling";

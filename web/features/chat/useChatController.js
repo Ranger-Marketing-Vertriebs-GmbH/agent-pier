@@ -7,9 +7,8 @@ import useChatAttachments from "./useChatAttachments.js";
 import { withReadyUploads } from "./chat-upload-send.js";
 import { deliveryScope } from "./chat-draft.js";
 import { restoreScrollAnchor, scrollAnchor } from "./chat-scroll-anchor.js";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
-import useNarrow from "../../lib/useNarrow.js";
 export default function useChatController({ active, session, request, onConnection }) {
   const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
@@ -28,19 +27,9 @@ export default function useChatController({ active, session, request, onConnecti
     setAttachments: delivery.setAttachments,
   });
   const { attachments, uploading } = attachmentState;
-  // Inside a split pane the pane's width decides.
-  const compactTasks = useNarrow("(max-width: 900px)", 900);
-  const [tasksOpen, setTasksOpen] = useState(!compactTasks);
-  // Crossing the breakpoint opens or closes the list to match the layout. A re-read
-  // that finds the same side (a resize, a resubscribe) keeps the reader's choice.
-  const [tasksLayout, setTasksLayout] = useState(compactTasks);
-  if (tasksLayout !== compactTasks) {
-    setTasksLayout(compactTasks);
-    setTasksOpen(!compactTasks);
-  }
+  const [tasksOpen, setTasksOpen] = useState(false);
   const taskTrigger = useRef(null),
-    taskOpener = useRef(null),
-    taskId = useId();
+    taskOpener = useRef(null);
   const closeTasks = () => {
     setTasksOpen(false);
     const opener = taskOpener.current?.isConnected
@@ -51,10 +40,6 @@ export default function useChatController({ active, session, request, onConnecti
   const openTasks = (event) => {
     taskOpener.current = event?.currentTarget || taskTrigger.current;
     setTasksOpen(true);
-  };
-  const toggleTasks = (event) => {
-    if (tasksOpen) closeTasks();
-    else openTasks(event);
   };
   // Synchronous guard: a double Enter must not start a second send before state updates.
   const submitting = useRef(false);
@@ -217,11 +202,8 @@ export default function useChatController({ active, session, request, onConnecti
     },
     tasksOpen,
     closeTasks,
-    taskId,
-    compactTasks,
     taskTrigger,
     openTasks,
-    toggleTasks,
     setPicking,
     output,
     outputHeight,
