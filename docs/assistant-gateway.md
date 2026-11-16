@@ -2348,7 +2348,9 @@ starts with OpenClaw's defaults. After an AgentPier update that moves the approv
 inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
 (`overridesFor`, `runtimes/openclaw/openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
-(`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
+(`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`; a save names the
+shared setting by its id, `{ setting, value }`, and the answer lists per setting how
+each runtime takes it, [ADR 0007](adr/0007-runtime-descriptor.md) decision 5). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
 the running Gateway and stored only once OpenClaw accepted it; a `restart` setting
 asks the owner to confirm a maintenance restart. While the Gateway is stopped, a

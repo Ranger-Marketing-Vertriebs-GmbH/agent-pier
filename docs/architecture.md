@@ -393,11 +393,17 @@ plugin, native tools, web tools, MCP servers, Telegram bots and dreaming. The
 composition root builds it from the stores for every Gateway start, and the live
 applies (`assistant-config.js`, `mcp-changes.js`, `telegram-senders.js`,
 `browser-profile-sync.js`) build it for theirs; `config.apply`, `config.applyModel`
-and `config.applied` write and read back one agent. OpenClaw-only settings stay in
-the adapter: advanced settings are the `advancedSettings` capability with
-`config.compiler.advancedSettings`, a runtime without them lists none and refuses a
-save. Hermes maps the ones it has an equivalent of by setting id
-(`runtimes/hermes/hermes-config/advanced.js`) from the same stored overrides. `tests/unit/openclaw-config-golden.test.js` holds the compiled
+and `config.applied` write and read back one agent. The advanced settings for all
+agents are AgentPier's (`runtimes/shared-settings.js`); a runtime takes one when its
+`config.compiler.advancedSettings` (the `advancedSettings` capability) names the
+shared id with the runtime's own key: OpenClaw an `openclaw.json` path
+(`openclaw-config/advanced-settings.js`), Hermes the ones it has an equivalent of
+(`runtimes/hermes/hermes-config/advanced.js`), both from the same stored overrides.
+`advanced-config.js` names no runtime: it iterates the registry
+(`advancedRuntimes`), where each runtime brings a host port that says how its host
+takes a change. A runtime's own advanced settings are a described surface of its
+descriptor, stored in the table `runtime_settings` by runtime id and field id
+([ADR 0007](adr/0007-runtime-descriptor.md), decision 5). `tests/unit/openclaw-config-golden.test.js` holds the compiled
 `openclaw.json` of representative agents byte for byte.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
