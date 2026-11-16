@@ -3,6 +3,14 @@ export const projectDeletion = {
   projectNotFound: "No project is registered at this folder.",
   sessionsUnreadable:
     "The session records could not be read, so the project's sessions are not known. Try again.",
+  deleteStale:
+    "The folder or the projects in it changed since the check. Check again before deleting.",
+  deleteName: "Type the project's name to confirm the deletion.",
+  deleteBlocked:
+    "Something still runs in this project or uses its folder. Stop it and check again.",
+  folderReappeared:
+    "The folder exists again. Check again to delete it together with its contents.",
+  notFailed: "Only a deletion that failed can be retried.",
   refusals: {
     root: "The root of the file system cannot be deleted.",
     home: "Your home folder cannot be deleted.",
