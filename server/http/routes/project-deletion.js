@@ -21,12 +21,21 @@ function tokenOf(value) {
   if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value)) throw invalid();
   return value;
 }
-// The ticked processes of the blockers step: { pid, startTime } pairs.
+// The ticked processes of the blockers step: { pid, startTime } pairs. A tick
+// without a start time is refused: the service ends only the process it was shown.
 function processesOf(value) {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 1000) throw invalid();
   return value.map((item) => {
-    if (!item || typeof item !== "object" || !Number.isInteger(item.pid)) throw invalid();
+    if (
+      !item ||
+      typeof item !== "object" ||
+      !Number.isInteger(item.pid) ||
+      typeof item.startTime !== "string" ||
+      item.startTime.length === 0 ||
+      item.startTime.length > 256
+    )
+      throw invalid();
     return { pid: item.pid, startTime: item.startTime };
   });
 }
