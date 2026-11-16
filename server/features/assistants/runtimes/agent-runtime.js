@@ -353,18 +353,29 @@ export function unavailable(reason) {
 
 /**
  * What a runtime states about itself (docs/adr/0007-runtime-descriptor.md): `{ id,
- * name, traits, surfaces }`, frozen. `id` is what agents record, `name` the product
- * name the owner reads, `traits` the values it states (runtime-traits.js
- * resolveTraits: every trait, the unstated ones at their default) and `surfaces` the
- * UI of its own it registers at AgentPier's slots (runtime-surfaces.js
- * resolveSurfaces: `[{ id, slot, kind, shows }]`). A wrong statement throws.
+ * name, shortName, traits, surfaces }`, frozen. `id` is what agents record, `name`
+ * the product name the owner reads, `shortName` the name its agents go by in a
+ * sentence ("Hermes agents"; `name` unless stated), `traits` the values it states
+ * (runtime-traits.js resolveTraits: every trait, the unstated ones at their default)
+ * and `surfaces` the UI of its own it registers at AgentPier's slots
+ * (runtime-surfaces.js resolveSurfaces: `[{ id, slot, kind, shows }]`, a described
+ * one with its `scope` and `fields`). A wrong statement throws.
  */
-export function defineRuntimeDescriptor({ id, name, traits = {}, surfaces = [] } = {}) {
+export function defineRuntimeDescriptor({
+  id,
+  name,
+  shortName = name,
+  traits = {},
+  surfaces = [],
+} = {}) {
   if (typeof id !== "string" || !id) throw new TypeError("A runtime needs an id.");
   if (typeof name !== "string" || !name) throw new TypeError("A runtime needs a name.");
+  if (typeof shortName !== "string" || !shortName)
+    throw new TypeError("A runtime's short name is a text.");
   return Object.freeze({
     id,
     name,
+    shortName,
     traits: resolveTraits(traits),
     surfaces: resolveSurfaces(surfaces, id),
   });

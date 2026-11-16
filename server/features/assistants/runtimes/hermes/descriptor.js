@@ -8,6 +8,8 @@ import { defineRuntimeDescriptor } from "../agent-runtime.js";
 export const hermesDescriptor = defineRuntimeDescriptor({
   id: "hermes",
   name: "Hermes Agent",
+  // "Hermes agents", "Hermes's defaults".
+  shortName: "Hermes",
   traits: {
     approvals: {
       // Hermes's "approval" asks only for dangerous commands; "every" is the
