@@ -39,6 +39,30 @@ export class DeletionRecords {
       .run(path, JSON.stringify(body), now, now);
     return this.get(path);
   }
+  /** Replaces the body of a recorded deletion, keeping its state. */
+  update(path, body) {
+    this.db
+      .prepare("UPDATE project_deletions SET body=?,updated_at=? WHERE path=?")
+      .run(JSON.stringify(body), new Date().toISOString(), path);
+    return this.get(path);
+  }
+  /** Writes back a record read earlier (get), as it was. */
+  restore(record) {
+    this.db
+      .prepare(
+        `INSERT INTO project_deletions (path,state,body,error,created_at,updated_at)
+         VALUES (?,?,?,?,?,?)
+         ON CONFLICT(path) DO UPDATE SET state=excluded.state,body=excluded.body,error=excluded.error,created_at=excluded.created_at,updated_at=excluded.updated_at`,
+      )
+      .run(
+        record.path,
+        record.state,
+        JSON.stringify(record.body),
+        record.error ?? null,
+        record.createdAt,
+        record.updatedAt,
+      );
+  }
   fail(path, code) {
     this.db
       .prepare(

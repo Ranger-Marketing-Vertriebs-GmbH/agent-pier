@@ -117,13 +117,15 @@ export async function deletionScope(services, rawPath) {
     .map((rebuild) => rebuild.id);
 
   const state = await folderState(main);
-  const { dev, ino } = state === "present" ? await identity(main) : { dev: "", ino: "" };
+  const { dev, ino, birth } =
+    state === "present" ? await identity(main) : { dev: "", ino: "", birth: "" };
   return {
     path: main,
     name: projects[0].name,
     folderState: state,
     dev,
     ino,
+    birth,
     projects,
     projectIds,
     repositoryIds: projects.flatMap((item) => item.repositoryIds),
@@ -171,13 +173,25 @@ function describe({ path: folder, rows, repositories, busIds }, main) {
   };
 }
 
+/**
+ * A folder's device, inode and, where the file system records it, its creation time
+ * in nanoseconds ("" where not): a folder created later that got the same inode
+ * number still differs by its creation time.
+ */
+export function folderIdentity(info) {
+  return {
+    dev: String(info.dev),
+    ino: String(info.ino),
+    birth: info.birthtimeNs > 0n ? String(info.birthtimeNs) : "",
+  };
+}
+
 async function identity(folder) {
   try {
-    const info = await fs.promises.lstat(folder, { bigint: true });
-    return { dev: String(info.dev), ino: String(info.ino) };
+    return folderIdentity(await fs.promises.lstat(folder, { bigint: true }));
   } catch {
     // Gone since its state was read: the token then names no folder.
-    return { dev: "", ino: "" };
+    return { dev: "", ino: "", birth: "" };
   }
 }
 
@@ -194,6 +208,7 @@ export function deletionToken(scope) {
       scope.folderState,
       scope.dev,
       scope.ino,
+      scope.birth ?? "",
       sorted(scope.projectIds),
       sorted(scope.repositoryIds),
       sorted(scope.busIds),
