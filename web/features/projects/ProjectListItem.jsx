@@ -4,10 +4,12 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { projectGroupsCopy as groupsCopy } from "../../lib/i18n/messages/project-groups.js";
 import { projectsHubCopy as copy } from "../../lib/i18n/messages/projects.js";
 import ProjectMenuButton from "./ProjectMenuButton.jsx";
+import { ProjectStateChip } from "./ProjectDeletionState.jsx";
+import { projectState } from "./project-deletion.js";
 import { hintCount, remoteShort } from "./project-presentation.js";
 
-// A project row: name over `owner/repo` or "Local only", attention hints, "● Running"
-// while a session runs, and the ⋯ menu beside the row's own button (`menuSheet` turns
+// A project row: name over `owner/repo` or "Local only", attention hints, the folder or
+// deletion state (greyed while it is deleted), "● Running" while a session runs, and the ⋯ menu beside the row's own button (`menuSheet` turns
 // it into a sheet on phones; none without `menuItems`). On desktop the row's button also starts a drag
 // (`onPress`, useProjectDrag.js).
 export default function ProjectListItem({
@@ -22,9 +24,10 @@ export default function ProjectListItem({
   menuSheet = null,
 }) {
   const { decisions, failed } = attention;
+  const deleting = projectState(item) === "deleting";
   return (
     <div
-      className={`project-row ${selected ? "selected" : ""} ${dragging ? "dragging" : ""}`}
+      className={`project-row ${selected ? "selected" : ""} ${dragging ? "dragging" : ""} ${deleting ? "deleting" : ""}`}
     >
       <button
         type="button"
@@ -46,6 +49,7 @@ export default function ProjectListItem({
               {copy.failedRuns(hintCount(failed.count, failed.capped))}
             </small>
           )}
+          <ProjectStateChip project={item} />
         </span>
         {running && (
           <span className="project-row-status">

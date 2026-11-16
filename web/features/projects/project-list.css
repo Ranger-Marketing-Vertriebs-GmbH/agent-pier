@@ -209,6 +209,13 @@
 .project-row.selected .project-item-text strong {
   color: var(--accent-text);
 }
+/* A project whose folder is being deleted (ProjectListItem). */
+.project-row.deleting .project-row-main {
+  opacity: 0.6;
+}
+.project-row-main .project-item-text .status-chip {
+  margin-top: 2px;
+}
 .project-row-status {
   display: inline-flex;
   flex: none;

@@ -105,3 +105,27 @@ test("blank query counts as no query", () => {
   const s = buildProjectSections({ projects, document: doc, query: "   " });
   assert.deepEqual(keys(s), ["group:g_1", "group:g_2", "ungrouped"]);
 });
+
+test("missingOnly keeps projects with a missing folder", () => {
+  const list = [
+    { ...p("alpha"), folder: "missing" },
+    { ...p("bravo"), folder: "present" },
+    { ...p("charlie"), folder: "unavailable" },
+    p("delta"),
+  ];
+  for (const view of ["groups", "origin", "list"]) {
+    const s = buildProjectSections({
+      projects: list,
+      document: doc,
+      view,
+      missingOnly: true,
+    });
+    assert.deepEqual(
+      s.flatMap((section) => names(section)),
+      ["alpha"],
+      view,
+    );
+  }
+  const all = buildProjectSections({ projects: list, view: "list" });
+  assert.deepEqual(names(all[0]), ["alpha", "bravo", "charlie", "delta"]);
+});

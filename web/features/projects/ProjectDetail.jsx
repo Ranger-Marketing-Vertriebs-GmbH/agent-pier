@@ -14,6 +14,7 @@ import {
 } from "../../lib/i18n/messages/projects.js";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
+import ProjectDeletionNotice from "./ProjectDeletionState.jsx";
 import ProjectAgents from "./ProjectAgents.jsx";
 import ProjectApprovals from "./ProjectApprovals.jsx";
 import { projectAgentsCopy } from "../../lib/i18n/messages/project-agents.js";
@@ -25,6 +26,7 @@ import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
 import ProjectTickets from "./ProjectTickets.jsx";
 import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
+import { canDelete, deleteLabel } from "./project-deletion.js";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
@@ -55,6 +57,7 @@ export default function ProjectDetail({
   groups,
   running,
   onMerge,
+  onDelete,
   notices,
   onBack,
 }) {
@@ -64,6 +67,8 @@ export default function ProjectDetail({
   // `creating` holds the ⋯ trigger that gets focus back.
   const [creating, setCreating] = useState(null);
   const older = project.olderDuplicates?.[0];
+  // The owner's delete dialog; absent while the project is being deleted.
+  const deletable = Boolean(onDelete) && canDelete(project);
   const sessions = projectSessions(allSessions, project);
   const credential = credentials.find((item) => item.id === project.credentialId);
   const branch = sessions.find((session) => session.branch)?.branch || "";
@@ -128,6 +133,15 @@ export default function ProjectDetail({
           onClick={(event) => onMerge(event.currentTarget)}
         >
           {dialogsCopy.mergeOlder}
+        </button>
+      )}
+      {deletable && !mobile && (
+        <button
+          type="button"
+          className="button secondary"
+          onClick={(event) => onDelete(event.currentTarget)}
+        >
+          {deleteLabel(project)}
         </button>
       )}
       <button
@@ -234,6 +248,8 @@ export default function ProjectDetail({
           onNewGroup: (trigger) => setCreating(trigger),
           onRemove: () => groups.removeProject(project.path),
           onMerge: older ? onMerge : undefined,
+          onDelete: deletable ? onDelete : undefined,
+          deleteLabel: deleteLabel(project),
         })}
       />
     );
@@ -270,6 +286,7 @@ export default function ProjectDetail({
         bar={<div className="project-launch-bar">{actions}</div>}
       >
         {notices}
+        <ProjectDeletionNotice project={project} />
         {creating && (
           <ProjectGroupNameRow
             submitLabel={projectGroupsCopy.createGroup}
@@ -294,6 +311,7 @@ export default function ProjectDetail({
         </div>
         <div className="project-card-primary">{actions}</div>
       </header>
+      <ProjectDeletionNotice project={project} />
       {tabRow}
       {panel}
     </section>

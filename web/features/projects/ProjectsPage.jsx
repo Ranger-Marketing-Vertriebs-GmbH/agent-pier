@@ -8,12 +8,15 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { projectsHubCopy as copy } from "../../lib/i18n/messages/projects.js";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
+import { usePageAction } from "../../app/page-action.js";
 import AddFolderDialog from "./AddFolderDialog.jsx";
 import CloneDialog, { useCloneDraft } from "./CloneDialog.jsx";
+import DeleteProjectDialog from "./DeleteProjectDialog.jsx";
 import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import ProjectAddMenu from "./ProjectAddMenu.jsx";
 import ProjectDetail from "./ProjectDetail.jsx";
 import ProjectList from "./ProjectList.jsx";
+import { canDelete } from "./project-deletion.js";
 import { projectAttention } from "./project-presentation.js";
 import { normalizePath } from "./project-paths.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
@@ -55,6 +58,14 @@ export default function ProjectsPage({
     opener.current = from;
     setDialog(name);
   };
+  // The project the delete dialog deletes, and the one deleted last: once it is gone
+  // from the list, the page leaves it instead of reporting it as not found.
+  const [deletingId, setDeletingId] = useState("");
+  const [deletedId, setDeletedId] = useState("");
+  const startDelete = (item, from) => {
+    setDeletingId(item.id);
+    openDialog("delete", from);
+  };
   // Older entries of a folder merge one at a time, the most recent first.
   const merge = (item, from) => {
     setMergingId(item.id);
@@ -89,6 +100,17 @@ export default function ProjectsPage({
   const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
+  const deleting = projects.find((item) => item.id === deletingId);
+  // A live reload may show the project being deleted already: the dialog closes.
+  useEffect(() => {
+    if (dialog === "delete" && !(deleting && canDelete(deleting))) setDialog(null);
+  }, [dialog, deleting]);
+  // ⌘K "Delete project" opens the dialog for the project on screen.
+  usePageAction(
+    "project-delete",
+    () => startDelete(project),
+    Boolean(project && canDelete(project)),
+  );
   const [retried, setRetried] = useState("");
   // Old links and other pages use repository, knowledge or AgentBus ids; the URL
   // settles on the joined project's id. Desktop opens the first project.
@@ -133,8 +155,18 @@ export default function ProjectsPage({
   }, [operation.projects, dialog, draft, onNavigate]);
   const choose = (projectId) =>
     onNavigate(projectsRoute({ projectId, projectTab: route.projectTab }));
+  const gone = Boolean(deletedId) && route.projectId === deletedId;
+  useEffect(() => {
+    if (!gone || !ready || canonical) return;
+    setDeletedId("");
+    onNavigate(projectsRoute({ projectId: "" }));
+  }, [gone, ready, canonical, onNavigate]);
   const missing =
-    ready && route.projectId && !project && (retried === route.projectId || hub.error);
+    ready &&
+    route.projectId &&
+    !project &&
+    !gone &&
+    (retried === route.projectId || hub.error);
   const notices = (
     <>
       {operation.notice && (
@@ -191,6 +223,7 @@ export default function ProjectsPage({
       groups={hub.groups}
       running={runningPaths.has(normalizePath(item.path))}
       onMerge={(from) => merge(item, from)}
+      onDelete={(from) => startDelete(item, from)}
       notices={mobile ? notices : null}
       onBack={() => choose("")}
     />
@@ -214,6 +247,21 @@ export default function ProjectsPage({
             setDialog(null);
             reload();
             onNavigate(projectsRoute({ projectId: added.id }));
+          }}
+        />
+      )}
+      {dialog === "delete" && deleting && (
+        <DeleteProjectDialog
+          project={deleting}
+          close={() => setDialog(null)}
+          deleted={() => {
+            setDialog(null);
+            if (
+              route.projectId &&
+              resolveProjectId(projects, route.projectId) === deleting.id
+            )
+              setDeletedId(route.projectId);
+            reload();
           }}
         />
       )}
@@ -319,6 +367,7 @@ export default function ProjectsPage({
               attentionFor={(item) => projectAttention(hub.attention, item.memoryId)}
               isRunning={(item) => runningPaths.has(normalizePath(item.path))}
               onMerge={merge}
+              onDelete={startDelete}
               query={query}
               onQueryChange={setQuery}
             />

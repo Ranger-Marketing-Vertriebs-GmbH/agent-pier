@@ -65,6 +65,8 @@ test("merged projects carry the joined facts and sort by name without case", () 
     busId: "b1",
     entryCount: 3,
     sessionCount: 1,
+    folder: "present",
+    deletion: null,
   });
   assert.deepEqual(
     [second.id, second.busId, second.sessionCount, second.path],
