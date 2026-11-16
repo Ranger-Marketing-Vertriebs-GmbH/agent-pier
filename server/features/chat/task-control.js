@@ -15,6 +15,15 @@ const fail = (key, status, code, reason) =>
     ...(reason === undefined ? {} : { reason }),
   });
 
+/** A driver or read that throws offers nothing instead of breaking every chat read. */
+function guarded(read, fallback) {
+  try {
+    return read();
+  } catch {
+    return fallback;
+  }
+}
+
 /** The name a note gives a task: one line, no quotes, cut short. */
 function label(entry) {
   return String(entry.name || entry.description || entry.command || "")
@@ -70,10 +79,9 @@ export class TaskControl {
           canStop: Boolean(
             live &&
             status === "running" &&
-            driver?.connected(session) &&
-            driver.canStop(session, task),
+            guarded(() => driver?.connected(session) && driver.canStop(session, task)),
           ),
-          ...this.reads.flags(session, kind, entry),
+          ...guarded(() => this.reads.flags(session, kind, entry), {}),
         };
       }),
     ];
@@ -94,7 +102,7 @@ export class TaskControl {
     const observability = (await this.chat.read(sessionId))?.observability;
     for (const [key, kind] of KINDS) {
       const entry = observability?.[key]?.find((item) => item.id === taskId);
-      if (entry) return { kind, id: taskId, entry };
+      if (entry) return { kind, id: taskId, entry, stale: Boolean(observability.stale) };
     }
     throw problem(serverMessages.chat.taskUnknown, 404);
   }
@@ -106,13 +114,16 @@ export class TaskControl {
     if (!driver) throw fail("taskStopUnsupported", 409, "TASK_STOP_UNSUPPORTED");
     if (task.entry.status !== "running" || session.status !== "running")
       throw fail("taskStopNotRunning", 409, "TASK_STOP_NOT_RUNNING");
-    if (!driver.connected(session))
+    if (task.stale || !driver.connected(session))
       throw fail("taskStopChannelDown", 503, "TASK_STOP_CHANNEL_DOWN");
     if (!driver.canStop(session, task))
       throw fail("taskStopUnsupported", 409, "TASK_STOP_UNSUPPORTED");
     const key = `${sessionId}\u0000${taskId}`;
     const running = this.inflight.get(key);
     if (running) return running;
+    // A stop that finished after this one read the snapshot has already done it.
+    if (this.stops.has(session, taskId))
+      throw fail("taskStopNotRunning", 409, "TASK_STOP_NOT_RUNNING");
     const run = this.run(session, driver, task).finally(() => this.inflight.delete(key));
     this.inflight.set(key, run);
     return run;
@@ -125,18 +136,33 @@ export class TaskControl {
     });
     const attempt = Promise.resolve()
       .then(() => driver.stop(session, task))
-      .catch((error) => ({ ok: false, reason: String(error?.message || error) }));
+      .catch((error) => {
+        // What went wrong stays in the log; the browser only hears that it was refused.
+        console.error("AgentPier could not stop a background task.", error);
+        return { ok: false };
+      });
     let result;
     try {
       result = await Promise.race([attempt, timeout]);
     } finally {
       clearTimeout(timer);
     }
-    if (result === "timeout") throw fail("taskStopTimeout", 504, "TASK_STOP_TIMEOUT");
+    if (result === "timeout") {
+      // The answer is late, not lost: a stop that went through is still a stop.
+      attempt.then((late) => late?.ok && this.stopped(session, task));
+      throw fail("taskStopTimeout", 504, "TASK_STOP_TIMEOUT");
+    }
     if (!result?.ok) {
       if (result?.gone) throw fail("taskStopNotRunning", 409, "TASK_STOP_NOT_RUNNING");
-      throw fail("taskStopRefused", 409, "TASK_STOP_REFUSED", result?.reason ?? "");
+      throw fail("taskStopRefused", 409, "TASK_STOP_REFUSED", result?.reason);
     }
+    this.stopped(session, task);
+    return { stopped: true };
+  }
+
+  /** The task is stopped: remember it, leave one note and tell the browser. */
+  stopped(session, task) {
+    if (this.stops.has(session, task.id)) return;
     try {
       this.stops.record(session, { id: task.id, kind: task.kind, at: Date.now() });
     } catch {
@@ -144,7 +170,6 @@ export class TaskControl {
     }
     this.addNote(session.id, noteText(task.entry));
     this.onChange?.(session.id);
-    return { stopped: true };
   }
 
   addNote(sessionId, text) {
@@ -158,6 +183,12 @@ export class TaskControl {
     return ids.filter((id) =>
       notes.some((note) => note.id === id && text.includes(note.text)),
     );
+  }
+
+  /** The session was deleted: its stops and notes go with it. */
+  forget(sessionId) {
+    this.stops.forget(sessionId);
+    this.notes.delete(sessionId);
   }
 
   /** The notes were delivered: forget them. */
