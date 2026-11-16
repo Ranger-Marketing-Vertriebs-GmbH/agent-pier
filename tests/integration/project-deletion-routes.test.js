@@ -276,3 +276,98 @@ test("rows meet deletion records through a linked parent and a trailing slash", 
     ["deleting", "deleting", "deleting", null],
   );
 });
+
+test("retry continues a failed deletion over HTTP", { timeout }, async (t) => {
+  const f = await applicationFixture(t);
+  const { folder, id } = await projectIn(f, "retried");
+  await mark(f.application, folder);
+  f.application.memory.deletions.fail(folder, "PROJECT_DELETE_FAILED");
+  const retried = await post(f, "/api/project-deletion/retry", { path: folder });
+  assert.equal(retried.status, 202);
+  assert.deepEqual(await retried.json(), { state: "deleting" });
+  await f.application.projectDeletion.settled(folder);
+  assert.equal(fs.existsSync(folder), false);
+  assert.equal(f.application.memory.hasProject(id), false);
+  assert.deepEqual((await listed(f)).deletions, []);
+});
+
+test(
+  "an abort after the mark says the agents' access is gone",
+  { timeout },
+  async (t) => {
+    const f = await applicationFixture(t);
+    const { folder, id } = await projectIn(f, "aborted");
+    const deletion = f.application.projectDeletion;
+    const report = await (
+      await f.request(`/api/project-deletion?path=${enc(folder)}`)
+    ).json();
+    // A process shows up in the folder once it is marked: the re-check finds it.
+    let scans = 0;
+    deletion.probes = {
+      ...deletion.probes,
+      scan: async () => ({
+        status: "ok",
+        processes: ++scans > 1 ? [{ pid: 4242, name: "vite", endable: true }] : [],
+      }),
+      processContext: async () => ({}),
+      classify: (found) => found,
+    };
+    const answer = await post(f, "/api/project-deletion", {
+      path: folder,
+      token: report.token,
+      name: report.name,
+    });
+    assert.equal(answer.status, 409);
+    const body = await answer.json();
+    assert.equal(body.code, "PROJECT_DELETE_BLOCKED");
+    assert.equal(body.grantsRevoked, true);
+    assert.equal(fs.existsSync(folder), true);
+    assert.equal(f.application.memory.hasProject(id), true);
+    assert.equal(f.application.memory.deletions.get(folder), null);
+  },
+);
+
+test("the blockers route stops the project's sessions", { timeout }, async (t) => {
+  const f = await applicationFixture(t);
+  const a = f.application;
+  const { folder } = await projectIn(f, "busy");
+  const session = await a.sessions.create({
+    id: "session-busy",
+    name: "Busy",
+    tool: "claude",
+    accountId: "fixture",
+    cwd: folder,
+    command: "/bin/cat",
+    args: [],
+    env: { PATH: "/usr/bin:/bin", HOME: f.home },
+  });
+  t.after(() => a.sessions.stop(session.id).catch(() => {}));
+  const report = await (
+    await f.request(`/api/project-deletion?path=${enc(folder)}`)
+  ).json();
+  assert.deepEqual(
+    report.blockers.sessions.map((item) => item.id),
+    [session.id],
+  );
+  const answer = await post(f, "/api/project-deletion/blockers", {
+    path: folder,
+    token: report.token,
+    sessions: true,
+  });
+  assert.equal(answer.status, 200);
+  const after = await answer.json();
+  assert.deepEqual(after.blockers.sessions, []);
+  assert.equal(after.token, report.token);
+  assert.equal((await a.sessions.get(session.id)).status, "stopped");
+});
+
+test("AgentBus projects carry their folder state", { timeout }, async (t) => {
+  const f = await applicationFixture(t);
+  const gone = path.join(f.root, "bus-only");
+  f.application.agentbus.list = async () => ({
+    projects: [{ id: "b".repeat(64), name: "bus-only", cwd: gone, sessions: [] }],
+  });
+  const body = await (await f.request("/api/agentbus")).json();
+  assert.equal(body.projects[0].folder, "missing");
+  assert.equal(body.projects[0].deletion, null);
+});

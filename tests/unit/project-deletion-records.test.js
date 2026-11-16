@@ -103,6 +103,29 @@ test("purgeProjects removes rows, entries, revisions, receipts, tombstones, capa
     db.prepare(`SELECT COUNT(*) n FROM ${table} WHERE project_id=?`).get(id).n;
   for (const table of ["entries", "requests", "tombstones", "capabilities"])
     assert.ok(count(table, a.id) > 0, `${table} fixture`);
+  const entryIds = db
+    .prepare("SELECT id FROM entries WHERE project_id=?")
+    .all(a.id)
+    .map((row) => row.id);
+  // An unfinished purge of a forgotten entry, and the search terms of every entry.
+  db.prepare("INSERT OR REPLACE INTO purges VALUES (?,1,1,?)").run(entryIds[0], now);
+  const indexed = (ids) =>
+    ids.length && memory.fullText
+      ? db
+          .prepare(
+            `SELECT COUNT(*) n FROM memory_search WHERE entry_id IN (${ids.map(() => "?").join(",")})`,
+          )
+          .get(...ids).n
+      : 0;
+  const purges = () =>
+    db
+      .prepare(
+        `SELECT COUNT(*) n FROM purges WHERE entry_id IN (${entryIds.map(() => "?").join(",")})`,
+      )
+      .get(...entryIds).n;
+  assert.equal(purges(), 1);
+  if (memory.fullText) assert.ok(indexed(entryIds) > 0, "search terms fixture");
+  assert.equal(memory.list(a.id, { query: "gone" }).items.length, 1);
 
   assert.equal(purgeProjects(memory, [a.id]) > 0, true);
   for (const table of ["entries", "requests", "tombstones", "capabilities"])
@@ -124,6 +147,8 @@ test("purgeProjects removes rows, entries, revisions, receipts, tombstones, capa
       0,
       table,
     );
+  assert.equal(purges(), 0);
+  assert.equal(indexed(entryIds), 0);
   assert.equal(memory.hasProject(b.id), true);
   assert.equal(memory.list(b.id, { query: "kept" }).items.length, 1);
   assert.equal(memory.list(b.id, {}).items.length, 1);
