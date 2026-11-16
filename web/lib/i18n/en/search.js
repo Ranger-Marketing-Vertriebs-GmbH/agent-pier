@@ -52,6 +52,7 @@ export const searchCopy = {
     openInbox: "Open inbox",
     addLabelRule: "Add label rule",
     startTickets: "Start tickets",
+    deleteProject: "Delete project",
     showChanges: "Show changes",
     summariseChat: "Summarize this chat",
     agentAccess: "Agent access",
@@ -97,6 +98,7 @@ export const searchCopy = {
     // The pins on an agent's memory page.
     memoryPins: "Pin memory entries",
     // The talk grant on an agent's Projects page.
+    removeProject: "Remove project",
     sessionTalk: "Sessions talk to agents",
   },
 };

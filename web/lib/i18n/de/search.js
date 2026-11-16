@@ -52,6 +52,7 @@ export const searchCopy = {
     openInbox: "Eingang öffnen",
     addLabelRule: "Label-Regel hinzufügen",
     startTickets: "Tickets starten",
+    deleteProject: "Projekt löschen",
     summariseChat: "Diesen Chat zusammenfassen",
     showChanges: "Änderungen anzeigen",
     agentAccess: "Agentenzugriff",
@@ -97,6 +98,7 @@ export const searchCopy = {
     // Die Pins auf der Gedächtnisseite eines Agenten.
     memoryPins: "Einträge im Gedächtnis anheften",
     // Die Sprech-Freigabe auf der Projekte-Seite eines Agenten.
+    removeProject: "Projekt entfernen",
     sessionTalk: "Sessions sprechen mit Agenten",
   },
 };

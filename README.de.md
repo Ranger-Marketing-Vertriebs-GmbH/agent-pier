@@ -59,6 +59,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   ein abgeschlossener Lauf, der mit ihnen an eine gewählte Stufe zurückgeht,
   dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
   ([Pipelines](docs/pipelines.md#software-factory)).
+- **Projekt löschen:** Der Owner löscht ein Projekt samt Ordner von der Festplatte, nach einer Prüfung, die bei laufenden Sessions, Läufen und Prozessen blockiert und vor ungesicherter Git-Arbeit warnt, oder entfernt ein Projekt, dessen Ordner fehlt, aus AgentPier ([Projektseite](docs/memory.md#deleting-a-project)).
 - **Tickets:** der Tab **Tickets** eines Projekts listet offene GitHub-Issues und
   Plane-Work-Items, startet eines als Session oder Pipeline-Lauf, setzt es auf „In
   Arbeit“ und zeigt es an der Session oder am Lauf, oder startet mehrere als Folge, die

@@ -100,6 +100,14 @@ export default function AppSearch({
       target.action === "chat-summarise"
     )
       return undefined;
+    if (target.action === "delete-project")
+      return navigate(
+        projectsRoute(
+          route?.view === "projects" && route.projectId
+            ? { projectId: route.projectId }
+            : {},
+        ),
+      );
     if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(
         projectsRoute(
