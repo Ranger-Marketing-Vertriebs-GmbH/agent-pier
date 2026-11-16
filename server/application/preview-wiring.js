@@ -76,7 +76,7 @@ export function agentAlive(services, { assistantId, conversationId }) {
 /** The PreviewService on `services`; everything it reads is looked up lazily. */
 export function createPreviewService(services, overrides = {}) {
   const { config } = services;
-  return new PreviewService({
+  const previews = new PreviewService({
     dataDir: config.dataDir,
     effective: () => services.effectiveConfig?.() ?? config,
     bindHost: () => services.networkState?.bind || "127.0.0.1",
@@ -89,5 +89,15 @@ export function createPreviewService(services, overrides = {}) {
     internalPorts: () => internalPorts(services),
     tailscaleRun: config.tailscaleRun ?? runTailscale,
     ...overrides,
-  });
+  }); // A session in a folder being deleted gets no new preview.
+  const open = previews.open.bind(previews);
+  previews.open = async (input) => {
+    const { owner } = input ?? {};
+    if (owner?.kind === "session") {
+      const session = await services.sessions?.get(owner.sessionId).catch(() => null);
+      services.deletionGuard?.refuse(session?.cwd ?? owner.project);
+    }
+    return open(input);
+  };
+  return previews;
 }

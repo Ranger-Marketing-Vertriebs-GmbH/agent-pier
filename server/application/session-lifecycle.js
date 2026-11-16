@@ -100,6 +100,7 @@ export function createSessionLifecycle(services) {
     return running || [...accountLaunches.values()].includes(id);
   };
   async function launch(body, login = false, trusted = {}) {
+    services.deletionGuard?.refuse(body.cwd);
     if (body.agentbus !== undefined && typeof body.agentbus !== "boolean")
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
     const sshIds = sshSessions?.validate(body.sshAccessIds);

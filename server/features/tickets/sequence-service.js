@@ -447,6 +447,7 @@ export function createTicketSequenceServices(services, { tickets, rules }) {
   const ticketWorktrees = new TicketWorktrees({
     dataDir: config.dataDir,
     github: services.github,
+    startGuard: (cwd) => services.deletionGuard?.refuse(cwd),
   });
   const sessions = {
     list: (...args) => services.sessions.list(...args),

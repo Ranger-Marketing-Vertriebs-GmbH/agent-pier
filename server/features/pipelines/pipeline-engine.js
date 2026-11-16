@@ -188,6 +188,7 @@ export class PipelineEngine {
       Buffer.byteLength(task) > 65536
     )
       throw problem(serverMessages.pipelines.workingDirectoryAndTaskRequired);
+    this.startGuard?.(cwd);
     // Only the server hands over a ticket; the input's own `ticket` is never read.
     const ticketRef =
       ticket === undefined || ticket === null ? null : validTicketRef(ticket);
