@@ -160,6 +160,12 @@ export const agentsHubCopy = {
       updateTo: (version) => `Auf ${version} aktualisieren`,
       updateNote: "Hermes-Agenten starten während der Aktualisierung neu.",
       agents: "Agenten auf Hermes",
+      // Andere Wörter, unter denen die Suche die Gruppe findet.
+      search: {
+        second: "Zweite Laufzeit",
+        install: "Hermes Agent installieren",
+        update: "Hermes Agent aktualisieren",
+      },
     },
   },
 };

@@ -160,6 +160,12 @@ export const agentsHubCopy = {
       updateTo: (version) => `Update to ${version}`,
       updateNote: "Hermes agents restart during the update.",
       agents: "Agents on Hermes",
+      // Other words the search finds the group by.
+      search: {
+        second: "Second runtime",
+        install: "Install Hermes Agent",
+        update: "Update Hermes Agent",
+      },
     },
   },
 };

@@ -1,8 +1,10 @@
-// The agents hub: /agents?tab=all|teams|templates|skills|runtime[&section=advanced|storage]
+// The agents hub:
+// /agents?tab=all|teams|templates|skills|runtime[&section=advanced|storage|runtimes]
 export const agentsHubTabs = ["all", "teams", "templates", "skills", "runtime"];
 export const defaultAgentsHubTab = "all";
-// Groups of the Runtime tab a link can scroll to.
-export const agentsRuntimeSections = ["advanced", "storage"];
+// Groups of the Runtime tab a link can scroll to; `runtimes` are the groups the
+// runtimes register themselves (the slot `hub.runtime`, RuntimeSlot.jsx).
+export const agentsRuntimeSections = ["advanced", "storage", "runtimes"];
 
 /** `{ agentsTab?, agentsSection? }` of a hub query; the default tab is left out. */
 export function readAgentsHubQuery(search) {

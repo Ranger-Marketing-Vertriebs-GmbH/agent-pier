@@ -191,8 +191,8 @@ test("template actions lead to the wizard and to Coding › Unteragenten", () =>
   assert.equal(read(routePath(install)).install, "engineering__sre");
 });
 
-test("Runtime links scroll to the advanced values or the storage cleanup", () => {
-  for (const section of ["advanced", "storage"]) {
+test("Runtime links scroll to the advanced values, the storage cleanup or the runtimes' groups", () => {
+  for (const section of ["advanced", "storage", "runtimes"]) {
     const path = `/agents?tab=runtime&section=${section}`;
     assert.equal(read(path).agentsSection, section);
     assert.equal(routePath(read(path)), path);

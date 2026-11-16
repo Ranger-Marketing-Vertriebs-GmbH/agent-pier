@@ -64,6 +64,19 @@ export function runtimeIdLiterals(sources) {
   return found;
 }
 
+// An import (static or dynamic) of a module in a `runtimes/` folder.
+const runtimeModuleImport = /(?:from|import\()\s*["'][^"']*\/runtimes\/[^"']*["']/;
+
+/**
+ * The web sources that import a web runtime module (`web/features/assistants/
+ * runtimes/`), sorted. `sources` are productSources: outside the runtime modules.
+ */
+export const webRuntimeImporters = (sources) =>
+  sources
+    .filter(({ file, text }) => file.startsWith("web/") && runtimeModuleImport.test(text))
+    .map(({ file }) => file)
+    .sort();
+
 /** The files named after a runtime (`hermes-*`, `openclaw-*`), sorted. */
 export const runtimeNamedFiles = (sources) =>
   sources

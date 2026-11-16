@@ -4,6 +4,7 @@ import {
   productSources,
   runtimeIdLiterals,
   runtimeNamedFiles,
+  webRuntimeImporters,
 } from "../helpers/runtime-id-scan.js";
 
 // ADR 0007 (runtime descriptor): outside the runtime modules no product code names a
@@ -84,8 +85,6 @@ const runtimeNamedFileAllowlist = [
   // OpenClaw's MCP command line: into its adapter.
   "server/features/mcp-servers/openclaw-mcp-cli.js",
   "server/features/operations/hermes-backup-paths.js",
-  // The Hermes group of Agents › Runtime: becomes Hermes's own surface.
-  "web/features/assistants/hermes-runtime.js",
 ];
 
 test("runtime rule idLiterals: no product code outside the runtime modules names a runtime", () => {
@@ -100,15 +99,19 @@ test("runtime rule namedFiles: no file outside the runtime modules is named afte
   );
 });
 
-test("the files the trait and runtime list steps moved name no runtime", () => {
+test("the files the trait, runtime list and surface steps moved name no runtime", () => {
   for (const file of [
     "web/features/assistants/runtime-capabilities.js",
     "web/features/assistants/wizard/AgentWizard.jsx",
     "web/features/assistants/wizard/StepStart.jsx",
     "web/features/assistants/wizard/StepReview.jsx",
     "web/features/assistants/useRuntimes.js",
-    "web/features/assistants/useHermesRuntime.js",
-    "web/features/assistants/hub/RuntimeHermesGroup.jsx",
+    "web/features/assistants/RuntimeSlot.jsx",
+    "web/features/assistants/runtime-surfaces.js",
+    "web/features/assistants/runtime-surface-search.js",
+    "web/features/assistants/hub/RuntimeTab.jsx",
+    "web/features/assistants/hub-routes.js",
+    "web/app/search-entries.js",
     "web/features/assistants/shell-level.js",
     "web/features/assistants/TelegramSendersSettings.jsx",
     "web/features/assistants/settings/CapabilityGroups.jsx",
@@ -124,6 +127,24 @@ test("the files the trait and runtime list steps moved name no runtime", () => {
     );
     assert.equal(Object.hasOwn(runtimeIdAllowlist, file), false, file);
   }
+});
+
+// Step 3 of ADR 0007: a runtime's own UI lives in its web module and reaches a page
+// through a slot. Only the slot and the search index ask the web runtime modules.
+test("runtime rule webImports: only the slot and the search index import a web runtime module", () => {
+  assert.deepEqual(webRuntimeImporters(sources), [
+    "web/features/assistants/RuntimeSlot.jsx",
+    "web/features/assistants/runtime-surface-search.js",
+  ]);
+  assert.deepEqual(
+    webRuntimeImporters([
+      { file: "web/a.jsx", text: 'import x from "./assistants/runtimes/index.js";' },
+      { file: "web/b.js", text: 'const y = await import("../runtimes/hermes/x.js");' },
+      { file: "web/c.js", text: 'import z from "./runtimes-list.js"; // runtimes/' },
+      { file: "server/d.js", text: 'import d from "./runtimes/runtime-for.js";' },
+    ]),
+    ["web/a.jsx", "web/b.js"],
+  );
 });
 
 function sortedByKey(object) {

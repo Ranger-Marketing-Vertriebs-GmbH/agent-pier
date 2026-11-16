@@ -6,12 +6,14 @@ import { buildSearchIndex } from "./search-entries.js";
 import { searchEntries } from "./search-index.js";
 import { workspaceEntries } from "../features/quick-open/workspace-entries.js";
 import useQuickOpenSources from "../features/quick-open/useQuickOpenSources.js";
+import useRuntimes from "../features/assistants/useRuntimes.js";
 import { paletteGroups, resultCount } from "../features/quick-open/palette-groups.jsx";
 
 /**
  * The owner's ⌘K search (AGENTPIER-224), a `CommandPalette` over the owner's sessions,
  * projects, agents and chats, runs and pipelines, inbox, every page and setting, and
- * actions; recent results first. `choose(entry)` performs a result.
+ * actions; recent results first. `choose(entry)` performs a result. With agents on it
+ * follows the runtime list while open, so what a runtime registers is found.
  */
 export default function SearchDialog({
   close,
@@ -30,6 +32,7 @@ export default function SearchDialog({
   const [query, setQuery] = useState("");
   const language = getLanguage();
   const sources = useQuickOpenSources();
+  const { runtimes } = useRuntimes(agentsEnabled);
   const offeredKey = offered.join();
   const index = useMemo(
     () => [
@@ -40,6 +43,7 @@ export default function SearchDialog({
         sessionOpen,
         runOpen,
         offered: offeredKey ? offeredKey.split(",") : [],
+        runtimes,
       }),
       ...workspaceEntries(
         {
@@ -63,6 +67,7 @@ export default function SearchDialog({
       sessionOpen,
       runOpen,
       offeredKey,
+      runtimes,
       workspace,
       sources,
     ],

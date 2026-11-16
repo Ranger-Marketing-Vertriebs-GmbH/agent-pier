@@ -73,6 +73,10 @@ const runtimeList = (state) => ({
           {
             ...hermesInfo,
             version: state.version,
+            // Its install group is its own surface in the slot of Agents › Runtime.
+            surfaces: [
+              { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
+            ],
             install: { kind: "optional", ...state },
             ready: state.enabled && state.installed,
           },
@@ -247,6 +251,39 @@ test("an unknown error code falls back; a server without Hermes shows no group",
   await page.reload();
   await expect(page.getByRole("heading", { name: "OpenClaw updates" })).toBeVisible();
   await expect(group(page)).toHaveCount(0);
+});
+
+test("the search finds the Hermes group before Hermes is installed and lands on it", async ({
+  page,
+}) => {
+  await setup(page);
+  await hermesRoutes(page, off);
+  // What the search reads beside the runtime list: no connection names, pipelines or projects.
+  await page.route(
+    /\/api\/(?:ssh-accesses|mcp-servers|secrets|repositories|pipelines|memory\/projects)(?:\?.*)?$/,
+    (route) => route.fulfill({ json: [] }),
+  );
+  await page.goto(baseURL + "/agents");
+  await expect(page.getByRole("heading", { name: "Agents", level: 1 })).toBeVisible();
+  const mac = await page.evaluate(() => /mac/i.test(navigator.platform));
+  await page.keyboard.press(mac ? "Meta+k" : "Control+k");
+  const search = page.getByRole("dialog", { name: "Search" });
+  await search.getByRole("combobox").fill("second runtime");
+  await expect(search.getByRole("option").first()).toContainText(
+    "Agents › Runtime › Hermes Agent",
+  );
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/agents\?tab=runtime&section=runtimes$/);
+  await expect(group(page)).toBeInViewport();
+  await expect(group(page).getByText("Off", { exact: true })).toBeVisible();
+  // A server without the surface has nothing to find.
+  await unrouteHermes(page);
+  await hermesRoutes(page, null);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "OpenClaw updates" })).toBeVisible();
+  await page.keyboard.press(mac ? "Meta+k" : "Control+k");
+  await search.getByRole("combobox").fill("second runtime");
+  await expect(search).toContainText("Nothing found for “second runtime”");
 });
 
 /** The wizard's mocks: the create request is recorded in `sent`. */
