@@ -608,12 +608,15 @@ debounce is needed. A turn of a healthy agent that needs a configuration write a
 a start waits with it; in the native contract two agents took about 5 s, and the time
 grows with the number and size of the agent databases.
 
-OpenClaw answers each of these writes only once the active Gateway applied it, so
-`config.patch`, `agents.update` and `agents.delete` get 30 s instead of the client's
-default 10 s (`configWriteTimeoutMs` in `runtimes/openclaw/gateway-client.js`;
-`agents.create` has its own 30 s). On 2026.11.3 the first patch after a start and a
-delete each took more than 10 s on slow macOS runners; a delete that timed out stayed
-pending with `TIMEOUT` although the Gateway went on to finish it.
+OpenClaw answers each of these writes only once the active Gateway applied it. A
+`config.patch` that reloads a plugin is answered only after the running turns that
+use it, so it keeps the client's default 10 s: a save during a turn times out and is
+converged later (`assistant-dreaming-contract.test.js`). `agents.delete` gets 30 s
+(`agentDeleteTimeoutMs` in `runtimes/openclaw/gateway-client.js`; `agents.create` has
+its own 30 s): only an archived agent is deleted, so no turn of it holds the answer,
+and on 2026.11.3 the journaled delete took more than 10 s on slow macOS runners. A
+delete that timed out stayed pending with `TIMEOUT` although the Gateway went on to
+finish it.
 
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
