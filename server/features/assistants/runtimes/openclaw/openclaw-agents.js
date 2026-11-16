@@ -1,4 +1,4 @@
-import { agentCreateTimeoutMs } from "./gateway-client.js";
+import { agentCreateTimeoutMs, configWriteTimeoutMs } from "./gateway-client.js";
 import { configWrite } from "./live-patch.js";
 import { waitForAgentInRoster } from "./agent-roster.js";
 import {
@@ -21,7 +21,8 @@ export const boundPort = (over, supervisor, clientOf) => ({
  * The agents sub-port (agent-runtime.js): OpenClaw's agent roster. agents.create,
  * agents.update and agents.delete write OpenClaw's configuration, so each waits for
  * the connection's admission and runs after every earlier configuration write on it
- * (live-patch.js `configWrite`), on the one client it started on. The admission
+ * (live-patch.js `configWrite`), on the one client it started on, with the longer
+ * budget of a configuration write (gateway-client.js). The admission
  * state is per connection (agent-admission.js). Answers are OpenClaw's own
  * (`{ agents }`, `{ agentId }`).
  */
@@ -44,9 +45,17 @@ function agentsOver(current) {
         { timeoutMs: agentCreateTimeoutMs },
       ),
     update: ({ agentId, name, model }) =>
-      write("agents.update", { agentId, name, model }),
+      write(
+        "agents.update",
+        { agentId, name, model },
+        { timeoutMs: configWriteTimeoutMs },
+      ),
     delete: ({ agentId, deleteFiles }) =>
-      write("agents.delete", { agentId, deleteFiles }),
+      write(
+        "agents.delete",
+        { agentId, deleteFiles },
+        { timeoutMs: configWriteTimeoutMs },
+      ),
     // Resolves once the roster names `agentId` (a new agent loads after its write).
     waitListed: async ({ agentId, ...options }) =>
       waitForAgentInRoster(current(), agentId, options),

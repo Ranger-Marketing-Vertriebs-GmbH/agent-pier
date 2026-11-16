@@ -1,5 +1,6 @@
 import { assistantProblem } from "../../assistant-validation.js";
 import { settledAdmission } from "./agent-admission.js";
+import { configWriteTimeoutMs } from "./gateway-client.js";
 import { setTimeout as delay } from "node:timers/promises";
 
 // Every live OpenClaw configuration write goes through here, so a concurrent change
@@ -70,11 +71,16 @@ async function patchOnce(client, build) {
   const change = build(current.config || {});
   if (!change) return null;
   try {
-    await client.call("config.patch", {
-      baseHash: current.hash,
-      raw: JSON.stringify(change.patch),
-      ...(change.replacePaths ? { replacePaths: change.replacePaths } : {}),
-    });
+    // Answered once the Gateway applied it: the longer budget of a write.
+    await client.call(
+      "config.patch",
+      {
+        baseHash: current.hash,
+        raw: JSON.stringify(change.patch),
+        ...(change.replacePaths ? { replacePaths: change.replacePaths } : {}),
+      },
+      { timeoutMs: configWriteTimeoutMs },
+    );
   } catch (error) {
     if (error.answered && error.code === "INVALID_REQUEST") {
       // An INVALID_REQUEST racing a concurrent write is reported as 409; a retry

@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { createOpenClawRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-runtime.js";
-import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
-import { agentCreateTimeoutMs } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
+import {
+  GatewayClient,
+  agentCreateTimeoutMs,
+  configWriteTimeoutMs,
+} from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import {
   admittingOn,
   agentDegradedOn,
@@ -43,9 +46,19 @@ test("the agents sub-port sends the Gateway requests callers sent before the por
       { name: "ap-1", workspace: "/w/1", model: "openai/gpt" },
       { timeoutMs: agentCreateTimeoutMs },
     ],
-    ["agents.update", { agentId: "ap-1", name: "Ada", model: "openai/gpt" }],
-    ["agents.delete", { agentId: "ap-1", deleteFiles: false }],
+    [
+      "agents.update",
+      { agentId: "ap-1", name: "Ada", model: "openai/gpt" },
+      { timeoutMs: configWriteTimeoutMs },
+    ],
+    [
+      "agents.delete",
+      { agentId: "ap-1", deleteFiles: false },
+      { timeoutMs: configWriteTimeoutMs },
+    ],
   ]);
+  // On a slow host a write takes longer than the default 10 s call timeout.
+  assert.equal(configWriteTimeoutMs, 30000);
   // The first roster read is the list itself, the next the admission wait.
   assert.deepEqual(client.calls[0], ["agents.list", {}]);
 });
@@ -168,11 +181,16 @@ test("the config sub-port sends the Gateway requests callers sent before the por
     ["config.get", {}],
     ["config.schema.lookup", { path: "agents.defaults.timeoutSeconds" }],
     ["config.get", {}],
-    ["config.patch", { baseHash: "h1", raw: '{"cron":{"enabled":true}}' }],
+    [
+      "config.patch",
+      { baseHash: "h1", raw: '{"cron":{"enabled":true}}' },
+      { timeoutMs: configWriteTimeoutMs },
+    ],
     ["config.get", {}],
     [
       "config.patch",
       { baseHash: "h1", raw: '{"tools":{"allow":[]}}', replacePaths: ["tools.allow"] },
+      { timeoutMs: configWriteTimeoutMs },
     ],
     ["config.get", {}],
   ]);
