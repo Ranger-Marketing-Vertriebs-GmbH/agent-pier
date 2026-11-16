@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, realpath, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { git as defaultGit } from "../../server/features/pipelines/workspace-git.js";
 import { unsavedGitWork } from "../../server/features/projects/unsaved-git-work.js";
 
 const run = (cwd, ...args) =>
@@ -70,20 +71,56 @@ test("a plain folder reports none", async (t) => {
     status: "none",
     worktrees: [],
     unpushedBranches: null,
+    worktreesChecked: true,
   });
 });
 
-test("a worktree that does not answer in time is not checked", async (t) => {
+test("a probe that does not answer in time is unchecked, not none", async (t) => {
+  const base = await temp();
+  t.after(() => rm(base, { recursive: true, force: true }));
+  run(base, "init", "-b", "main");
+  const r = await unsavedGitWork(base, { timeoutMs: 1 });
+  assert.equal(r.status, "unchecked");
+  assert.deepEqual(r.worktrees, []);
+});
+
+test("a failed worktree listing and failed counts are reported", async (t) => {
   const base = await temp();
   t.after(() => rm(base, { recursive: true, force: true }));
   run(base, "init", "-b", "main");
   await writeFile(path.join(base, "a.txt"), "x\n");
   run(base, "add", ".");
   run(base, "commit", "-m", "x");
-  const r = await unsavedGitWork(base, { timeoutMs: 1 });
-  for (const w of r.worktrees) {
-    assert.equal(w.checked, false);
-    assert.equal(w.changes, null);
-    assert.equal(w.unpushed, null);
-  }
+  const failing = (args) => async (cwd, a, o) => {
+    if (a[0] === args) throw new Error("timeout");
+    return defaultGit(cwd, a, o);
+  };
+  const listing = await unsavedGitWork(base, { git: failing("worktree") });
+  assert.equal(listing.status, "ok");
+  assert.equal(listing.worktreesChecked, false);
+  const partial = await unsavedGitWork(base, { git: failing("status") });
+  assert.equal(partial.worktreesChecked, true);
+  assert.equal(partial.worktrees[0].checked, false);
+  assert.equal(partial.worktrees[0].changes, null);
+  assert.equal(partial.worktrees[0].unpushed, 1);
+});
+
+test("a folder inside a larger repository reports only its own changes", async (t) => {
+  const base = await temp();
+  t.after(() => rm(base, { recursive: true, force: true }));
+  run(base, "init", "-b", "main");
+  await mkdir(path.join(base, "sub"));
+  await writeFile(path.join(base, "sub", "a.txt"), "x\n");
+  await writeFile(path.join(base, "other.txt"), "x\n");
+  run(base, "add", ".");
+  run(base, "commit", "-m", "x");
+  await writeFile(path.join(base, "sub", "new.txt"), "y\n");
+  await writeFile(path.join(base, "other.txt"), "changed\n");
+  const sub = path.join(base, "sub");
+  const r = await unsavedGitWork(sub);
+  assert.equal(r.status, "ok");
+  assert.equal(r.unpushedBranches, 0);
+  assert.deepEqual(r.worktrees, [
+    { path: sub, branch: null, inside: true, changes: 1, unpushed: 0, checked: true },
+  ]);
 });
