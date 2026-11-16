@@ -6,8 +6,23 @@ import { codexRequest } from "./codex-protocol.js";
 import { codexActivityTracker } from "./codex-activity.js";
 import { codexReplyObserver } from "./codex-reply-stream.js";
 import { codexPromptAcceptance } from "./codex-prompt-acceptance.js";
+import { codexTaskTracker } from "./codex-tasks.js";
 
-/** One real TUI connection and one stdio app-server. Both UIs race at this sole native owner. */
+// The only requests the proxy sends on its own (codex-tasks.js), and their id prefix:
+// the TUI uses numbers and its own strings ("initialize", UUIDs, "<name>-<uuid>").
+const OWN_METHODS = new Set([
+  "turn/interrupt",
+  "thread/backgroundTerminals/terminate",
+  "thread/backgroundTerminals/list",
+]);
+const OWN_ID = "agentpier:";
+const EXPERIMENTAL_REFUSED = "requires experimentalApi capability";
+
+/**
+ * One real TUI connection and one stdio app-server. Both UIs race at this sole native
+ * owner. `request(method, params)` sends one of the proxy's own requests on the same
+ * connection (`tasks` tracks what it may stop and reports it on `channel.tasks`).
+ */
 export async function createCodexProxy({
   input,
   output,
@@ -37,6 +52,13 @@ export async function createCodexProxy({
   const prompts = codexPromptAcceptance((event) =>
     channel.prompt?.({ type: "prompt", ...event }),
   );
+  const tasks = codexTaskTracker((state) => channel.tasks?.(state));
+  // The proxy's own requests in flight by id, ids of the TUI in the same namespace,
+  // and whether Codex refused the terminal methods on this connection.
+  const own = new Map();
+  const tuiOwnIds = new Set();
+  let ownCount = 0,
+    experimentalRefused = false;
   const requests = new Map();
   const retired = new Set();
   const idKey = (id) => JSON.stringify(id);
@@ -53,6 +75,40 @@ export async function createCodexProxy({
       throw Error("Codex transport disconnected");
     output.write(JSON.stringify(message) + "\n");
   }
+  function settle(id, error, result) {
+    const entry = own.get(id);
+    if (!entry) return;
+    own.delete(id);
+    clearTimeout(entry.timer);
+    if (error) entry.reject(error);
+    else entry.resolve(result);
+  }
+  function answered(message) {
+    const text = String(message.error?.message ?? "");
+    if (message.error && text.includes(EXPERIMENTAL_REFUSED)) {
+      experimentalRefused = true;
+      tasks.setTerminalMethods(false);
+    }
+    if (message.error) settle(message.id, Error(text.slice(0, 500) || "Codex error"));
+    else settle(message.id, null, message.result);
+  }
+  /** One of the proxy's own requests on the session's connection; resolves its result. */
+  function request(method, params, { timeoutMs = 8000 } = {}) {
+    if (!OWN_METHODS.has(method)) return Promise.reject(Error(`${method} not allowed`));
+    let id;
+    do id = `${OWN_ID}${++ownCount}`;
+    while (tuiOwnIds.has(id));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => settle(id, Error(`${method} timed out`)), timeoutMs);
+      timer.unref?.();
+      own.set(id, { resolve, reject, timer });
+      try {
+        write({ id, method, params });
+      } catch (error) {
+        settle(id, error);
+      }
+    });
+  }
   server.on("connection", (socket, request) => {
     if (
       request.url !== "/" ||
@@ -68,6 +124,17 @@ export async function createCodexProxy({
     socket.on("message", (data) => {
       try {
         const message = JSON.parse(String(data));
+        if (message.method === "initialize")
+          tasks.setTerminalMethods(
+            !experimentalRefused &&
+              message.params?.capabilities?.experimentalApi === true,
+          );
+        if (
+          message.method &&
+          String(message.id).startsWith(OWN_ID) &&
+          tuiOwnIds.size < 1000
+        )
+          tuiOwnIds.add(message.id);
         if (message.id !== undefined && !message.method) {
           const identity = idKey(message.id);
           if (retired.has(identity)) return;
@@ -98,9 +165,13 @@ export async function createCodexProxy({
   lines.on("line", (line) => {
     try {
       const message = JSON.parse(line);
+      // A response to the proxy's own request is the proxy's alone.
+      if (!message.method && own.has(message.id)) return void answered(message);
+      if (!message.method) tuiOwnIds.delete(message.id);
       if (message.id === undefined) {
         activity(message);
         reply(message);
+        tasks(message);
       }
       try {
         prompts.incoming(message);
@@ -151,9 +222,12 @@ export async function createCodexProxy({
   return {
     url: `ws://127.0.0.1:${server.address().port}`,
     authToken: capability,
+    request,
+    tracker: tasks,
     async close() {
       if (closed) return;
       closed = true;
+      for (const id of [...own.keys()]) settle(id, Error("Codex transport disconnected"));
       hooks.close();
       for (const identity of requests.keys()) retire(identity);
       lines.close();

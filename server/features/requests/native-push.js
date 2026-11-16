@@ -2,6 +2,7 @@ import net from "node:net";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import { messages, send } from "./wire.js";
+import { codexTasksValue } from "./codex-tasks.js";
 
 // Push hints a native owner sends over its authenticated broker channel. They never
 // carry requests: `activity` asks the server to read the session's chat now, the
@@ -133,6 +134,8 @@ export function nativePushValue(message) {
       pid: message.pid,
     };
   }
+  // The subagent turns and background terminals a Codex launch can stop.
+  if (message.type === "tasks") return codexTasksValue(message);
   // Whether the CLI took a submitted prompt (Codex proxy): confirms chat deliveries.
   if (message.type === "prompt-ready") return { type: "prompt-ready" };
   if (message.type === "prompt") {

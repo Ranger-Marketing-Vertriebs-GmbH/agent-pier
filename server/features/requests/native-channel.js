@@ -81,6 +81,7 @@ export class NativeRequestChannel {
           this.flush(runId, run);
         }
         if (this.promptReady) send(socket, { type: "prompt-ready" });
+        if (this.taskState) send(socket, { type: "tasks", ...this.taskState });
         if (this.preparingTool)
           send(socket, { type: "preparing", name: this.preparingTool });
       }
@@ -160,6 +161,14 @@ export class NativeRequestChannel {
   prompt(event) {
     if (event.type === "prompt-ready") this.promptReady = true;
     if (this.connected) send(this.socket, event);
+  }
+  /**
+   * The tasks a Codex launch can stop (codex-tasks.js), whole on every change; a
+   * reconnect repeats the latest, so a restarted server knows them again.
+   */
+  tasks(state) {
+    this.taskState = state;
+    if (this.connected) send(this.socket, { type: "tasks", ...state });
   }
   /**
    * The tool call the model is writing now (its name only), or null once it runs,
