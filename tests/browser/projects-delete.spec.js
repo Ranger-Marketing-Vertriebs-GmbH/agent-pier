@@ -7,7 +7,6 @@ import { hubFixture } from "./projects-fixture.js";
 test.use({ locale: "en-GB" });
 
 const token = (n) => String(n).repeat(64);
-const noGit = { status: "none", worktrees: [], unpushedBranches: null };
 const report = (over = {}) => ({
   path: "/work/notes",
   name: "notes",
