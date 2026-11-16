@@ -24,6 +24,7 @@ import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
 import useHermesRuntime from "../useHermesRuntime.js";
 import useRuntimes from "../useRuntimes.js";
+import { offersEveryCommand } from "../shell-level.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
 import StepCapabilities from "./StepCapabilities.jsx";
@@ -138,13 +139,13 @@ export default function AgentWizard({ route, navigate }) {
         ? { template: null, name: "", instructions: "" }
         : {}),
       ...(start !== "duplicate" && d.start === "duplicate"
-        ? { duplicateOf: "", ...withRuntime(d, "") }
+        ? { duplicateOf: "", ...withRuntime(d, "", models, infoOf("")) }
         : {}),
     });
   // Duplicate (5.3.1): the source's access record is read; the rest is listed.
   const duplicate = async (id) => {
     setStartError("");
-    if (!id) return set({ duplicateOf: "", ...withRuntime(d, "") });
+    if (!id) return set({ duplicateOf: "", ...withRuntime(d, "", models, infoOf("")) });
     const agent = assistants.find((a) => a.id === id);
     if (!agent) return;
     try {
@@ -239,7 +240,7 @@ export default function AgentWizard({ route, navigate }) {
       onDuplicate={duplicate}
       onStart={chooseStart}
       hermes={hermes}
-      onRuntime={(runtime) => set(withRuntime(d, runtime, models))}
+      onRuntime={(runtime) => set(withRuntime(d, runtime, models, infoOf(runtime)))}
       error={startError || usersError}
     />
   ) : step === "identity" ? (
@@ -251,7 +252,7 @@ export default function AgentWizard({ route, navigate }) {
       runtime={runtime}
       runtimeInfo={runtimeInfo}
       models={models}
-      everyCommand={d.runtime === "hermes"}
+      everyCommand={offersEveryCommand(runtimeInfo)}
     />
   ) : step === "access" ? (
     <StepAccess d={d} set={set} navigate={navigate} />

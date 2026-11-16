@@ -178,16 +178,33 @@ test("a Hermes agent's shell choice saves shellEveryCommand; OpenClaw's never", 
 
 test("the wizard keeps a runtime per draft and sends Hermes' shell choice", () => {
   const draft = { ...emptyDraft(), name: "N", connectionId: "c", modelId: "m" };
-  assert.deepEqual(withRuntime(draft, "hermes"), { runtime: "hermes" });
-  assert.deepEqual(withRuntime({ ...draft, shell: "every" }, ""), {
+  assert.deepEqual(withRuntime(draft, "hermes", [], hermesInfo), { runtime: "hermes" });
+  // A runtime without "Every command" among its shell levels falls back.
+  assert.deepEqual(withRuntime({ ...draft, shell: "every" }, "", [], openClawInfo), {
     runtime: "",
     shell: "approval",
   });
+  assert.deepEqual(withRuntime({ ...draft, shell: "every" }, "hermes", [], hermesInfo), {
+    runtime: "hermes",
+  });
+  // While the runtime's traits are unknown (the list did not arrive), nothing the
+  // owner chose is taken back.
+  assert.deepEqual(withRuntime({ ...draft, shell: "every" }, "hermes", [], undefined), {
+    runtime: "hermes",
+  });
+  // The draft alone says whether every command asks: "every" is only ever chosen
+  // where the runtime offers it, and the server refuses it elsewhere.
   const hermes = { ...draft, runtime: "hermes", shell: "every" };
   assert.equal(createBody(hermes).runtime, "hermes");
   assert.equal(createBody(hermes).shell, "approval");
   assert.equal(createBody(hermes).shellEveryCommand, true);
-  assert.equal(createBody({ ...hermes, shell: "off" }).shellEveryCommand, false);
+  assert.deepEqual(
+    [
+      createBody({ ...hermes, shell: "off" }).shell,
+      "shellEveryCommand" in createBody({ ...hermes, shell: "off" }),
+    ],
+    ["off", false],
+  );
   assert.equal("shellEveryCommand" in createBody({ ...draft, shell: "approval" }), false);
   // A duplicate of a Hermes agent keeps its runtime and its strict level.
   const source = agent({
@@ -231,16 +248,21 @@ test("a Hermes agent lists ChatGPT logins OpenClaw holds unavailable and drops a
       { ...emptyDraft(), connectionId: "openclaw:b", modelId: "gpt-5" },
       "hermes",
       models,
+      hermesInfo,
     ),
     { runtime: "hermes" },
   );
   const draft = { ...emptyDraft(), connectionId: "openclaw:a", modelId: "gpt-5" };
-  assert.deepEqual(withRuntime(draft, "hermes"), {
+  assert.deepEqual(withRuntime(draft, "hermes", models, hermesInfo), {
     runtime: "hermes",
     connectionId: "",
     modelId: "",
   });
-  assert.deepEqual(withRuntime(draft, ""), { runtime: "" });
+  assert.deepEqual(withRuntime(draft, "", models, openClawInfo), { runtime: "" });
+  // Unknown traits clear nothing.
+  assert.deepEqual(withRuntime(draft, "hermes", models, undefined), {
+    runtime: "hermes",
+  });
 });
 
 test("an agent's own Telegram bot needs the runtime's channelBots capability", () => {

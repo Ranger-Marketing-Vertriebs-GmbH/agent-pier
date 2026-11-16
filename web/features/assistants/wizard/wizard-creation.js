@@ -56,8 +56,11 @@ export function createBody(d) {
     };
   // Always explicit: without a level the server starts the owner's agent "With
   // approval" (AGENTPIER-276), whatever the wizard showed.
-  // Hermes tells "Every command" apart (shellEveryCommand); other runtimes get no field.
-  return { ...body, ...shellFields(d.shell, d.runtime === "hermes") };
+  // "Every command" (shellEveryCommand) goes only with that choice: the wizard offers
+  // it where the runtime has the level (shell-level.js offersEveryCommand), and a
+  // duplicate keeps its source's. Any other level sends no field, which the server
+  // reads as not set.
+  return { ...body, ...shellFields(d.shell, d.shell === "every") };
 }
 
 const workAccess = (d, revision) =>
