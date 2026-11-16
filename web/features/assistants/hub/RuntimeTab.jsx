@@ -17,10 +17,11 @@ import { capacityRange } from "../../settings/settings-steps.js";
 import { assistantApi } from "../assistant-api.js";
 import AssistantRuntimeUpdates from "../AssistantRuntimeUpdates.jsx";
 import RestartConfirmation from "../RestartConfirmation.jsx";
-import RuntimeSlot from "../RuntimeSlot.jsx";
+import RuntimeSlot, { describedFieldCopy } from "../RuntimeSlot.jsx";
 import useAssistants from "../useAssistants.js";
 import useDreaming from "../useDreaming.js";
 import { landOn } from "../transcript-scroll.js";
+import { ownList } from "./advanced-scopes.js";
 import HubFrame from "./HubFrame.jsx";
 import RuntimeAdvancedGroup from "./RuntimeAdvancedGroup.jsx";
 import RuntimeFeatureGroup from "./RuntimeFeatureGroup.jsx";
@@ -29,6 +30,7 @@ import {
   advancedKey,
   advancedRangeError,
   capacityError,
+  ownFieldError,
   runtimeServer,
   runtimeSteps,
 } from "./runtime-draft.js";
@@ -68,7 +70,9 @@ function useAdvancedSettings() {
     () => (data?.settings || []).filter((s) => assistantAdvancedCopy.settings[s.id]),
     [data],
   );
-  return { data, setData, settings, error, load };
+  // Each runtime's own described fields, likewise only those with texts here.
+  const own = useMemo(() => ownList(data, describedFieldCopy), [data]);
+  return { data, setData, settings, own, error, load };
 }
 
 /**
@@ -113,6 +117,7 @@ export function RuntimeOn({ frame, feature, section }) {
     setEnabled: feature.setEnabled,
     refresh: { assistants: refresh, dreaming: refreshDreaming },
     settings: advanced.settings,
+    own: advanced.own,
     onAdvanced: advanced.setData,
   });
   const save = () => draft.save(steps);
@@ -130,6 +135,11 @@ export function RuntimeOn({ frame, feature, section }) {
         changed(advancedKey(s.id))
           ? advancedRangeError(s, draft.values[advancedKey(s.id)])
           : "",
+      )
+      .find(Boolean) ||
+    advanced.own
+      .map(({ field, key, text }) =>
+        changed(key) ? ownFieldError(field, draft.values[key], text.label) : "",
       )
       .find(Boolean) ||
     "";

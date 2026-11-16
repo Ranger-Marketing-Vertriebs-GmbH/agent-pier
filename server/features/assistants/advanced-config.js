@@ -1,13 +1,17 @@
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { advancedRuntimes, compilerFor, runtimeIdOf } from "./runtimes/runtime-for.js";
-import { hostFields, storedSettings } from "./runtimes/runtime-settings.js";
-import { validFieldValue } from "./runtimes/runtime-surfaces.js";
 import {
+  RuntimeSettingStore,
+  advancedRuntimes,
+  compilerFor,
+  hostFields,
+  runtimeIdOf,
   sharedSetting,
   sharedSettings,
+  storedSettings,
+  validFieldValue,
   validSharedValue,
-} from "./runtimes/shared-settings.js";
+} from "./runtimes/runtime-for.js";
 
 // The key the shared store keeps setting `id` under: the path of the default
 // runtime's compiler, as it always was (openclaw_overrides), so no row moves and an
@@ -48,7 +52,8 @@ export function advancedValues(overrides) {
  *   every taking runtime that writes its host itself (`host.store`, the outermost
  *   first; the innermost stores), then tells every taking runtime (`host.stored`).
  * - A runtime's **own** setting is a field of a described surface of its descriptor
- *   (runtime-settings.js), stored in `settings` by runtime id and field id. The
+ *   (runtime-settings.js), stored by runtime id and field id (`settings`, else a
+ *   RuntimeSettingStore on the override store's database). The
  *   runtime's `host.storeOwn` stores it and makes the host take it as the field's
  *   `apply` says.
  *
@@ -74,7 +79,10 @@ export class AdvancedConfig {
     runtimes = advancedRuntimes,
   }) {
     Object.assign(this, { assistants, overrides, synchronization, usage, audit });
-    this.ownStore = settings;
+    // The runtimes' own settings live beside the shared overrides, in a table of
+    // the same database (RuntimeSettingStore) unless a store is given.
+    this.ownStore =
+      settings || (overrides?.db ? new RuntimeSettingStore(overrides.db) : null);
     this.listRuntimes = runtimes;
   }
   get runtime() {
@@ -219,8 +227,10 @@ export class AdvancedConfig {
       read: () => this.overrides.get(key),
       write: (to) =>
         to === undefined ? this.overrides.remove(key) : this.overrides.set(key, to),
-      record: (action, from, to, outcome) =>
-        this.record(action, setting.id, { setting: setting.id, from, to }, outcome),
+      updated: (from, to) =>
+        this.record("setting.updated", setting.id, { setting: setting.id, from, to }),
+      rolledBack: (from, to) =>
+        this.record("setting.rolled-back", setting.id, { setting: setting.id, from, to }),
     });
     const persist = () => change.persist(next);
     // Each runtime that writes its host itself wraps the ones after it; the
@@ -264,7 +274,8 @@ export class AdvancedConfig {
       throw assistantProblem("advancedSettingUnavailable", 409);
     const next = value === null ? undefined : value;
     const store = this.ownStore;
-    const resource = `${runtime.id}.${field.id}`;
+    // An audit identifier: letters, digits, `_` and `-`.
+    const resource = `${runtime.id}-${field.id}`;
     const change = this.change({
       read: () => store.get(runtime.id, field.id),
       write: (to) =>
@@ -272,8 +283,9 @@ export class AdvancedConfig {
           ? store.remove(runtime.id, field.id)
           : store.set(runtime.id, field.id, to),
       // A described field's value is the runtime's own; the audit names the field.
-      record: (action, _from, _to, outcome) =>
-        this.record(action, resource, { runtime: runtime.id }, outcome),
+      updated: () => this.record("setting.updated", resource, { runtime: runtime.id }),
+      rolledBack: () =>
+        this.record("setting.rolled-back", resource, { runtime: runtime.id }),
     });
     await runtime.host.storeOwn(
       field,
@@ -291,7 +303,7 @@ export class AdvancedConfig {
    * and audits the update; `revert()` restores what was stored before, if `persist`
    * ran, and audits that, so the log never claims a value that is no longer stored.
    */
-  change({ read, write, record }) {
+  change({ read, write, updated, rolledBack }) {
     let previous = null;
     let stored = false;
     return {
@@ -299,20 +311,20 @@ export class AdvancedConfig {
         previous = read();
         write(value);
         stored = true;
-        record("setting.updated", previous?.value, value, "success");
+        updated(previous?.value, value);
       },
       revert: () => {
         if (!stored) return;
         stored = false;
         const attempted = read()?.value;
         write(previous ? previous.value : undefined);
-        record("setting.rolled-back", attempted, previous?.value, "failure");
+        rolledBack(attempted, previous?.value);
       },
     };
   }
   // The audit names the setting by id (a path is no audit identifier); its schema
   // keeps the old and new value only as a shared setting's own scalar type.
-  record(action, resourceId, details, outcome) {
+  record(action, resourceId, details) {
     try {
       const values = Object.fromEntries(
         Object.entries(details).map(([key, value]) => [key, value ?? null]),
@@ -322,7 +334,8 @@ export class AdvancedConfig {
         resourceType: "setting",
         resourceId,
         source: "user",
-        outcome,
+        // A change that was undone is the failure the log names.
+        outcome: action === "setting.updated" ? "success" : "failure",
         details: values,
       });
     } catch (error) {

@@ -13,7 +13,7 @@ import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/he
  * The page talks to the real AdvancedConfig and OverrideStore (in memory, with a
  * runtime that has not started), so it sees the real six settings, bounds, options,
  * reload kinds and validation. `running` only presents the Gateway as running.
- * `restart` names paths to present as needing a restart: no 2026.9.9 path does, but
+ * `restart` names settings to present as needing a restart: none does on 2026.9.9, but
  * the prompt must work for one a later runtime reports. `hermes` names the installed
  * Hermes version while Hermes runs; `hermesAgents` how many Hermes agents exist.
  */
@@ -60,15 +60,24 @@ async function setup(
     overrides,
     synchronization: {},
   });
-  const present = (data) => ({
-    gateway: { ...data.gateway, running: running && data.gateway.qualified },
-    hermes: data.hermes,
-    settings: data.settings.map((setting) => ({
-      ...setting,
-      ...(running && { current: setting.override }),
-      ...(restart.includes(setting.path) && { reloadKind: "restart" }),
-    })),
-  });
+  // The first runtime is the one whose Gateway the page presents as running.
+  const present = (data) => {
+    const [gateway, ...further] = data.runtimes;
+    return {
+      runtimes: [{ ...gateway, running: running && gateway.qualified }, ...further],
+      settings: data.settings.map((setting) => ({
+        ...setting,
+        runtimes: {
+          ...setting.runtimes,
+          [gateway.id]: {
+            ...setting.runtimes[gateway.id],
+            ...(running && { current: setting.override }),
+            ...(restart.includes(setting.id) && { apply: "restart" }),
+          },
+        },
+      })),
+    };
+  };
   const state = { puts: [] };
   await page.route("**/api/assistant-advanced-settings", async (route) => {
     const request = route.request();
@@ -76,7 +85,7 @@ async function setup(
       return route.fulfill({ json: present(await advanced.get()) });
     const body = request.postDataJSON();
     state.puts.push(body);
-    if (restart.includes(body.path) && !body.confirmRestart)
+    if (restart.includes(body.setting) && !body.confirmRestart)
       return route.fulfill({
         status: 409,
         json: {
@@ -86,7 +95,9 @@ async function setup(
         },
       });
     try {
-      await route.fulfill({ json: present(await advanced.save(body.path, body.value)) });
+      await route.fulfill({
+        json: present(await advanced.save(body.setting, body.value)),
+      });
     } catch (error) {
       await route.fulfill({
         status: error.status || 500,
@@ -138,7 +149,7 @@ test("the owner changes and resets advanced settings on Agenten › Laufzeit", a
   await expect
     .poll(() => overrides.get("agents.defaults.timeoutSeconds")?.value)
     .toBe(900);
-  expect(state.puts).toEqual([{ path: "agents.defaults.timeoutSeconds", value: 900 }]);
+  expect(state.puts).toEqual([{ setting: "runTimeout", value: 900 }]);
 
   // The image rows: our option labels and the narrowed size range.
   const quality = page.getByRole("combobox", { name: /Image quality/ });
@@ -159,8 +170,8 @@ test("the owner changes and resets advanced settings on Agenten › Laufzeit", a
   await expect
     .poll(() => state.puts.slice(1), { message: JSON.stringify(state.puts) })
     .toEqual([
-      { path: "agents.defaults.imageQuality", value: "high" },
-      { path: "agents.defaults.imageMaxDimensionPx", value: 1600 },
+      { setting: "imageQuality", value: "high" },
+      { setting: "imageMaxDimension", value: 1600 },
     ]);
   expect(overrides.get("agents.defaults.imageMaxDimensionPx")?.value).toBe(1600);
 
@@ -176,14 +187,14 @@ test("the owner changes and resets advanced settings on Agenten › Laufzeit", a
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect
     .poll(() => state.puts.at(-1))
-    .toEqual({ path: "agents.defaults.thinkingDefault", value: null });
+    .toEqual({ setting: "thinkingDefault", value: null });
   expect(overrides.get("agents.defaults.thinkingDefault")).toBe(null);
   expect(errors).toEqual([]);
 });
 
 test("a setting that needs a restart asks first and then restarts", async ({ page }) => {
   // No 2026.9.9 path needs a restart; the prompt must still work for one that does.
-  const { state } = await setup(page, { restart: ["attachments.ttlHours"] });
+  const { state } = await setup(page, { restart: ["mediaRetention"] });
   await page.goto(baseURL + "/settings/assistants-advanced");
   await expect(page.getByText("Restart needed", { exact: true })).toHaveCount(1);
   await page.getByRole("spinbutton", { name: /Media file retention/ }).fill("72");
@@ -196,8 +207,8 @@ test("a setting that needs a restart asks first and then restarts", async ({ pag
   await expect
     .poll(() => state.puts)
     .toEqual([
-      { path: "attachments.ttlHours", value: 72 },
-      { path: "attachments.ttlHours", value: 72, confirmRestart: true },
+      { setting: "mediaRetention", value: 72 },
+      { setting: "mediaRetention", value: 72, confirmRestart: true },
     ]);
 });
 
@@ -279,7 +290,7 @@ for (const phone of [false, true])
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect
       .poll(() => state.puts)
-      .toEqual([{ path: "agents.defaults.userTimezone", value: "Asia/Tokyo" }]);
+      .toEqual([{ setting: "userTimezone", value: "Asia/Tokyo" }]);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );

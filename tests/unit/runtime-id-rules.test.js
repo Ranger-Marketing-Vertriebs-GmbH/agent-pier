@@ -21,7 +21,8 @@ const hint =
 // each group names the step of the runtime descriptor work that empties it.
 // (One exception, once: when the scanner learned to count unquoted object keys
 // (`hermes: …`), the keys that already existed were entered under the step that
-// removes them: two more in advanced-config.js, two in agent-browsers.js.)
+// removes them: two in agent-browsers.js. Those of advanced-config.js went with
+// step 4.)
 const runtimeIdAllowlist = {
   // Permanent: "openclaw" as something other than an agent's runtime.
   // The holder of a login (model-accounts.js: "agentpier" or "openclaw").
@@ -39,12 +40,8 @@ const runtimeIdAllowlist = {
   "server/features/assistants/exec-allowlist.js": 1,
   "server/features/assistants/browser-upload-staging.js": 1,
 
-  // Advanced settings per runtime (described surfaces). Two literals and the two
-  // `hermes` keys of a setting's view.
-  "server/features/assistants/advanced-config.js": 4,
-
-  // Server readers: port methods for memory, and Hermes's own services and routes
-  // into its adapter (the descriptor's wiring).
+  // Step 5, server readers: port methods for memory, and Hermes's own services and
+  // routes into its adapter (the descriptor's wiring).
   "server/application/assistants.js": 1,
   "server/application/hermes-wiring.js": 3,
   "server/features/assistants/assistant-bootstrap.js": 1,
@@ -99,8 +96,15 @@ test("runtime rule namedFiles: no file outside the runtime modules is named afte
   );
 });
 
-test("the files the trait, runtime list and surface steps moved name no runtime", () => {
+test("the files the trait, runtime list, surface and settings steps moved name no runtime", () => {
   for (const file of [
+    "server/features/assistants/advanced-config.js",
+    "server/http/routes/assistant-advanced-settings.js",
+    "web/features/assistants/hub/RuntimeAdvancedGroup.jsx",
+    "web/features/assistants/hub/RuntimeOwnSettings.jsx",
+    "web/features/assistants/hub/runtime-draft.js",
+    "web/features/assistants/hub/advanced-scopes.js",
+    "web/features/settings/AdvancedSettingRow.jsx",
     "web/features/assistants/runtime-capabilities.js",
     "web/features/assistants/wizard/AgentWizard.jsx",
     "web/features/assistants/wizard/StepStart.jsx",

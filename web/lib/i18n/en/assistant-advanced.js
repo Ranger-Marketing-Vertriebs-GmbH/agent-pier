@@ -7,14 +7,15 @@ export const assistantAdvancedCopy = {
   stopped: "The agent service is not running. Saved changes apply at its next start.",
   unqualified: (version) =>
     `The installed agent runtime ${version} is not approved for these settings. Saved values are kept and apply again once the approved version runs.`,
-  hermesApplies: "Settings without “OpenClaw only” also apply to Hermes agents.",
-  hermesRestart: "Restarts Hermes agents",
-  hermesRestartLabel: "Hermes agents restart to take a change",
-  hermesUnqualified: (version) =>
-    `Hermes Agent ${version} is not approved for these settings. Hermes agents start with Hermes's defaults until the approved version runs.`,
-  openClawOnly: "OpenClaw only",
-  openClawOnlyLabel:
-    "Applies to OpenClaw agents only; Hermes agents keep Hermes's default",
+  runtimeApplies: (only, name) =>
+    `Settings without “${only} only” also apply to ${name} agents.`,
+  runtimeRestart: (name) => `Restarts ${name} agents`,
+  runtimeRestartLabel: (name) => `${name} agents restart to take a change`,
+  runtimeUnqualified: (product, version, name) =>
+    `${product} ${version} is not approved for these settings. ${name} agents start with ${name}'s defaults until the approved version runs.`,
+  runtimeOnly: (name) => `${name} only`,
+  runtimeOnlyLabel: (name, other) =>
+    `Applies to ${name} agents only; ${other} agents keep ${other}'s default`,
   loading: "Loading settings …",
   loadFailed: "The advanced settings could not be loaded.",
   save: "Save settings",
@@ -24,8 +25,12 @@ export const assistantAdvancedCopy = {
   },
   live: "Immediate",
   restart: "Restart needed",
+  nextTurn: "Next message",
   liveLabel: "Takes effect immediately",
   restartLabel: "Takes effect after the agent service restarts",
+  on: "On",
+  off: "Off",
+  emptyText: "empty",
   unavailable: "Not available with the installed agent runtime",
   defaultValue: (value) => `Default: ${value}`,
   defaultOption: (value) => `Default (${value})`,
@@ -33,6 +38,8 @@ export const assistantAdvancedCopy = {
   resetLabel: (label) => `Reset ${label} to the default`,
   outOfRange: (label, min, max) =>
     `${label}: Whole numbers from ${min} to ${max} are allowed.`,
+  ownRange: (label, min, max) => `${label}: Values from ${min} to ${max} are allowed.`,
+  invalidValue: (label) => `${label}: This value is not allowed.`,
   settings: {
     runTimeout: {
       label: "Time limit per task",

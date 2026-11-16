@@ -61,6 +61,7 @@ export const galleryCopy = {
     gateControl: "Needs a capability of the runtime",
     toggleSub: "A switch saves through the save bar",
     number: "Number",
+    text: "Short text",
     select: "Selection",
     radioA: "First option",
     radioB: "Second option",

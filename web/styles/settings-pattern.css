@@ -164,6 +164,13 @@ label.list-row-main {
   font-size: 13px;
   text-align: right;
 }
+.list-row input.list-row-text {
+  flex: 0 1 45%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+}
 .list-row-select {
   position: relative;
   display: inline-flex;
