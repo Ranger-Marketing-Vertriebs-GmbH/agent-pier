@@ -11,8 +11,8 @@ import { CodexTaskState } from "../../server/features/chat/codex-task-state.js";
 import { codexTaskDriver } from "../../server/features/chat/codex-task-driver.js";
 import { TaskControl } from "../../server/features/chat/task-control.js";
 
-// Recorded on Codex 0.164.0 (spike a.frames.jsonl): a subagent thread 01a1e5fe-843e
-// whose terminal was terminated, and a thread 01a1e601-e73d with two terminals, one
+// Recorded on Codex 0.164.0 (spike a.frames.jsonl, ids replaced by neutral ones): a
+// subagent thread whose terminal was terminated, and a thread with two terminals, one
 // terminated and one that finished by itself.
 const frames = fs
   .readFileSync(new URL("../fixtures/requests/codex-task-frames.jsonl", import.meta.url))
@@ -20,8 +20,9 @@ const frames = fs
   .split("\n")
   .filter(Boolean)
   .map((line) => JSON.parse(line));
-const CHILD = "01a1e5fe-843e-7b51-b5e7-5877be215d50";
-const MAIN = "01a1e601-e73d-7db3-83a1-76fabe8484b7";
+const CHILD = "00000000-0000-4000-8000-000000000001";
+const CHILD_TURN = "00000000-0000-4000-8000-000000000002";
+const MAIN = "00000000-0000-4000-8000-000000000005";
 
 function tracked() {
   const reports = [];
@@ -33,16 +34,11 @@ test("the tracker follows background terminals and child turns of the recorded f
   const { observe, reports, last } = tracked();
   for (const frame of frames) observe(frame);
   assert.deepEqual(
-    last().terminals.map((t) => [
-      t.threadId.slice(0, 8),
-      t.processId,
-      t.status,
-      t.exitCode,
-    ]),
+    last().terminals.map((t) => [t.threadId, t.processId, t.status, t.exitCode]),
     [
-      ["01a1e5fe", "92650", "stopped", -1],
-      ["01a1e601", "18591", "stopped", -1],
-      ["01a1e601", "43374", "completed", 0],
+      [CHILD, "92650", "stopped", -1],
+      [MAIN, "18591", "stopped", -1],
+      [MAIN, "43374", "completed", 0],
     ],
   );
   assert.equal(last().terminals[0].command, "/bin/zsh -lc 'sleep 240'");
@@ -52,9 +48,7 @@ test("the tracker follows background terminals and child turns of the recorded f
   assert.equal(last().terminalMethods, false);
   // While the child ran, its turn was known.
   const during = reports.find((state) => state.turns.length);
-  assert.deepEqual(during.turns, [
-    { threadId: CHILD, turnId: "01a1e5fe-8459-7f13-b58a-c63b5cd1c236" },
-  ]);
+  assert.deepEqual(during.turns, [{ threadId: CHILD, turnId: CHILD_TURN }]);
   // A frame that changes nothing reports nothing.
   const count = reports.length;
   observe(frames.at(-1));
@@ -298,17 +292,18 @@ test("the server's task state lists Codex shells with their owner agent", () => 
   assert.deepEqual(changes, ["s", "s"]);
 });
 
-function driverWith(push, answers = {}) {
+function driverWith(push, answers = {}, options = {}) {
   const { state } = stateWith(push);
   const sent = [];
   const commands = {
     connected: (id) => id === "s",
     send: async (id, command) => {
       sent.push(command);
-      return answers[command.name] ?? { ok: true };
+      const answer = answers[command.name];
+      return typeof answer === "function" ? answer(command) : (answer ?? { ok: true });
     },
   };
-  return { driver: codexTaskDriver({ commands, state }), sent, state };
+  return { driver: codexTaskDriver({ commands, state, ...options }), sent, state };
 }
 const session = { id: "s", tool: "codex", status: "running" };
 const agent = (id = CHILD) => ({ kind: "agent", id, entry: { id, status: "running" } });
@@ -440,4 +435,125 @@ test("the stop control lists Codex shells and stops one through the driver", asy
   await assert.rejects(control.stop("s", `${MAIN}:18591`), {
     code: "TASK_STOP_NOT_RUNNING",
   });
+});
+
+test("every report the tracker emits passes the push validation", () => {
+  // A malformed id would make every push invalid and the broker would drop the channel.
+  const { observe, reports } = tracked();
+  const odd = ["x".repeat(101), "a:b", "a.b", "", "-a", 42, null];
+  for (const id of odd) {
+    observe({ method: "turn/started", params: { threadId: CHILD, turn: { id } } });
+    observe({ method: "turn/started", params: { threadId: id, turn: { id: "u1" } } });
+    for (const processId of [id, "1"])
+      observe({
+        method: "item/started",
+        params: {
+          threadId: id,
+          item: { type: "commandExecution", source: "unifiedExecStartup", processId },
+        },
+      });
+  }
+  observe({
+    method: "item/started",
+    params: {
+      threadId: MAIN,
+      startedAtMs: -5,
+      item: {
+        type: "commandExecution",
+        source: "unifiedExecStartup",
+        processId: "7",
+        command: { not: "text" },
+      },
+    },
+  });
+  observe({
+    method: "item/completed",
+    params: {
+      threadId: MAIN,
+      completedAtMs: 1.5,
+      item: {
+        type: "commandExecution",
+        source: "unifiedExecStartup",
+        processId: "7",
+        exitCode: 2 ** 60,
+      },
+    },
+  });
+  observe({ method: "turn/started", params: { threadId: CHILD, turn: { id: "u2" } } });
+  for (const frame of frames) observe(frame);
+  for (const report of reports)
+    assert.doesNotThrow(() => codexTasksValue({ type: "tasks", ...report }));
+  assert.deepEqual(
+    reports
+      .flatMap((report) => report.turns.map((turn) => turn.turnId))
+      .filter((turn) => !/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(turn)),
+    [],
+  );
+});
+
+test("an interrupt Codex does not answer in time is the stop's timeout", async () => {
+  const { driver } = driverWith(
+    {
+      type: "tasks",
+      turns: [{ threadId: CHILD, turnId: "u1" }],
+      terminals: [running(MAIN, "18591")],
+      terminalMethods: true,
+    },
+    {
+      "turn.interrupt": { ok: false, reason: "turn/interrupt: no answer from Codex" },
+      "terminal.terminate": {
+        ok: false,
+        reason: "thread/backgroundTerminals/terminate: no answer from Codex",
+      },
+    },
+  );
+  await assert.rejects(driver.stop(session, agent()), { code: "TASK_STOP_TIMEOUT" });
+  await assert.rejects(driver.stop(session, shell(`${MAIN}:18591`)), {
+    code: "TASK_STOP_TIMEOUT",
+  });
+});
+
+test("after an interrupt the terminates run at once, bounded, and never fail the stop", async () => {
+  const started = [];
+  const { driver, state } = driverWith(
+    {
+      type: "tasks",
+      turns: [{ threadId: CHILD, turnId: "u1" }],
+      terminals: [running(CHILD, "1"), running(CHILD, "2"), running(CHILD, "3")],
+      terminalMethods: true,
+    },
+    {
+      "terminal.terminate": ({ params }) => {
+        started.push(params.processId);
+        if (params.processId === "1") return new Promise(() => {}); // never answers
+        if (params.processId === "2") throw Error("channel down");
+        return { ok: false, reason: "refused" };
+      },
+    },
+    { terminateBoundMs: 30 },
+  );
+  const begun = Date.now();
+  assert.deepEqual(await driver.stop(session, agent()), { ok: true });
+  assert.ok(Date.now() - begun < 1000);
+  assert.deepEqual(started, ["1", "2", "3"]);
+  // A terminal that could not be terminated stays listed running, stoppable on its own.
+  assert.equal(state.terminal("s", `${CHILD}:1`).status, "running");
+  assert.equal(driver.canStop(session, shell(`${CHILD}:1`)), true);
+});
+
+test("without the session's own thread no shell names an owner agent", () => {
+  const { state } = stateWith({
+    type: "tasks",
+    turns: [],
+    terminals: [running(MAIN, "1"), running(CHILD, "2")],
+    terminalMethods: true,
+  });
+  assert.deepEqual(
+    state.shells("s", undefined).map((entry) => entry.ownerAgentId),
+    [undefined, undefined],
+  );
+  assert.deepEqual(
+    state.shells("s", MAIN).map((entry) => entry.ownerAgentId),
+    [undefined, CHILD],
+  );
 });

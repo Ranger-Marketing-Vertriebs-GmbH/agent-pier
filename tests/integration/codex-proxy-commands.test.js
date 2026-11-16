@@ -16,8 +16,8 @@ import { CodexTaskState } from "../../server/features/chat/codex-task-state.js";
 import { codexTaskDriver } from "../../server/features/chat/codex-task-driver.js";
 import { TaskControl } from "../../server/features/chat/task-control.js";
 
-const CHILD = "01a1e5fe-843e-7b51-b5e7-5877be215d50";
-const MAIN = "01a1e601-e73d-7db3-83a1-76fabe8484b7";
+const CHILD = "00000000-0000-4000-8000-000000000001";
+const MAIN = "00000000-0000-4000-8000-000000000005";
 
 async function until(predicate, ms = 2000) {
   const end = Date.now() + ms;
@@ -95,7 +95,8 @@ test("a proxy request goes to the app-server and its response never reaches the 
   const { proxy, tuiReceived, prompts, nextAppServerLine, appServer } = await fixture(t);
   const reply = proxy.request("turn/interrupt", { threadId: "t1", turnId: "u1" });
   const sent = JSON.parse(await nextAppServerLine());
-  assert.match(sent.id, /^agentpier:\d+$/);
+  // A per-launch nonce: nothing else on the connection can answer as the proxy.
+  assert.match(sent.id, /^agentpier:[0-9a-f]{16}:\d+$/);
   assert.deepEqual(sent, {
     id: sent.id,
     method: "turn/interrupt",
@@ -142,7 +143,7 @@ test("a response to a proxy request counts only with the id the proxy generated"
   const sent = JSON.parse(await nextAppServerLine());
   // A guess, a number and the TUI answering the id on its own connection settle nothing.
   fromApp({ id: "agentpier:999", result: { data: ["guess"] } });
-  fromApp({ id: Number(sent.id.split(":")[1]), result: { data: ["number"] } });
+  fromApp({ id: Number(sent.id.split(":").at(-1)), result: { data: ["number"] } });
   tui.send(JSON.stringify({ id: sent.id, result: { data: ["tui"] } }));
   await delay(40);
   assert.equal(settled, false);
@@ -151,7 +152,7 @@ test("a response to a proxy request counts only with the id the proxy generated"
     id: sent.id,
     result: { data: ["tui"] },
   });
-  // Unknown ids in the namespace are passed on to the TUI untouched.
+  // Ids without this launch's nonce are not the proxy's: they reach the TUI.
   await until(() => tuiReceived.length === 2);
   fromApp({ id: sent.id, result: { data: [] } });
   assert.deepEqual(await reply, { data: [] });
@@ -161,21 +162,111 @@ test("a response to a proxy request counts only with the id the proxy generated"
       { threadId: "t1" },
       { timeoutMs: 30 },
     ),
-    /timed out/,
+    /no answer from Codex/,
   );
 });
 
-test("proxy ids never take an id the TUI is using", async (t) => {
-  const { proxy, tui, tuiReceived, nextAppServerLine, fromApp } = await fixture(t);
+test("a late or repeated answer to a proxy request never reaches the TUI", async (t) => {
+  const { proxy, tuiReceived, nextAppServerLine, fromApp } = await fixture(t);
+  const late = proxy.request(
+    "turn/interrupt",
+    { threadId: "t1", turnId: "u1" },
+    {
+      timeoutMs: 20,
+    },
+  );
+  const lateId = JSON.parse(await nextAppServerLine()).id;
+  await assert.rejects(late, /no answer from Codex/);
+  fromApp({ id: lateId, result: {} });
+  const settled = proxy.request("turn/interrupt", { threadId: "t1", turnId: "u1" });
+  const settledId = JSON.parse(await nextAppServerLine()).id;
+  fromApp({ id: settledId, result: {} });
+  await settled;
+  fromApp({ id: settledId, result: {} });
+  fromApp({ method: "thread/status/changed", params: {} });
+  await until(() => tuiReceived.length === 1);
+  assert.deepEqual(tuiReceived, [{ method: "thread/status/changed", params: {} }]);
+});
+
+test("a TUI request that reuses a proxy id gets no answer through hooks or prompts", async (t) => {
+  const published = [];
+  const prompted = [];
+  const { proxy, tui, tuiReceived, nextAppServerLine, fromApp } = await fixture(t, {
+    launch: { cwd: "/fixture" },
+    publish: (key, view) => published.push(view),
+    resolve() {},
+    prompt: (event) => prompted.push(event),
+  });
+  const late = proxy.request(
+    "turn/interrupt",
+    { threadId: "t1", turnId: "u1" },
+    {
+      timeoutMs: 20,
+    },
+  );
+  const hookId = JSON.parse(await nextAppServerLine()).id;
+  await assert.rejects(late, /no answer from Codex/);
+  const second = proxy.request(
+    "turn/interrupt",
+    { threadId: "t1", turnId: "u2" },
+    {
+      timeoutMs: 20,
+    },
+  );
+  const turnId = JSON.parse(await nextAppServerLine()).id;
+  await assert.rejects(second, /no answer from Codex/);
+  // The TUI (or anything writing as it) reuses the ids for its own requests.
+  tui.send(
+    JSON.stringify({ id: hookId, method: "hooks/list", params: { cwds: ["/fixture"] } }),
+  );
+  tui.send(
+    JSON.stringify({
+      id: turnId,
+      method: "turn/start",
+      params: { threadId: "t1", clientUserMessageId: "c1", input: [] },
+    }),
+  );
+  await nextAppServerLine();
+  await nextAppServerLine();
+  fromApp({
+    id: hookId,
+    result: {
+      data: [
+        {
+          cwd: "/fixture",
+          hooks: [{ key: "k", currentHash: "h", trustStatus: "untrusted" }],
+        },
+      ],
+    },
+  });
+  fromApp({ id: turnId, result: { turn: { id: "turn-1" } } });
+  fromApp({
+    method: "hook/completed",
+    params: { turnId: "turn-1", run: { status: "blocked" } },
+  });
+  fromApp({
+    method: "turn/completed",
+    params: { threadId: "t1", turn: { id: "turn-1" } },
+  });
+  await until(() => tuiReceived.length === 2);
+  assert.deepEqual(
+    tuiReceived.map((m) => m.method),
+    ["hook/completed", "turn/completed"],
+  );
+  assert.deepEqual(published, []);
+  assert.deepEqual(
+    prompted.filter((event) => event.type === "prompt"),
+    [],
+  );
+});
+
+test("a TUI request with a plain agentpier: id round-trips to the TUI", async (t) => {
+  const { tui, tuiReceived, nextAppServerLine, fromApp } = await fixture(t);
   tui.send(JSON.stringify({ id: "agentpier:1", method: "thread/read", params: {} }));
   assert.equal(JSON.parse(await nextAppServerLine()).id, "agentpier:1");
-  const reply = proxy.request("thread/backgroundTerminals/list", { threadId: "t1" });
-  const sent = JSON.parse(await nextAppServerLine());
-  assert.notEqual(sent.id, "agentpier:1");
   fromApp({ id: "agentpier:1", result: { thread: "tui" } });
-  await until(() => tuiReceived.some((m) => m.id === "agentpier:1"));
-  fromApp({ id: sent.id, result: { data: [] } });
-  assert.deepEqual(await reply, { data: [] });
+  await until(() => tuiReceived.length === 1);
+  assert.deepEqual(tuiReceived, [{ id: "agentpier:1", result: { thread: "tui" } }]);
 });
 
 test("the terminal methods follow the TUI's initialize and an experimentalApi refusal", async (t) => {
@@ -217,7 +308,7 @@ test("pending proxy requests fail when the proxy closes", async (t) => {
 });
 
 /** Broker, launcher channel, proxy, server state, driver and stop control together. */
-async function launched(t) {
+async function launched(t, options = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-codex-tasks-"));
   const session = {
     id: "fixture",
@@ -244,7 +335,7 @@ async function launched(t) {
   });
   const channel = new NativeRequestChannel({ env: launch.env, commands: true });
   const proxyFixture = await fixture(t, channel);
-  channel.onCommand = codexTaskCommands(proxyFixture.proxy);
+  channel.onCommand = codexTaskCommands(proxyFixture.proxy, options);
   await channel.ready;
   await until(() => commands.connected("fixture"));
   const snapshot = {
@@ -282,6 +373,20 @@ const terminalStarted = (threadId, processId) => ({
       exitCode: null,
     },
   },
+});
+
+test("Codex not answering a stop in time is the stop's timeout, not a refusal", async (t) => {
+  const { control, snapshot, session, initialize, fromApp, nextAppServerLine, state } =
+    await launched(t, { timeoutMs: 30 });
+  await initialize({ experimentalApi: true });
+  fromApp(terminalStarted(MAIN, "18591"));
+  await until(
+    () => state.shells("fixture", MAIN).length === 1 && state.terminalMethods("fixture"),
+  );
+  const [shell] = control.overlay(session, snapshot).observability.shells;
+  const stop = control.stop("fixture", shell.id);
+  await nextAppServerLine(); // the terminate, which Codex never answers
+  await assert.rejects(stop, { code: "TASK_STOP_TIMEOUT" });
 });
 
 test("a Codex shell is listed and stopped end to end through the proxy", async (t) => {

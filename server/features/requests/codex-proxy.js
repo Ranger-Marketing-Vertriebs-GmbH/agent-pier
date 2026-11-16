@@ -6,16 +6,14 @@ import { codexRequest } from "./codex-protocol.js";
 import { codexActivityTracker } from "./codex-activity.js";
 import { codexReplyObserver } from "./codex-reply-stream.js";
 import { codexPromptAcceptance } from "./codex-prompt-acceptance.js";
-import { codexTaskTracker } from "./codex-tasks.js";
+import { codexTaskTracker, NO_ANSWER } from "./codex-tasks.js";
 
-// The only requests the proxy sends on its own (codex-tasks.js), and their id prefix:
-// the TUI uses numbers and its own strings ("initialize", UUIDs, "<name>-<uuid>").
+// The only requests the proxy sends on its own (codex-tasks.js).
 const OWN_METHODS = new Set([
   "turn/interrupt",
   "thread/backgroundTerminals/terminate",
   "thread/backgroundTerminals/list",
 ]);
-const OWN_ID = "agentpier:";
 const EXPERIMENTAL_REFUSED = "requires experimentalApi capability";
 
 /**
@@ -53,10 +51,14 @@ export async function createCodexProxy({
     channel.prompt?.({ type: "prompt", ...event }),
   );
   const tasks = codexTaskTracker((state) => channel.tasks?.(state));
-  // The proxy's own requests in flight by id, ids of the TUI in the same namespace,
-  // and whether Codex refused the terminal methods on this connection.
+  // The proxy's own requests in flight by id, and whether Codex refused the terminal
+  // methods on this connection. Their ids carry a per-launch nonce: the TUI uses
+  // numbers and strings of its own ("initialize", UUIDs, "<name>-<uuid>") and cannot
+  // know it, so every response with this prefix is the proxy's, in flight or not.
   const own = new Map();
-  const tuiOwnIds = new Set();
+  const ownPrefix = `agentpier:${randomBytes(8).toString("hex")}:`;
+  const ownResponse = (message) =>
+    !message.method && typeof message.id === "string" && message.id.startsWith(ownPrefix);
   let ownCount = 0,
     experimentalRefused = false;
   const requests = new Map();
@@ -95,11 +97,12 @@ export async function createCodexProxy({
   /** One of the proxy's own requests on the session's connection; resolves its result. */
   function request(method, params, { timeoutMs = 8000 } = {}) {
     if (!OWN_METHODS.has(method)) return Promise.reject(Error(`${method} not allowed`));
-    let id;
-    do id = `${OWN_ID}${++ownCount}`;
-    while (tuiOwnIds.has(id));
+    const id = `${ownPrefix}${++ownCount}`;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => settle(id, Error(`${method} timed out`)), timeoutMs);
+      const timer = setTimeout(
+        () => settle(id, Error(`${method}: ${NO_ANSWER}`)),
+        timeoutMs,
+      );
       timer.unref?.();
       own.set(id, { resolve, reject, timer });
       try {
@@ -129,12 +132,6 @@ export async function createCodexProxy({
             !experimentalRefused &&
               message.params?.capabilities?.experimentalApi === true,
           );
-        if (
-          message.method &&
-          String(message.id).startsWith(OWN_ID) &&
-          tuiOwnIds.size < 1000
-        )
-          tuiOwnIds.add(message.id);
         if (message.id !== undefined && !message.method) {
           const identity = idKey(message.id);
           if (retired.has(identity)) return;
@@ -165,9 +162,8 @@ export async function createCodexProxy({
   lines.on("line", (line) => {
     try {
       const message = JSON.parse(line);
-      // A response to the proxy's own request is the proxy's alone.
-      if (!message.method && own.has(message.id)) return void answered(message);
-      if (!message.method) tuiOwnIds.delete(message.id);
+      // A response to the proxy's own request is the proxy's alone, even a late one.
+      if (ownResponse(message)) return void answered(message);
       if (message.id === undefined) {
         activity(message);
         reply(message);

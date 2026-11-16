@@ -63,7 +63,9 @@ export class CodexTaskState {
       ...(entry.exitCode === undefined ? {} : { exitCode: entry.exitCode }),
       startedAt: timestamp(entry.startedAt),
       updatedAt: timestamp(entry.updatedAt),
-      ...(entry.threadId !== providerSessionId ? { ownerAgentId: entry.threadId } : {}),
+      ...(providerSessionId && entry.threadId !== providerSessionId
+        ? { ownerAgentId: entry.threadId }
+        : {}),
     }));
   }
   forget(sessionId) {
