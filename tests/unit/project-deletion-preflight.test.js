@@ -396,13 +396,15 @@ test("a missing folder skips processes and Git", async (t) => {
 });
 
 test("an unavailable drive refuses the delete", async (t) => {
+  // A drive that is not plugged in, below the folder this system mounts drives in:
+  // /Volumes on macOS, /media or /mnt on Linux (whichever exists here).
+  const mounts = ["/Volumes", "/media", "/mnt"].find((dir) => fs.existsSync(dir));
+  if (!mounts) return t.skip("no folder for mounted drives on this system");
+  const drive = path.join(mounts, "agentpier-test-absent-drive", "app");
   const f = setup(t);
-  f.row("p1", "/Volumes/agentpier-test-absent-drive/app");
+  f.row("p1", drive);
   const never = async () => assert.fail("nothing to scan on a missing drive");
-  const report = await preflight(f.services, "/Volumes/agentpier-test-absent-drive/app", {
-    scan: never,
-    git: never,
-  });
+  const report = await preflight(f.services, drive, { scan: never, git: never });
   assert.equal(report.folderState, "unavailable");
   assert.equal(report.refused, "drive-unavailable");
   assert.equal(report.ready, false);
