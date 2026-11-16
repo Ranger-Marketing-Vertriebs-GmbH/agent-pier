@@ -10,6 +10,7 @@ import {
   memoryFolder,
   memoryLimits,
 } from "./hermes-config/memory.js";
+import { hermesMemory } from "./hermes-memory.js";
 
 // The files of one Hermes agent the agentFiles sub-port serves, by the names
 // AgentPier uses for OpenClaw's (agents.files.*): its memory (Hermes's MEMORY.md and
@@ -95,7 +96,8 @@ function searchText(name, text, words) {
  * keep loading it but refuse every later memory write of the agent. An edit reaches
  * the agent's next session; Hermes freezes memory into a session's prompt at its
  * start. searchMemory finds entries of MEMORY.md and USER.md that hold the query's
- * words (Hermes's own search covers past sessions, not memory).
+ * words (Hermes's own search covers past sessions, not memory). `memory` is how
+ * Hermes writes its memory files (hermes-memory.js), pure and the same in every view.
  */
 export const hermesAgentFiles = (supervisor) =>
   boundPort((current) => filesOver(current, supervisor), supervisor);
@@ -110,6 +112,7 @@ function filesOver(current, supervisor) {
     return { file: fileOf(name, readFile(place, name)) };
   };
   return {
+    memory: hermesMemory,
     get,
     async set({ name, content, expectedHash, expectedMissing }) {
       const place = placeOf(agent(), name);
