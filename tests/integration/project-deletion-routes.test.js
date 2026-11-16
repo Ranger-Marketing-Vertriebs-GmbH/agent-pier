@@ -5,6 +5,7 @@ import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
 import { signedInUser } from "../helpers/users.js";
+import { annotateFolders } from "../../server/application/project-folder-annotations.js";
 import { deletionScope } from "../../server/application/project-deletion-scope.js";
 
 const timeout = 60000;
@@ -64,7 +65,13 @@ test(
     assert.equal(before.folder, "present");
     assert.equal(before.deletion, null);
 
+    live.send({ op: "sub", topic: "project-groups.changed" });
+    await live.next((frame) => frame.topic === "project-groups.changed", 5000);
     const signalled = live.next(changedFrame, 5000);
+    const groups = live.next(
+      (frame) => frame.topic === "project-groups.changed" && frame.type === "changed",
+      5000,
+    );
     const started = await post(f, "/api/project-deletion", {
       path: folder,
       token: report.token,
@@ -73,7 +80,8 @@ test(
     assert.equal(started.status, 202);
     assert.deepEqual(await started.json(), { state: "deleting" });
     await f.application.projectDeletion.settled(folder);
-    assert.equal((await signalled).type, "changed");
+    await signalled;
+    await groups;
     assert.equal(fs.existsSync(folder), false);
     const after = await listed(f);
     assert.equal(
@@ -177,6 +185,21 @@ test("malformed requests are refused", async (t) => {
     ).status,
     400,
   );
+  for (const processes of [
+    [{ pid: 5 }],
+    [{ pid: 5, startTime: 7 }],
+    [{ startTime: "t" }],
+  ])
+    assert.equal(
+      (
+        await post(f, "/api/project-deletion/blockers", {
+          path: "/x",
+          token: "0".repeat(64),
+          processes,
+        })
+      ).status,
+      400,
+    );
   assert.equal((await post(f, "/api/project-deletion/retry", {})).status, 400);
 });
 
@@ -221,4 +244,35 @@ test("a restricted user cannot reach the deletion routes", async (t) => {
     ["/api/project-deletion/retry", "POST", { path: f.root }],
   ])
     assert.equal((await as(endpoint, method, body)).status, 404, endpoint);
+});
+
+test("an unknown folder answers 404 with PROJECT_NOT_FOUND", async (t) => {
+  const f = await applicationFixture(t);
+  const answer = await f.request(
+    `/api/project-deletion?path=${enc(path.join(f.root, "nothing"))}`,
+  );
+  assert.equal(answer.status, 404);
+  assert.equal((await answer.json()).code, "PROJECT_NOT_FOUND");
+});
+
+test("rows meet deletion records through a linked parent and a trailing slash", async (t) => {
+  const f = await applicationFixture(t);
+  const { folder } = await projectIn(f, "linked");
+  await mark(f.application, folder);
+  const link = path.join(f.root, "link-to-root");
+  fs.symlinkSync(f.root, link);
+  const rows = await annotateFolders(
+    f.application.memory,
+    [
+      { cwd: path.join(link, "linked") },
+      { cwd: `${path.join(link, "linked")}/` },
+      { cwd: `${folder}/` },
+      { cwd: path.join(f.root, "other") },
+    ],
+    (row) => row.cwd,
+  );
+  assert.deepEqual(
+    rows.map((row) => row.deletion?.state ?? null),
+    ["deleting", "deleting", "deleting", null],
+  );
 });

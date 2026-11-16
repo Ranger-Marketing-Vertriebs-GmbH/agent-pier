@@ -313,3 +313,27 @@ test("an error after the mark clears it and deletes nothing", async (t) => {
   assert.equal(fs.existsSync(f.app), true);
   assert.equal(f.memory.hasProject(f.id), true);
 });
+
+test("endBlockers never ends a process whose tick lacks the start time", async (t) => {
+  const found = [
+    {
+      pid: 201,
+      startTime: "t201",
+      name: "proc201",
+      owner: "self",
+      known: null,
+      endable: true,
+      protected: false,
+    },
+  ];
+  const f = await setup(t, { processes: found });
+  const report = await f.deletion.preflight(f.app);
+  for (const processes of [[{ pid: 201 }], [{ pid: 201, startTime: "" }]])
+    await f.deletion.endBlockers({ path: f.app, token: report.token, processes }, owner);
+  assert.deepEqual(f.ended, []);
+  await f.deletion.endBlockers(
+    { path: f.app, token: report.token, processes: [{ pid: 201, startTime: "t201" }] },
+    owner,
+  );
+  assert.deepEqual(f.ended, [201]);
+});

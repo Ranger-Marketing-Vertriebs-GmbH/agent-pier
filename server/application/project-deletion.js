@@ -131,7 +131,9 @@ export class ProjectDeletion {
       if (sessions) await this.#stopWork(before.blockers, ended);
       const ticked = new Map(processes.map((item) => [item.pid, item.startTime]));
       for (const item of before.processes.list) {
-        if (!ticked.has(item.pid) || ticked.get(item.pid) !== item.startTime) continue;
+        // Only a process whose start time was ticked and still matches is ended.
+        const tickedStart = ticked.get(item.pid);
+        if (!tickedStart || tickedStart !== item.startTime) continue;
         if (!item.endable) continue;
         if (item.known?.kind === "session") {
           const { sessionId } = item.known;
@@ -271,6 +273,8 @@ export class ProjectDeletion {
       this.records.drop(key);
       this.ended.delete(key);
       this.services.live?.invalidate("agentbus.changed");
+      // The folder's group assignment went with the data.
+      this.services.live?.invalidate("project-groups.changed");
     } catch (error) {
       log("delete", error);
       this.records.fail(key, error?.code || "PROJECT_DELETE_FAILED");
