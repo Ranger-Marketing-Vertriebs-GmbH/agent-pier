@@ -59,9 +59,10 @@ export function ticketBranchName(ticket, taken = new Set()) {
 }
 
 export class TicketWorktrees {
-  constructor({ dataDir, github }) {
+  constructor({ dataDir, github, startGuard }) {
     this.dataDir = dataDir;
     this.github = github;
+    this.startGuard = startGuard;
   }
 
   async #root(projectPath) {
@@ -73,6 +74,7 @@ export class TicketWorktrees {
   }
 
   async #fence(projectRoot, name) {
+    this.startGuard?.(projectRoot);
     const root = path.join(projectRoot, fenceName),
       cwd = path.join(root, name);
     const entry = await fs.lstat(root).catch(() => null);

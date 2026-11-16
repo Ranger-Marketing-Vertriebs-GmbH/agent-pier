@@ -149,6 +149,7 @@ export class RunQueue {
    * caller (an MCP start receipt); `source` names who queued it.
    */
   add(projectId, input = {}, { id, source = { kind: "user" } } = {}) {
+    this.startGuard?.(projectId);
     const checked = this.check(projectId, input);
     // Only the server queues a ticket sequence item; its ticket is checked and normalised.
     if (source?.kind === "ticket-sequence") {

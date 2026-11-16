@@ -68,6 +68,7 @@ export async function createPipelineServices(services) {
       services.reviewComments?.discardQuietly({ kind: "run", id });
     },
   });
+  pipelines.startGuard = (cwd) => services.deletionGuard?.refuse(cwd);
   let pipelineQueue;
   try {
     // The one full scan; every later save and delete updates the counts.
@@ -86,6 +87,8 @@ export async function createPipelineServices(services) {
           `AgentPier could not start a queued pipeline run: ${error?.code || error?.message || "unknown error"}`,
         ),
     });
+    pipelineQueue.startGuard = (projectId) =>
+      services.deletionGuard?.refuseProject(projectId);
     await pipelineQueue.recover();
   } catch (error) {
     await pipelineQueue?.close();

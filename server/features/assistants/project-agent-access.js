@@ -129,6 +129,7 @@ export function setProjectAgent(services, projectId, id, input) {
   if (user && coding) throw userAgentLocked();
   const next = coding || user ? { ...wanted, coding } : { coding: false, folder: "none" };
   services.access.s.memory.project(projectId);
+  services.deletionGuard?.refuseProject(projectId);
   for (let attempt = 0; ; attempt++) {
     const policy = services.access.get(id);
     const current = view(policy, projectId);
