@@ -23,6 +23,7 @@ import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
 import { createModOwner } from "../claude-mod/claude-mod-owner.js";
+import { NativeCommands } from "./native-commands.js";
 import { RequestNotices } from "./request-notices.js";
 import { inboxEntry, sessionEntry } from "./request-views.js";
 import { RequestApprovals } from "./request-approvals.js";
@@ -61,7 +62,8 @@ export class RequestBroker {
     onNative = () => {},
     onLaunch = () => {},
     onChange = () => {},
-    commands = null,
+    modCommands = null,
+    commands = new NativeCommands(),
   }) {
     Object.assign(this, requestFolders(dataDir));
     this.sessions = sessions;
@@ -91,6 +93,8 @@ export class RequestBroker {
     this.modSocketPath = path.join(path.dirname(this.socketPath), "claude-mod.sock");
     this.modOwners = createModOwner({ file: (id) => this.file(id), sessions });
     // ClaudeModCommands: the mod's command long-poll (none: the route answers 404).
+    this.modCommands = modCommands;
+    // Commands to the owner of a native channel, answered on it (native-commands.js).
     this.commands = commands;
     this.ready = this.start();
   }
@@ -135,7 +139,7 @@ export class RequestBroker {
       this.server.listen(this.socketPath, resolve);
     });
     await fs.chmod(this.socketPath, 0o600);
-    const { commands } = this;
+    const { modCommands: commands } = this;
     this.modServer = await listenClaudeMod({
       socketPath: this.modSocketPath,
       authenticate: (id, token) => this.modOwners.owner(id, token),
@@ -239,6 +243,7 @@ export class RequestBroker {
         if (delivery?.socket === socket) delivery.finish(message.status);
         return;
       }
+      if (owner && this.commands.receive(socket, message)) return;
       queue = queue.then(async () => {
         if (!owner) {
           if (
@@ -257,6 +262,7 @@ export class RequestBroker {
           if (socket.destroyed) return;
           clearTimeout(authenticationTimeout);
           socket.owner = owner;
+          this.commands.joined(socket, message);
           for (const client of this.clients)
             if (
               client !== socket &&
@@ -339,6 +345,7 @@ export class RequestBroker {
     socket.on("close", () => {
       clearTimeout(authenticationTimeout);
       this.clients.delete(socket);
+      this.commands.left(socket);
       // A native owner that went away streams nothing any more.
       for (const runId of socket.runs || [])
         this.notify(owner.id, { type: "stream-end", runId });

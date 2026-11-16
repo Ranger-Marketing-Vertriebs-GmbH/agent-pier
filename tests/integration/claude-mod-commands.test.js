@@ -57,7 +57,7 @@ async function setup(t, { holdMs = 30, graceMs = 200 } = {}) {
   const broker = new RequestBroker({
     dataDir,
     sessions: { get: async () => ({ ...session }) },
-    commands,
+    modCommands: commands,
     onNative: (id, push) => {
       if (push.type === "claude-mod")
         return mod.receive(id, push.events, { prompts: push.prompts });
