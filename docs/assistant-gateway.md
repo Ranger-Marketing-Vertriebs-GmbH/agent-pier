@@ -4902,7 +4902,8 @@ dreaming. See [memory qualification](assistant-memory-qualification.md#dreaming)
 #### Dreaming of Hermes agents
 
 The same owner switch (`DreamingSettings`) drives Hermes agents; Hermes has no sweep of
-its own, so `HermesDreams` (`hermes-dreams.js`, ticked by `DreamingBackups`) runs the
+its own, so `HermesDreams` (`runtimes/hermes/dreams/hermes-dreams.js`, made through
+`agentDreams` of `runtimes/runtime-services.js` and ticked by `DreamingBackups`) runs the
 night. It covers every non-archived Hermes agent with memory, users' own agents and
 temporary members included, at the dreaming hour in the dreaming time zone, and catches
 up a missed night within 6 hours. The memory lock of
@@ -4910,7 +4911,7 @@ up a missed night within 6 hours. The memory lock of
 
 - **One-shot.** `dreamOnce` (`hermes-dream.js`) reads `MEMORY.md` and `USER.md` through
   the agent's files port (`hermesAgentFiles`), hands the contents to
-  `backupHermesMemory` (`dreaming-backups.js`: `MEMORY-*.md` and `USER-*.md` under
+  `backupMemoryFiles` (`dreaming-backups.js`: `MEMORY-*.md` and `USER-*.md` under
   `assistants/memory-backups/<runtimeAgentId>/`, the last 7), and makes one `llm.oneshot`
   (`sessions.reviewMemory`) on the agent's own model, without tools and outside any
   session. The input (`hermes-dream-prompt.js`) is both files, the targets (80 % of each

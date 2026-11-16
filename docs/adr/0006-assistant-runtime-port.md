@@ -86,7 +86,8 @@ needs a restart and which start loaded the running configuration (`restartNeeded
 `generation`). OpenClaw's supervisor, installer, manifest, dependency lock, Doctor
 migration and process ownership therefore live in `runtimes/openclaw/`. A second
 rule of the same test refuses imports of adapter modules from outside `runtimes/`:
-only `runtime-for.js` and `agent-runtime.js` are public, composition roots may
+only `runtime-for.js` and `agent-runtime.js` are public (ADR 0007 added the
+descriptors, the traits and the wiring modules), composition roots may
 construct the supervisor, and a shrink-only allowlist names the MCP toolchain
 manifest (it shares OpenClaw's Node pin) and the team plugin installer (it checks
 OpenClaw's versions until the team plugin moves into the adapter).

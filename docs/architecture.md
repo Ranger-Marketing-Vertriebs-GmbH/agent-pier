@@ -300,7 +300,12 @@ id, [ADR 0007](adr/0007-runtime-descriptor.md));
 `runtimes/runtime-for.js` resolves the runtime of an agent by the runtime it records:
 the OpenClaw adapter in `runtimes/openclaw/`, which every OpenClaw agent shares and
 which is the only place meant to call the Gateway client, or for a Hermes agent the
-adapter of its own process set (`runtimes/hermes/`, kept by the Hermes fleet). The
+adapter of its own process set (`runtimes/hermes/`, kept by the Hermes fleet, which
+the port holds as that runtime's _agent hosts_: `agentHosts(supervisor, agent)`,
+`agentHostSets(supervisor)`). A helper of `runtime-for.js` asks the agent's runtime
+and names none: `ownProcess(agent)` reads the trait `host.process`,
+`runtimeReady`/`assertRuntimeReady` ask whether an agent may run on its runtime now,
+`sharedHostAgents(profiles)` are the agents the built-in host compiles. The
 OpenClaw adapter's `host` sub-port wraps the supervisor: `ready()`, `status()` with
 the supervisor's availability states, `version()`, `subscribe()` and `start`/`stop`/
 `restart`, plus `connection()`, a handle that changes when a restart replaces the
@@ -366,12 +371,28 @@ fails when server code outside `runtimes/` names a Gateway method in
 `.call()`/`.request()` or reaches `runtime.client`. Every caller has moved behind the
 port, so the rule is absolute: there is no allowlist, and no file outside `runtimes/`
 may offend. A third rule refuses imports of adapter modules from outside `runtimes/`:
-only `runtime-for.js` and `agent-runtime.js` are public. Composition roots
+only the port's own modules are public (`runtime-for.js`, `agent-runtime.js`,
+`runtime-traits.js`, `runtime-descriptors.js`, and `runtime-wiring.js`,
+`runtime-services.js`, `runtime-backup-paths.js`, below). Composition roots
 (`server/application/assistant-graph.js`, `services.js`, `*-wiring.js`) may construct
-the OpenClaw supervisor; a shrink-only allowlist names the two modules that still read
+the OpenClaw supervisor, and a fourth rule lets them import the built-in runtime's
+adapter alone; a shrink-only allowlist names the two modules that still read
 OpenClaw's runtime manifest (the MCP toolchains share its Node pin, and the team
 plugin installer checks its versions until the team plugin moves into the adapter). `tests/helpers/runtime-port-contract.js` is the contract every adapter
 passes, every sub-port included.
+
+A runtime's own services live in its adapter and reach the application through three
+port modules ([ADR 0007](adr/0007-runtime-descriptor.md), decision 7).
+`runtimes/runtime-wiring.js` is for the composition roots: `wireRuntimes(services,
+{ config })` calls each runtime's `wire` (`runtimes/<id>/wiring.js`) once, in registry
+order, and merges what it returns (its services, its install state as
+`services.runtimeInstalls[id]`, its routes and its start once the server listens as
+`services.runtimeWiring`); `wireAgentHosts` and `ownProcessWiring` do the same for one
+assistant graph. `runtimes/runtime-services.js` is for feature code: the bridge
+routes a runtime's own plugins call, the dreams its agents run by themselves and the
+images they create. `runtimes/runtime-backup-paths.js` holds what host backups make
+of a runtime's private folder. OpenClaw has no wiring: the assistant graph constructs
+the built-in runtime itself.
 
 The config sub-port carries the compiler as `config.compiler`
 (`runtimes/openclaw/openclaw-compiler.js`); `compilerFor(agent)` in `runtime-for.js`

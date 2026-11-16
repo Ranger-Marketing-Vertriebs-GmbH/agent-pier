@@ -870,10 +870,26 @@ second call.
 
 ## Agents on Hermes
 
+Everything that is Hermes's own lives in `server/features/assistants/runtimes/hermes/`:
+the adapter's sub-ports, the compiler (`hermes-config/`), the nightly dreams
+(`dreams/`), what answers the team plugin's hooks and keeps the agents' images
+(`tools/`: the guards, the browser upload, the routine approvals, generated images),
+the backup path rules (`hermes-backup-paths.js`), the owner's routes
+(`hermes-routes.js`) and the wiring (`wiring.js`). No code outside names Hermes: the
+composition roots call `wireRuntimes`, `wireAgentHosts` and `ownProcessWiring`
+(`runtimes/runtime-wiring.js`), which call Hermes's `wire` (the owner's switch, its
+install state for the runtime list, its routes, its start once the server listens),
+`agentHosts` (the fleet of one assistant graph) and `applyInputs`; feature code
+reaches the tool routes, the dreams and the images through
+`runtimes/runtime-services.js` and the backup rules through
+`runtimes/runtime-backup-paths.js`
+([ADR 0007](adr/0007-runtime-descriptor.md), decision 7).
+
 `runtime-for.js` resolves an agent that records `runtime: "hermes"` to its own
 runtime in the Hermes fleet (`runtimes/hermes/hermes-fleet.js`), one supervised
 process set per agent, keyed by its runtime agent id. The fleet is attached to the
-OpenClaw supervisor that feature code passes around, so callers keep using
+OpenClaw supervisor that feature code passes around as Hermes's agent hosts
+(`attachAgentHosts`; feature code asks `agentHosts(supervisor, agent)`), so callers keep using
 `runtimeFor(agent, supervisor)`, `hostReady(supervisor, agent)` and
 `hostConnection(supervisor, agent)`; calls that know only a session key use
 `runtimeForSession`. Hermes agents may be created and started only while Hermes is
