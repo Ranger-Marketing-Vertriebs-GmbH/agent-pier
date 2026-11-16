@@ -194,19 +194,26 @@ test("an unknown error code falls back; a server without Hermes shows no group",
 });
 
 /** The wizard's mocks: the create request is recorded in `sent`. */
-async function wizard(page, hermes, assistants) {
+async function wizard(page, hermes, assistants, { runtimeList = true } = {}) {
   const state = await setupAssistantSettings(page, { assistants });
   await hermesRoutes(page, [hermes]);
   // The runtimes a new agent may choose, with their traits (ADR 0007).
   await page.route(/\/api\/assistant-runtimes$/, (route) =>
-    route.fulfill({
-      json: {
-        runtimes: [
-          { id: "openclaw", name: "OpenClaw", version: "2026.10.3", capabilities: {} },
-          { ...hermesInfo, version: null },
-        ],
-      },
-    }),
+    !runtimeList
+      ? route.fulfill({ status: 503, json: { error: "unavailable" } })
+      : route.fulfill({
+          json: {
+            runtimes: [
+              {
+                id: "openclaw",
+                name: "OpenClaw",
+                version: "2026.10.3",
+                capabilities: {},
+              },
+              { ...hermesInfo, version: null },
+            ],
+          },
+        }),
   );
   const sent = [];
   await page.route(/\/api\/assistants/, async (route) => {
@@ -261,6 +268,43 @@ test("the wizard offers Hermes while it is installed and sends its shell choice"
   await page.getByRole("button", { name: "Skip", exact: true }).click();
   await page.getByRole("button", { name: "Skip", exact: true }).click();
   await expect(page.getByText("Hermes Agent", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Create agent", exact: true }).click();
+  await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
+  expect(sent[0]).toMatchObject({
+    runtime: "hermes",
+    shell: "approval",
+    shellEveryCommand: true,
+  });
+});
+
+test("without the runtime list the wizard offers no choice and a duplicate keeps its level", async ({
+  page,
+}) => {
+  const source = home({
+    runtime: "hermes",
+    runtimeInfo: hermesInfo,
+    skills: [],
+    shell: "approval",
+    shellEveryCommand: true,
+  });
+  const sent = await wizard(page, installed, [source], { runtimeList: false });
+  // A new agent: how Hermes behaves is unknown, so it is not offered.
+  await page.goto(baseURL + "/agents?new=1");
+  await expect(page.getByRole("radio", { name: /^Blank/ })).toBeChecked();
+  await expect(runtimeGroup(page)).toHaveCount(0);
+  // A duplicate knows its runtime from its source: all four levels, its own checked.
+  await page.goto(baseURL + "/agents?new=1&duplicate=home");
+  await expect(
+    runtimeGroup(page).getByText("Hermes Agent", { exact: true }),
+  ).toBeVisible();
+  await wizardNext(page);
+  await wizardNext(page);
+  const shell = page.locator("#agent-shell");
+  await expect(shell.getByRole("radio")).toHaveCount(4);
+  await expect(shell.getByRole("radio", { name: "Every command" })).toBeChecked();
+  await wizardNext(page);
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
   await page.getByRole("button", { name: "Create agent", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
   expect(sent[0]).toMatchObject({

@@ -125,7 +125,8 @@ export function duplicateFields(agent, policy, team, copyName) {
  */
 export const withRuntime = (d, runtime, models = [], runtimeInfo) => ({
   runtime,
-  ...(runtimeInfo && !offersEveryCommand(runtimeInfo) && d.shell === "every"
+  // The default runtime's levels are the defaults, known without its view.
+  ...((runtimeInfo || !runtime) && !offersEveryCommand(runtimeInfo) && d.shell === "every"
     ? { shell: "approval" }
     : {}),
   // Such a runtime keeps a chosen ChatGPT login only when AgentPier holds it.
