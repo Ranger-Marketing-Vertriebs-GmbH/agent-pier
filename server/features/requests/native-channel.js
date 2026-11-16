@@ -9,6 +9,14 @@ const maxRuns = 16;
 // Results of the latest commands, so a command id seen again does not run again.
 const maxCommandResults = 32;
 
+/** Why a command was refused: an SDK may throw a plain object instead of an Error. */
+function refusal(error) {
+  const reason = [error?.message, error?.data?.message, error?.name, error].find(
+    (value) => typeof value === "string" && value,
+  );
+  return (reason ?? "refused").slice(0, 500);
+}
+
 /** Reconnectable native-side channel. Only the native owner decides whether a request still exists. */
 export class NativeRequestChannel {
   /**
@@ -119,10 +127,7 @@ export class NativeRequestChannel {
         .then(() => this.onCommand(name, params))
         .then(
           (data) => ({ ok: true, ...(data !== undefined ? { data } : {}) }),
-          (error) => ({
-            ok: false,
-            reason: String(error?.message ?? error).slice(0, 500),
-          }),
+          (error) => ({ ok: false, reason: refusal(error) }),
         );
       this.commandResults.set(id, result);
       if (this.commandResults.size > maxCommandResults)

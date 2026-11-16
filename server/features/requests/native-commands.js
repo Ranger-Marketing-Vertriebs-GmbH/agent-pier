@@ -12,15 +12,19 @@ const MAX_PENDING = 64;
  * params }` out, `{ type: "command-result", id, ok, reason?, data? }` back. A socket
  * takes commands only once the broker authenticated it as the session's owner (its
  * hello named the session and carried the launch's token) and the hello offered
- * `commands: true`; the newest such socket of a session gets them. The server makes
- * every command id, and only that socket's result for that id settles the command.
+ * `commands: true`. Every process holding the launch token (the CLI's shells inherit
+ * it) can say such a hello, so the first commands socket of a session keeps the
+ * commands while it is open: a later one with another epoch is no commands socket,
+ * and only a reconnect of the same channel (same epoch) takes over. Once it closed,
+ * the next commands hello joins. The server makes every command id, and only the
+ * socket a command went to settles it with a result for that id.
  * Held in memory: a closed socket or a timeout ends what it had pending.
  */
 export class NativeCommands {
   /** `onChange(sessionId)` hears that a session's command channel came up or went down. */
   constructor({ onChange = () => {} } = {}) {
     this.onChange = onChange;
-    // Commands-capable sockets per session, oldest first.
+    // The commands socket of each session.
     this.sockets = new Map();
     this.pending = new Map();
   }
@@ -28,21 +32,26 @@ export class NativeCommands {
   joined(socket, hello) {
     if (hello?.commands !== true || !socket.owner) return;
     const id = socket.owner.id;
-    const list = this.sockets.get(id) || [];
-    this.sockets.set(id, [...list.filter((item) => item !== socket), socket]);
-    if (!list.length) this.changed(id);
+    const current = this.sockets.get(id);
+    if (
+      current &&
+      current !== socket &&
+      !current.destroyed &&
+      current.owner.epoch !== socket.owner.epoch
+    )
+      return;
+    // What a replaced socket had pending fails once the broker closes it.
+    this.sockets.set(id, socket);
+    if (!current) this.changed(id);
   }
   /** The socket closed: it takes no commands, and what it had pending fails. */
   left(socket) {
-    const id = socket.owner?.id;
-    const list = this.sockets.get(id);
-    if (!list?.includes(socket)) return;
-    const rest = list.filter((item) => item !== socket);
-    if (rest.length) this.sockets.set(id, rest);
-    else this.sockets.delete(id);
     for (const [key, entry] of this.pending)
       if (entry.socket === socket) this.settle(key, null, taskStopError.channelDown());
-    if (!rest.length) this.changed(id);
+    const id = socket.owner?.id;
+    if (this.sockets.get(id) !== socket) return;
+    this.sockets.delete(id);
+    this.changed(id);
   }
   /** A message of an authenticated socket; true when it was a command result. */
   receive(socket, message) {
@@ -60,15 +69,15 @@ export class NativeCommands {
     return true;
   }
   connected(sessionId) {
-    return Boolean(this.sockets.get(sessionId)?.length);
+    return this.sockets.has(sessionId);
   }
   /**
-   * Send `{ name, params }` to the session's newest commands socket. Resolves the
+   * Send `{ name, params }` to the session's commands socket. Resolves the
    * owner's `{ ok, reason?, data? }`; rejects TASK_STOP_CHANNEL_DOWN without such a
    * socket or when it closes first, and TASK_STOP_TIMEOUT after `timeoutMs`.
    */
   send(sessionId, { name, params } = {}, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-    const socket = this.sockets.get(sessionId)?.at(-1);
+    const socket = this.sockets.get(sessionId);
     if (!socket || socket.destroyed || this.pending.size >= MAX_PENDING)
       return Promise.reject(taskStopError.channelDown());
     const id = randomUUID();
