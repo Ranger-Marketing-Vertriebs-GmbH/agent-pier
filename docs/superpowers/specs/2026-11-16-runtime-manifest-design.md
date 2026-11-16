@@ -90,8 +90,10 @@ runtime's own module and nowhere else. Nobody has to implement everything twice.
   and `runtimeFor(null, supervisor)` for the shared host stay as they are. In scope is
   what names a runtime id today; OpenClaw registers traits and its advanced settings,
   and no built surface.
-- Per-agent described options (`scope: "agent"`) and slots on agent pages or in the
-  wizard. No option needs them yet; they come with the first one (see Later).
+- Slots in the wizard. A new agent starts with each option's default; options are
+  changed in its settings.
+- The detailed design of the three first consumers (see First consumers). Each gets
+  its own short design after a spike against the pinned runtime.
 - Redesigning existing pages, or rendering today's hand-built pages (memory, dreams,
   allowlist, Telegram) from field descriptions.
 - Feature parity. A runtime may simply not have something.
@@ -143,11 +145,11 @@ stay AgentPier's and read traits.
 
 ### Three kinds of thing a runtime states
 
-| Kind        | Whose vocabulary | Example                                                         | UI                                                                    |
-| ----------- | ---------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Feature** | AgentPier's      | `routines`, `browser`, `skills`, `channelBots`                  | AgentPier's page; unavailable → visible, disabled, reason (unchanged) |
-| **Trait**   | AgentPier's      | `shell.levels`, `memory.format`, `channelBots.peopleApply`      | AgentPier's page reads the value                                      |
-| **Surface** | the runtime's    | Hermes install/update group; a Hermes-only advanced setting     | the runtime's, at a named slot; absent on other runtimes              |
+| Kind        | Whose vocabulary | Example                                                     | UI                                                                    |
+| ----------- | ---------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Feature** | AgentPier's      | `routines`, `browser`, `skills`, `channelBots`              | AgentPier's page; unavailable → visible, disabled, reason (unchanged) |
+| **Trait**   | AgentPier's      | `shell.levels`, `memory.format`, `channelBots.peopleApply`  | AgentPier's page reads the value                                      |
+| **Surface** | the runtime's    | Hermes install/update group; a Hermes-only advanced setting | the runtime's, at a named slot; absent on other runtimes              |
 
 Features are today's capabilities, renamed. Traits hang off a feature. AgentPier's
 core declares each feature's trait schema (allowed keys and values) and
@@ -222,10 +224,14 @@ needs and add one only with a surface that uses it:
 
 - `hub.runtime`: a group in Agents › Runtime (today `RuntimeHermesGroup`).
 - `hub.runtime.advanced`: the runtime's rows in Agents › Runtime › Advanced.
+- `agent.capabilities`: a group at the end of an agent's Capabilities tab, for the
+  runtime's per-agent options. Further agent tabs get a slot with the first surface
+  that belongs there.
 
 `<RuntimeSlot name="hub.runtime" />` renders the surfaces registered there by every
 runtime the server lists, in registry and descriptor order; nothing when there are
-none. A surface states when it shows: `always` (an optional runtime's install group,
+none. `<RuntimeSlot name="agent.capabilities" assistant={…} />` renders those of the
+agent's runtime. A surface states when it shows: `always` (an optional runtime's install group,
 as the Hermes group shows today while Hermes is off) or `whileEnabled` (the default;
 its advanced rows, as today's Hermes notes show only while Hermes is on).
 
@@ -246,7 +252,8 @@ AgentPier renders it with the guide's rows (`ToggleRow`, `SelectRow`, `NumberRow
 the same description, and stores it (below). The runtime's compiler receives the
 stored values with the desired state and maps them into its own configuration;
 `apply` tells AgentPier whether a save needs the restart confirmation it already
-has. Only `scope: "host"` exists in this project.
+has. `scope: "host"` fields are the advanced settings (below); `scope: "agent"`
+fields are per-agent options (after that).
 
 Texts never come from the server: every described field has a label and a hint in
 both catalogs under the runtime's namespace, and a unit test fails for a field
@@ -278,6 +285,45 @@ and setting id, which an older AgentPier ignores. `advanced-config.js` loses
 No Hermes-only setting is named yet; step 4 ships the mechanism with the shared
 settings moved onto it, covered by a test runtime's own setting, and no visible
 change until a runtime registers one.
+
+### Per-agent options
+
+The comparison of both runtimes' native features (2026-11-16) showed that most
+differences are not "one runtime lacks it" but "both have it and AgentPier switches
+it differently". So, as with advanced settings, there are two kinds:
+
+- A **shared** option is a field of AgentPier's agent model like any other (in the
+  runtime-neutral desired state, `agent-desired-state.js`), with a hand-built row on
+  AgentPier's page. Each runtime states a feature or trait for it and its compiler
+  maps the value. A runtime without it shows the row disabled with the reason.
+- A **runtime's own** option is a `scope: "agent"` field of a described surface in
+  the `agent.capabilities` slot, or a built surface there when a field cannot
+  describe it. Values are stored in the agent's profile under
+  `runtimeOptions[runtimeId][fieldId]`, validated against the descriptor, saved with
+  the tab's draft like the fields around them, and handed to that runtime's compiler
+  with the desired agent.
+
+`runtimeOptions` travel with the profile: backups keep them; a duplicate and a
+template keep them for the same runtime and drop them for another; a team member
+does not inherit its lead's and starts with the defaults. An option whose field a
+later descriptor no longer names is ignored, never an error, so a rollback of
+AgentPier or of the runtime starts the agent.
+
+Field types grow with their first user. Besides toggle, select, number and text,
+the first consumers need `connection`: one of AgentPier's model connections the
+agent's runtime can use (the choice `modelsFor` filters today).
+
+### First consumers
+
+Three features the owner chose from the comparison. They prove the three shapes;
+each is delivered after the step it needs, with its own short design and a spike on
+a separate AgentPier instance.
+
+| Feature               | Runtime  | Shape                          | What is known                                                                                                                                                                                                                                                                                                                                  |
+| --------------------- | -------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Learns its own skills | both     | shared option                  | Hermes: `skill_manage`, background review and curator, on today without a switch. OpenClaw 2026.10.9: Skill Workshop (`skills.workshop.autonomous.mode`), which AgentPier pins to `off` in `runtime-config.js` and locks. Defaults stay as today (my call): off on OpenClaw, on on Hermes. Open: whether OpenClaw's mode can differ per agent. |
+| Mixture of Agents     | Hermes   | runtime's own option           | `moa.presets`: reference models advise, the aggregator acts and is billed. Selected as provider `moa`. Open: mapping AgentPier's model connections and its proxy onto reference slots; cost shown to the owner.                                                                                                                                |
+| Memory wiki           | OpenClaw | runtime's own option (+ page?) | Bundled plugin `memory-wiki` beside `memory-core`: `wiki_search`, `wiki_get`, vault per agent (`vault.scope: "agent"`), `bridge` mode over the memory plugin. Open: plugin and tool allow-list changes, backups of the vault, whether the owner gets a page to read it (a built surface).                                                      |
 
 ### The list of runtimes
 
@@ -350,12 +396,13 @@ Each step is one pull request without a visible change unless it says so.
 5. **Server.** Port methods for memory, `wire(services)`, the `hermes-*.js` modules
    move into the adapter; the allowlist shrinks to its permanent exceptions.
 
-## Later
+6. **Per-agent options** (after step 4). `runtimeOptions`, the `agent.capabilities`
+   slot, the `connection` field type. Ships with **Learns its own skills** as the
+   shared option beside it, so the step is visible and used.
+7. **Mixture of Agents** on Hermes, then **Memory wiki** on OpenClaw, each from its
+   own design.
 
-Per-agent options: `scope: "agent"` fields stored in the agent's profile under
-`runtimeOptions`, with slots on the agent settings tabs and in the wizard. They touch
-profile validation, templates, duplicates, team members (who run on their lead's
-runtime) and backups, so they are designed with the first option that needs them.
+Steps 5 and 6 do not depend on each other.
 
 ## Left to the builder
 
