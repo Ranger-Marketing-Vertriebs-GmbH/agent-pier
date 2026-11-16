@@ -3,6 +3,8 @@ import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 export const id = "agentpier-requests";
+// An OpenCode session id as a command may name it; anything else never reaches the SDK.
+const OPENCODE_SESSION = /^ses_[A-Za-z0-9]{1,96}$/;
 /** The session the TUI shows, or null. */
 const currentSession = (api) =>
   api.route?.current?.name === "session" ? api.route.current.params?.sessionID : null;
@@ -20,7 +22,7 @@ export function openCodeCommands(api) {
     if (name !== "session.abort") throw Error("unknown command");
     const sessionID = params?.sessionId;
     const parent = currentSession(api);
-    if (typeof sessionID !== "string" || !sessionID || !parent || sessionID === parent)
+    if (!OPENCODE_SESSION.test(sessionID ?? "") || !parent || sessionID === parent)
       throw Error("not a child");
     const found = await api.client.session.get({ sessionID }, { throwOnError: true });
     if (found?.data?.parentID !== parent) throw Error("not a child");

@@ -200,24 +200,87 @@ test("a command times out, and its late result is ignored", async (t) => {
   });
 });
 
-test("the newest commands channel of a session takes the commands", async (t) => {
+const owners = (broker) => [...broker.clients].filter((socket) => socket.owner).length;
+
+test("a second connection with another epoch neither receives nor answers commands", async (t) => {
+  // Every process with the launch token (a shell the agent runs) could say hello.
   const { broker, open } = await fixture(t);
   const first = await open();
+  const intruder = await open();
+  await until(() => owners(broker) === 2);
+  const seenFirst = sniff(first);
+  const seenIntruder = sniff(intruder);
+  let intruderCalls = 0;
+  intruder.onCommand = async () => intruderCalls++;
+  let release;
+  first.onCommand = () => new Promise((resolve) => (release = resolve));
+  let settled = false;
+  const pending = broker.commands
+    .send("fixture", { name: "x", params: {} })
+    .finally(() => (settled = true));
+  await until(() => seenFirst.length === 1);
+  send(intruder.socket, { type: "command-result", id: seenFirst[0].id, ok: true });
+  await delay(30);
+  assert.equal(settled, false);
+  assert.deepEqual(seenIntruder, []);
+  assert.equal(intruderCalls, 0);
+  release("first");
+  assert.deepEqual(await pending, { ok: true, data: "first" });
+  // While the first is open the intruder's channel is no command channel.
+  intruder.close();
+  await until(() => owners(broker) === 1);
+  assert.equal(broker.commands.connected("fixture"), true);
+});
+
+test("a same-epoch reconnect takes the commands over", async (t) => {
+  const { broker, open, changes } = await fixture(t);
+  const first = await open();
   first.onCommand = async () => "first";
-  const second = await open();
-  second.onCommand = async () => "second";
-  await until(() => [...broker.clients].filter((s) => s.owner).length === 2);
-  assert.deepEqual(await broker.commands.send("fixture", { name: "x", params: {} }), {
-    ok: true,
-    data: "second",
-  });
-  second.close();
-  await until(() => [...broker.clients].filter((s) => s.owner).length === 1);
+  // A successor of the same channel (claude-hook-handover.js does the same).
+  first.release();
+  const successor = await open("fixture", { commands: true, epoch: first.epoch });
+  successor.onCommand = async () => "successor";
+  await until(() => owners(broker) === 1);
   assert.equal(broker.commands.connected("fixture"), true);
   assert.deepEqual(await broker.commands.send("fixture", { name: "x", params: {} }), {
     ok: true,
-    data: "first",
+    data: "successor",
   });
+  // The channel never went down on the way.
+  assert.deepEqual(changes, ["fixture"]);
+});
+
+test("after the commands channel closed a new one can join", async (t) => {
+  const { broker, open } = await fixture(t);
+  const first = await open();
+  first.close();
+  await until(() => !broker.commands.connected("fixture"));
+  const next = await open();
+  next.onCommand = async () => "next";
+  assert.deepEqual(await broker.commands.send("fixture", { name: "x", params: {} }), {
+    ok: true,
+    data: "next",
+  });
+});
+
+test("a command refused with a thrown object says why, not [object Object]", async (t) => {
+  const { broker, open } = await fixture(t);
+  const channel = await open();
+  const refusals = [
+    [{ data: { message: "Session not found" } }, "Session not found"],
+    [{ name: "NotFoundError" }, "NotFoundError"],
+    [{}, "refused"],
+    ["plain text", "plain text"],
+  ];
+  for (const [thrown, reason] of refusals) {
+    channel.onCommand = async () => {
+      throw thrown;
+    };
+    assert.deepEqual(await broker.commands.send("fixture", { name: "x", params: {} }), {
+      ok: false,
+      reason,
+    });
+  }
 });
 
 test("the OpenCode driver stops a child session through the plugin", async (t) => {

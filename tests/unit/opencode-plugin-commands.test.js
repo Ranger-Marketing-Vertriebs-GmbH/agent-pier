@@ -56,6 +56,24 @@ test("session.abort refuses every session that is not a child of the current one
   }
 });
 
+test("session.abort refuses a malformed session id before the SDK sees it", async () => {
+  const malformed = [
+    "ses_../x",
+    "ses_",
+    "child",
+    "ses_a b",
+    `ses_${"a".repeat(200)}`,
+    "ses_child\n",
+  ];
+  for (const sessionId of malformed) {
+    const { api, calls } = fakeApi({ parents: { [sessionId]: "ses_parent" } });
+    await assert.rejects(openCodeCommands(api)("session.abort", { sessionId }), {
+      message: "not a child",
+    });
+    assert.deepEqual(calls, { get: [], abort: [] }, JSON.stringify(sessionId));
+  }
+});
+
 test("a command the plugin does not know is refused without touching OpenCode", async () => {
   const { api, calls } = fakeApi();
   for (const name of ["session.delete", "abort", undefined, "__proto__"])
