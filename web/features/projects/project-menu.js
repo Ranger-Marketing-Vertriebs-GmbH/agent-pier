@@ -22,8 +22,9 @@ export function projectMenuSheet(project, current) {
 
 /**
  * The ⋯ menu items of a project: one radio item per group (checked on its own),
- * "New group …", "Remove from group" while it is in one, and "Merge older entry"
- * when `onMerge` is given (phones, while an older entry exists).
+ * "New group …", "Remove from group" while it is in one, "Merge older entry"
+ * when `onMerge` is given (phones, while an older entry exists), and last, set apart,
+ * the danger item `deleteLabel` ("Delete project …") when `onDelete` is given.
  */
 export function projectMenuItems({
   groups,
@@ -32,6 +33,8 @@ export function projectMenuItems({
   onNewGroup,
   onRemove,
   onMerge,
+  onDelete,
+  deleteLabel,
 }) {
   const after = [
     ...(current
@@ -71,5 +74,18 @@ export function projectMenuItems({
       ],
     },
     ...(after.length ? [{ id: "separator", kind: "separator" }, ...after] : []),
+    // The delete dialog returns focus to the ⋯ trigger it receives.
+    ...(onDelete
+      ? [
+          { id: after.length ? "delete-separator" : "separator", kind: "separator" },
+          {
+            id: "delete",
+            label: deleteLabel,
+            danger: true,
+            restoreFocus: false,
+            run: onDelete,
+          },
+        ]
+      : []),
   ];
 }

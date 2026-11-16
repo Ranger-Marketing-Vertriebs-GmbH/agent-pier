@@ -33,22 +33,26 @@ const section = (key, kind, projects, extra = {}) => ({
  * `document` is `{ groups: [{ id, name }], assignments: { path: groupId } }` (or null).
  * Assignments to unknown groups or paths that are not in `projects` are ignored.
  * With a query, sections without matches are hidden; the caller opens all of them.
+ * `missingOnly` keeps only projects whose folder is missing, like a query.
  */
 export function buildProjectSections({
   projects = [],
   document = null,
   view = "groups",
   query = "",
+  missingOnly = false,
 } = {}) {
   const needle = String(query || "")
     .trim()
     .toLowerCase();
+  const filtered = needle || missingOnly;
   const shown = projects
     .filter((project) => !needle || matches(project, needle))
+    .filter((project) => !missingOnly || project.folder === "missing")
     .sort(byName);
 
   if (view === "list") {
-    return needle && !shown.length ? [] : [section("list", "flat", shown)];
+    return filtered && !shown.length ? [] : [section("list", "flat", shown)];
   }
 
   if (view === "origin") {
@@ -86,7 +90,7 @@ export function buildProjectSections({
     else ungrouped.push(project);
   }
   const result = groups
-    .filter((group) => !needle || members.get(group.id).length)
+    .filter((group) => !filtered || members.get(group.id).length)
     .map((group) =>
       section(`group:${group.id}`, "group", members.get(group.id), {
         title: group.name,

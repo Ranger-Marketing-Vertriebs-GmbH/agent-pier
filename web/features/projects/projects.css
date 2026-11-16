@@ -295,3 +295,20 @@
   line-height: 1.7;
   color: #9d9ea2;
 }
+/* A project's folder or deletion state above its detail (ProjectDeletionNotice). */
+.project-deletion-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 22px 0;
+}
+.project-deletion-reason {
+  flex: 1 1 240px;
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.project-detail-shell .project-deletion-notice {
+  padding: 0 0 12px;
+}

@@ -7,11 +7,13 @@ import useMediaQuery from "../../lib/useMediaQuery.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { projectGroupsCopy as copy } from "../../lib/i18n/messages/project-groups.js";
 import { projectsHubCopy as hubCopy } from "../../lib/i18n/messages/projects.js";
+import { projectDeletionCopy as deletionCopy } from "../../lib/i18n/messages/project-deletion.js";
 import ProjectGroupMenu from "./ProjectGroupMenu.jsx";
 import ProjectGroupNameRow from "./ProjectGroupNameRow.jsx";
 import ProjectListItem from "./ProjectListItem.jsx";
 import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
 import ProjectListSection from "./ProjectListSection.jsx";
+import { canDelete, deleteLabel } from "./project-deletion.js";
 import { buildProjectSections } from "./project-groups.js";
 import { normalizePath } from "./project-paths.js";
 import useProjectDrag from "./useProjectDrag.js";
@@ -33,7 +35,9 @@ const sectionTitle = (section) =>
  * `onMerge(project, trigger)` while an older entry of its folder exists. The search
  * `query` lives in the page so it survives the phone detail page and breakpoints.
  * Until the groups document has loaded, the groups view shows a loading status and
- * rows offer no menu: actions would edit an empty document.
+ * rows offer no menu: actions would edit an empty document. `onDelete(project,
+ * trigger)` opens the delete dialog from a row's ⋯. While any project's folder is
+ * missing, a filter shows only those projects.
  */
 export default function ProjectList({
   projects,
@@ -43,6 +47,7 @@ export default function ProjectList({
   attentionFor,
   isRunning,
   onMerge,
+  onDelete,
   query,
   onQueryChange,
 }) {
@@ -58,7 +63,11 @@ export default function ProjectList({
   const { document } = groups;
   const groupsReady = !groups.loading;
   const waiting = !groupsReady && prefs.view === "groups";
-  const searching = query.trim() !== "";
+  // The "Folder missing (n)" filter; it ends once no folder is missing.
+  const [missingFilter, setMissingFilter] = useState(false);
+  const missingCount = projects.filter((item) => item.folder === "missing").length;
+  const missingOnly = missingFilter && missingCount > 0;
+  const searching = query.trim() !== "" || missingOnly;
   const scroller = useRef(null);
   // Drag and drop: a fine pointer outside the phone layout, view "Groups", no search
   // (rows may be hidden then), once the groups have loaded.
@@ -86,12 +95,18 @@ export default function ProjectList({
   const dragged = drag?.source;
   const target = drag?.target;
   const sections = useMemo(() => {
-    const list = buildProjectSections({ projects, document, view: prefs.view, query });
+    const list = buildProjectSections({
+      projects,
+      document,
+      view: prefs.view,
+      query,
+      missingOnly,
+    });
     // A dragged project can always be dropped on "No group", even when it is empty.
     if (dragged?.type === "project" && !list.some((entry) => entry.kind === "ungrouped"))
       list.push({ key: "ungrouped", kind: "ungrouped", projects: [], count: 0 });
     return list;
-  }, [projects, document, prefs.view, query, dragged]);
+  }, [projects, document, prefs.view, query, missingOnly, dragged]);
   // The insertion line of a dragged group: before group `target.before`, or after the last.
   const insertLine = (groupId) => {
     if (target?.type !== "reorder") return "";
@@ -205,6 +220,18 @@ export default function ProjectList({
             </button>
           )}
         </div>
+        {missingCount > 0 && (
+          <Segment
+            label={deletionCopy.filterLabel}
+            className="project-missing-filter"
+            options={[
+              { value: "all", label: deletionCopy.allFilter },
+              { value: "missing", label: deletionCopy.missingFilter(missingCount) },
+            ]}
+            value={missingOnly ? "missing" : "all"}
+            onChange={(value) => setMissingFilter(value === "missing")}
+          />
+        )}
       </div>
       <div className={`project-list-scroller ${drag ? "dragging" : ""}`} ref={scroller}>
         {creating && (
@@ -309,6 +336,10 @@ export default function ProjectList({
                           phone && item.olderDuplicates?.length
                             ? (trigger) => onMerge(item, trigger)
                             : undefined,
+                        onDelete: canDelete(item)
+                          ? (trigger) => onDelete(item, trigger)
+                          : undefined,
+                        deleteLabel: deleteLabel(item),
                       })
                     }
                     menuSheet={phone ? projectMenuSheet(item, current) : null}
@@ -317,7 +348,7 @@ export default function ProjectList({
               })}
             </ProjectListSection>
           ))}
-        {searching && !waiting && !sections.length && (
+        {query.trim() !== "" && !waiting && !sections.length && (
           <p className="project-no-matches">{copy.noMatches(query.trim())}</p>
         )}
       </div>

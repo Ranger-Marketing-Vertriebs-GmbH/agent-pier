@@ -18,9 +18,20 @@ import useProjectGroups from "./useProjectGroups.js";
 
 const sortKey = (project) => project.name.toLocaleLowerCase();
 
+// The folder state and deletion the server annotates a source row with; a later
+// source fills what an earlier one left out.
+function noteFolder(project, row) {
+  if (!project.folder && row.folder) project.folder = row.folder;
+  if (!project.deletion && row.deletion)
+    project.deletion = { state: row.deletion.state, error: row.deletion.error ?? null };
+}
+
 // The server reads each folder's git remote live (`remote`); the URL a repository
-// was cloned from (`url`) only stands in while no live remote is known.
-export function mergeProjects({ repositories, memoryProjects, busProjects }) {
+// was cloned from (`url`) only stands in while no live remote is known. Every project
+// carries `folder` ("present", "missing", "unavailable") and `deletion` (null or
+// `{ state, error }`), from its rows or else from `deletions` by folder; deletions of
+// a folder no source lists any more are dropped.
+export function mergeProjects({ repositories, memoryProjects, busProjects, deletions }) {
   const byPath = new Map();
   const entries = [];
   const live = new Set();
@@ -49,6 +60,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
       sessionCount: 0,
     };
     if (memory.olderDuplicates?.length) project.olderDuplicates = memory.olderDuplicates;
+    noteFolder(project, memory);
     add(project);
     liveRemote(project, memory.remote);
   }
@@ -76,6 +88,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
           sessionCount: 0,
         }),
       );
+    noteFolder(project, repository);
     liveRemote(project, repository.remote);
   }
   for (const bus of busProjects || []) {
@@ -100,6 +113,14 @@ export function mergeProjects({ repositories, memoryProjects, busProjects }) {
         }),
       );
     liveRemote(project, bus.remote);
+  }
+  const recorded = new Map(
+    (deletions || []).map((item) => [normalizePath(item.path), item]),
+  );
+  for (const project of entries) {
+    noteFolder(project, { deletion: recorded.get(project.path) });
+    project.folder ||= "present";
+    project.deletion ||= null;
   }
   return entries.sort(
     (a, b) => sortKey(a).localeCompare(sortKey(b)) || a.id.localeCompare(b.id),
@@ -212,6 +233,7 @@ export default function useProjectHub() {
     repositories: [],
     credentials: [],
     memoryProjects: [],
+    deletions: [],
   });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({ repositories: "", memory: "" });
@@ -280,6 +302,7 @@ export default function useProjectHub() {
           setSources((current) => ({
             ...current,
             memoryProjects: memory.value.projects || [],
+            deletions: memory.value.deletions || [],
           }));
         sourceError(
           "repositories",
@@ -307,8 +330,9 @@ export default function useProjectHub() {
         repositories,
         memoryProjects: sources.memoryProjects,
         busProjects: busData.projects,
+        deletions: sources.deletions,
       }),
-    [repositories, sources.memoryProjects, busData.projects],
+    [repositories, sources.memoryProjects, sources.deletions, busData.projects],
   );
   return {
     projects,
