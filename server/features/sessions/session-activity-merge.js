@@ -42,7 +42,10 @@ export function mergeActivity({
   if (pane === "waiting") return hook.state === "waiting" ? reported : terminal;
   // A missed report (an older hook release) must never pass for idle while the
   // terminal clearly shows work: a reload waits for idle.
-  if (hook.state === "idle") return pane === "working" ? terminal : reported;
+  if (hook.state === "idle")
+    return pane === "working"
+      ? terminal
+      : { ...reported, ...(hook.limit ? { limit: hook.limit } : {}) };
   const quiet = now - Math.max(hook.at, paneChangedAt);
   const ended = { ...terminal, ends: hook.at };
   if (quiet >= staleMs) return ended;

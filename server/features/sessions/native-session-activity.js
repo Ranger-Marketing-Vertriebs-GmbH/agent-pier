@@ -29,6 +29,12 @@ const events = new Set([
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
 
+const validLimit = (limit) =>
+  !!limit &&
+  typeof limit === "object" &&
+  (limit.detail === null ||
+    (typeof limit.detail === "string" && limit.detail.length <= 500));
+
 function bindingFiles(file) {
   if (
     typeof file !== "string" ||
@@ -38,6 +44,22 @@ function bindingFiles(file) {
   )
     throw problem(serverMessages.sessions.invalidNativeBinding);
   return { launch: file, activity: file.replace(/\.launch\.json$/, ".activity.json") };
+}
+
+/**
+ * A StopFailure that names a rate limit or an exhausted quota (billing_error), with
+ * Claude's own text (it names the reset time); null for any other payload.
+ */
+export function claudeLimitFailure(payload) {
+  if (
+    payload?.hook_event_name !== "StopFailure" ||
+    !["rate_limit", "billing_error"].includes(payload.error)
+  )
+    return null;
+  const detail = [payload.error_details, payload.last_assistant_message].find(
+    (value) => typeof value === "string" && value.trim(),
+  );
+  return { failure: "usage-limit", ...(detail ? { detail: detail.slice(0, 500) } : {}) };
 }
 
 /** Map one Claude Code hook payload to an activity, or null when it says nothing new. */
@@ -56,7 +78,8 @@ export function claudeHookActivity(payload) {
       ? { state: "working", event, background: Math.min(background, 1000) }
       : { state: "idle", event };
   }
-  if (event === "StopFailure") return { state: "idle", event };
+  if (event === "StopFailure")
+    return { state: "idle", event, ...claudeLimitFailure(payload) };
   if (event === "PermissionRequest" || event === "Elicitation")
     return { state: "waiting", event };
   if (event === "PreToolUse")
@@ -67,7 +90,7 @@ export function claudeHookActivity(payload) {
 
 /** Store the latest activity next to the binding receipt; older reports never win. */
 export function recordNativeActivity(
-  { state, event, background = 0, at = Date.now() },
+  { state, event, background = 0, at = Date.now(), failure, detail },
   env = process.env,
 ) {
   if (!nativeActivityStates.includes(state) || !events.has(event))
@@ -79,7 +102,18 @@ export function recordNativeActivity(
     path.basename(files.launch) !== `${launch.id}.launch.json`
   )
     throw problem(serverMessages.sessions.invalidNativeBindingKey);
-  return storeActivity(files, launch, { state, event, background, at });
+  // Only a turn that ended on the usage limit leaves it on the report.
+  const limited =
+    failure === "usage-limit" && ["StopFailure", "turn/completed"].includes(event);
+  return storeActivity(files, launch, {
+    state,
+    event,
+    background,
+    at,
+    ...(limited
+      ? { limit: { detail: typeof detail === "string" ? detail.slice(0, 500) : null } }
+      : {}),
+  });
 }
 
 /**
@@ -95,7 +129,7 @@ export function recordClaudeInterrupt(launchFile, at) {
   return storeActivity(files, launch, { state: "idle", event: "Interrupt", at });
 }
 
-function storeActivity(files, launch, { state, event, background, at }) {
+function storeActivity(files, launch, { state, event, background, at, limit }) {
   // Async hooks may finish out of order; the event time decides, not the write.
   const newer = () => {
     try {
@@ -117,6 +151,7 @@ function storeActivity(files, launch, { state, event, background, at }) {
       ? Math.max(0, Math.min(background, 1000))
       : 0,
     at: new Date(at).toISOString(),
+    ...(limit ? { limit } : {}),
   };
   // Write a private temporary file, check again, then rename over the report. Two
   // writers can still both pass the second check within the same few microseconds;
@@ -165,6 +200,7 @@ export function readNativeActivity(directory, session) {
       event: value.event,
       background: Number.isInteger(value.background) ? value.background : 0,
       at,
+      ...(validLimit(value.limit) ? { limit: { detail: value.limit.detail } } : {}),
     };
   } catch {
     return null;

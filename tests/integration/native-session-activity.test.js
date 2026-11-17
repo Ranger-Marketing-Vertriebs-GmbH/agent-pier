@@ -227,6 +227,64 @@ for (const [event, reported] of [
     assert.deepEqual([read.state, read.source], ["working", "hook"]);
   });
 
+test("a usage limit is remembered on the activity until a newer report", async (t) => {
+  const ctx = setup(t);
+  const { prepared, session } = await launch(ctx, "claude-limit", "claude");
+  const at = Date.now();
+  recordNativeActivity(
+    {
+      state: "idle",
+      event: "StopFailure",
+      failure: "usage-limit",
+      detail: "resets 4pm",
+      at,
+    },
+    prepared.env,
+  );
+  assert.deepEqual(ctx.bindings.activity(session).limit, { detail: "resets 4pm" });
+  recordNativeActivity(
+    { state: "working", event: "UserPromptSubmit", at: at + 1 },
+    prepared.env,
+  );
+  assert.equal("limit" in ctx.bindings.activity(session), false);
+  // A failure that is not a limit, or a limit on another event, stores nothing.
+  recordNativeActivity(
+    { state: "idle", event: "Stop", failure: "usage-limit", at: at + 2 },
+    prepared.env,
+  );
+  assert.equal("limit" in ctx.bindings.activity(session), false);
+  // Foreign or malformed limit data in the file is ignored.
+  const file = prepared.env.AGENTPIER_NATIVE_BINDING_FILE.replace(
+    /\.launch\.json$/,
+    ".activity.json",
+  );
+  for (const limit of ["bad", { detail: 5 }, { detail: "x".repeat(501) }]) {
+    const value = JSON.parse(fs.readFileSync(file, "utf8"));
+    fs.writeFileSync(file, JSON.stringify({ ...value, limit }));
+    assert.equal("limit" in ctx.bindings.activity(session), false);
+  }
+  const value = JSON.parse(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, JSON.stringify({ ...value, limit: { detail: null } }));
+  assert.deepEqual(ctx.bindings.activity(session).limit, { detail: null });
+});
+
+test("a Codex turn that hit the usage limit is remembered too", async (t) => {
+  const ctx = setup(t);
+  const { prepared, session } = await launch(ctx, "codex-limit", "codex");
+  recordNativeActivity(
+    {
+      state: "idle",
+      event: "turn/completed",
+      failure: "usage-limit",
+      detail: "Try again at 14:00.",
+    },
+    prepared.env,
+  );
+  assert.deepEqual(ctx.bindings.activity(session).limit, {
+    detail: "Try again at 14:00.",
+  });
+});
+
 test("AgentPier's pending request makes a reporting session wait", async (t) => {
   const ctx = setup(t);
   const { prepared, session } = await launch(ctx, "claude-ask", "claude");

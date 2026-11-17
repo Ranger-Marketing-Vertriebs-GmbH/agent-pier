@@ -17,7 +17,11 @@ import { atLeast } from "../tools/cli-version.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { resolveRuntime } from "./native-session-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
-import { readNativeActivity, recordNativeActivity } from "./native-session-activity.js";
+import {
+  claudeLimitFailure,
+  readNativeActivity,
+  recordNativeActivity,
+} from "./native-session-activity.js";
 import { maxReplyText, pushNative } from "../requests/native-push.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
@@ -330,19 +334,12 @@ export function hookPush(payload) {
         typeof payload.delta === "string" ? payload.delta.slice(0, maxReplyText) : "",
     };
   }
-  // Claude's StopFailure names a rate limit or an exhausted quota (billing_error).
-  const limited =
-    event === "StopFailure" && ["rate_limit", "billing_error"].includes(payload.error);
-  const detail = [payload.error_details, payload.last_assistant_message].find(
-    (value) => typeof value === "string" && value.trim(),
-  );
+  const limit = claudeLimitFailure(payload);
   return {
     type: "activity",
     event,
     ...(event === "UserPromptSubmit" ? { prompt: promptOrigin(payload) } : {}),
-    ...(limited
-      ? { failure: "usage-limit", ...(detail ? { detail: detail.slice(0, 500) } : {}) }
-      : {}),
+    ...limit,
     ...(event === "Stop" &&
     !payload.agent_id &&
     typeof payload.last_assistant_message === "string"

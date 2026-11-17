@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { claudeHookActivity } from "../../server/features/sessions/native-session-activity.js";
+import {
+  claudeHookActivity,
+  claudeLimitFailure,
+} from "../../server/features/sessions/native-session-activity.js";
 import { mergeActivity } from "../../server/features/sessions/session-activity-merge.js";
 import { codexActivityTracker } from "../../server/features/requests/codex-activity.js";
 import { openCodeActivity } from "../../server/features/sessions/native-session-opencode.js";
@@ -39,6 +42,42 @@ test("Claude hook events map to activity, with background tasks as working", () 
   assert.equal(map({ hook_event_name: "SessionEnd", reason: "exit" }).state, "ended");
   assert.equal(map({ hook_event_name: "Notification" }), null);
   assert.equal(map(null), null);
+});
+
+test("a limit StopFailure carries the usage limit, other failures do not", () => {
+  const text = "You've hit your Fable limit · resets Nov 20 at 4pm (Europe/Berlin)";
+  assert.deepEqual(
+    claudeHookActivity({
+      hook_event_name: "StopFailure",
+      error: "rate_limit",
+      last_assistant_message: text,
+    }),
+    { state: "idle", event: "StopFailure", failure: "usage-limit", detail: text },
+  );
+  assert.deepEqual(
+    claudeHookActivity({ hook_event_name: "StopFailure", error: "server_error" }),
+    { state: "idle", event: "StopFailure" },
+  );
+  assert.deepEqual(
+    claudeLimitFailure({ hook_event_name: "Stop", error: "rate_limit" }),
+    null,
+  );
+  assert.deepEqual(
+    claudeLimitFailure({ hook_event_name: "StopFailure", error: "billing_error" }),
+    { failure: "usage-limit" },
+  );
+});
+
+test("a reported idle keeps its limit, a working terminal drops it", () => {
+  const now = 1_000_000;
+  const hook = {
+    state: "idle",
+    event: "StopFailure",
+    at: now - 1000,
+    limit: { detail: "x" },
+  };
+  assert.deepEqual(mergeActivity({ pane: "idle", hook, now }).limit, { detail: "x" });
+  assert.equal("limit" in mergeActivity({ pane: "working", hook, now }), false);
 });
 
 test("merged activity prefers the report, and the terminal only where it contradicts it", () => {
