@@ -4,6 +4,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { folderId, folderTrustScreen, startupState } from "./claude-folder-trust.js";
+import {
+  ADDED_FOLDER_OPTIONS,
+  addedFolderScreen,
+  addedFolders,
+} from "./claude-added-folder.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
 import { startupPresentations } from "./request-endings.js";
@@ -103,7 +108,8 @@ function loginDialog(lines) {
 }
 // Claude Code 2.1.304 asks these during a session too, after its native receipt:
 // the auto mode default nudge at startup, the billing notice at a classifier check.
-const SESSION_DIALOGS = new Set(["autoModeDefault", "autoModeBilling"]);
+// The --add-dir folder trust is anchored on AgentPier's own folder, so it counts too.
+const SESSION_DIALOGS = new Set(["autoModeDefault", "autoModeBilling", "addedFolder"]);
 const AUTO_DEFAULT_TITLE = "Make auto mode your default permission mode?";
 const AUTO_DEFAULT_ACCEPT = "Yes, set auto mode as my default permission mode";
 const BILLING_TITLE =
@@ -177,6 +183,21 @@ function autoModeBillingDialog(lines) {
     ],
   };
 }
+/**
+ * "Adding a new directory:" for the chat attachment folder (claude-added-folder.js).
+ * Claude takes Enter on "Yes, add it" only right after ↓ (`confirmAfter`).
+ */
+function addedFolderDialog(raw, folders) {
+  const menu = addedFolderScreen(raw, folders);
+  if (!menu) return null;
+  return {
+    dialog: "addedFolder",
+    selected: menu.selected,
+    path: menu.path,
+    confirmAfter: { add: "Down" },
+    options: ADDED_FOLDER_OPTIONS,
+  };
+}
 function unknownDialog(lines, text) {
   const footer = /(Enter to confirm|Press Enter to continue)/.test(lastLine(lines));
   if (!footer || !text.includes("❯")) return null;
@@ -188,12 +209,20 @@ function unknownDialog(lines, text) {
  * Recognizes Claude's interactive startup dialogs on the current screen.
  * `started` marks a native receipt; unknown menus are reported only before it.
  * `sessionOnly` limits it to the dialogs Claude also shows after its receipt.
+ * `folders` are the --add-dir folders whose trust dialog is recognized (addedFolders).
  */
-export function startupScreen(raw, cwd, { started = true, sessionOnly = false } = {}) {
+export function startupScreen(
+  raw,
+  cwd,
+  { started = true, sessionOnly = false, folders = [] } = {},
+) {
   if (typeof raw !== "string" || raw.length > 64000 || typeof cwd !== "string")
     return null;
   const lines = clean(raw);
-  const session = autoModeDefaultDialog(lines) || autoModeBillingDialog(lines);
+  const session =
+    autoModeDefaultDialog(lines) ||
+    autoModeBillingDialog(lines) ||
+    addedFolderDialog(raw, folders);
   if (session || sessionOnly) return session;
   const trust = folderTrustScreen(raw, cwd);
   if (trust) return { dialog: "trust", selected: trust.selected, options: TRUST_OPTIONS };
@@ -274,6 +303,7 @@ export async function refreshStartupPrompts(broker, session) {
       startupScreen(await control.screen(), control.session.cwd, {
         started: fresh.started,
         sessionOnly: fresh.started,
+        folders: addedFolders(control.session),
       });
     if (!menu) return expire(broker, previous);
     const id = promptId(fresh, menu.dialog);
@@ -292,7 +322,9 @@ export async function refreshStartupPrompts(broker, session) {
       status: "pending",
       source: "claude",
       createdAt: new Date().toISOString(),
-      subject: trust ? { path: control.session.cwd } : { dialog: menu.dialog },
+      subject: trust
+        ? { path: control.session.cwd }
+        : { dialog: menu.dialog, ...(menu.path ? { path: menu.path } : {}) },
       options: menu.options.map((option) => ({ ...option })),
     };
     broker.entries.set(id, entry);
@@ -329,10 +361,13 @@ export async function answerStartupPrompt(broker, entry, choice) {
         throw stale();
     };
     const screen = async () =>
-      startupScreen(await control.screen(), control.session.cwd, { started: false });
+      startupScreen(await control.screen(), control.session.cwd, {
+        started: false,
+        folders: addedFolders(control.session),
+      });
     const read = async () => {
       const menu = await screen();
-      if (menu?.dialog !== dialog) throw stale();
+      if (menu?.dialog !== dialog || menu.path !== entry.subject?.path) throw stale();
       return menu;
     };
     await verify();
@@ -342,13 +377,8 @@ export async function answerStartupPrompt(broker, entry, choice) {
     const index = (id) => menu.options.findIndex((o) => o.id === id);
     // A notice without a selection answers with its own key (Enter or Esc).
     const key = menu.keys?.[choice];
-    const selectEnd = Date.now() + 3000;
-    while (!key && menu.selected !== choice) {
-      if (Date.now() > selectEnd) throw stale();
-      const from = index(menu.selected),
-        to = index(choice);
-      if (from < 0 || to < 0) throw stale();
-      await control.keys([to > from ? "Down" : "Up"]);
+    const step = async (name) => {
+      await control.keys([name]);
       const stepEnd = Date.now() + 1500;
       let next = await read();
       while (next.selected === menu.selected && Date.now() < stepEnd) {
@@ -357,6 +387,17 @@ export async function answerStartupPrompt(broker, entry, choice) {
       }
       if (next.selected === menu.selected) throw stale();
       menu = next;
+    };
+    // A choice Claude confirms only right after a given key is left and reached again.
+    const arrive = menu.confirmAfter?.[choice];
+    if (arrive && menu.selected === choice) await step(arrive === "Down" ? "Up" : "Down");
+    const selectEnd = Date.now() + 3000;
+    while (!key && menu.selected !== choice) {
+      if (Date.now() > selectEnd) throw stale();
+      const from = index(menu.selected),
+        to = index(choice);
+      if (from < 0 || to < 0) throw stale();
+      await step(to > from ? "Down" : "Up");
     }
     await verify();
     if ((await broker.launchIdentity(entry.sessionId)) !== entry.launchIdentity)

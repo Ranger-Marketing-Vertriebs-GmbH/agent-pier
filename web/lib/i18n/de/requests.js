@@ -44,6 +44,11 @@ export const requestCopy = {
       description:
         "Claude meldet, dass die Klassifizierer-Anfragen des Auto-Modus in dieser Session weiter wie bisher abgerechnet werden. Fortfahren lässt den Auto-Modus weiterlaufen; Abbrechen unterbricht die wartende Aktion. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
     },
+    addedFolder: {
+      title: "Chat-Anhangsordner hinzufügen",
+      description:
+        "Claude fragt, ob es in diesem Ordner Dateien lesen, bearbeiten und ausführen darf. AgentPier hat ihn für diese Session angelegt, damit er die Bilder aufnimmt, die du im Chat anhängst. Beenden schließt die Session. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+    },
     unknown: {
       title: "Claude wartet auf eine Eingabe",
       description:
@@ -58,6 +63,7 @@ export const requestCopy = {
       decline: "Aktuellen Modus behalten",
     },
     autoModeBilling: { continue: "Im Auto-Modus fortfahren", cancel: "Aktion abbrechen" },
+    addedFolder: { add: "Ordner hinzufügen und fortfahren", exit: "Session beenden" },
   },
   title: "Native Rückfragen",
   permission: "Freigabe erforderlich",

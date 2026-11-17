@@ -8,6 +8,23 @@ import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
 import { sessionFolder } from "../sessions/session-own-folder.js";
 
+/**
+ * Whether the screen `lines` show exactly `expected`, wrapped at the terminal width.
+ * Rejoins only native wrapping boundaries, preserving spaces within path segments.
+ */
+export function wrappedPath(lines, expected) {
+  let offsets = new Set([0]);
+  for (const line of lines.map((s) => s.trim())) {
+    const next = new Set();
+    for (const offset of offsets)
+      for (const separator of offset ? ["", " "] : [""]) {
+        const value = separator + line;
+        if (expected.startsWith(value, offset)) next.add(offset + value.length);
+      }
+    offsets = next;
+  }
+  return offsets.has(expected.length);
+}
 export function folderTrustScreen(raw, cwd) {
   if (typeof raw !== "string" || raw.length > 64000 || typeof cwd !== "string")
     return null;
@@ -23,18 +40,7 @@ export function folderTrustScreen(raw, cwd) {
     /^─{20,}\n Accessing workspace:\n\n([\s\S]+?)\n\n Quick safety check:/,
   );
   if (!match) return null;
-  // Rejoin only native wrapping boundaries, preserving spaces within path segments.
-  let offsets = new Set([0]);
-  for (const line of match[1].split("\n").map((s) => s.trim())) {
-    const next = new Set();
-    for (const offset of offsets)
-      for (const separator of offset ? ["", " "] : [""]) {
-        const value = separator + line;
-        if (cwd.startsWith(value, offset)) next.add(offset + value.length);
-      }
-    offsets = next;
-  }
-  if (!offsets.has(cwd.length)) return null;
+  if (!wrappedPath(match[1].split("\n"), cwd)) return null;
   const compact = text.replace(/\s+/g, " ");
   if (!compact.includes("Claude Code'll be able to read, edit, and execute files here."))
     return null;

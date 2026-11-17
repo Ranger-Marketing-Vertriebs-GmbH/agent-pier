@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveAgentBusInterpreter } from "../../agentbus/agentbus-launch-identity.js";
 import { shellQuote } from "../../../lib/launch-serialization.js";
+import { trustAttachmentFolder } from "./attachment-trust.js";
 import {
   privateFolder,
   record,
@@ -127,9 +128,12 @@ export function runtimeInterpreter(command, env) {
 /**
  * Adds the chat attachment `directory` with --add-dir. A first launch creates it with
  * `ensure()` first and grants nothing when that fails; a reload re-adds it as is.
+ * Either records Claude's trust for the folder first (attachment-trust.js), so Claude
+ * does not stop at its "Adding a new directory" dialog.
  */
 export function grantDirectory(launch, directory, { reload, ensure }) {
   if (!reload && !ensure()) return false;
+  trustAttachmentFolder(launch.env, directory);
   launch.args.push("--add-dir", directory);
   return true;
 }

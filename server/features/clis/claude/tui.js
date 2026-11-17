@@ -11,6 +11,7 @@ import {
   waitForClaudeImages,
 } from "../../sessions/claude-image-paste.js";
 import { startupScreen } from "../../requests/claude-startup-prompts.js";
+import { addedFolders } from "../../requests/claude-added-folder.js";
 import {
   FAMILY,
   displayedLabel,
@@ -384,8 +385,8 @@ export const localCommands = [
   "config",
 ];
 
-export const blockingScreen = (raw, { cwd, started }) =>
-  startupScreen(raw, cwd, { started });
+export const blockingScreen = (raw, { cwd, started, session }) =>
+  startupScreen(raw, cwd, { started, folders: addedFolders(session) });
 
 /**
  * Claude Code shows pasted image paths as chips: one paste for every image, and
