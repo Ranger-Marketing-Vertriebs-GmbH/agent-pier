@@ -1,5 +1,5 @@
 import path from "node:path";
-import { defineAgentRuntime } from "../agent-runtime.js";
+import { defineAgentRuntime, unavailable } from "../agent-runtime.js";
 import { hermesDescriptor } from "./descriptor.js";
 import { HermesSupervisor } from "./hermes-supervisor.js";
 import { createHermesHost } from "./hermes-host.js";
@@ -40,6 +40,8 @@ import { HermesBrowser } from "./hermes-browser.js";
  */
 export const hermesCapabilities = Object.freeze({
   ...hermesConfigCapabilities,
+  // Hermes keeps no compiled wiki of an agent's knowledge.
+  memoryWiki: unavailable("memoryWikiUnsupported"),
 });
 
 const isRunning = (availability) => !["disabled", "failed"].includes(availability);

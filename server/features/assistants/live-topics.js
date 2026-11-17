@@ -8,6 +8,7 @@
 // it refuses like the routes (404 off, 503 not running), marked `expected` so the hub
 // does not log it. Owner only.
 import { runtimeView } from "./runtime-view.js";
+import { wikiPages } from "./agent-wiki.js";
 import { followAgentSwitch, notRunning } from "./live-runtime-topics.js";
 import { agentPerson } from "./reminder-audience.js";
 import { ownerActionList } from "../users/approval-audience.js";
@@ -87,7 +88,9 @@ export function agentListTopic(services) {
 // - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status;
 // - `agent.memory`: GET /api/assistants/:id/memory/files, the memory view's first page;
 // - `agent.allowlist`: GET /api/assistants/:id/shell-allowlist, the always allowed
-//   commands (exec-allowlist.js).
+//   commands (exec-allowlist.js);
+// - `agent.wiki`: GET /api/assistants/:id/wiki, the pages of its memory wiki
+//   (agent-wiki.js), pushed when a turn of the agent ends a wiki tool call.
 // Privacy is checked as the routes check it. The owner-content guard
 // (owner-content-guard.js) refuses the actions, reminders, pinboard and memory of a
 // user's own agent without her opt-in like an unknown route: so do the topics, and an
@@ -109,6 +112,7 @@ export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.ssh-agent",
   "agent.memory",
   "agent.allowlist",
+  "agent.wiki",
 ]);
 // An agent id (randomUUID, or a test's own); never a path or a second parameter.
 export const AGENT_PARAM = /[A-Za-z0-9][A-Za-z0-9_-]{0,99}/;
@@ -278,6 +282,13 @@ export function agentDetailTopics(services) {
       watch: switched,
     }),
     detailTopic(services, {
+      name: "agent.wiki",
+      content: true,
+      read: (id) => wikiPages(running(services), id),
+      // A wiki tool call of the agent's turn signals it (agentWikiChanged).
+      watch: switched,
+    }),
+    detailTopic(services, {
       name: "agent.allowlist",
       read: (id) => running(services).allowlist.list(id),
       // An "Always allow" decision, a remembered command answered and a deletion
@@ -296,6 +307,18 @@ export function agentMemoryChanged(hub, id) {
     hub?.invalidate("agent.memory", id);
   } catch {
     console.error("AgentPier could not report a change of an agent's memory.");
+  }
+}
+
+/**
+ * Agent `id`'s memory wiki may have changed (a wiki tool call of its turn ended):
+ * signals its `agent.wiki` topic on `hub` (services.live). A failing hub is logged.
+ */
+export function agentWikiChanged(hub, id) {
+  try {
+    hub?.invalidate("agent.wiki", id);
+  } catch {
+    console.error("AgentPier could not report a change of an agent's wiki.");
   }
 }
 

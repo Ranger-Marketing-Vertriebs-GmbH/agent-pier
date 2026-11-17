@@ -1,4 +1,5 @@
 import hermes from "./hermes/index.js";
+import openclaw from "./openclaw/index.js";
 
 // The web descriptors of the runtimes that register UI of their own
 // (docs/adr/0007-runtime-descriptor.md), by runtime id: `{ id, surfaces:
@@ -7,7 +8,7 @@ import hermes from "./hermes/index.js";
 // search.js beside this lists the same runtimes' search entries without their
 // components; tests/unit/runtime-surfaces.test.js keeps both and the server's
 // descriptors in step.
-const registered = Object.freeze({ [hermes.id]: hermes });
+const registered = Object.freeze({ [hermes.id]: hermes, [openclaw.id]: openclaw });
 
 /** Every web descriptor. */
 export const webRuntimes = Object.freeze(Object.values(registered));

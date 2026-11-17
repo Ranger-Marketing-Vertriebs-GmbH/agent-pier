@@ -62,7 +62,7 @@ const reserve = (f, values = {}) =>
     ...values,
   });
 
-test("the nine agent detail topics are owner topics with an agent parameter", () => {
+test("the ten agent detail topics are owner topics with an agent parameter", () => {
   assert.deepEqual(AGENT_DETAIL_TOPICS, [
     "agent.actions",
     "agent.coding-requests",
@@ -73,6 +73,7 @@ test("the nine agent detail topics are owner topics with an agent parameter", ()
     "agent.ssh-agent",
     "agent.memory",
     "agent.allowlist",
+    "agent.wiki",
   ]);
 });
 
@@ -490,6 +491,7 @@ test("exactly the topics that read through owner privacy are reset by it", async
     "agent.memory",
     "agent.pinboard",
     "agent.reminders",
+    "agent.wiki",
   ]);
 });
 

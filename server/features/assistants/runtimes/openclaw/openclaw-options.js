@@ -61,6 +61,8 @@ export function validateOpenClawOptions(value, { agent } = {}) {
 export const openClawOptions = Object.freeze({
   validate: validateOpenClawOptions,
   read: readOpenClawOptions,
+  // The agent's wiki, read only, while it keeps one (descriptor.js, slot agent.page).
+  pages: (options) => (options.memoryWiki ? ["wiki"] : []),
   // The wiki names no model connection.
   connections: () => [],
 });

@@ -30,7 +30,7 @@ import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
 import LockedNotice, { OwnContentNotice, ownContent } from "./LockedNotice.jsx";
 import AgentCapability from "./AgentCapability.jsx";
-import RuntimeSlot, { runtimeOptionsProblem } from "../RuntimeSlot.jsx";
+import RuntimeSlot, { RuntimePage, runtimeOptionsProblem } from "../RuntimeSlot.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -106,6 +106,15 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       saveDisabled={Boolean(optionsProblem)}
     />
   );
+  // A page of the agent's runtime (slot agent.page) its options switch on.
+  if (assistant.runtimePages?.includes(page))
+    return (
+      <RuntimePage
+        assistant={assistant}
+        page={page}
+        context={{ assistant, onBack: () => go("capabilities") }}
+      />
+    );
   const Subpage = page === "memory" && own === "private" ? null : subpages[page];
   if (Subpage)
     return (
@@ -117,6 +126,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
             assistant={assistant}
             draft={draft}
             readOnly={own === "read"}
+            go={go}
             onBack={() => go("capabilities")}
           />
         </AgentCapability>
@@ -189,6 +199,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         context={{
           assistant,
           navigate,
+          go,
           options: draft.values.runtimeOptions,
           setOptions: (value) => draft.set("runtimeOptions", value),
         }}

@@ -145,6 +145,12 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     over the expected hash (or absence) given.
  *   - searchMemory({ agentId, query, maxResults }): `{ ok, output: { details:
  *     { results } } }`.
+ *   - wikiPages({ agentId }): the agent's wiki while the `memoryWiki` capability is
+ *     available: `{ state, totalPages, truncated, pages: [{ lookup, title, kind,
+ *     updatedAt }] }`, newest first, `state` "ready" or "building" (no page listed
+ *     yet). wikiPage({ agentId, lookup }): `{ lookup, title, kind, updatedAt, content,
+ *     truncated }` (Markdown) or null. A runtime without the capability rejects both
+ *     (code UNSUPPORTED).
  *   - memory: synchronously, how the runtime writes an agent's memory files, the
  *     same object in every view and the one runtime-for.js `memoryFor(agent)`
  *     returns without a host. Pure: it reads only the text it is given.
@@ -342,11 +348,14 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // unavailable);
 // `channelBots`, an agent's own Telegram bot for other people, which the runtime runs
 // itself (OpenClaw's Telegram channel), beside the owner's chat AgentPier's channel
-// layer serves for every runtime (`channels`).
+// layer serves for every runtime (`channels`); `memoryWiki`, an agent's compiled wiki
+// of pages the owner reads (agentFiles.wikiPages and wikiPage; OpenClaw's memory-wiki
+// plugin).
 export const RUNTIME_CAPABILITIES = Object.freeze([
   ...RUNTIME_PORTS,
   "advancedSettings",
   "channelBots",
+  "memoryWiki",
 ]);
 // How a runtime behaves within a capability is a trait (runtime-traits.js), stated in
 // its descriptor and carried beside the capability's availability: "Every command",

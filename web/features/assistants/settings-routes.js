@@ -30,8 +30,13 @@ export const agentPages = {
   hook: "automation",
   "telegram-activity": "channels",
   "telegram-connection": "channels",
+  // A runtime's own page (slot agent.page): OpenClaw's memory wiki. It shows only for
+  // an agent whose view names it in `runtimePages` (agentPageAllowed).
+  wiki: "capabilities",
 };
 export const agentPageTabs = agentPages;
+/** The pages of agentPages that are a runtime's own (slot agent.page). */
+export const runtimePageIds = Object.freeze(["wiki"]);
 const renamedTab = {
   profile: "identity",
   routines: "automation",

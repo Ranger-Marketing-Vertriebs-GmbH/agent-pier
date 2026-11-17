@@ -60,8 +60,10 @@ export function surfaceSearchEntries(
  * The entries of the surfaces in an agent's Capabilities tab (slot
  * `agent.capabilities`): for each agent that is not archived and has the tab, one
  * entry per surface its runtime's list entry in `runtimes` shows there, labelled
- * "<agent> · <surface>" and opening the tab. `bilingual` and `join` are
- * search-entries.js' builders. Only the owner's index lists them.
+ * "<agent> · <surface>" and opening the tab; and one per page of its runtime the
+ * agent's view names (`runtimePages`, slot `agent.page`), opening that page below the
+ * tab. `bilingual` and `join` are search-entries.js' builders. Only the owner's index
+ * lists them.
  */
 export function agentSurfaceEntries(
   agents,
@@ -88,17 +90,25 @@ export function agentSurfaceEntries(
       de: `${name.de} · ${part.de}`,
       en: `${name.en} · ${part.en}`,
     });
-    return slotSurfaces([runtime], "agent.capabilities").flatMap(({ surface }) =>
+    const pages = Array.isArray(agent.runtimePages) ? agent.runtimePages : [];
+    const shown = [
+      ...slotSurfaces([runtime], "agent.capabilities"),
+      ...slotSurfaces([runtime], "agent.page").filter(({ surface }) =>
+        pages.includes(surface.id),
+      ),
+    ];
+    return shown.flatMap(({ surface }) =>
       searchOf(runtime.id)
         .filter((entry) => entry.surface === surface.id)
         .map((entry) => {
           const label = bilingual(entry.label);
+          const page = surface.slot === "agent.page" ? surface.id : "";
           return {
             id: `agent:${agent.id}:${runtime.id}-${surface.id}`,
             group: "agents",
             label: named(label),
             path: join(root, name, tab, label),
-            target: { route: agentRoute(agent.id, "capabilities") },
+            target: { route: agentRoute(agent.id, "capabilities", page) },
             agentsOnly: true,
             aliases: (entry.aliases || []).map((alias) => named(bilingual(alias))),
           };

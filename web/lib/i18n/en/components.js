@@ -51,6 +51,7 @@ export const capabilityGateCopy = {
     hermesNotYetSupported: () => "Not available for Hermes agents yet.",
     advancedSettingsUnsupported: (runtime) =>
       `${runtime} has no advanced settings in AgentPier yet.`,
+    memoryWikiUnsupported: (runtime) => `${runtime} keeps no memory wiki.`,
   },
 };
 export const componentsCopy = {
