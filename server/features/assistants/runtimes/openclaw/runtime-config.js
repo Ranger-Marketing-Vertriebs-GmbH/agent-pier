@@ -315,7 +315,9 @@ export function compileOpenClawConfig({
     // Enabling cron must not also opt agents into automatic skill maintenance: the
     // review mode is "off" unless an agent learns its own skills, and only such an
     // agent holds the tool (openclaw-config/skill-learning.js).
-    applyLearning(config, hostLearns(agents));
+    // An agent whose bot for other people this start runs never learns.
+    const senderFacing = (agent) => !!telegramCompiled.accounts[agent.runtimeAgentId];
+    applyLearning(config, hostLearns(agents, { senderFacing }));
     const available = webToolsAvailability(host.webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {

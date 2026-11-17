@@ -156,11 +156,17 @@ export const hasAccess = (d) =>
   Boolean(d.github) ||
   d.secretIds.length > 0;
 
-/** An agent of a user gets no shell, coding, pipelines, SSH, GitHub, secrets or teams. */
-export function forUserAgent(d) {
+/**
+ * An agent of a user gets no shell, coding, pipelines, SSH, GitHub, secrets or teams,
+ * and learns its own skills only where its runtime lets users' agents learn
+ * (`runtimeInfo`, the draft's runtime view; the server refuses it elsewhere).
+ */
+export function forUserAgent(d, runtimeInfo) {
   if (!d.owner) return d;
   return {
     ...d,
+    ...(d.skillLearning === true &&
+      !traitOf(runtimeInfo, "skills", "userAgentsLearn") && { skillLearning: null }),
     shell: "off",
     projectIds: [],
     pipelineIds: [],

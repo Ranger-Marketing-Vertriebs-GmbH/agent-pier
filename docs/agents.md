@@ -677,7 +677,10 @@ A switch with fresh chats also has the new model review the agent's memory; see
     runs for the agents that have it and archives a learned skill nobody used for 30
     days. With the switch off the agent cannot save a skill of its own at all. An
     agent with its own Telegram bot for other people does not learn, because the
-    review reads its other chats, which are those people's.
+    review reads its other chats, which are those people's: the switch shows locked
+    with that reason while the bot is connected, and your choice applies again once
+    the bot is gone. A Hermes agent with such a bot keeps the switch, as its review
+    cannot read other chats.
   - **Hermes:** the switch stops only the background review; the agent still writes a
     skill when you ask it to, and Hermes's memory review and its clean-up of unused
     skills stay as they are.

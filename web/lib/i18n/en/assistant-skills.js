@@ -12,6 +12,8 @@ export const assistantSkillsCopy = {
     offNoSkills: "While this is off, the agent cannot save skills of its own.",
     userAgent: (runtime) =>
       `Locked for agents of users on ${runtime}: learned skills would bypass the skill list that limits what they read.`,
+    channelBot: (runtime) =>
+      `Off while this agent has its own Telegram bot for other people on ${runtime}: the review would read their chats.`,
   },
   shellOff: "Most skills run command-line programs and need shell access.",
   pageHint: (runtime) =>

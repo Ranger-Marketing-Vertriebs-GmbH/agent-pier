@@ -393,7 +393,13 @@ agent model that each runtime's compiler maps onto its own mechanism.
 - **Traits** (`skills`): `learnsByDefault` (Hermes `true`), `userAgentsLearn`
   (whether an agent of restricted users may learn; Hermes `true`) and
   `writesWhenAsked` (whether an agent with learning off still writes a skill when
-  asked; Hermes `true`), which the settings read for the switch's second sentence.
+  asked; Hermes `true`), which the settings read for the switch's second sentence,
+  and `channelBotsLearn` (whether an agent with its own bot for other people may
+  learn; Hermes `true`, as such an agent has no `session_search`). The view names
+  why the switch is locked (`skillLearningLocked`: `userAgent` or `channelBot`).
+- **Desired agents name their runtime** (`runtime`), so a compiler that receives every
+  agent's desired state counts only its own: OpenClaw's mode never follows a Hermes
+  agent's default.
 - **OpenClaw** (`openclaw-config/skill-learning.js`): its review mode is Gateway-wide
   and its per-agent lever is tool policy, so an agent that learns holds
   `skill_workshop` and `skills.workshop.autonomous.mode` is `auto` while at least one

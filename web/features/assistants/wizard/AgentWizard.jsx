@@ -200,7 +200,7 @@ export default function AgentWizard({ route, navigate }) {
     const found = wizardSteps.map((s) => stepProblem(s, d)).find(Boolean);
     if (found) return setProblem(copy.problems[found]);
     setCreateError("");
-    const outcome = await creation.start(forUserAgent(d));
+    const outcome = await creation.start(forUserAgent(d, runtimeInfo));
     if (outcome.results.create?.status !== "done") {
       setCreateError(outcome.results.create?.error || copy.result.failed);
       creation.reset();
@@ -222,7 +222,7 @@ export default function AgentWizard({ route, navigate }) {
       results={creation.results}
       d={d}
       busy={creation.running}
-      onRetry={(failedStep) => creation.retry(forUserAgent(d), failedStep)}
+      onRetry={(failedStep) => creation.retry(forUserAgent(d, runtimeInfo), failedStep)}
       onOpenChat={() => openChat(creation.agent)}
       onSettings={() => {
         finished.current = true;

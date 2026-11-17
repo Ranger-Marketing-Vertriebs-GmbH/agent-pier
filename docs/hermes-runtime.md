@@ -483,7 +483,9 @@ agent, has no key; with the switch off the compiler writes
 on removes the key again. Nothing else changes: the `skills` toolset stays (it also
 holds `skills_list` and `skill_view`), so the agent still writes a skill when asked,
 and the memory review (`memory.nudge_interval`), `auxiliary.background_review` and
-the curator are not touched. A task member follows its lead's switch. A restricted
+the curator are not touched. A task member takes its lead's switch at its own next
+apply: a change to the lead does not re-apply its members, so a running member keeps
+the interval it was started with until something applies it again. A restricted
 user's agent keeps its skills in its own home, so the switch works for it as for any
 agent.
 
@@ -956,6 +958,7 @@ other value is OpenClaw's, the default:
 | `skills.learnsByDefault`  | `true`                                | `false`         |
 | `skills.userAgentsLearn`  | `true` (skills in its own home)       | `false`         |
 | `skills.writesWhenAsked`  | `true` (`skill_manage` stays)         | `false`         |
+| `skills.channelBotsLearn` | `true` (no `session_search` with one) | `false`         |
 | `sessions.chatFolders`    | `true`                                | `false`         |
 | `host.process`            | `perAgent`                            | `shared`        |
 | `host.install`            | `optional`                            | `builtin`       |

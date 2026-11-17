@@ -45,6 +45,8 @@ const subsetOf = (all, value) => ({
  *   where learned skills bypass the skill lists that limit what such an agent reads.
  * - skills.writesWhenAsked: whether an agent with learning off still writes a skill
  *   when asked to; false where learning off takes the skill-writing tool away.
+ * - skills.channelBotsLearn: whether an agent with its own bot for other people may
+ *   learn; false where the review reads the agent's other chats, which are theirs.
  * - sessions.chatFolders: whether each chat keeps its files in a folder of its own.
  * - host.process: one `shared` host for every agent, or a process set `perAgent`.
  * - host.install: `builtin` (comes with switching agents on) or `optional` (the
@@ -65,6 +67,7 @@ export const RUNTIME_TRAITS = Object.freeze({
     learnsByDefault: flag(false),
     userAgentsLearn: flag(false),
     writesWhenAsked: flag(false),
+    channelBotsLearn: flag(false),
   }),
   sessions: Object.freeze({ chatFolders: flag(false) }),
   host: Object.freeze({

@@ -1591,9 +1591,10 @@ AgentPier maps the agent's **Learns its own skills** (`skillLearning`,
 - An agent that learns holds `skill_workshop` in its `tools.allow`, once native tools
   are ready. No other agent does, and the global `tools.allow`, every agent's upper
   bound, names the tool only while at least one agent learns. No other tool is added.
-- The mode is `auto` while at least one OpenClaw agent that is not archived learns,
+- The mode is `auto` while at least one OpenClaw agent learns by the rules below,
   else `off`. So with no agent learning the compiled `openclaw.json` is the one from
-  before the option.
+  before the option. Only OpenClaw's agents count: a desired agent names its runtime,
+  and the compiler leaves every other runtime's agents out.
 - A change applies live with the agent's entry: one `config.patch` moves the entry,
   the global tool and the mode, and the readback checks all three
   (`agent-apply.js`). `skills.workshop` stays a locked path: only the compiler
@@ -1603,7 +1604,14 @@ AgentPier maps the agent's **Learns its own skills** (`skillLearning`,
   agent reads; refused with 409 `USER_AGENT_SKILL_LEARNING` on create and update,
   never compiled whatever its record holds, and removed from the record when the
   agent is assigned), or an agent with its own bot for other people (the review reads
-  the agent's other sessions with `sessions_history` and `sessions_search`).
+  the agent's other sessions with `sessions_history` and `sessions_search`, which
+  are those people's chats). Such an agent counts as not learning for its own entry
+  and for the global tool and the mode, on every path that writes them: a start (the
+  bots it compiles), an agent apply (the bots the running Gateway was started with)
+  and a live MCP apply (the bots the senders store holds). Its settings show the
+  switch locked with that reason (`skillLearningLocked: "channelBot"`, trait
+  `skills.channelBotsLearn` `false`); the stored choice stays and applies again once
+  the bot is gone.
 - `skills.status` reports a learned skill for its agent with `source:
 "openclaw-workshop"` and `blockedByAgentFilter: false`; the skills sub-port adds
   the port's `origin: "local"`, and the skills page lists it as the agent's own. An
