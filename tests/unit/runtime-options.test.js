@@ -29,6 +29,14 @@ const connections = [
   { id: "c-or", name: "OpenRouter", providerId: "openrouter", available: true },
   { id: "c-off", name: "Keyless", providerId: "openrouter", available: false },
   {
+    id: "c-az",
+    name: "Azure",
+    providerId: "endpoint",
+    available: true,
+    keyHeader: true,
+    models: [{ modelId: "dep" }],
+  },
+  {
     id: "openclaw:gpt",
     name: "ChatGPT",
     providerId: "openai-chatgpt",
@@ -103,6 +111,10 @@ test("an advisor is an available endpoint or OpenRouter model, at most three", (
     () => validateRuntimeOptions(hermes(), mixture(advisor("gone")), context),
     "mixtureAdvisorUnavailable",
     409,
+  );
+  refusal(
+    () => validateRuntimeOptions(hermes(), mixture(advisor("c-az", "dep")), context),
+    "mixtureAdvisorKeyHeader",
   );
   // An endpoint's model must be one the connection lists.
   refusal(
