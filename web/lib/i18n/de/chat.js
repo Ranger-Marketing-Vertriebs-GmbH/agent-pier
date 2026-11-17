@@ -71,6 +71,10 @@ export const chatViewCopy = {
   invalidSnapshot:
     "Der Chat konnte nicht vollständig geladen werden. Neuer Versuch läuft …",
   limitWarning: "Limit-Warnung",
+  limitBarTitle: "Nutzungslimit erreicht",
+  limitChangeModel: "Modell wechseln",
+  limitContinue: "Fortsetzen",
+  limitContinuePrompt: "Mach weiter.",
   jumpToLatest: "Zur neuesten Nachricht",
   resetRequested: "Neue Unterhaltung angefordert",
   resetConfirmed: "Neue Unterhaltung bereit",

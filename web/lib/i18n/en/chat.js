@@ -69,6 +69,10 @@ export const chatMessageCopy = {
 export const chatViewCopy = {
   invalidSnapshot: "The chat could not be loaded completely. Retrying …",
   limitWarning: "Usage limit warning",
+  limitBarTitle: "Usage limit reached",
+  limitChangeModel: "Change model",
+  limitContinue: "Continue",
+  limitContinuePrompt: "Please continue.",
   jumpToLatest: "Jump to latest",
   resetRequested: "New conversation requested",
   resetConfirmed: "New conversation ready",

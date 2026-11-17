@@ -427,3 +427,28 @@ test("an explicit account handoff preserves the conversation delivery scope", ()
     deliveryScope(original),
   );
 });
+
+test("a text of its own is delivered while the draft stays in the composer", async () => {
+  const disk = storage();
+  const draft = new ChatDraft(disk, scope, lock);
+  const attachment = { key: "k", name: "notes.txt", path: "/uploads/notes.txt" };
+  await draft.change({ text: "Keep this draft", attachments: [attachment] });
+  const sent = await draft.enqueue("own", [], {}, "Please continue.");
+  assert.equal(sent.text, "Please continue.");
+  assert.equal(sent.displayText, "Please continue.");
+  assert.deepEqual(sent.attachments, []);
+  await draft.receipt({ deliveryId: "own", status: "handed-off" });
+  const after = new ChatDraft(disk, scope, lock).getSnapshot();
+  assert.equal(after.outbox, null);
+  assert.equal(after.text, "Keep this draft");
+  assert.deepEqual(
+    after.attachments.map((file) => file.path),
+    ["/uploads/notes.txt"],
+  );
+  assert.equal(after.recent.at(-1).text, "Please continue.");
+  // The composer's own message still leaves the draft once handed off.
+  await draft.enqueue("draft", []);
+  await draft.receipt({ deliveryId: "draft", status: "handed-off" });
+  assert.equal(draft.getSnapshot().text, "");
+  assert.deepEqual(draft.getSnapshot().attachments, []);
+});

@@ -136,22 +136,27 @@ export default function useChatController({ active, session, request, onConnecti
     followBottom,
     restoreScroll,
   ]);
-  const send = (messages) =>
-    delivery.send(messages, {
-      tool: session.tool,
-      providerSessionId:
-        data?.availability === "ready" && !data.restored && !data.observability?.stale
-          ? data.providerSessionId
-          : null,
-      restartGeneration: session.restartGeneration || 0,
-      stopNotes: data?.observability?.stopNotes,
-    });
-  async function submit(event) {
-    event.preventDefault();
+  const send = (messages, own = null) =>
+    delivery.send(
+      messages,
+      {
+        tool: session.tool,
+        providerSessionId:
+          data?.availability === "ready" && !data.restored && !data.observability?.stale
+            ? data.providerSessionId
+            : null,
+        restartGeneration: session.restartGeneration || 0,
+        stopNotes: data?.observability?.stopNotes,
+      },
+      own,
+    );
+  // The composer's send and a text of its own (sendText) share these guards and the
+  // delivery; only the composer's message comes from, and leaves, the draft.
+  async function deliver(message, own = null) {
     if (
       submitting.current ||
       session.pipeline?.headless ||
-      (!text.trim() && !attachments.length) ||
+      !message.trim() ||
       busy ||
       modelPending ||
       uploading ||
@@ -160,7 +165,6 @@ export default function useChatController({ active, session, request, onConnecti
       session.status !== "running"
     )
       return;
-    const message = [text, ...attachments.map((file) => file.path)].join("\n");
     if (message.length > 32000) {
       setError(attachmentCopy.tooLong);
       return;
@@ -170,13 +174,20 @@ export default function useChatController({ active, session, request, onConnecti
     setSent(false);
     stick.current = true;
     try {
-      await withReadyUploads(deliveryScope(session), () => send(data?.messages || []));
+      await withReadyUploads(deliveryScope(session), () =>
+        send(data?.messages || [], own),
+      );
     } catch (err) {
       setError(err.message);
     } finally {
       submitting.current = false;
     }
   }
+  function submit(event) {
+    event.preventDefault();
+    return deliver([text, ...attachments.map((file) => file.path)].join("\n"));
+  }
+  const sendText = (value) => deliver(value, value);
 
   const choose = async (result) => {
     assertChatSnapshot(result);
@@ -222,6 +233,7 @@ export default function useChatController({ active, session, request, onConnecti
     error: delivery.storageError || error,
     setModelPending,
     submit,
+    sendText,
     text,
     setText,
     setSent,

@@ -12,3 +12,9 @@
 .chat-limit-warnings p {
   margin: 0.3rem 0 0;
 }
+.chat-limit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

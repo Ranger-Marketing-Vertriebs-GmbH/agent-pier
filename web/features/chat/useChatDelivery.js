@@ -115,7 +115,8 @@ export default function useChatDelivery({ session, request, active }) {
     return () => reader.stop();
   }, [active, id, check, session.id]);
 
-  const send = async (messages = [], context = {}) => {
+  // `own`: a text to send instead of the draft, which then stays as it is.
+  const send = async (messages = [], context = {}, own = null) => {
     if (operation.current) return;
     const old = draft.getSnapshot().outbox;
     if (old && old.status !== "absent") return;
@@ -130,7 +131,7 @@ export default function useChatDelivery({ session, request, active }) {
     try {
       item = old
         ? await draft.retryAbsent(messages, context)
-        : await draft.enqueue(browserUuid(), messages, context);
+        : await draft.enqueue(browserUuid(), messages, context, own);
       if (!item || !["waiting", "absent"].includes(item.status)) return;
       timeout = setTimeout(() => controller.abort(), 15000);
       const result = await request(
