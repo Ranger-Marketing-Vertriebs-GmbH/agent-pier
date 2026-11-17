@@ -10,6 +10,7 @@ import {
   firstProblem,
   forUserAgent,
   stepProblem,
+  withRuntime,
 } from "../../web/features/assistants/wizard/wizard-draft.js";
 import {
   createBody,
@@ -110,6 +111,8 @@ test("duplicate copies exactly the fields of 5.3.1 and nothing else", () => {
     skills: ["curl", "gh"],
     // The source never chose: the copy follows its runtime's default too.
     skillLearning: null,
+    // No options of its runtime (ADR 0007, step 7a).
+    runtimeOptions: null,
     projectIds: ["p1", "p2"],
     projectFiles: { p1: "write" },
     pipelineIds: ["pl"],
@@ -353,4 +356,31 @@ test("creation sends the selected area for personal and user agents", () => {
   assert.equal(createBody(draft).areaGroupId, "work");
   assert.equal(createBody({ ...draft, owner: "user", kind: "own" }).areaGroupId, "work");
   assert.equal("areaGroupId" in createBody({ ...draft, areaGroupId: null }), false);
+});
+
+// ADR 0007, step 7a: a duplicate keeps its source's runtime options, for the runtime
+// it runs on, and drops them when the owner picks another runtime.
+test("a duplicate keeps the runtime options of its runtime only", () => {
+  const advisors = [{ connectionId: "router", modelId: "a/b" }];
+  const hermes = {
+    ...source,
+    runtime: "hermes",
+    runtimeInfo: { id: "hermes" },
+    runtimeOptions: { hermes: { mixture: { advisors } }, openclaw: { stale: true } },
+  };
+  const copy = duplicateFields(hermes, policy, team, (name) => name);
+  assert.deepEqual(copy.runtimeOptions, { hermes: { mixture: { advisors } } });
+  assert.deepEqual(createBody({ ...emptyDraft(), ...copy, name: "x" }).runtimeOptions, {
+    hermes: { mixture: { advisors } },
+  });
+  assert.equal(duplicateFields(source, policy, team, (n) => n).runtimeOptions, null);
+  assert.equal("runtimeOptions" in createBody({ ...emptyDraft(), name: "x" }), false);
+  assert.equal(
+    withRuntime({ ...emptyDraft(), ...copy }, "openclaw").runtimeOptions,
+    null,
+  );
+  assert.equal(
+    "runtimeOptions" in withRuntime({ ...emptyDraft(), ...copy }, "hermes"),
+    false,
+  );
 });

@@ -51,6 +51,8 @@ export function emptyDraft(timeZone = "UTC") {
     // "Learns its own skills": null leaves the runtime's default; a duplicate carries
     // its source's choice where that differs from it.
     skillLearning: null,
+    // A duplicate's options for its runtime (`{ [runtime]: object }`), else null.
+    runtimeOptions: null,
     projectIds: [],
     projectFiles: {},
     pipelineIds: [],
@@ -77,7 +79,8 @@ export function emptyDraft(timeZone = "UTC") {
 /**
  * What "Duplizieren" takes from an agent (handoff 5.3.1), and nothing else:
  * its runtime, instructions (name "Kopie von <Name>"), model, capability switches, shell level,
- * enabled bundled skills, whether it learns its own skills, access grants (projects with levels, pipelines and their
+ * enabled bundled skills, whether it learns its own skills, its runtime's own options
+ * (runtimeOptions of the runtime it runs on), access grants (projects with levels, pipelines and their
  * two switches, MCP servers, SSH with mode, GitHub level and token profile, secrets)
  * and the team policy. Memory, chats, attachments, Telegram, hooks, reminders,
  * routines, the shell allowlist, the browser profile, users and the template's
@@ -99,6 +102,7 @@ export function duplicateFields(agent, policy, team, copyName) {
       agent.skillLearning !== traitOf(agent.runtimeInfo, "skills", "learnsByDefault")
         ? agent.skillLearning
         : null,
+    runtimeOptions: ownRuntimeOptions(agent),
     projectIds: sortedIds(policy?.projectIds),
     projectFiles: sortedLevels(policy?.projectFiles),
     pipelineIds: sortedIds(policy?.pipelineIds),
@@ -122,6 +126,13 @@ export function duplicateFields(agent, policy, team, copyName) {
   };
 }
 
+// The agent's options for the runtime it runs on, as a create body takes them.
+function ownRuntimeOptions(agent) {
+  const runtime = agent.runtimeInfo?.id ?? agent.runtime;
+  const options = runtime ? agent.runtimeOptions?.[runtime] : undefined;
+  return options && Object.keys(options).length ? { [runtime]: options } : null;
+}
+
 /**
  * The draft fields for runtime `runtime` ("" lets the server choose its default),
  * whose view is `runtimeInfo` (runtime-list.js runtimeInfoOf). On a runtime without
@@ -133,6 +144,10 @@ export function duplicateFields(agent, policy, team, copyName) {
  */
 export const withRuntime = (d, runtime, models = [], runtimeInfo) => ({
   runtime,
+  // A duplicate's runtime options belong to its source's runtime alone.
+  ...(d.runtimeOptions && !Object.hasOwn(d.runtimeOptions, runtime)
+    ? { runtimeOptions: null }
+    : {}),
   // The default runtime's levels are the defaults, known without its view.
   ...((runtimeInfo || !runtime) && !offersEveryCommand(runtimeInfo) && d.shell === "every"
     ? { shell: "approval" }
