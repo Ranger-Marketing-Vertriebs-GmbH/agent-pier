@@ -12,12 +12,14 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
   const {
     confirmShell,
     confirmFull,
+    confirmRestart,
     template,
     areaGroupId = null,
     ...input
   } = body || {};
   const origin = template === undefined ? null : await service.templateOrigin(template);
-  return service.admit(async () => {
+  let restart = false;
+  const record = await service.admit(async () => {
     const base = userAccess ? "off" : "approval",
       level = input.shell ?? base;
     shellChange({ shell: base }, input, { confirmShell, confirmFull });
@@ -37,6 +39,23 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
     }
     const lease = await service.models.resolve(input.model || {});
     lease.release();
+    // Options that need a plugin the running Gateway did not load (the first memory
+    // wiki): queued in the app, else confirmed and restarted once created
+    // (assistant-service.js update does the same).
+    const needs =
+      !!input.runtimeOptions &&
+      Object.keys(input.runtimeOptions).length > 0 &&
+      !!service.webTools?.optionsDiffer(
+        [
+          ...service.store.listAssistants(),
+          { ...input, id: "new", ...(userAccess && { userAccess }) },
+        ],
+        input,
+      );
+    const queued = needs && !!service.webTools.pending;
+    if (needs && !queued)
+      service.webTools.confirm(confirmRestart === true, "runtimeOptionsRestartRequired");
+    restart = needs && !queued;
     // Memory on by default, web capabilities off (memory-rules.js).
     const capabilities = newCapabilities(input, service.dreaming?.enabled());
     // Check-ins are switched on in the saved agent (its settings), not at creation.
@@ -68,7 +87,12 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
     auditProactivity(service.audit, record.id, proactivityChange({}, record));
     // A Hermes agent's set starts now (in the background), OpenClaw's at first apply.
     if (ownProcess(record)) service.config.apply(record.id).catch(() => {});
+    if (queued) service.webTools.queue("runtimeOptions");
     service.changed();
     return record;
   });
+  // Maintenance drains the admission lock, so the restart runs after it.
+  if (restart)
+    await service.webTools.restart(() => service.store.getAssistant(record.id));
+  return record;
 }

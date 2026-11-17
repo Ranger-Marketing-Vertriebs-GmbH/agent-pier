@@ -149,11 +149,12 @@ function activeAssistantRoutes(services) {
   router.post("/assistants", async (req, res) => {
     let result;
     try {
-      // A new agent with shell needs the same confirmations as raising it.
+      // A new agent with shell needs the same confirmations as raising it, and one
+      // with the first memory wiki the restart's (`confirmRestart`).
       result = await assistants.create(req.body);
     } catch (error) {
       if (replyShellConfirmation(res, error)) return;
-      throw error;
+      return replyRestartRequired(res, error);
     }
     audit.append({
       action: "assistant.created",

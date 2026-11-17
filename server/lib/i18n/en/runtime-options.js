@@ -26,4 +26,6 @@ export const runtimeOptions = Object.freeze({
     "A temporary team member cannot keep a memory wiki. Only your own agents can.",
   memoryWikiNotLoaded:
     "The memory wiki is available after the pending restart of the agent service.",
+  runtimeOptionsRestartRequired:
+    "Switching on the first memory wiki restarts the agents' Gateway; confirm the restart.",
 });

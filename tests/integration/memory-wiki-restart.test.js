@@ -158,3 +158,69 @@ test("another runtime's options never ask for the Gateway's restart", async (t) 
     true,
   );
 });
+
+test("the confirmation names the wiki's restart, not a web tool change", async (t) => {
+  const f = fixture(t);
+  const first = f.agent("First");
+  await assert.rejects(f.wiki(first), {
+    status: 409,
+    code: "ASSISTANT_RESTART_REQUIRED",
+    key: "runtimeOptionsRestartRequired",
+  });
+});
+
+test("a Gateway that is starting counts as running", async (t) => {
+  const f = fixture(t);
+  const first = f.agent("First");
+  f.runtime.client.ready = false;
+  f.runtime.status = () => ({ availability: "starting" });
+  f.store.updateAssistant(first.id, { runtimeOptions: on }, first.revision);
+  assert.equal(
+    f.service.webTools.optionsDiffer(
+      f.store.listAssistants(),
+      f.store.getAssistant(first.id),
+    ),
+    true,
+  );
+});
+
+test("a create with the wiki asks for the restart, or queues it in the app", async (t) => {
+  const f = fixture(t);
+  f.service.models = {
+    listCapabilities: () => [],
+    resolve: async () => ({ release() {} }),
+  };
+  const body = (name) => ({
+    name,
+    instructions: "",
+    shell: "off",
+    model,
+    runtimeOptions: on,
+  });
+  await assert.rejects(f.service.create(body("Asked")), {
+    status: 409,
+    key: "runtimeOptionsRestartRequired",
+  });
+  assert.equal(
+    f.store.listAssistants().some((a) => a.name === "Asked"),
+    false,
+  );
+  const confirmed = await f.service.create({
+    ...body("Confirmed"),
+    confirmRestart: true,
+  });
+  assert.deepEqual(f.store.getAssistant(confirmed.id).runtimeOptions, on);
+  assert.ok(f.calls.includes("stop") && f.calls.includes("start"));
+  assert.equal(f.runtime.memoryWiki, true);
+  // In the app: saved at once, the restart queued (the running start has the plugin
+  // now, so set it back as a start without it).
+  f.runtime.memoryWiki = false;
+  f.calls.length = 0;
+  const queued = [];
+  f.service.webTools.synchronization.pending = {
+    request: (reason) => queued.push(reason),
+  };
+  await f.service.create(body("Queued"));
+  assert.deepEqual(queued, ["runtimeOptions"]);
+  assert.ok(!f.calls.includes("stop"));
+});

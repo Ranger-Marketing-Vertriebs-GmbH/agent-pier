@@ -26,4 +26,6 @@ export const runtimeOptions = Object.freeze({
     "Ein temporäres Teammitglied kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
   memoryWikiNotLoaded:
     "Das Memory-Wiki ist nach dem ausstehenden Neustart des Agentendienstes verfügbar.",
+  runtimeOptionsRestartRequired:
+    "Das erste eingeschaltete Memory-Wiki startet das Gateway der Agenten neu; bestätige den Neustart.",
 });
