@@ -428,12 +428,36 @@ staged beside it and the owner activates it through the usual update flow (same
 OpenClaw version, so no Doctor migration). Until then the unpatched runtime keeps
 running as installed. Starting a patched installation verifies its patches again.
 
-2026.11.3 carries one patch, `lease-release-retry`: `LEASE_CONTENTION_RETRY_TIMEOUT_MS`
-(`dist/openclaw-state-lease-heartbeat-shared-*.mjs`, read only by the lease release)
-goes from 2 s to 30 s, so a plugin lifecycle lease release that meets one SQLite
-lock is retried instead of leaving the lease held for 5 minutes (see
-`assistant-release-qualification.md`, "Lease release patch"). Remove the entry, and
-with it the patch identity, once the pinned OpenClaw fixes the release itself.
+2026.11.3 carries these patches:
+
+- `lease-release-retry`: `LEASE_CONTENTION_RETRY_TIMEOUT_MS`
+  (`dist/openclaw-state-lease-heartbeat-shared-*.mjs`, read only by the lease release)
+  goes from 2 s to 30 s, so a plugin lifecycle lease release that meets one SQLite
+  lock is retried instead of leaving the lease held for 5 minutes (see
+  `assistant-release-qualification.md`, "Lease release patch").
+- `codex-catalog-client-version` and `codex-catalog-client-version-setup`:
+  `OPENAI_CODEX_CLIENT_VERSION` (`dist/base-url-*.mjs` and the same constant in
+  `dist/extensions/openai/.setup/provider-policy-api-*.mjs`) goes from `0.164.0` to
+  `0.169.0`. ChatGPT-account model discovery sends it as `client_version` to
+  `chatgpt.com/backend-api/codex/models`, and the backend lists newer models such as
+  GPT-6.2-Astra only for a recent enough client; 0.164.0 does not list it. OpenClaw
+  would take the version from its Codex plugin (`resolveCodexClientVersion`), but the
+  npm package leaves that plugin out and AgentPier does not install it, so the
+  bundled constant is what is sent (see `assistant-gateway.md`, "ChatGPT assistant
+  accounts").
+
+Remove an entry, and with it its part of the patch identity, once the pinned OpenClaw
+fixes the problem itself.
+
+Patches are keyed by OpenClaw version, so a pin bump drops them unless they are
+carried forward. For the Codex client version this is guarded: the runtime patch
+contract (`assistant-runtime-patch-contract.test.js`) and
+`scripts/verify-assistant-installation.mjs` check the installed package, whether a
+patch provided the value or not, and fail when any `OPENAI_CODEX_CLIENT_VERSION` or
+literal `client_version=` in `dist` is older than 0.169.0, or when the constant is
+not found at all (`tests/helpers/codex-client-version-floor.js`). When bumping the
+pin, carry both Codex entries forward to the new version (with its file names)
+unless the new version already ships 0.169.0 or newer; then drop them.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with

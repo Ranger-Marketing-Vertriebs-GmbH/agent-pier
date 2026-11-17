@@ -20,6 +20,15 @@ import { createHash } from "node:crypto";
  * lease`). The constant is read by that release alone. 30 s ended the wedge in a
  * throttled reproduction (0 of 11 runs against 6 of 16;
  * docs/assistant-release-qualification.md "Lease release patch").
+ *
+ * 2026.11.3, "codex-catalog-client-version" (and "-setup", the same constant in the
+ * openai plugin's setup bundle): ChatGPT-account model discovery asks
+ * chatgpt.com/backend-api/codex/models with `client_version`, and the backend lists
+ * newer models (GPT-6.2-Astra) only for a recent enough client. The version comes from
+ * the Codex plugin (`resolveCodexClientVersion`), which the npm package leaves out and
+ * AgentPier never installs, so the bundled fallback `OPENAI_CODEX_CLIENT_VERSION`
+ * (extensions/openai/base-url.ts, "0.164.0") is what OpenClaw sends. 0.164.0 does not
+ * list GPT-6.2-Astra; 0.169.0 does (checked against a live ChatGPT account).
  */
 export const runtimeBundlePatches = Object.freeze({
   "2026.11.3": Object.freeze([
@@ -28,6 +37,22 @@ export const runtimeBundlePatches = Object.freeze({
       file: "dist/openclaw-state-lease-heartbeat-shared-BczGehzh.mjs",
       before: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;",
       after: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;",
+    }),
+    // Carry both Codex client version entries forward on a pin bump unless the new
+    // version already ships OPENAI_CODEX_CLIENT_VERSION >= 0.169.0; the patch contract
+    // and verify-assistant-installation.mjs fail otherwise
+    // (tests/helpers/codex-client-version-floor.js).
+    Object.freeze({
+      id: "codex-catalog-client-version",
+      file: "dist/base-url-Baro1bPi.mjs",
+      before: 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";',
+      after: 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";',
+    }),
+    Object.freeze({
+      id: "codex-catalog-client-version-setup",
+      file: "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs",
+      before: 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";',
+      after: 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";',
     }),
   ]),
 });

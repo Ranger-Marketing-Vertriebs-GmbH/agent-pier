@@ -745,6 +745,16 @@ read (`refreshFailed` alone covers every provider and is ignored). `authProfileI
 is not used: OpenClaw scopes it to personal accounts of an authenticated Gateway
 user and refuses the agent's own OAuth profiles with `FORBIDDEN`.
 
+Live discovery asks `chatgpt.com/backend-api/codex/models` with a `client_version`,
+and the backend lists newer models only for a recent enough client. OpenClaw sends
+its bundled Codex client version, because AgentPier does not install OpenClaw's Codex
+plugin that would report another one. The installer patches the pinned runtime to ask
+as client `0.169.0` instead of 2026.11.3's `0.164.0`, so current models such as
+GPT-6.2-Astra are listed (`runtime-bundle-patches.js`, see
+`assistant-runtime-updates.md` "Package patches"). A runtime installed before the
+patch lists them only once the owner activates the patched runtime in the update
+flow.
+
 The list is cached in memory for ten minutes; a failed or stale read is retried
 after one minute, and the retry after a stale `openai` discovery is forced. Loading
 the agents page or the account list starts a background read when the cache is

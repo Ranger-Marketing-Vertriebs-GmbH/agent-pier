@@ -126,11 +126,32 @@ test("patches are scoped to their version", (t) => {
   verifyBundlePatches(dir, "1.0.1", patches);
 });
 
-test("the pinned version's patch raises the lease release retry window to 30 s", () => {
-  const [patch, ...more] = runtimeBundlePatches[runtimeManifest.version];
-  assert.equal(more.length, 0);
-  assert.equal(patch.before, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;");
-  assert.equal(patch.after, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;");
+test("the pinned version's patches", () => {
+  const list = runtimeBundlePatches[runtimeManifest.version];
+  assert.deepEqual(
+    list.map((patch) => patch.id),
+    [
+      "lease-release-retry",
+      "codex-catalog-client-version",
+      "codex-catalog-client-version-setup",
+    ],
+  );
+  const [lease, ...codex] = list;
+  // The lease release retry window goes from 2 s to 30 s.
+  assert.equal(lease.before, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;");
+  assert.equal(lease.after, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;");
+  // ChatGPT model discovery asks the Codex catalog as client 0.169.0 (GPT-6.2-Astra).
+  assert.deepEqual(
+    codex.map((patch) => patch.file),
+    [
+      "dist/base-url-Baro1bPi.mjs",
+      "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs",
+    ],
+  );
+  for (const patch of codex) {
+    assert.equal(patch.before, 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";');
+    assert.equal(patch.after, 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";');
+  }
   // No rollback target carries a patch: they install unchanged.
   for (const version of runtimeManifest.rollbackTargets)
     assert.equal(bundlePatchId(version), undefined);

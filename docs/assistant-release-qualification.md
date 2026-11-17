@@ -830,6 +830,17 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   0 of 11 against 6 of 16). A forced Gateway restart also ended the wedge (urgent
   stop: writes again after about 74 s); it is not used. Remove the patch once the
   pinned OpenClaw retries the release itself.
+- **Codex catalog client version.** ChatGPT-account model discovery sends the bundled
+  `OPENAI_CODEX_CLIENT_VERSION` (2026.11.3: `0.164.0`) as `client_version`, because
+  the Codex plugin that would report another version is not in the npm package and
+  AgentPier does not install it. The backend lists GPT-6.2-Astra only for a newer
+  client: on an owner install (2026.10.9, `0.160.0`) a hand-patched `0.169.0` listed it
+  and ran a turn with it, while `0.164.0` did not list it. The installer patches both
+  copies of the constant to `0.169.0` (`codex-catalog-client-version`,
+  `assistant-runtime-updates.md` "Package patches"). A signed-in list cannot be
+  observed offline, so the contracts check the installed text: every Codex client
+  version in the package must be at least 0.169.0, patched or not, so a pin bump
+  fails until the patch is carried forward or upstream catches up.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled
