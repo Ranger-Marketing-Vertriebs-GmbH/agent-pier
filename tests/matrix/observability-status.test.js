@@ -11,7 +11,9 @@ const cases = [
   ["failed", "failed"],
   ["error", "failed"],
   ["pending", "unknown"],
-  ["stopped", "unknown"],
+  ["stopped", "stopped"],
+  ["interrupted", "stopped"],
+  ["killed", "stopped"],
 ];
 for (const tool of ["claude", "codex", "opencode"])
   for (const [nativeStatus, expected] of cases) {

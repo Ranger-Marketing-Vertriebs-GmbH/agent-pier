@@ -193,6 +193,8 @@ test("the mobile tasks sheet lists working subagents first with their task immed
           status: "running",
           source: "native-task",
           updatedAt: "2026-09-06T10:00:00Z",
+          canStop: true,
+          hasTranscript: true,
         },
         {
           id: "native-beta",
@@ -201,6 +203,8 @@ test("the mobile tasks sheet lists working subagents first with their task immed
           status: "completed",
           source: "native-task",
           updatedAt: "2026-09-06T10:00:00Z",
+          canStop: false,
+          hasTranscript: true,
         },
       ],
     },

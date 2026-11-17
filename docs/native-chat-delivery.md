@@ -152,6 +152,16 @@ Claude image messages are pasted in two steps: first all attached image paths, t
 
 Codex refuses the images of one message as a whole when they exceed 32 MiB once base64-encoded (about 24 MB of files) and puts the message back into its own prompt. AgentPier checks that size before anything is typed: a message above it is rejected with `CHAT_IMAGES_TOO_LARGE` and returns to the chat composer, so fewer or smaller images can be sent. Claude and OpenCode have no such check.
 
+## Stop notes
+
+When the owner stops a background task in the chat's **Background tasks** sheet, the server keeps a note for the main agent (`observability.stopNotes`, see [chat observations](chat-observability.md#telling-the-main-agent-about-a-stop)). The chat composer appends the pending note lines to the owner's next message, after a blank line, and sends their ids with it: `POST /api/sessions/:id/input` takes an optional `stopNoteIds`, an array of at most 20 UUIDs (anything else is `invalid`).
+
+- **Which ids count.** The server keeps only the ids of pending notes whose line the text really contains, and none for a text that starts with `/` or `!` (leading whitespace ignored); those messages never carry a note. The ids it kept are stored on the receipt (`receipt.stopNoteIds`).
+- **Receipt hash unchanged.** The receipt hash still covers only `[text, submit]`. The note lines are part of `text`, so the CLI receives exactly the text the browser sent. Text matching, hook-block matching, Claude's prompt-box check and a retry of the same `deliveryId` all keep working as before. `stopNoteIds` is not hashed: a retry names the same notes, and the server filters them against the text again.
+- **When notes are consumed.** The server forgets the notes when the receipt is written as `accepted`, or as `handed-off` with `confirmation: "text"` (the sessions without an acceptance source, such as OpenCode, where no later server event would come), once per receipt (`notesDelivered`). A rejected, failed or cancelled delivery leaves them pending for the next message. If the receipt write itself fails, they stay pending.
+- **The browser.** It does not append a note again while an earlier message that carries it is still in the outbox or in its recent deliveries (unless rejected, or taken back into the composer with **Edit message**), and it adds no note that would push the message past 32,000 characters with its attachment lines.
+- **Other senders.** The terminal, Telegram, agents, tickets and pipeline turns never carry notes.
+
 ## Native spike, 2026-09-12
 
 Disposable profiles, a private tmux socket and a loopback mock provider were used; no real sessions, accounts or provider credentials were used. Tested CLIs: Codex 0.153.4, Claude Code 2.1.269 and OpenCode 1.18.30, with tmux 3.7c on macOS ARM64.

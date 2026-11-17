@@ -95,7 +95,11 @@ To open an item alone regardless of the rule, use **Open alone** (German: **Einz
 A pane shows its session's chat like a narrow window. The line above the composer
 ("2 running tasks", German: "2 laufende Aufgaben") opens **Background tasks** (German:
 **Hintergrundaufgaben**) as a dialog over the whole window, so the other panes wait
-until it closes. Escape, its close button or a click beside it closes it.
+until it closes. Escape, its close button or a click beside it closes it; Escape closes
+the whole dialog from a transcript or output view too. Its cards offer **Show
+transcript** (German: **Verlauf anzeigen**), **Show output** (German: **Ausgabe
+anzeigen**) and **Stop task** (German: **Aufgabe stoppen**) as in a full chat; see
+[chat observations](chat-observability.md#background-shells-transcripts-and-stopping).
 
 ## Unsaved edits
 
