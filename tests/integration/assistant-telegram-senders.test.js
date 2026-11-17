@@ -238,3 +238,16 @@ test("with a pending restart a new bot is queued, a removal still restarts at on
   assert.equal(h.restarts.length, 1);
   assert.equal(queued.length, 1);
 });
+
+// ADR 0007, step 7b: an agent whose bot serves other people keeps no memory wiki.
+test("an own bot drops the agent's memory wiki", async (t) => {
+  const h = fixture(t);
+  const agent = h.agent();
+  h.store.updateAssistant(
+    agent.id,
+    { runtimeOptions: { openclaw: { memoryWiki: true } } },
+    h.store.getAssistant(agent.id).revision,
+  );
+  await h.senders.save(agent.id, { token: token(1), people, revision: null });
+  assert.equal(h.store.getAssistant(agent.id).runtimeOptions, undefined);
+});

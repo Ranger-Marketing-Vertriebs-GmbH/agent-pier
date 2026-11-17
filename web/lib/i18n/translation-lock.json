@@ -1419,6 +1419,7 @@
   "assistant-memory-reviews:memoryReviewCopy.title": "de:0b2499d37b9b en:224e231aa8b6",
   "assistant-memory-wiki:assistantMemoryWikiCopy.description": "de:d1445274a85e en:6262b2029973",
   "assistant-memory-wiki:assistantMemoryWikiCopy.hint": "de:33dc5f436f42 en:42c9d845e43a",
+  "assistant-memory-wiki:assistantMemoryWikiCopy.locked.channelBot": "de:d9e9150a1ae6 en:c0c05a8470c7",
   "assistant-memory-wiki:assistantMemoryWikiCopy.locked.shared": "de:605f4aa56efb en:178c74263813",
   "assistant-memory-wiki:assistantMemoryWikiCopy.locked.taskMember": "de:6dabf539c04e en:413023869d9f",
   "assistant-memory-wiki:assistantMemoryWikiCopy.locked.userAgent": "de:c298a02dd242 en:d52154c77848",

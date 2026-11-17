@@ -333,16 +333,13 @@ export class AssistantConfig {
       ssh,
       craft,
     ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
-    const profiles = this.store.listAssistants?.();
-    const learning = this.compiler.learning(assistant, {
-      nativeReady,
-      senderFacing: this.senderFacing,
-      profiles,
-    });
-    allowed.push(...learning.tools); // "Learns its own skills" (skill-learning.js)
-    // The memory wiki's tools, and whether some agent keeps one (its global tools).
-    const wiki = this.compiler.wiki?.(assistant, { nativeReady, profiles });
-    allowed.push(...(wiki?.tools || []));
+    // "Learns its own skills" (skill-learning.js) and the memory wiki's tools, each
+    // with whether some agent has it (the global tools); never with a bot for others.
+    const grants = { nativeReady, senderFacing: this.senderFacing };
+    grants.profiles = this.store.listAssistants?.();
+    const learning = this.compiler.learning(assistant, grants);
+    const wiki = this.compiler.wiki?.(assistant, grants);
+    allowed.push(...learning.tools, ...(wiki?.tools || []));
     // The agent's SSH agent, synced first so this turn's PATH and instructions name
     // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
     const plainSsh = nativeReady

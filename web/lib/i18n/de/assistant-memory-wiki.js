@@ -13,6 +13,8 @@ export const assistantMemoryWikiCopy = {
       "Nur deine eigenen Agenten können ein Memory-Wiki führen, nicht der eigene Agent eines Nutzers.",
     taskMember:
       "Nur deine eigenen Agenten können ein Memory-Wiki führen, kein temporäres Teammitglied.",
+    channelBot:
+      "Ein Agent, dessen eigener Telegram-Bot anderen Menschen dient, kann kein Memory-Wiki führen, denn deren Nachrichten würden dauerhafte Seiten schreiben.",
   },
   open: "Wiki lesen",
   openHint: "Seine Seiten, nur lesend",

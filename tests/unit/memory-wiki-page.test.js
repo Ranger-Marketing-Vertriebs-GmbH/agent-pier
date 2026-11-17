@@ -330,7 +330,9 @@ test("an archived agent has no wiki page, and its routes refuse", async () => {
   assert.deepEqual(runtimePagesOf(archived), []);
   assert.equal("runtimePages" in withRuntime(archived, null), false);
   const { files } = gateway({ "wiki.overview": overview, "wiki.get": page });
-  await assert.rejects(wikiPages(assistants(archived), "a1", over(files)), { status: 404 });
+  await assert.rejects(wikiPages(assistants(archived), "a1", over(files)), {
+    status: 404,
+  });
   await assert.rejects(wikiPage(assistants(archived), "a1", "x.md", over(files)), {
     status: 404,
   });

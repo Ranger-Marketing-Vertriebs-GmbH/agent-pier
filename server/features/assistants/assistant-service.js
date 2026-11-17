@@ -249,6 +249,8 @@ export class AssistantService {
       withRuntime(this.shellChanges.decorate(profile), this.runtime),
       { senderFacing: !!this.telegramSenders?.connected(profile.id) },
     );
+    // Its own Telegram bot serves other people: options locked for it say so.
+    if (this.telegramSenders?.connected(profile.id)) decorated.ownChannelBot = true;
     // The badge while the agent's own browser runs (agent-browsers.js).
     if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;
     return this.mcp ? this.mcp.decorate(decorated) : decorated;
@@ -293,7 +295,8 @@ export class AssistantService {
           runtimeOptions: validateRuntimeOptions(
             { ...current, ...(changes.model && { model: changes.model }) },
             changes.runtimeOptions,
-            { models: this.models },
+            // An agent with its own bot for other people keeps no memory wiki.
+            { models: this.models, senderFacing: !!this.telegramSenders?.connected(id) },
           ),
         };
       // A temporary member follows its lead's model until it is given one: picking

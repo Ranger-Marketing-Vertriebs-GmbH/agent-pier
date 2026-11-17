@@ -53,7 +53,7 @@ export function agentEntry(
         // "Learns its own skills" (skill-learning.js): OpenClaw's skill_workshop.
         ...learningTools(agent, { nativeReady, senderFacing }),
         // The memory wiki (memory-wiki.js): OpenClaw's five wiki tools.
-        ...agentWikiTools(agent, { nativeReady }),
+        ...agentWikiTools(agent, { nativeReady, senderFacing }),
       ],
       ...(exec && { exec }),
     };

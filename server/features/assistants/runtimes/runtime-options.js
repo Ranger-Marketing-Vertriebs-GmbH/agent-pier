@@ -67,11 +67,13 @@ export function validateRuntimeOptions(agent, value, context = {}) {
  * runtime reads them: `{}` without any, frozen. Another runtime's stored options are
  * never read.
  */
-export function runtimeOptionsOf(agent) {
+// `context` goes to the runtime's read (`{ senderFacing }`: the agent has its own bot
+// for other people).
+export function runtimeOptionsOf(agent, context = {}) {
   const id = runtimeIdOf(agent);
   const stored = isRecord(agent?.runtimeOptions) ? agent.runtimeOptions[id] : undefined;
   try {
-    return frozen(structuredClone(moduleOf(id).read(stored, agent)));
+    return frozen(structuredClone(moduleOf(id).read(stored, agent, context)));
   } catch {
     return Object.freeze({});
   }
@@ -97,11 +99,11 @@ export const optionConnections = (agent) =>
  * users) is dropped from the stored record, and an emptied set with it. Another
  * runtime's stored options stay as they are.
  */
-export function restrictRuntimeOptions(record) {
+export function restrictRuntimeOptions(record, context = {}) {
   const id = runtimeIdOf(record);
   if (!isRecord(record?.runtimeOptions) || !Object.hasOwn(record.runtimeOptions, id))
     return record;
-  const kept = runtimeOptionsOf(record);
+  const kept = runtimeOptionsOf(record, context);
   if (isDeepStrictEqual(kept, record.runtimeOptions[id])) return record;
   const { [id]: _dropped, ...others } = record.runtimeOptions;
   const options = Object.keys(kept).length ? { ...others, [id]: { ...kept } } : others;

@@ -292,6 +292,20 @@ export class AssistantStore {
       throw assistantProblem("conflict", 409);
     return result;
   }
+  /**
+   * Drops the runtime options agent `id` may no longer hold in `context`
+   * (`{ senderFacing }`: it gets its own bot for other people), without a revision.
+   */
+  restrictOptions(id, context) {
+    const current = this.storedAssistant(id);
+    const result = restrictRuntimeOptions(current, context);
+    if (result === current) return current;
+    result.revision = current.revision + 1;
+    this.db
+      .prepare("UPDATE assistants SET body=?,revision=? WHERE id=?")
+      .run(JSON.stringify(result), result.revision, id);
+    return result;
+  }
   /** Owner-side changes of a user agent when its user is deleted (user-release.js). */
   changeUserAgent(id, fields) {
     const current = this.storedAssistant(id);

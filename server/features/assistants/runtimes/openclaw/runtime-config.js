@@ -320,7 +320,7 @@ export function compileOpenClawConfig({
     const senderFacing = (agent) => !!telegramCompiled.accounts[agent.runtimeAgentId];
     applyLearning(config, hostLearns(agents, { senderFacing }));
     // The memory wiki's plugin and tools, only while an agent keeps a wiki.
-    applyMemoryWiki(config, hostWiki(agents));
+    applyMemoryWiki(config, hostWiki(agents, { senderFacing }));
     const available = webToolsAvailability(host.webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {

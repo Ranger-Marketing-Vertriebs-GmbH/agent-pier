@@ -12,6 +12,8 @@ export const assistantMemoryWikiCopy = {
     userAgent: "Only your own agents can keep a memory wiki, not a user's own agent.",
     taskMember:
       "Only your own agents can keep a memory wiki, not a temporary team member.",
+    channelBot:
+      "An agent whose own Telegram bot serves other people cannot keep a memory wiki: their messages would write lasting pages.",
   },
   open: "Read the wiki",
   openHint: "Its pages, read only",

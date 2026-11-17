@@ -28,4 +28,6 @@ export const runtimeOptions = Object.freeze({
     "Das Memory-Wiki ist nach dem ausstehenden Neustart des Agentendienstes verfügbar.",
   runtimeOptionsRestartRequired:
     "Das erste eingeschaltete Memory-Wiki startet das Gateway der Agenten neu; bestätige den Neustart.",
+  memoryWikiChannelBot:
+    "Ein Agent, dessen eigener Telegram-Bot anderen Menschen dient, kann kein Memory-Wiki führen, denn deren Nachrichten würden dauerhafte Seiten schreiben.",
 });
