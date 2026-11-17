@@ -23,6 +23,9 @@ export default function Message({
   subagentsLive = true,
   observedSubagents = [],
   sandboxProfile = "",
+  // False where the rows are not this session's own (a subagent transcript): a
+  // truncated row then cannot load its full text from the session.
+  fullOutput = true,
   // A reply the CLI is still generating (ChatLiveReplies.jsx).
   streaming = false,
 }) {
@@ -78,12 +81,17 @@ export default function Message({
         )}
         {toolOpen &&
           (message.fileChanges?.length ? (
-            <ToolChanges message={message} sessionId={sessionId} />
+            <ToolChanges
+              message={message}
+              sessionId={sessionId}
+              fullOutput={fullOutput}
+            />
           ) : message.truncated ? (
             <TruncatedToolOutput
               key={`${message.id}:${message.truncated.length}`}
               message={message}
               sessionId={sessionId}
+              loadable={fullOutput}
             />
           ) : (
             <>

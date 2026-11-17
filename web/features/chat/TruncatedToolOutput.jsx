@@ -7,7 +7,11 @@ import { formatSize } from "./tool-output.js";
 
 const utf8 = (value) => new TextEncoder().encode(value).length;
 
-export default function TruncatedToolOutput({ message, sessionId }) {
+/**
+ * Head and tail of a long tool row; `loadable` offers to load its full text from the
+ * session, which only works for the session's own rows.
+ */
+export default function TruncatedToolOutput({ message, sessionId, loadable = true }) {
   useLanguage();
   const [full, setFull] = useState(null);
   const [error, setError] = useState("");
@@ -42,9 +46,11 @@ export default function TruncatedToolOutput({ message, sessionId }) {
           {error}
         </p>
       )}
-      <button type="button" className="button" disabled={busy} onClick={load}>
-        {copy.loadFullOutput(formatSize(message.truncated.bytes))}
-      </button>
+      {loadable && (
+        <button type="button" className="button" disabled={busy} onClick={load}>
+          {copy.loadFullOutput(formatSize(message.truncated.bytes))}
+        </button>
+      )}
     </div>
   );
 }
