@@ -247,6 +247,12 @@ test("a usage limit is remembered on the activity until a newer report", async (
     prepared.env,
   );
   assert.equal("limit" in ctx.bindings.activity(session), false);
+  // An older limit report arriving late must not bring the limit back.
+  recordNativeActivity(
+    { state: "idle", event: "StopFailure", failure: "usage-limit", detail: "old", at },
+    prepared.env,
+  );
+  assert.equal("limit" in ctx.bindings.activity(session), false);
   // A failure that is not a limit, or a limit on another event, stores nothing.
   recordNativeActivity(
     { state: "idle", event: "Stop", failure: "usage-limit", at: at + 2 },

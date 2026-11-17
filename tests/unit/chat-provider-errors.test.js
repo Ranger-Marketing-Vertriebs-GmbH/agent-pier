@@ -105,3 +105,21 @@ test("Claude limit replies are marked as notices, other API errors are not", () 
   const other = { ...api, error: { status: 500, error: { message: "down" } } };
   assert.equal(normalizeClaude([other]).messages[0].notice, undefined);
 });
+
+test("billing errors and camelCase Codex codes are usage-limit notices", () => {
+  const record = {
+    type: "assistant",
+    uuid: "b",
+    isApiErrorMessage: true,
+    error: "billing_error",
+    message: {
+      id: "m",
+      role: "assistant",
+      content: [{ type: "text", text: "No credit" }],
+    },
+  };
+  assert.equal(normalizeClaude([record]).messages[0].notice, "usage-limit");
+  const error = { message: "limit", codexErrorInfo: "usageLimitExceeded" };
+  const turn = { id: "c", items: [], status: "failed", error };
+  assert.equal(normalizeCodex({ turns: [turn] }).messages[0].notice, "usage-limit");
+});
