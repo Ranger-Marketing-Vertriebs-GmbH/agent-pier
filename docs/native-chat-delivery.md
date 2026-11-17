@@ -62,11 +62,14 @@ cleared by the next report of the CLI (a new prompt); a late, older limit report
 not bring it back. The transcript row of the limit reply is marked as a notice.
 
 While a session is limited, the chat shows a bar above the composer with the CLI's
-text and two actions. **Change model** opens the model picker of the session.
+text and two actions. **Change model** opens the model picker of the session and is
+disabled whenever the picker's own trigger is (for example a restart-only model).
 **Continue** sends a translated "please continue" prompt as a normal delivery; it
 does not touch the composer draft and is disabled in the same situations in which a
 send is refused (a running turn, a pending request or model change, attachments that
-are uploading or blocked). Without a hook report (for example OpenCode or a CLI that
+are uploading or blocked, a hook-blocked message still in the CLI prompt). With the
+Claude Code bridge mod active, the hook's limit report still decides until the mod
+reports a newer turn. Without a hook report (for example OpenCode or a CLI that
 does not report the failure) the session stays **Ready**. Claude Code `billing_error`
 replies count as limit notices too.
 
