@@ -45,6 +45,12 @@ class with the longer ceiling. Load-sensitive checks assert outcomes, not wall-c
 ratios: a step that must not wait is given a poll too long for any test, and race
 tests interleave the competing step deterministically through a test seam.
 
+Telling a project folder's Git work tree apart from a plain folder runs
+`git rev-parse` with a 3 s limit, after which the request fails with 409. Under the
+parallel files of a full run that limit can pass, so `scripts/test-runner.mjs` sets
+`AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS` to 20 000 for its test files unless the
+environment already sets it. A test of the timeout itself sets its own value.
+
 ## Reproduce and shrink a generated failure
 
 `tests/helpers/property.js` configures fast-check with seed `20260906` and 100 runs by default. Individual properties can request a smaller count for more expensive operations. Shrinking remains enabled: a failure includes its seed, replay path and minimized counterexample.
