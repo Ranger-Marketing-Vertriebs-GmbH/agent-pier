@@ -232,11 +232,14 @@ export class ClaudeModBridge {
  * The CLI's own report when the mod is active: its turns decide, except for what
  * only the settings hooks see. A dialog they reported after the mod's last event
  * (an approval, a question) is waiting, and background tasks a Stop reported keep
- * a finished turn working.
+ * a finished turn working, and a usage limit a StopFailure reported stays on an idle
+ * session until a later turn starts.
  */
 export function preferModActivity(mod, hook) {
   if (!mod) return hook;
   if (hook?.state === "waiting" && hook.at >= mod.at) return hook;
+  if (mod.state === "idle" && hook?.limit && hook.at >= (mod.turnAt || 0))
+    return { ...mod, limit: hook.limit };
   if (
     mod.state === "idle" &&
     hook?.state === "working" &&
