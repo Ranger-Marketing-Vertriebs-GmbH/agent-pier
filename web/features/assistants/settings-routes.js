@@ -1,3 +1,5 @@
+import { runtimePageIds } from "./runtimes/search.js";
+
 // Agent settings tabs and their subpages: /agents/:id/settings?tab=…&page=…
 //
 // Seven tabs by purpose (handoff 5.4). Older names keep working: `profile` → identity,
@@ -30,13 +32,13 @@ export const agentPages = {
   hook: "automation",
   "telegram-activity": "channels",
   "telegram-connection": "channels",
-  // A runtime's own page (slot agent.page): OpenClaw's memory wiki. It shows only for
-  // an agent whose view names it in `runtimePages` (agentPageAllowed).
-  wiki: "capabilities",
+  // The runtimes' own pages (slot agent.page, their web modules' search.js), below
+  // the Capabilities tab. One shows only for an agent whose view names it in
+  // `runtimePages` (agentPageAllowed).
+  ...Object.fromEntries(runtimePageIds.map((id) => [id, "capabilities"])),
 };
 export const agentPageTabs = agentPages;
-/** The pages of agentPages that are a runtime's own (slot agent.page). */
-export const runtimePageIds = Object.freeze(["wiki"]);
+export { runtimePageIds };
 const renamedTab = {
   profile: "identity",
   routines: "automation",

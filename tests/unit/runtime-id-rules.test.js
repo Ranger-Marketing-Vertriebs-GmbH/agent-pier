@@ -182,11 +182,13 @@ test("the files the wiring step moved name no runtime", () => {
 });
 
 // Step 3 of ADR 0007: a runtime's own UI lives in its web module and reaches a page
-// through a slot. Only the slot and the search index ask the web runtime modules.
-test("runtime rule webImports: only the slot and the search index import a web runtime module", () => {
+// through a slot. Only the slot and the search index ask the web runtime modules, and
+// the agent settings routes the ids of the runtimes' own pages (decision 10).
+test("runtime rule webImports: only the slot, the search index and the page ids import a web runtime module", () => {
   assert.deepEqual(webRuntimeImporters(sources), [
     "web/features/assistants/RuntimeSlot.jsx",
     "web/features/assistants/runtime-surface-search.js",
+    "web/features/assistants/settings-routes.js",
   ]);
   assert.deepEqual(
     webRuntimeImporters([

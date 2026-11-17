@@ -7,6 +7,8 @@ import { assistantMemoryWikiCopy as copy } from "../../../../lib/i18n/messages/a
  */
 export const openClawSearch = Object.freeze({
   id: "openclaw",
+  // Its surfaces at the slot agent.page: pages below an agent's Capabilities tab.
+  pages: Object.freeze(["wiki"]),
   entries: Object.freeze([
     // An agent's Capabilities tab › Memory wiki, for each OpenClaw agent.
     Object.freeze({

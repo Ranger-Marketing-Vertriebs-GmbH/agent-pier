@@ -226,3 +226,26 @@ test("the search entries of a runtime are its web module's, each of a surface it
   assert.deepEqual(runtimeSearch("next"), []);
   assert.deepEqual(runtimeSearch("toString"), []);
 });
+
+// ADR 0007 decision 10: an agent's runtime pages are the agent.page surfaces of the
+// runtimes' web modules; the settings routes take their ids from there.
+test("the runtime page ids are the web modules' agent.page surfaces", async () => {
+  const { runtimePageIds } =
+    await import("../../web/features/assistants/runtimes/search.js");
+  const { agentPages, agentSettingsLocation } =
+    await import("../../web/features/assistants/settings-routes.js");
+  const pages = descriptors.flatMap((descriptor) =>
+    descriptor.surfaces
+      .filter((entry) => entry.slot === "agent.page" && entry.kind === "built")
+      .map((entry) => entry.id),
+  );
+  assert.deepEqual([...runtimePageIds].sort(), pages.sort());
+  for (const id of pages) {
+    assert.equal(agentPages[id], "capabilities", id);
+    // The address the read page has had since step 7b keeps working.
+    assert.deepEqual(agentSettingsLocation({ agentTab: "capabilities", agentPage: id }), {
+      tab: "capabilities",
+      page: id,
+    });
+  }
+});
