@@ -116,6 +116,8 @@ test("two advisors compile into named providers, a preset and provider moa", () 
         enabled: true,
         fanout: "user_turn",
         degraded_reference_policy: "loud",
+        // A timeout and Hermes's retry on the agent's own model stay short.
+        reference_timeout: 120,
         reference_models: [
           { provider: "custom:agentpier-advisor-1", model: "openai/gpt-x" },
           { provider: "custom:agentpier-advisor-2", model: "lab-model" },

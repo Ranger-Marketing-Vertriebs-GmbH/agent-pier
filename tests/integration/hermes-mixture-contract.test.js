@@ -12,6 +12,8 @@ import {
   desiredAgent,
   desiredState,
 } from "../../server/features/assistants/agent-desired-state.js";
+import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
+import { RunSteps } from "../../server/features/assistants/run-steps.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import {
@@ -185,6 +187,7 @@ test(
     });
     assert.equal(seen.preset.fanout, "user_turn");
     assert.equal(seen.preset.degraded_reference_policy, "loud");
+    assert.equal(seen.preset.reference_timeout, 120);
     assert.deepEqual(seen.slots, [
       {
         provider: "custom:agentpier-advisor-1",
@@ -288,7 +291,7 @@ test(
       // `_try_main_agent_model_fallback`), which under MoA is the aggregator.
       { connectionId: "c-down", modelId: "fake-down" },
     ];
-    const { sessions, events, stop } = await startHermes(t, dirs, {
+    const { sessions, events, stop, agent } = await startHermes(t, dirs, {
       agentId,
       model: { baseUrl: main.baseUrl },
       extra: {
@@ -315,6 +318,15 @@ test(
         ],
       },
     });
+    const configFile = path.join(agent.hermesHome, "config.yaml");
+    const sections = () => {
+      const { moa, providers, model } = readHermesConfig(
+        fs.readFileSync(configFile, "utf8"),
+      );
+      return { moa, providers, model };
+    };
+    const written = sections();
+    assert.equal(written.model.provider, "moa");
     const { key } = await sessions.create({
       agentId,
       label: "moa",
@@ -353,21 +365,52 @@ test(
       acted.filter((r) => r.body.tools === undefined).length >= 1,
       "an advisor-shaped request (no tools) reached the agent's own model",
     );
-    // One advisor step per advisor of the turn, the refused one marked failed.
-    const steps = seen.seen
-      .filter((event) => event.runId === "run-moa" && event.step?.type === "advisor")
-      .map((event) => event.step);
+    // One advisor step per advisor of the turn, as the chat receives them
+    // (run-steps.js): the refused one failed with its status alone; the unreachable
+    // one carries the agent's own model's answer under the advisor's label, which the
+    // chat's fixed line on every advisor step discloses.
+    const live = new RunSteps();
+    for (const event of seen.seen) live.observe(event);
+    const steps = live.view("run-moa").steps.filter((step) => step.kind === "advisor");
     t.diagnostic(JSON.stringify(steps));
     assert.deepEqual(
-      steps.map(({ advisor: n, model, failed }) => ({ n, model, failed })),
+      steps.map(({ id, advisor: n, model, state, failure }) => ({
+        id,
+        n,
+        model,
+        state,
+        failure,
+      })),
       [
-        { n: 1, model: "fake-advisor", failed: false },
-        { n: 2, model: "fake-refused", failed: true },
-        { n: 3, model: "fake-down", failed: false },
+        {
+          id: "advisor:1:1",
+          n: 1,
+          model: "fake-advisor",
+          state: "done",
+          failure: undefined,
+        },
+        {
+          id: "advisor:1:2",
+          n: 2,
+          model: "fake-refused",
+          state: "failed",
+          failure: "http-401",
+        },
+        {
+          id: "advisor:1:3",
+          n: 3,
+          model: "fake-down",
+          state: "done",
+          failure: undefined,
+        },
       ],
     );
-    assert.match(steps[0].text, /ECHO:/);
-    assert.match(steps[1].text, /^\[failed: /);
+    assert.match(steps[0].output, /ECHO: hello advisors/);
+    assert.equal(steps[1].output, "");
+    assert.doesNotMatch(JSON.stringify(steps), /invalid api key|127\.0\.0\.1/);
+    assert.match(steps[2].output, /ECHO: hello advisors/);
+    // Hermes left AgentPier's sections as written, so the next apply changes nothing.
+    assert.deepEqual(sections(), written);
     seen.unsubscribe();
     await stop();
     assert.deepEqual(await strayAfterStop(dirs), []);

@@ -714,9 +714,16 @@ A switch with fresh chats also has the new model review the agent's memory; see
   - **Routines** of the agent use the advisors too.
   - An advisor whose connection is deleted or loses its key is left out (the group
     says so) until it works again; with none left the agent runs on its own model.
+  - **When an advisor cannot answer** (no answer within two minutes, a rate limit,
+    used-up credit, a connection error), Hermes answers with the agent's own model
+    instead, under the advisor's name; AgentPier cannot tell the difference, and each
+    advisor step says so. A refused key shows the step as failed.
   - Each advisor's answer appears in the chat as an expandable step of the running
-    turn, like tool steps, a failed one marked failed. Steps are shown while the turn
+    turn, like tool steps; a failed one is marked failed with at most an HTTP status
+    or the kind of error, never the provider's message. Steps are shown while the turn
     runs, not stored afterwards.
+  - Before you downgrade AgentPier to a release without this setting, remove the
+    agent's advisors ([Hermes runtime](hermes-runtime.md#mixture-of-agents)).
   - Saving restarts the agent's own processes, as a model change does; it is refused
     while the agent works. A duplicate keeps the advisors; a task member starts
     without. Users never see or change it. Search for it with ⌘K ("Mixture of

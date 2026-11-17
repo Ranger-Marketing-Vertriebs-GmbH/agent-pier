@@ -38,11 +38,18 @@ export const mixtureEnvOwned = "AUXILIARY_AGENTPIER_ADVISOR_*";
 const ownedProviders = [modelProvider, ...[1, 2, 3].map(advisorProvider)];
 const named = (provider) => `custom:${provider}`;
 
+// How long one advisor may take, in seconds. Hermes's own default is 900 s
+// (`auxiliary.moa_reference.timeout`), and a timed-out advisor is retried on the
+// agent's own model (agent/auxiliary_client.py `_try_main_agent_model_fallback`),
+// which could hold a turn for half an hour.
+export const referenceTimeoutS = 120;
+
 /** The preset AgentPier writes: advisors once per user turn, failures announced. */
 export const mixturePreset = (references, aggregator) => ({
   enabled: true,
   fanout: "user_turn",
   degraded_reference_policy: "loud",
+  reference_timeout: referenceTimeoutS,
   reference_models: references,
   aggregator,
 });

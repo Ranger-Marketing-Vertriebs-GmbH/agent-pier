@@ -144,13 +144,13 @@ Hermes options, `runtimeOptions.hermes.mixture.advisors` (one to three `{
 connectionId, modelId }`, [ADR 0007](adr/0007-runtime-descriptor.md#9-per-agent-runtime-options)).
 `hermes-config/mixture.js` compiles it, verified against Hermes v0.22.5:
 
-| Key                                     | Value                                                                                                                                                                 |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model.provider`, `model.default`       | `moa`, `agentpier` (every other key of the agent's model section stays)                                                                                               |
-| `providers.agentpier-model`             | the agent's own model: `base_url`, `api_mode: chat_completions`, `key_env` as its model's                                                                             |
-| `providers.agentpier-advisor-<n>`       | advisor `n`: `base_url`, `api_mode: chat_completions`, `key_env: AUXILIARY_AGENTPIER_ADVISOR_<N>_API_KEY`                                                             |
-| `moa.presets.agentpier`                 | `reference_models` (`custom:agentpier-advisor-<n>`), `aggregator` (`custom:agentpier-model`), `fanout: user_turn`, `degraded_reference_policy: loud`, `enabled: true` |
-| `moa.default_preset`, `moa.save_traces` | `agentpier`, `false`                                                                                                                                                  |
+| Key                                     | Value                                                                                                                                                                                           |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model.provider`, `model.default`       | `moa`, `agentpier` (every other key of the agent's model section stays)                                                                                                                         |
+| `providers.agentpier-model`             | the agent's own model: `base_url`, `api_mode: chat_completions`, `key_env` as its model's                                                                                                       |
+| `providers.agentpier-advisor-<n>`       | advisor `n`: `base_url`, `api_mode: chat_completions`, `key_env: AUXILIARY_AGENTPIER_ADVISOR_<N>_API_KEY`                                                                                       |
+| `moa.presets.agentpier`                 | `reference_models` (`custom:agentpier-advisor-<n>`), `aggregator` (`custom:agentpier-model`), `fanout: user_turn`, `degraded_reference_policy: loud`, `reference_timeout: 120`, `enabled: true` |
+| `moa.default_preset`, `moa.save_traces` | `agentpier`, `false`                                                                                                                                                                            |
 
 `n` is the advisor's position in the stored list, so an advisor left out keeps the
 others' numbers. Each key goes into the home's `.env` like the agent's own key; Hermes
@@ -185,16 +185,25 @@ system prompt, no tool schemas. With `fanout: user_turn` they run once per user 
 the aggregator, the agent's own model, runs every tool iteration and pays for almost all
 of the run. Auxiliary tasks (titles, compression) run on the aggregator.
 
-- **Failures:** an advisor that fails or times out becomes a `[failed: …]` note, and
-  with `loud` the aggregator is told; the turn goes on. Timeout: Hermes's
-  `auxiliary.moa_reference.timeout` (900 s). An advisor Hermes cannot connect to at all
-  is retried once on the aggregator, the agent's own model (`agent/auxiliary_client.py`
-  `_try_main_agent_model_fallback`): its step then shows that model's answer under the
-  advisor's name. A refused key (401) is not retried.
+- **Failures:** an advisor that fails becomes a `[failed: …]` note, and with `loud`
+  the aggregator is told; the turn goes on. Each advisor has 120 seconds
+  (`reference_timeout`; Hermes's own default is 900 s). But Hermes's auxiliary client
+  answers most failures of an explicitly chosen provider with the main agent's model,
+  under MoA the aggregator, the agent's own model (`agent/auxiliary_client.py`
+  `_ladder_provider_fallback` → `_try_main_agent_model_fallback`): a timeout, a 429
+  after its retries, a 402 or used-up quota, a model the provider cannot serve, an
+  invalid or status-less answer, a connection error. That answer arrives under the
+  advisor's name, and `moa.reference` carries nothing that tells AgentPier who
+  answered, so every advisor step says so in a fixed line and the settings say so
+  too. Only an authentication error (401) and an error Hermes counts as none of these (such as a 400) are not retried and show as failed. The 120 seconds bound a timeout
+  and its retry together to a few minutes instead of half an hour.
 - **Steps in the chat:** Hermes sends each advisor's answer as `moa.reference`
   (`tui_gateway/tool_progress.py`, with `display.show_reasoning` at its default). The
   events adapter (`hermes-run-state.js`) makes it an `advisor` step (its number from
-  the provider name, its model, its text, failed for a `[failed: …]` note); the run's
+  the provider name, its round in the run, so a steered or queued message's advisors
+  get steps of their own, its model and its text). A failed one keeps no text: Hermes's
+  note can hold provider URLs, error bodies and key fragments, so the step names only
+  an HTTP status or a kind (timeout, connection, interrupted, error). The run's
   live steps (`run-steps.js`) keep it with its answer, capped at 8,000 characters, and
   the chat shows it expandable. Like tool steps they live while the turn runs (a
   reload during the turn shows them again) and are not stored: Hermes keeps no advisor
@@ -205,7 +214,14 @@ of the run. Auxiliary tasks (titles, compression) run on the aggregator.
 - **Apply:** a save is a `config.apply`; the changed `config.yaml` restarts the agent's
   process set, as a model change does. A live apply resolves the advisors' connections
   like the agent's own model (`option-connections.js`), and a change of a connection an
-  agent uses as an advisor counts as a change of a connection the agent uses.
+  agent uses as an advisor counts as a change of a connection the agent uses. A real
+  turn leaves the `moa` and `providers` sections as AgentPier wrote them
+  (`hermes-mixture-contract.test.js`), so the next apply changes nothing.
+- **Downgrade:** an AgentPier from before Mixture of Agents neither writes nor removes
+  `moa`, `providers.agentpier-*` or the `AUXILIARY_AGENTPIER_ADVISOR_*` keys, so they stay in the agent's home: the older compile writes the agent's own model again, but a gateway `/moa` turn still runs the preset with the advisors' keys.
+  Remove the agent's advisors and let the agent apply before you downgrade. Otherwise
+  remove `moa`, the `providers.agentpier-*` entries and the advisor keys from that
+  agent's `config.yaml` and `.env` by hand.
 
 ### Practical defaults
 
