@@ -105,6 +105,9 @@ export function runTestFiles({
           env: {
             ...process.env,
             AGENTPIER_TEST_RUN: runId,
+            // Parallel files load the host; Git discovery must not time out on that.
+            AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS:
+              process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS || "20000",
             TMPDIR: temporary,
             AGENTPIER_TEST_SHARED_TMPDIR:
               process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir(),

@@ -8,6 +8,15 @@ import { failure } from "./memory-validation.js";
 import { gitMessageEnvironment } from "../../lib/git-locale.js";
 import { safeGitArgs } from "../../lib/git-command.js";
 const execute = promisify(execFile);
+/**
+ * How long Git may take to name a folder's work tree: 3 s, or the milliseconds in
+ * AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS. The test runner raises it, since its parallel
+ * files can load the host past the default.
+ */
+function gitDiscoveryTimeout() {
+  const value = Number(process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS);
+  return Number.isSafeInteger(value) && value > 0 ? value : 3000;
+}
 
 // Where registered projects are looked up (one per open ProjectMemory).
 const registries = new Set();
@@ -109,7 +118,7 @@ export async function projectScope(cwd, options = {}) {
         "--git-common-dir",
         "--show-toplevel",
       ]),
-      { env, timeout: 3000, maxBuffer: 16384, encoding: "utf8" },
+      { env, timeout: gitDiscoveryTimeout(), maxBuffer: 16384, encoding: "utf8" },
     );
     const values = result.stdout.trimEnd().split("\n");
     if (values.length !== 2 || values.some((value) => !path.isAbsolute(value)))

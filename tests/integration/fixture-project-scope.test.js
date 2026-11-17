@@ -10,11 +10,13 @@ import { mailFixture } from "../helpers/agent-mail-fixture.js";
 import { workflowFixture } from "../helpers/assistant-workflow-fixture.js";
 
 /**
- * A fake `git` first on PATH that counts its calls and, while `slow` exists, never
- * answers: the loaded test run in which Git discovery outlived its time limit.
- * Otherwise it reports "not a git repository", like Git in a plain folder.
+ * A fake `git` first on PATH that counts its calls and, while `slow` exists, answers
+ * only after `seconds` (by default never within a test): the loaded test run in which
+ * Git discovery outlived its time limit. It then reports "not a git repository", like
+ * Git in a plain folder. Discovery keeps its default limit here, whatever the test
+ * runner set.
  */
-function slowGit(t) {
+function slowGit(t, seconds = 30) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "slow-git-")));
   const bin = path.join(dir, "bin");
   const calls = path.join(dir, "calls");
@@ -25,7 +27,7 @@ function slowGit(t) {
     [
       "#!/bin/sh",
       `echo call >> '${calls}'`,
-      `[ -e '${slow}' ] && exec sleep 30`,
+      `[ -e '${slow}' ] && sleep ${seconds}`,
       'echo "fatal: not a git repository" >&2',
       "exit 128",
       "",
@@ -34,9 +36,13 @@ function slowGit(t) {
   );
   fs.writeFileSync(slow, "");
   const previous = process.env.PATH;
+  const limit = process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS;
   process.env.PATH = `${bin}${path.delimiter}${previous}`;
+  delete process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS;
   t.after(() => {
     process.env.PATH = previous;
+    if (limit === undefined) delete process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS;
+    else process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS = limit;
     fs.rmSync(dir, { recursive: true, force: true });
   });
   return {
@@ -99,5 +105,19 @@ test("the fixture scope still asks Git inside a work tree", async (t) => {
   assert.equal(git.calls() > 0, true, "a folder below .git goes to real discovery");
   await assert.rejects(fixtureProjectScope(path.join(repo, "missing")), {
     message: serverMessages.memory.projectDirectoryUnavailable,
+  });
+});
+
+test("AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS gives a slow Git longer than the default", async (t) => {
+  slowGit(t, 4);
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), "plain-project-"));
+  t.after(() => fs.rmSync(plain, { recursive: true, force: true }));
+  process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS = "15000";
+  const scope = await projectScope(plain);
+  assert.equal(scope.kind, "directory");
+  // An unusable value keeps the default limit, which the slow Git outlives.
+  process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS = "soon";
+  await assert.rejects(projectScope(plain), {
+    message: serverMessages.memory.gitDiscoveryTimedOut,
   });
 });
