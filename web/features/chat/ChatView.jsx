@@ -20,6 +20,8 @@ import ChatTranscript from "./ChatTranscript.jsx";
 import ChatLiveReplies from "./ChatLiveReplies.jsx";
 import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
+import ChatLimitBar from "./ChatLimitBar.jsx";
+import { sessionActivity } from "../sessions/sessionPresentation.js";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
 import { groupTasks, tasksLine } from "./background-tasks.js";
@@ -56,6 +58,7 @@ export default function ChatView({
     error,
     setModelPending,
     submit,
+    sendText,
     text,
     setText,
     setSent,
@@ -78,6 +81,7 @@ export default function ChatView({
     !session.pipeline?.headless,
   );
   const [requestState, setRequestState] = useState(null);
+  const [modelOpenRequest, setModelOpenRequest] = useState(0);
   const requestPending =
     requestsAvailable && (requestState?.sessionId !== session.id || requestState.blocked);
   const drop = useFileDrop({
@@ -315,6 +319,20 @@ export default function ChatView({
                 ))}
               </div>
             )}
+          {sessionActivity(session).limited && (
+            <ChatLimitBar
+              detail={session.activity.limit.detail}
+              disabled={
+                busy ||
+                requestPending ||
+                modelPending ||
+                delivery.locked ||
+                session.status !== "running"
+              }
+              onChangeModel={() => setModelOpenRequest((count) => count + 1)}
+              onContinue={() => void sendText(copy.limitContinuePrompt)}
+            />
+          )}
           {requestsAvailable && (
             <RequestPanel
               onStateChange={setRequestState}
@@ -331,6 +349,7 @@ export default function ChatView({
               request={request}
               openTerminal={openTerminal}
               onPendingChange={setModelPending}
+              openRequest={modelOpenRequest}
             />
             <ChatComposer
               {...{

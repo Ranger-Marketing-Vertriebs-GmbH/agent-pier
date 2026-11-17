@@ -339,15 +339,17 @@ export class ChatDraft {
       }
     }).finally(() => this.pendingEdits.delete(version));
   }
-  enqueue(id, messages, context = {}) {
+  // `own` sends that text instead of the draft, which then stays in the composer.
+  enqueue(id, messages, context = {}, own = null) {
     return this.mutate((saved) => {
       if (saved.outbox) {
         this.adopt(saved);
         return saved.outbox;
       }
       const next = { ...saved, ...this.unsaved };
-      const { attachments } = next;
-      const { text, stopNoteIds } = withStopNotes(next, context.stopNotes);
+      const source = own === null ? next : { ...next, text: own, attachments: [] };
+      const { attachments } = source;
+      const { text, stopNoteIds } = withStopNotes(source, context.stopNotes);
       const body = attachments.length
         ? [text.trimEnd(), ...attachments.map((a) => a.path)].filter(Boolean).join("\n")
         : text;
@@ -371,6 +373,7 @@ export class ChatDraft {
         status: "waiting",
         resetContext,
         stopNoteIds,
+        ...(own !== null && { ownText: true }),
       };
       if (!this.write({ ...next, outbox, epoch: browserUuid(), revision: 0 }))
         return null;
@@ -506,8 +509,7 @@ export class ChatDraft {
         // message: either way the composer is free for the next message.
         this.write({
           ...saved,
-          text: "",
-          attachments: [],
+          ...(!item.ownText && { text: "", attachments: [] }),
           outbox: null,
           // Its text left the composer; "Edit message" may bring it back.
           recent: retainRecent([...saved.recent, { ...next, released: true }]),

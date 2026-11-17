@@ -1,7 +1,7 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import SessionProviderConfiguration from "../providers/SessionProviderConfiguration.jsx";
 import useModelControl from "./useModelControl.js";
 export default function ModelControl({
@@ -11,6 +11,7 @@ export default function ModelControl({
   openTerminal,
   onPendingChange,
   blocked = false,
+  openRequest = 0,
 }) {
   const {
     state,
@@ -34,6 +35,13 @@ export default function ModelControl({
     openTerminal,
     onPendingChange,
   });
+  // Each new `openRequest` acts as a click on the trigger, which a disabled one ignores.
+  const handledOpen = useRef(openRequest);
+  useEffect(() => {
+    if (openRequest === handledOpen.current) return;
+    handledOpen.current = openRequest;
+    trigger.current?.click();
+  }, [openRequest, trigger]);
   const configuration = state.configuration || session.provider;
   const requiresRestart = Boolean(
     state.modelChangeRequiresRestart || configuration?.modelChangeRequiresRestart,
