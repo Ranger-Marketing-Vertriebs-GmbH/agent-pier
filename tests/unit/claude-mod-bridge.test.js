@@ -147,6 +147,20 @@ test("the live status follows turns, thinking, tools, subagents and compaction",
   assert.equal(b.frames.filter((f) => f.type === "stream-end").length, 1);
 });
 
+test("a usage limit the hooks reported survives the mod's idle report", () => {
+  const mod = { state: "idle", event: "mod", at: 100, mod: true, turnAt: 50 };
+  const limit = { detail: "You've hit your Fable limit" };
+  const failure = { state: "idle", event: "StopFailure", at: 101, limit };
+  assert.deepEqual(preferModActivity(mod, failure), { ...mod, limit });
+  const later = { ...mod, at: 130, turnAt: 120 };
+  assert.equal(preferModActivity(later, failure), later, "a later turn hides the limit");
+  const working = { ...later, state: "working" };
+  assert.equal(preferModActivity(working, failure), working);
+  const merged = mergeActivity({ pane: "idle", hook: { ...mod, limit }, now: 200 });
+  assert.equal(merged.source, "mod");
+  assert.deepEqual(merged.limit, limit);
+});
+
 test("the mod's activity decides, except for dialogs and background tasks the hooks saw", (t) => {
   const b = bridge(t);
   assert.equal(b.mod.activity("s"), null);
