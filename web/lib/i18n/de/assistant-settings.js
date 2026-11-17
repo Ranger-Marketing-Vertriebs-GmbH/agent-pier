@@ -16,6 +16,8 @@ export const assistantSettingsCopy = {
       "Ein neuer Chat für dieses Teammitglied; der alte bleibt lesbar. Laufende Arbeit wird nicht gestoppt.",
   },
   backToAgents: "Zurück zu Agenten",
+  // Die Optionen der Laufzeit des Agenten (ihre eigenen Gruppen im Tab Fähigkeiten).
+  runtimeOptions: "Laufzeitoptionen",
   overviewGroups: {
     glance: "Auf einen Blick",
     glanceHint: "Was dieser Agent kann und darf. Jede Zeile öffnet ihren Tab.",

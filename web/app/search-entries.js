@@ -26,7 +26,10 @@ import { searchCopy } from "../lib/i18n/messages/search.js";
 import { settingsHubCopy, settingsPageCopy } from "../lib/i18n/messages/settings.js";
 import { systemStatusCopy } from "../lib/i18n/messages/system-status.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
-import { surfaceSearchEntries } from "../features/assistants/runtime-surface-search.js";
+import {
+  agentSurfaceEntries,
+  surfaceSearchEntries,
+} from "../features/assistants/runtime-surface-search.js";
 import {
   agentPageAllowed,
   agentRoute,
@@ -585,6 +588,7 @@ export function buildSearchIndex({
     ...pageEntries(),
     ...surfaceSearchEntries(runtimes, pageEntry, bilingual),
     ...agentEntries(agents),
+    ...agentSurfaceEntries(agents, runtimes, { bilingual, join }),
     ...connectionEntries(connections),
     ...actionEntries(),
   ]

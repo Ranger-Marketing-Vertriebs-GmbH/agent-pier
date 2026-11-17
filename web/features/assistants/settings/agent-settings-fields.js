@@ -33,6 +33,7 @@ export const capabilityFormKeys = [
   "skills",
   "shopping",
   "skillLearning",
+  "runtimeOptions",
 ];
 // MCP servers are granted in the Access tab, saved with the agent's PATCH.
 export const mcpKeys = ["mcpServers"];
@@ -302,7 +303,12 @@ export const capabilityServer = (assistant) => ({
   shopping: assistant?.shopping !== false,
   // "Learns its own skills": the effective value the server sends (skill-learning.js).
   skillLearning: assistant?.skillLearning === true,
+  // Its options for the runtime it runs on, which that runtime's surfaces of the slot
+  // agent.capabilities edit (server runtimes/runtime-options.js).
+  runtimeOptions: assistant?.runtimeOptions?.[runtimeOf(assistant)] ?? {},
 });
+// The runtime an agent runs on, as its view names it.
+const runtimeOf = (assistant) => assistant?.runtimeInfo?.id ?? assistant?.runtime;
 
 /** One PATCH for the Capabilities tab; only changed parts are sent. */
 export function capabilityPatch({ values, base, assistant }) {
@@ -335,6 +341,11 @@ export function capabilityPatch({ values, base, assistant }) {
     changed("skillLearning")
   )
     patch.skillLearning = values.skillLearning;
+  // Only the agent's own runtime's options; none stored is `{}`.
+  if (changed("runtimeOptions"))
+    patch.runtimeOptions = Object.keys(values.runtimeOptions || {}).length
+      ? { [runtimeOf(assistant)]: values.runtimeOptions }
+      : {};
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
     patch.heartbeat = { ...heartbeatForm(assistant), enabled: false };

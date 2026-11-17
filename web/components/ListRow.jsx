@@ -250,7 +250,12 @@ export function SelectRow({ value, options, onChange, disabled, ...row }) {
             onChange={(event) => onChange(event.target.value)}
           >
             {options.map((option) => (
-              <option key={option.value} value={option.value} lang={option.lang}>
+              <option
+                key={option.value}
+                value={option.value}
+                lang={option.lang}
+                disabled={option.disabled}
+              >
                 {option.label}
               </option>
             ))}

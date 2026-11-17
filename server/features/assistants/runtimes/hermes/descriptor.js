@@ -44,5 +44,10 @@ export const hermesDescriptor = defineRuntimeDescriptor({
   },
   // Agents › Runtime › Hermes Agent: the owner's switch, the install state and the
   // update. It shows before Hermes is installed; that is where it gets installed.
-  surfaces: [{ id: "install", slot: "hub.runtime", kind: "built", shows: "always" }],
+  surfaces: [
+    { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
+    // An agent's Capabilities tab › Mixture of Agents: its advisor models
+    // (runtimeOptions.hermes, hermes-options.js), while Hermes may run agents.
+    { id: "mixture", slot: "agent.capabilities", kind: "built" },
+  ],
 });

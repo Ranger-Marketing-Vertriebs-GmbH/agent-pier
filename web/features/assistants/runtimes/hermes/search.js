@@ -1,4 +1,5 @@
 import { agentsHubCopy } from "../../../../lib/i18n/messages/agents-hub.js";
+import { assistantMixtureCopy as mixture } from "../../../../lib/i18n/messages/assistant-mixture.js";
 
 const copy = () => agentsHubCopy.runtime.hermes;
 
@@ -17,6 +18,16 @@ export const hermesSearch = Object.freeze({
         () => copy().search.second,
         () => copy().search.install,
         () => copy().search.update,
+      ]),
+    }),
+    // An agent's Capabilities tab › Mixture of Agents, for each Hermes agent.
+    Object.freeze({
+      surface: "mixture",
+      label: () => mixture.title,
+      aliases: Object.freeze([
+        () => mixture.search.moa,
+        () => mixture.subtitle,
+        () => mixture.search.several,
       ]),
     }),
   ]),
