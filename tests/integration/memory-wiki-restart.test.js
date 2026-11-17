@@ -137,3 +137,24 @@ test("in the app the first wiki is saved at once and its restart queued", async 
   assert.ok(pendingRestartReasons.includes("runtimeOptions"));
   assert.ok(!f.calls.includes("stop"));
 });
+
+test("another runtime's options never ask for the Gateway's restart", async (t) => {
+  const f = fixture(t);
+  const first = f.agent("First");
+  // Stored past the routes: the running start has not loaded the plugin yet.
+  f.store.updateAssistant(first.id, { runtimeOptions: on }, first.revision);
+  const heron = f.store.createAssistant({
+    name: "Heron",
+    instructions: "",
+    model,
+    runtime: "hermes",
+  });
+  assert.equal(f.service.webTools.optionsDiffer(f.store.listAssistants(), heron), false);
+  assert.equal(
+    f.service.webTools.optionsDiffer(
+      f.store.listAssistants(),
+      f.store.getAssistant(first.id),
+    ),
+    true,
+  );
+});

@@ -127,7 +127,11 @@ either copy travel only in the sealed sidecar, exactly as without this split.
   transcripts, conversations, task, flow and subagent runs, delivery queues, audit
   and diagnostic events, memory and full-text indexes. A full-text or vector index
   is emptied through its module; one whose module this host lacks loses the rows of
-  its shadow tables.
+  its shadow tables. The rows of `plugin_state_entries` that belong to OpenClaw's
+  `memory-wiki` plugin leave the public copy as well: they name the absolute paths
+  of an agent's imported memory notes ([memory wiki](assistant-gateway.md#memory-wiki)).
+  They travel only in the sealed full copy; the wiki rebuilds them. An older
+  AgentPier restores such a backup unchanged.
 - OpenClaw's credential tables in that allowlist (`auth_profile_store`,
   `auth_profile_state`, `secret_store_entries`, `config_machine_state`, the device
   and worker credential tables) are emptied in every public copy and travel only
@@ -144,7 +148,9 @@ either copy travel only in the sealed sidecar, exactly as without this split.
   emptying the table (model access comes from `openclaw.json`), and a restore of a
   credential-less host backup onto 2026.10.3 was not run end to end.
 - Databases in a private folder (`state/memory/`, transcripts) are private as a
-  whole. OpenClaw's lock and writer databases (`*-lock.sqlite`,
+  whole. An agent's memory wiki (`state/wiki/<runtime agent>/`, its pages and
+  imported notes) is private content too: sealed with **Include history**, left out
+  otherwise, like the agent's memory notes in its work folder. OpenClaw's lock and writer databases (`*-lock.sqlite`,
   `*.generation-writer.sqlite`) and its `state/locks/` and `state/tmp/` folders are
   runtime state and never captured; a restore still accepts them from older backups.
 

@@ -347,7 +347,7 @@ export class AssistantService {
         !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
       const optionsRestart =
         "runtimeOptions" in patch &&
-        !!this.webTools?.optionsDiffer(this.webTools.profilesWith(id, patch));
+        !!this.webTools?.optionsDiffer(this.webTools.profilesWith(id, patch), current);
       const restart = webRestart || optionsRestart;
       const disableReminders =
         !!current.capabilities?.reminders && patch.capabilities?.reminders === false;

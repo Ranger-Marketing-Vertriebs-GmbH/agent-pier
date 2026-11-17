@@ -728,12 +728,38 @@ A switch with fresh chats also has the new model review the agent's memory; see
     while the agent works. A duplicate keeps the advisors; a task member starts
     without. Users never see or change it. Search for it with ⌘K ("Mixture of
     Agents", "MoA", "advisor models", "Beratermodelle").
+- **Memory wiki** (OpenClaw agents only, last group of the tab): **Keep a memory
+  wiki** gives the agent a wiki of pages with sources and claims beside its memory
+  notes, OpenClaw's bundled `memory-wiki` plugin
+  ([how it is compiled](assistant-gateway.md#memory-wiki)).
+  - **What it does:** the agent files and updates pages itself during its turns with
+    five wiki tools (`wiki_status`, `wiki_search`, `wiki_get`, `wiki_apply`,
+    `wiki_lint`), and its memory notes (`MEMORY.md`, its day notes and dream reports)
+    are imported as source pages whenever it uses one of them. The wiki is compiled
+    without a model: no extra model calls, no embeddings, no web addresses.
+  - **Only your own agents:** an agent shared with users, a user's own agent and a
+    temporary team member cannot keep one; the switch shows locked with the reason.
+    An agent that you assign to users afterwards loses the setting.
+  - **Read the wiki** (beside the switch while it is on, and on the agent's
+    **Memory** page) opens **Memory wiki**: the pages with their kind and when they
+    changed, newest first, and a page read only. The list follows the agent's turns
+    while it is open. The wiki keeps at most the newest 2,500 pages in that list.
+  - **Restart:** the first agent with a wiki needs a restart of the agent service
+    (the plugin loads at a start); AgentPier saves the change and shows **Agent
+    service restart pending**. Further agents and switching it off apply while the
+    service runs; the plugin leaves at the next start after the last one.
+  - Each agent's wiki lies in its own folder of the agent service's state, outside its
+    work folder, so the agent's file tools cannot reach it; deleting the agent
+    deletes it. Switching it off keeps the pages for when you switch it on again.
+  - Before you downgrade AgentPier to a release without this setting, switch the
+    wiki off for every agent ([downgrades](assistant-gateway.md#memory-wiki)).
+  - Search for it with ⌘K ("Memory wiki", "wiki", "Wissens-Wiki").
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent
 service: another web search provider or key, another PDF fallback model, a browser installed
-after the service started, a changed model connection that agents use, and a new
-Telegram bot for an agent. AgentPier saves such a change at once and shows
+after the service started, a changed model connection that agents use, a new
+Telegram bot for an agent, and the first agent with a **Memory wiki**. AgentPier saves such a change at once and shows
 **Agent service restart pending**, with what it is for and what it waits for. The
 service restarts by itself as soon as no agent is busy; further changes join the same
 restart. **Restart now** restarts at once after you confirm; it interrupts all running

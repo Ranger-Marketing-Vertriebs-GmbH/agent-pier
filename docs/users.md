@@ -179,6 +179,9 @@ every settings API. What the owner can still give an agent for users:
   advisor models that receive the chat's text, the user's included. Users never see
   or change the setting; each advisor's answer appears in the chat as a step of the
   turn.
+- Never a **Memory wiki** ([Capabilities](agents.md#capabilities)): only the owner's
+  own agents keep one. The switch shows locked on a user's agent and on a shared
+  agent, and an agent that is assigned to users loses it.
 
 Details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 

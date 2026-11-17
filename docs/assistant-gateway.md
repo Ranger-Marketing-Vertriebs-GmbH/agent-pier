@@ -1623,6 +1623,105 @@ Gateway: the tool in `tools.effective` and in a real turn for the learning agent
 alone, the mode in both directions live and after a restart, a user's agent with a
 stored "on", and the report of a learned skill.
 
+#### Memory wiki
+
+OpenClaw's bundled plugin `memory-wiki` (`docs/plugins/memory-wiki.md` of the pinned
+runtime, checked against 2026.11.3) compiles an agent's knowledge into a wiki of
+pages with sources, claims and dashboards. An agent keeps one while its runtime
+option `runtimeOptions.openclaw.memoryWiki` is on ([agents](agents.md#capabilities);
+ADR 0007, decision 10). The plugin serves the whole Gateway and registers its tools
+for every agent, so AgentPier (`openclaw-config/memory-wiki.js`):
+
+- loads it only while at least one non-archived OpenClaw agent keeps a wiki:
+  `memory-wiki` joins `plugins.allow` and its entry is compiled as
+
+  ```json
+  {
+    "enabled": true,
+    "config": {
+      "vaultMode": "bridge",
+      "vault": { "scope": "agent", "renderMode": "native" },
+      "obsidian": { "enabled": false, "useOfficialCli": false, "openAfterWrites": false },
+      "bridge": {
+        "enabled": true,
+        "readMemoryArtifacts": true,
+        "indexMemoryRoot": true,
+        "indexDailyNotes": true,
+        "indexDreamReports": true,
+        "followMemoryEvents": false
+      },
+      "ingest": { "autoCompile": true, "allowUrlIngest": false },
+      "search": { "backend": "local", "corpus": "wiki" },
+      "context": { "includeCompiledDigestPrompt": false }
+    }
+  }
+  ```
+
+  Without such an agent nothing of the plugin is compiled: `openclaw.json` is the one
+  from before the option. `plugins` stays a locked path.
+
+- grants its five tools (`wiki_status`, `wiki_search`, `wiki_get`, `wiki_apply`,
+  `wiki_lint`) to the agents that keep a wiki alone, in their `tools.allow`; the
+  global `tools.allow` names them only while one does. A start, an agent's live
+  apply (with its readback) and the live MCP apply write the same global list.
+- never for an agent shared with users, a user's own agent or a temporary team
+  member: refused with 409 (`memoryWikiShared`, `memoryWikiUserAgent`,
+  `memoryWikiTaskMember`) on create, duplicate and update, removed from the record
+  when the agent is assigned to users, read as off by the options module and never
+  compiled whatever a record holds.
+
+**Bridge mode.** At each wiki tool call (and each Gateway read of the wiki) the
+plugin imports the agent's own memory notes, which memory-core exports with memory
+search off and provider `none`, as source pages of the agent's vault, and only those
+whose owner is that agent. The contract test showed both with AgentPier's memory
+settings; a synthesis needs a source id to cite, which an isolated vault without
+ingestion could not offer the agent. Memory event logs stay out. The plugin makes no
+model or embedding calls of its own, and URL ingestion is off.
+
+**Vault.** `<OPENCLAW_STATE_DIR>/wiki/<runtimeAgentId>/` (`assistants/state/wiki/`),
+outside the agent's workspace, so `tools.fs.workspaceOnly` keeps the agent's file
+tools out; the agent reaches it only through the wiki tools, which resolve the vault
+of the calling agent. OpenClaw calls this a same-process knowledge boundary, not an
+operating-system boundary. A compiled cache lives in `plugin_blob_entries`, the
+source sync records in `plugin_state_entries` (namespace `source-sync`, each naming
+the absolute path of an imported note; [backups](backups.md#agent-databases)).
+Deleting an agent removes its vault; switching the wiki off, or assigning the agent
+to users, keeps the vault but grants no tool and shows no page. The plugin's sync
+records of a deleted agent stay in OpenClaw's database (paths only, no text) until
+OpenClaw prunes them.
+
+**Prompt.** The plugin's prompt supplement lists only the wiki tools an agent holds:
+an agent without them gets no wiki section, and no bundled wiki skill reaches any
+agent (`agents.defaults.skills` is `[]`). `memory_search` is not offered, so its
+corpus supplement is not reached either.
+
+**Restart.** `plugins.allow` is read only at a start. The supervisor records whether
+the running start loaded the plugin (`memoryWiki`); a save that switches on the first
+wiki while it did not needs a restart, through the confirmation web tools use, and in
+the app through the pending restart with the reason `runtimeOptions`. Further agents
+and switching wikis off apply live; the plugin leaves at the next start.
+
+**Read page.** The owner reads an agent's wiki through `agentFiles.wikiPages` and
+`wikiPage` (`wiki.overview` and `wiki.get`, scope `operator.read`), behind
+`GET /api/assistants/:id/wiki` and `/wiki/page?lookup=`, owner only with the privacy
+check of memory files. The live topic `agent.wiki:<id>` carries the list and is
+pushed when a turn of the agent ends a wiki tool call.
+
+**Downgrade.** An AgentPier from before the wiki reads `runtimeOptions.openclaw` as
+an option of a runtime without options and leaves it out: the agent starts without a
+wiki. Its first start compiles `openclaw.json` without the plugin entry and
+`memory-wiki` in `plugins.allow`, so OpenClaw no longer loads the plugin; the vault
+folder and the plugin's rows stay unused on disk and come back into use after an
+upgrade. A save of the agent's settings in that older release refuses the stored
+option as unknown (`optionsUnknownKey`): switch the wiki off before downgrading.
+
+`tests/integration/assistant-memory-wiki-contract.test.js` checks this on the pinned
+Gateway: the compiled entry accepted, the tools in `tools.effective` and a real turn
+for the agent that keeps a wiki alone, no wiki section in another agent's prompt, the
+import of its memory notes, a page filed with `wiki_apply` and read back through the
+sub-port, no vault for other agents, the state rows and their public backup copy, and
+live switches without a restart.
+
 #### Persistence, compaction and visible failures (AGENTPIER-99)
 
 An agent once said it had saved a plan without ever calling `write`; the conversation

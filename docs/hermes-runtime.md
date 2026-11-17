@@ -1296,6 +1296,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
 | Learns its own skills                                      | `skill_workshop`, mode `auto`       | `skills.creation_nudge_interval`                    | Off / on by default; [Skills](#skills)                       |
 | Mixture of Agents                                          | —                                   | `moa.presets.agentpier`, up to three advisors       | [Mixture of Agents](#mixture-of-agents)                      |
+| Memory wiki                                                | `memory-wiki`, bridge, read page    | —                                                   | Not available (capability `memoryWiki`)                      |
 | MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP, OAuth logins AgentPier holds           | [MCP servers](#mcp-servers)                                  |
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |

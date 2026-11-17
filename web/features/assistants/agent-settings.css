@@ -332,3 +332,12 @@
 .member-group-member .list-row-main {
   padding-left: var(--space-6);
 }
+/* One page of an agent's memory wiki, read only (runtimes/openclaw/WikiPage.jsx). */
+.agent-wiki-page {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.agent-wiki-page > .field-description {
+  margin: 0;
+}
