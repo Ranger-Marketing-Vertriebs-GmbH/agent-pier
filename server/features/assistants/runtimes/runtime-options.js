@@ -1,17 +1,24 @@
+import { isDeepStrictEqual } from "node:util";
 import { assistantProblem } from "../assistant-validation.js";
 import { RUNTIME_IDS, runtimeIdOf } from "./runtime-descriptors.js";
 import { hermesDescriptor } from "./hermes/descriptor.js";
 import { hermesOptions } from "./hermes/hermes-options.js";
+import { openClawDescriptor } from "./openclaw/descriptor.js";
+import { openClawOptions } from "./openclaw/openclaw-options.js";
 
 // Per-agent options of one runtime (docs/adr/0007-runtime-descriptor.md, decision 9):
 // the agent's profile holds `runtimeOptions: { [runtimeId]: object }`, and the
 // runtime's own module says what its object may hold: `validate(value, context)` on
-// a write (a translated refusal, or the stored form; `{}` stores nothing), `read(value)`
-// tolerantly on every read (what a later descriptor no longer names is left out,
-// never an error, so a rollback still starts the agent) and `connections(options)`,
+// a write (a translated refusal, or the stored form; `{}` stores nothing),
+// `read(value, agent)` tolerantly on every read (what a later descriptor no longer
+// names, or what the agent may no longer hold, is left out, never an error, so a
+// rollback still starts the agent) and `connections(options)`,
 // the model connections the options name, which a live apply resolves. A runtime
 // without options of its own takes none: any key is refused, nothing is read.
-const modules = Object.freeze({ [hermesDescriptor.id]: hermesOptions });
+const modules = Object.freeze({
+  [hermesDescriptor.id]: hermesOptions,
+  [openClawDescriptor.id]: openClawOptions,
+});
 const none = Object.freeze({
   validate(value) {
     const key = Object.keys(value)[0];
@@ -62,7 +69,7 @@ export function runtimeOptionsOf(agent) {
   const id = runtimeIdOf(agent);
   const stored = isRecord(agent?.runtimeOptions) ? agent.runtimeOptions[id] : undefined;
   try {
-    return frozen(structuredClone(moduleOf(id).read(stored)));
+    return frozen(structuredClone(moduleOf(id).read(stored, agent)));
   } catch {
     return Object.freeze({});
   }
@@ -71,3 +78,21 @@ export function runtimeOptionsOf(agent) {
 /** The model connections `[{ connectionId, modelId }]` the agent's options name. */
 export const optionConnections = (agent) =>
   moduleOf(runtimeIdOf(agent)).connections(runtimeOptionsOf(agent));
+
+/**
+ * `record` (a stored agent) with its options for its runtime as it may still hold
+ * them: what `read` leaves out for the agent (an option it lost when it came to serve
+ * users) is dropped from the stored record, and an emptied set with it. Another
+ * runtime's stored options stay as they are.
+ */
+export function restrictRuntimeOptions(record) {
+  const id = runtimeIdOf(record);
+  if (!isRecord(record?.runtimeOptions) || !Object.hasOwn(record.runtimeOptions, id))
+    return record;
+  const kept = runtimeOptionsOf(record);
+  if (isDeepStrictEqual(kept, record.runtimeOptions[id])) return record;
+  const { [id]: _dropped, ...others } = record.runtimeOptions;
+  const options = Object.keys(kept).length ? { ...others, [id]: { ...kept } } : others;
+  const { runtimeOptions: _old, ...rest } = record;
+  return Object.keys(options).length ? { ...rest, runtimeOptions: options } : rest;
+}

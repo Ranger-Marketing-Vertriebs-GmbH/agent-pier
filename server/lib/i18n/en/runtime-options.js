@@ -1,5 +1,6 @@
 // Refusals of an agent's runtime options (runtimes/runtime-options.js) and of Hermes's
-// Mixture of Agents (runtimes/hermes/hermes-options.js).
+// Mixture of Agents (runtimes/hermes/hermes-options.js) and of OpenClaw's memory wiki
+// (runtimes/openclaw/openclaw-options.js).
 export const runtimeOptions = Object.freeze({
   optionsInvalid: "These runtime options are not valid.",
   optionsUnknownRuntime: (runtime) =>
@@ -17,4 +18,10 @@ export const runtimeOptions = Object.freeze({
     "This advisor's model connection or model is not available. Check it under Connections › Model access.",
   mixtureModelKind:
     "Mixture of Agents needs the agent's own model on an OpenAI-compatible endpoint or OpenRouter with a bearer key: it acts on the advice.",
+  memoryWikiShared:
+    "An agent shared with users cannot keep a memory wiki. Only your own agents can.",
+  memoryWikiUserAgent:
+    "A user's own agent cannot keep a memory wiki. Only your own agents can.",
+  memoryWikiTaskMember:
+    "A temporary team member cannot keep a memory wiki. Only your own agents can.",
 });
