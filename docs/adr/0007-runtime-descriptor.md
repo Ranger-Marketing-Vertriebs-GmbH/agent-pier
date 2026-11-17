@@ -515,6 +515,14 @@ own agents, never a shared agent, a user's own agent or a task member.
   rows in `plugin_state_entries` name the paths of imported notes and leave the public
   copy (`private-tables.js`), with no change of the archive format.
 
+After review, on the owner's decision of 2026-11-17 (as for learned skills, decision
+8): never for an agent whose own Telegram bot serves other people, on every path
+(refused, dropped when the bot is connected, never compiled, the switch locked with
+the reason). An archived agent has no page; a create asks for the first wiki's
+restart like an update; the page tells a rebuilding wiki from an empty one and from
+one the running Gateway has not loaded; and the settings routes take the page ids
+from the web modules' `agent.page` surfaces (`runtimes/search.js` `runtimePageIds`).
+
 Not decided by the brief and chosen here: bridge mode rather than isolated, because
 the contract test showed it imports the agent's notes with AgentPier's memory
 settings and a synthesis needs a source to cite; memory event logs off; the wiki's

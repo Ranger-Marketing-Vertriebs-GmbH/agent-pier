@@ -740,10 +740,16 @@ A switch with fresh chats also has the new model review the agent's memory; see
   - **Only your own agents:** an agent shared with users, a user's own agent and a
     temporary team member cannot keep one; the switch shows locked with the reason.
     An agent that you assign to users afterwards loses the setting.
+  - **Not with a bot for other people:** an agent whose own Telegram bot serves other
+    people cannot keep one either, because their messages would write lasting pages
+    into its knowledge. The switch shows locked with that reason while the bot is
+    connected, and connecting such a bot switches the wiki off.
   - **Read the wiki** (beside the switch while it is on, and on the agent's
     **Memory** page) opens **Memory wiki**: the pages with their kind and when they
     changed, newest first, and a page read only. The list follows the agent's turns
     while it is open. The wiki keeps at most the newest 2,500 pages in that list.
+    Right after the first switch-on the page says the wiki comes with the pending
+    restart; a new wiki shows "No pages yet" until the agent files its first page.
   - **Restart:** the first agent with a wiki needs a restart of the agent service
     (the plugin loads at a start); AgentPier saves the change and shows **Agent
     service restart pending**. Further agents and switching it off apply while the

@@ -1669,9 +1669,18 @@ for every agent, so AgentPier (`openclaw-config/memory-wiki.js`):
   `memoryWikiTaskMember`) on create, duplicate and update, removed from the record
   when the agent is assigned to users, read as off by the options module and never
   compiled whatever a record holds.
+- never for an agent whose own Telegram bot for other people this Gateway runs (the
+  owner's decision of 2026-11-17, as for learned skills): `wiki_apply` would let
+  strangers' prompts write lasting pages. Turning it on is refused with 409
+  `memoryWikiChannelBot`; connecting such a bot drops the stored value; and every
+  path that compiles the tools or the plugin counts such an agent as without a wiki
+  (a start by the bots it compiles, an agent apply by the bots the running Gateway
+  was started with, a live MCP apply by the senders store). Its settings show the
+  switch locked with that reason (the view's `ownChannelBot`).
 
-**Bridge mode.** At each wiki tool call (and each Gateway read of the wiki) the
-plugin imports the agent's own memory notes, which memory-core exports with memory
+**Bridge mode.** At each wiki tool call, and at each Gateway read of the wiki
+(`wiki.overview` and `wiki.get` start a source sync too, so opening the read page
+imports notes the agent wrote since), the plugin imports the agent's own memory notes, which memory-core exports with memory
 search off and provider `none`, as source pages of the agent's vault, and only those
 whose owner is that agent. The contract test showed both with AgentPier's memory
 settings; a synthesis needs a source id to cite, which an isolated vault without
@@ -1696,16 +1705,24 @@ agent (`agents.defaults.skills` is `[]`). `memory_search` is not offered, so its
 corpus supplement is not reached either.
 
 **Restart.** `plugins.allow` is read only at a start. The supervisor records whether
-the running start loaded the plugin (`memoryWiki`); a save that switches on the first
-wiki while it did not needs a restart, through the confirmation web tools use, and in
-the app through the pending restart with the reason `runtimeOptions`. Further agents
+the running start loaded the plugin (`memoryWiki`); a save or a create (a duplicate
+included) that switches on the first wiki while it did not, or while a start is
+under way, needs a restart: in the app the pending restart with the reason
+`runtimeOptions`, elsewhere the confirmation `runtimeOptionsRestartRequired`
+(`confirmRestart`). Further agents
 and switching wikis off apply live; the plugin leaves at the next start.
 
 **Read page.** The owner reads an agent's wiki through `agentFiles.wikiPages` and
 `wikiPage` (`wiki.overview` and `wiki.get`, scope `operator.read`), behind
 `GET /api/assistants/:id/wiki` and `/wiki/page?lookup=`, owner only with the privacy
 check of memory files. The live topic `agent.wiki:<id>` carries the list and is
-pushed when a turn of the agent ends a wiki tool call.
+pushed when a turn of the agent ends a wiki tool call. The list's `state` is
+`ready`, `empty` (OpenClaw's `compile-required`: nothing compiled yet, until the
+agent's next wiki call) or `building` (OpenClaw's `rebuilding`, with its
+`retryAfterMs`; a fresh vault answers this until its first background sync ends, which it
+starts itself); while the last read said `building` the topic is sampled every 2 s for
+visible tabs. A Gateway without the plugin (`unknown method`, the restart still
+pending) is answered with 503 `memoryWikiNotLoaded`. An archived agent has no page.
 
 **Downgrade.** An AgentPier from before the wiki reads `runtimeOptions.openclaw` as
 an option of a runtime without options and leaves it out: the agent starts without a
