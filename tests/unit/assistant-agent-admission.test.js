@@ -89,6 +89,8 @@ test("writers that waited together run one after the other, never on one base ha
     "agents.list",
     "agents.list",
     ...Array(3).fill(["config.get", "config.patch"]).flat(),
+    // Each write first reads whether the Gateway applied the last (live-patch.js).
+    "config.get",
     "agents.update",
   ]);
   assert.equal(hash, 4);

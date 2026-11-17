@@ -799,14 +799,22 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   handlers) took about 5 s and more than 10 s on efficiency cores. Its setup now
   repeats a timed-out apply, as the app converges one, and a `TIMEOUT` names the
   `method` and `timeoutMs` of the unanswered call. The v2.20.0-rc.3 release run then
-  named it: `agents.create` (30 s) on macos-latest, twice. Reproduced throttled to
-  efficiency cores with six busy loops: the repeated apply sent its `agents.create`
-  (and an unchanged provider `config.patch`) while the Gateway still reloaded the
-  timed-out first patch; the reload failed with "database is locked" and left the
-  plugin lifecycle lease held for 5 minutes, which the create waited on. A write now
-  waits for the late answer of a timed-out one on its connection (`configWrite`,
-  `configSettleMs`), and an unchanged provider is not written again; the same run
-  then passed, its first `agents.create` taking 15 s.
+  named it: `agents.create` (30 s) on macos-latest, twice, and later the attachments
+  contract (the first `agents.create`, then every `config.patch`). Reproduced throttled
+  to efficiency cores with six busy loops (6 of 9 runs): OpenClaw's own
+  `agents.create` commits the new entry and starts the reload that applies it, which
+  takes the plugin lifecycle lease; on a slow disk the new agent's database work
+  holds SQLite's writer for about 5 s, OpenClaw's fixed busy timeout, so the reload
+  fails ("config reload failed: database is locked"), its lease stays held for its
+  5 minutes, and the create and every later configuration write wait on it until
+  they time out. It happens with the Gateway idle before the create (`config.get`:
+  written and applied revision equal, no write in flight), so AgentPier cannot order
+  its way around it. An upstream fix ends it, and probably a Gateway restart (the
+  lease is bound to the process). AgentPier still waits before each write for the late answers of
+  timed-out writes and for the written configuration to be applied, and a connection
+  whose wait ran out once writes without waiting (`configWrite`), so a wedged
+  Gateway fails each write within its own timeout. An unchanged provider is not
+  written again.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

@@ -9,17 +9,41 @@ import { setTimeout as delay } from "node:timers/promises";
 // agents in the background is never written to before it is done
 // (agent-admission.js), and the writes of one client run one after the other
 // (`configWrite`), so writers that waited together do not race one base hash.
+// Per client: the chain of its writes, the late answers still awaited and whether
+// the last wait ran out (`stuck`).
 const writes = new WeakMap();
 
-// A write that timed out still runs in the Gateway: OpenClaw answers config.patch
-// only once it applied the change (its reload) and agents.create or agents.delete
-// once done. A write sent meanwhile races that work; on a slow host an agents.create
-// during the first reload of a fresh Gateway locked the reload out of its database
-// ("config reload failed: database is locked"), which left the plugin lifecycle lease
-// held for its 5 minutes and the create waiting on it (TIMEOUT). So the next write of
-// the client waits for the timed-out call's late answer, at most `configSettleMs`,
-// or until the connection drops.
+// A write still runs in the Gateway after it timed out, and OpenClaw 2026.11.3
+// commits a written configuration in a reload (config.get's `configRevisionHash`,
+// as written, runs ahead of `appliedConfigHash` until it is applied). A write sent
+// meanwhile competes with that reload for the state database; a reload that fails
+// there ("config reload failed: database is locked") keeps the plugin lifecycle lease
+// for its 5 minutes, and every later write waits on it until it times out. (An
+// agents.create on a slow disk sets this off by itself, which only an upstream fix
+// ends.) So before each write the client waits until the Gateway answered its
+// timed-out writes (their late answers) and applied what is written (both hashes
+// equal), at most `configSettleMs` in all. A wait that runs out marks the client
+// `stuck`: later writes no longer wait, so a Gateway that cannot apply anything fails
+// each write within its own timeout instead of after another full wait, until it is
+// seen applied again.
 export const configSettleMs = 60000;
+const firstPollMs = 100;
+const lastPollMs = 1000;
+
+function stateOf(client) {
+  let state = writes.get(client);
+  if (!state) {
+    state = { chain: Promise.resolve(), unanswered: new Set(), stuck: false };
+    if (client) writes.set(client, state);
+  }
+  return state;
+}
+
+/** Whether a config.get answer names a written configuration not yet applied. */
+export const reloadPending = (answer) =>
+  typeof answer?.configRevisionHash === "string" &&
+  typeof answer?.appliedConfigHash === "string" &&
+  answer.configRevisionHash !== answer.appliedConfigHash;
 
 function lateAnswer(client, settleMs) {
   let settle;
@@ -36,13 +60,59 @@ function lateAnswer(client, settleMs) {
 }
 
 /**
- * Runs `write(call)` after every earlier configuration write of `client` and the
- * late answers of those that timed out. `call(method, params, options)` is
- * `client.call` for the writes: one that times out holds the next write back until
- * the Gateway answers it (configSettleMs).
+ * Waits until the Gateway behind `client` answered its timed-out writes and applied
+ * its written configuration (see above). Resolves to the last config.get answer
+ * (null when none was read), which a patch may build on.
  */
-export function configWrite(client, write, { settleMs = configSettleMs } = {}) {
-  const unanswered = [];
+async function quiet(client, state, { settleMs, now, sleep, warn }) {
+  const deadline = now() + (state.stuck ? 0 : settleMs);
+  const runOut = () => {
+    if (!state.stuck)
+      warn(
+        `Assistant Gateway did not apply its configuration within ${settleMs} ms; writing.`,
+      );
+    state.stuck = true;
+  };
+  if (state.unanswered.size) {
+    let timer;
+    const answered = await Promise.race([
+      Promise.all([...state.unanswered]).then(() => true),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(false), Math.max(0, deadline - now()));
+        timer.unref?.();
+      }),
+    ]);
+    clearTimeout(timer);
+    if (!answered) runOut();
+  }
+  for (let pause = firstPollMs; ; pause = Math.min(lastPollMs, pause * 2)) {
+    const answer = await client.call("config.get", {}).catch(() => null);
+    if (!reloadPending(answer)) {
+      // Applied (or nothing to tell): a stuck Gateway has recovered.
+      if (answer) state.stuck = false;
+      return answer;
+    }
+    if (now() >= deadline) {
+      runOut();
+      return answer;
+    }
+    await sleep(Math.min(pause, Math.max(0, deadline - now())));
+  }
+}
+
+/**
+ * Runs `write(call, current)` after every earlier configuration write of `client`,
+ * once the Gateway answered the timed-out ones and applied what is written
+ * (`quiet`). `current` is the config.get answer that wait read last (or null), so a
+ * patch need not read it again. `call(method, params, options)` is `client.call` for
+ * the writes: one that times out is awaited by the next write.
+ */
+export function configWrite(
+  client,
+  write,
+  { settleMs = configSettleMs, now = Date.now, sleep = delay, warn = console.warn } = {},
+) {
+  const state = stateOf(client);
   const call = (method, params, options = {}) => {
     const late = lateAnswer(client, settleMs);
     return client
@@ -53,21 +123,22 @@ export function configWrite(client, write, { settleMs = configSettleMs } = {}) {
           return answer;
         },
         (error) => {
-          if (error?.code === "TIMEOUT") unanswered.push(late.settled);
-          else late.settle();
+          if (error?.code === "TIMEOUT") {
+            state.unanswered.add(late.settled);
+            late.settled.then(() => state.unanswered.delete(late.settled));
+          } else late.settle();
           throw error;
         },
       );
   };
-  const run = (writes.get(client) || Promise.resolve()).then(async () => {
+  const run = state.chain.then(async () => {
     await settledAdmission(client);
-    return write(call);
+    const current = client
+      ? await quiet(client, state, { settleMs, now, sleep, warn })
+      : null;
+    return write(call, current);
   });
-  if (client)
-    writes.set(
-      client,
-      run.catch(() => {}).then(() => Promise.all(unanswered)),
-    );
+  state.chain = run.catch(() => {});
   return run;
 }
 
@@ -91,11 +162,11 @@ export function patchConfig(
   build,
   { maxWaitMs = configRetryLimitMs, wait = delay, now = Date.now } = {},
 ) {
-  return configWrite(client, async (call) => {
+  return configWrite(client, async (call, read) => {
     const deadline = now() + maxWaitMs;
-    for (;;) {
+    for (let known = read; ; known = null) {
       try {
-        return await patchOnce(client, build, call);
+        return await patchOnce(client, build, call, known);
       } catch (error) {
         if (!refusedForNow(error)) throw error;
         // At least a moment, so a zero answer at a window's edge is no busy loop.
@@ -111,8 +182,9 @@ export function patchConfig(
   });
 }
 
-async function patchOnce(client, build, write) {
-  const current = await client.call("config.get", {});
+// `known`: a config.get answer just read (configWrite), else it is read here.
+async function patchOnce(client, build, write, known) {
+  const current = known || (await client.call("config.get", {}));
   const change = build(current.config || {}, current);
   if (!change) return null;
   try {

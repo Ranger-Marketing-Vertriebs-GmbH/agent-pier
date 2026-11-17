@@ -29,11 +29,16 @@ function recorder(answer = () => ({})) {
     },
   });
 }
-// The calls besides the admission's roster reads, a write's late answer handler
-// (live-patch.js configWrite) as "onLate".
+// The calls besides the admission's roster reads and the reads of whether the
+// Gateway applied the last write before an agent write, a write's late answer
+// handler (live-patch.js configWrite) as "onLate".
 const writes = (client) =>
   client.calls
-    .filter(([method]) => method !== "agents.list")
+    .filter(([method], i, all) => {
+      if (method === "agents.list") return false;
+      const next = all[i + 1]?.[0];
+      return !(method === "config.get" && /^agents\.(create|update|delete)$/.test(next));
+    })
     .map(([method, params, options]) =>
       options?.onLate
         ? [method, params, { ...options, onLate: typeof options.onLate }]
@@ -92,7 +97,8 @@ test("agent writes and config patches of one connection wait for admission and e
   assert.deepEqual(order, []);
   release();
   await Promise.all([update, patch]);
-  assert.deepEqual(order, ["agents.update", "config.get", "config.patch"]);
+  // Each write reads the applied state first; the patch builds on that read.
+  assert.deepEqual(order, ["config.get", "agents.update", "config.get", "config.patch"]);
   // Settled once per connection; a reconnect asks again.
   await runtime.agents.settled();
   assert.equal(rosters, 1);

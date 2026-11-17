@@ -618,15 +618,26 @@ and on 2026.11.3 the journaled delete took more than 10 s on slow macOS runners.
 delete that timed out stayed pending with `TIMEOUT` although the Gateway went on to
 finish it. A `TIMEOUT` error carries the unanswered call's `method` and `timeoutMs`.
 
-A write that timed out still runs in the Gateway, so the next write of the same
-connection waits for its late answer (`configWrite`, at most `configSettleMs`, 60 s,
-or until the connection drops). On 2026.11.3 an `agents.create` sent while the
-Gateway still reloaded a timed-out `config.patch` locked that reload out of the state
-database ("config reload failed: database is locked"); the failed reload left the
-plugin lifecycle lease held for its 5 minutes, and the create waited on it until its
-own 30 s ran out. OpenClaw reloads after every `config.patch`, an unchanged one too,
-so the provider of an agent's model connection is written only when the configuration
-as written (`config.get`'s `sourceConfig`) does not already hold it.
+A write still runs in the Gateway after it timed out, and 2026.11.3 commits a written
+configuration in a reload that `config.get` reports (`configRevisionHash`, as written,
+runs ahead of `appliedConfigHash` until it is applied). On a slow disk that reload
+can fail while the Gateway creates an agent's database ("config reload failed:
+database is locked", OpenClaw's SQLite busy timeout is 5 s); the failed reload keeps
+the plugin lifecycle lease for its 5 minutes, and `agents.create` and every later
+write wait on it until they time out. `agents.create` sets this off by itself, with
+nothing else in flight, so only an upstream fix ends it (see
+`assistant-release-qualification.md`). AgentPier keeps its own writes apart from such
+work: before each write of a connection (`configWrite`) it waits for the late
+answers of its timed-out writes and until
+`config.get` reports the written configuration applied (`configRevisionHash` equals
+`appliedConfigHash`; a runtime without them is not waited for), polled from 100 ms
+up to once a second, at most `configSettleMs` (60 s) in all. A wait that runs out is
+logged once and marks the connection stuck: later writes go out at once, so a Gateway
+that cannot apply anything fails each write within its own timeout instead of after
+another full wait, until a read shows it applied again. A patch builds on the
+`config.get` answer that wait read. OpenClaw reloads after every `config.patch`, an
+unchanged one too, so the provider of an agent's model connection is written only when
+the configuration as written (`config.get`'s `sourceConfig`) does not already hold it.
 
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
