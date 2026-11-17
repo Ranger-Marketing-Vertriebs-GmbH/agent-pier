@@ -110,6 +110,12 @@ export default function Message({
       </details>
     );
   }
+  if (message.notice === "usage-limit")
+    return (
+      <div className="chat-limit-warnings" role="status" data-message-id={message.id}>
+        <p>{message.text}</p>
+      </div>
+    );
   return (
     <article
       className={`chat-message ${message.role}${streaming ? " streaming" : ""}`}

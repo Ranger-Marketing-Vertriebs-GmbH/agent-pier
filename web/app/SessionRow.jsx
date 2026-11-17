@@ -46,7 +46,7 @@ export default function SessionRow({
           label={shell ? undefined : names[session.tool]}
         />
         <StatusDot
-          tone={activityTone(activity.state)}
+          tone={activity.limited ? "warning" : activityTone(activity.state)}
           pulse={activity.state === "working"}
           className={`activity-dot ${activity.state}`}
         />

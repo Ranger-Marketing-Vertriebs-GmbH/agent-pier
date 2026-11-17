@@ -22,6 +22,13 @@ export function sessionActivity(session) {
   const state = Object.hasOwn(labels, session.activity?.state)
     ? session.activity.state
     : "unknown";
+  // A CLI idle at a usage limit is not ready for work.
+  if (
+    state === "idle" &&
+    session.activity?.limit &&
+    typeof session.activity.limit === "object"
+  )
+    return { state, label: commonCopy.limitReached, limited: true };
   return {
     state,
     label: labels[state],

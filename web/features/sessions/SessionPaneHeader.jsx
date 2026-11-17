@@ -42,7 +42,7 @@ export default function SessionPaneHeader({
 }) {
   const menu = useRowMenu();
   const [artifactsOpen, setArtifactsOpen] = useState(false);
-  const { state: activity, label: activityLabel } = sessionActivity(session);
+  const { state: activity, label: activityLabel, limited } = sessionActivity(session);
   const items = [
     ...pane.menuItems,
     ...(pane.menuItems.length ? [{ id: "pane-separator", kind: "separator" }] : []),
@@ -83,7 +83,7 @@ export default function SessionPaneHeader({
           <div className="session-pane-name">
             <h2>{session.name}</h2>
             <StatusDot
-              tone={activityTone(activity)}
+              tone={limited ? "warning" : activityTone(activity)}
               pulse={activity === "working"}
               label={activityLabel}
             />

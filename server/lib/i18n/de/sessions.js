@@ -45,6 +45,7 @@ export const sessions = Object.freeze({
     "Eine zusätzliche temporäre OpenCode-TUI-Konfiguration ist bereits gesetzt.",
   activityWorking: "Arbeitet",
   activityReady: "Bereit",
+  activityLimited: "Limit erreicht",
   activityWaiting: "Wartet auf Eingabe",
   activityUnknown: "Aktivität unbekannt",
   activityStopped: "Beendet",
