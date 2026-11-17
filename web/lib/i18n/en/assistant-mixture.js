@@ -5,7 +5,7 @@ export const assistantMixtureCopy = {
   subtitle: "Advisor models",
   hint: "Hermes asks up to three advisor models once per message and gives their answers to the agent's own model, which then acts alone.",
   description:
-    "Before each of your messages, every advisor receives the chat's text (not the agent's tools or instructions) and answers once. Their providers therefore receive your conversation, and every advisor adds one model call per message. The agent's own model still acts and pays for the run. Routines of this agent use the advisors too.",
+    "Before each of your messages, every advisor receives the chat's text (not the agent's tools or instructions) and answers once. Their providers therefore receive your conversation, and every advisor adds one model call per message. The agent's own model still acts and pays for the run. Routines of this agent use the advisors too. If an advisor's provider cannot serve a request (no answer within two minutes, a rate limit, used-up credit, a connection error), Hermes answers with the agent's own model instead.",
   off: "Off: the agent's own model works alone.",
   advisor: (number) => `Advisor ${number}`,
   chooseConnection: "Choose a connection",

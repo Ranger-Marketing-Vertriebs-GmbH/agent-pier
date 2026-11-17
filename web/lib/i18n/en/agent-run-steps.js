@@ -35,6 +35,17 @@ export const agentRunStepsCopy = {
   tool: (name) => `Tool ${name}`,
   // An advisor model's answer of a Mixture of Agents turn.
   advisor: (number) => `Advisor ${number}`,
+  // Hermes answers a request the advisor's provider could not serve with the agent's
+  // own model, under the advisor's name; AgentPier cannot tell which one it was.
+  advisorFallback:
+    "If this advisor's provider could not serve the request, Hermes answered with the agent's own model instead.",
+  advisorFailure: {
+    http: (status) => `The advisor's provider answered with HTTP status ${status}.`,
+    timeout: "The advisor did not answer in time.",
+    connection: "The advisor's provider could not be reached.",
+    interrupted: "Skipped: the turn was interrupted.",
+    error: "The advisor could not answer.",
+  },
   state: {
     running: "Running",
     done: "Done",

@@ -27,6 +27,13 @@ function phaseText(view) {
  * One advisor model's answer of a Mixture of Agents turn: its number and model, the
  * answer behind a disclosure (server run-steps.js keeps it, capped).
  */
+// What failed, in the owner's words: never Hermes's own note (server run-steps.js).
+function failureText(failure) {
+  const status = /^http-(\d{3})$/.exec(failure || "")?.[1];
+  if (status) return copy.advisorFailure.http(status);
+  return copy.advisorFailure[failure] || copy.advisorFailure.error;
+}
+
 function AdvisorStep({ step }) {
   return (
     <li className="assistant-run-step assistant-run-advisor" data-state={step.state}>
@@ -38,7 +45,12 @@ function AdvisorStep({ step }) {
             <span className="assistant-run-step-label"> · {step.model}</span>
           )}
         </summary>
-        <p className="assistant-run-advisor-output">{step.output}</p>
+        {step.state === "failed" ? (
+          <p className="assistant-run-advisor-output">{failureText(step.failure)}</p>
+        ) : (
+          <p className="assistant-run-advisor-output">{step.output}</p>
+        )}
+        <p className="assistant-run-advisor-note">{copy.advisorFallback}</p>
       </details>
       <span className="assistant-run-step-state">{copy.state[step.state]}</span>
     </li>

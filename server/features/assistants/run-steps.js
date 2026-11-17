@@ -14,6 +14,8 @@ export const maxSteps = 24;
 // Runs whose end never arrives are forgotten oldest first.
 const maxRuns = 32;
 const maxLabel = 80;
+// What a failed advisor's step may name (runtimes/hermes/hermes-run-state.js).
+const failures = /^(?:http-[1-5]\d\d|timeout|connection|interrupted|error)$/;
 // An advisor's answer is kept up to this many characters.
 const maxOutput = 8000;
 const control = /[\u0000-\u0008\u000b-\u001f\u007f]/g;
@@ -117,16 +119,22 @@ export class RunSteps {
         if (typeof step.id !== "string" || !Number.isSafeInteger(step.advisor)) break;
         const id = step.id.slice(0, 128);
         if (run.steps.some((s) => s.id === id)) break;
+        const failed = step.failed === true;
         this.add(run, {
           id,
           kind: "advisor",
           advisor: step.advisor,
           model: typeof step.model === "string" ? step.model.slice(0, 128) : "",
+          // A failed advisor shows no text, only what failed (an HTTP status or a
+          // short kind): Hermes's note can hold URLs, error bodies and key fragments.
           output:
-            typeof step.text === "string"
+            !failed && typeof step.text === "string"
               ? capped(step.text.replace(control, ""), maxOutput)
               : "",
-          state: step.failed === true ? "failed" : "done",
+          ...(failed && {
+            failure: failures.test(step.failure) ? step.failure : "error",
+          }),
+          state: failed ? "failed" : "done",
         });
         break;
       }

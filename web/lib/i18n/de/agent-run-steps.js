@@ -35,6 +35,18 @@ export const agentRunStepsCopy = {
   tool: (name) => `Tool ${name}`,
   // Die Antwort eines Beratermodells in einem Mixture-of-Agents-Durchlauf.
   advisor: (number) => `Berater ${number}`,
+  // Hermes beantwortet eine Anfrage, die der Anbieter des Beraters nicht bedienen
+  // konnte, mit dem eigenen Modell des Agenten unter dem Namen des Beraters.
+  advisorFallback:
+    "Konnte der Anbieter dieses Beraters die Anfrage nicht bedienen, hat Hermes stattdessen mit dem eigenen Modell des Agenten geantwortet.",
+  advisorFailure: {
+    http: (status) =>
+      `Der Anbieter des Beraters hat mit HTTP-Status ${status} geantwortet.`,
+    timeout: "Der Berater hat nicht rechtzeitig geantwortet.",
+    connection: "Der Anbieter des Beraters war nicht erreichbar.",
+    interrupted: "Übersprungen: Der Durchlauf wurde unterbrochen.",
+    error: "Der Berater konnte nicht antworten.",
+  },
   state: {
     running: "Läuft",
     done: "Erledigt",
