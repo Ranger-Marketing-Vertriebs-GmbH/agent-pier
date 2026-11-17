@@ -175,6 +175,10 @@ every settings API. What the owner can still give an agent for users:
   agents included (**Agent › Capabilities › Skills**). Users never switch skills, at
   any level, and cannot reach the catalog. A skill never brings back a tool the lock
   removed: on an agent for users it cannot run programs even if the skill names them.
+- On a Hermes agent, **Mixture of Agents** ([Capabilities](agents.md#capabilities)):
+  advisor models that receive the chat's text, the user's included. Users never see
+  or change the setting; each advisor's answer appears in the chat as a step of the
+  turn.
 
 Details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 

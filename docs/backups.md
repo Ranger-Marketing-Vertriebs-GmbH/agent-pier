@@ -216,7 +216,7 @@ for agents without the `ap-<id>` form, a work folder of its own (`workspaces/`).
   `bridge.json`), its routines (`cron/jobs.json`) and their delivery record
   (`agentpier-routine-runs.json`).
 - Credentials, only sealed with **Include encrypted credentials** and otherwise left
-  out like OpenClaw's: each home's `.env` (model, MCP, bot and speech keys) and
+  out like OpenClaw's: each home's `.env` (model and advisor-model, MCP, bot and speech keys) and
   `auth.json`. Without them a restored agent gets its keys back with its next
   configuration apply; until then the restore reports the agents as needing login.
 - Private content, sealed with **Include history** and a passphrase: everything

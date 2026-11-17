@@ -137,6 +137,76 @@ input, a ChatGPT login) sets `agent.image_input_mode: native` and
 lookup does not know a custom endpoint's models and may miss an OpenRouter model
 (`agent/image_routing.py`). Any other model gets no mode: Hermes's own lookup decides.
 
+### Mixture of Agents
+
+An agent's **Mixture of Agents** ([agents](agents.md#capabilities)) is stored as its
+Hermes options, `runtimeOptions.hermes.mixture.advisors` (one to three `{
+connectionId, modelId }`, [ADR 0007](adr/0007-runtime-descriptor.md#9-per-agent-runtime-options)).
+`hermes-config/mixture.js` compiles it, verified against Hermes v0.22.5:
+
+| Key                                     | Value                                                                                                                                                                 |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model.provider`, `model.default`       | `moa`, `agentpier` (every other key of the agent's model section stays)                                                                                               |
+| `providers.agentpier-model`             | the agent's own model: `base_url`, `api_mode: chat_completions`, `key_env` as its model's                                                                             |
+| `providers.agentpier-advisor-<n>`       | advisor `n`: `base_url`, `api_mode: chat_completions`, `key_env: AUXILIARY_AGENTPIER_ADVISOR_<N>_API_KEY`                                                             |
+| `moa.presets.agentpier`                 | `reference_models` (`custom:agentpier-advisor-<n>`), `aggregator` (`custom:agentpier-model`), `fanout: user_turn`, `degraded_reference_policy: loud`, `enabled: true` |
+| `moa.default_preset`, `moa.save_traces` | `agentpier`, `false`                                                                                                                                                  |
+
+`n` is the advisor's position in the stored list, so an advisor left out keeps the
+others' numbers. Each key goes into the home's `.env` like the agent's own key; Hermes
+strips every `AUXILIARY_*_API_KEY` from the agent's commands, and backups seal `.env`
+([backups](backups.md#hermes-agents)). Every slot is a named provider
+(`hermes_cli/runtime_provider_custom.py` `_match_new_style_provider`): `provider:
+openrouter` would read the agent's own `OPENROUTER_API_KEY` or Hermes's credential pool,
+and a bare `custom` slot beside `model.provider: moa` resolves to the first entry of
+`providers:`, so an OpenRouter advisor gets a named entry at OpenRouter's URL and the
+aggregator one of its own. A slot's call carries only the entry's URL, key and API mode
+(`agent/moa_loop.py` `_slot_runtime`), no headers, while `model.extra_headers` would go
+with every auxiliary call: neither the agent's model nor an advisor may take its key in
+a header of its own (`keyHeader` in the model list).
+
+**No silent fallback.** Hermes repairs a preset when it reads it: a slot without
+provider or model is dropped and an empty list is filled with Hermes's built-in
+`openai-codex` and OpenRouter models (`hermes_cli/moa_config.py` `_normalize_preset`),
+and a provider it cannot resolve is called bare. The owner's conversation must never
+reach a provider the owner did not choose, so `checkedPreset` refuses any slot but
+AgentPier's named providers with a model. An advisor whose connection cannot be one
+(deleted, without its key, a ChatGPT login) is left out and the settings say so; with
+none left, or an agent model Hermes cannot reach as a named provider (a ChatGPT login,
+a key header), no preset is written and the home is exactly an agent's without
+advisors. Removing the advisors removes the preset, AgentPier's provider entries and
+their keys. `hermes-mixture-contract.test.js` reads the compiled home with Hermes's own
+loader and normaliser.
+
+What the advisors see (`agent/moa_loop.py` `_reference_messages`): a fixed advisor
+prompt and the chat's user and assistant text, tool calls inline as text and tool
+results as previews of up to 4,000 characters, images as a placeholder; no Hermes
+system prompt, no tool schemas. With `fanout: user_turn` they run once per user turn;
+the aggregator, the agent's own model, runs every tool iteration and pays for almost all
+of the run. Auxiliary tasks (titles, compression) run on the aggregator.
+
+- **Failures:** an advisor that fails or times out becomes a `[failed: …]` note, and
+  with `loud` the aggregator is told; the turn goes on. Timeout: Hermes's
+  `auxiliary.moa_reference.timeout` (900 s). An advisor Hermes cannot connect to at all
+  is retried once on the aggregator, the agent's own model (`agent/auxiliary_client.py`
+  `_try_main_agent_model_fallback`): its step then shows that model's answer under the
+  advisor's name. A refused key (401) is not retried.
+- **Steps in the chat:** Hermes sends each advisor's answer as `moa.reference`
+  (`tui_gateway/tool_progress.py`, with `display.show_reasoning` at its default). The
+  events adapter (`hermes-run-state.js`) makes it an `advisor` step (its number from
+  the provider name, its model, its text, failed for a `[failed: …]` note); the run's
+  live steps (`run-steps.js`) keep it with its answer, capped at 8,000 characters, and
+  the chat shows it expandable. Like tool steps they live while the turn runs (a
+  reload during the turn shows them again) and are not stored: Hermes keeps no advisor
+  output in its transcript, and traces stay off (`save_traces: false`).
+- **Routines and subagents:** gateway sessions and cron runs use `model.*`, so the
+  agent's routines run with the advisors; `delegate_task` subagents appear to take the
+  parent's provider (inferred, not tested).
+- **Apply:** a save is a `config.apply`; the changed `config.yaml` restarts the agent's
+  process set, as a model change does. A live apply resolves the advisors' connections
+  like the agent's own model (`option-connections.js`), and a change of a connection an
+  agent uses as an advisor counts as a change of a connection the agent uses.
+
 ### Practical defaults
 
 AgentPier changes only what touches credentials, sends data off the host without the
@@ -1209,6 +1279,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Dreaming                                                   | memory-core                         | AgentPier's nightly one-shot dream, pins kept       | [Dreaming](#memory-and-instructions); memory stays on        |
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
 | Learns its own skills                                      | `skill_workshop`, mode `auto`       | `skills.creation_nudge_interval`                    | Off / on by default; [Skills](#skills)                       |
+| Mixture of Agents                                          | —                                   | `moa.presets.agentpier`, up to three advisors       | [Mixture of Agents](#mixture-of-agents)                      |
 | MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP, OAuth logins AgentPier holds           | [MCP servers](#mcp-servers)                                  |
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
@@ -1260,6 +1331,11 @@ file field with a staged file and refuses an unstaged one;
 `hermes-skill-learning-contract.test.js` compiles a home with **Learns its own skills**
 off, unset and on, and reads the review interval through Hermes's own agent setup (0,
 then Hermes's 10);
+`hermes-mixture-contract.test.js` reads a home with two advisors through Hermes's own
+config loader and MoA normaliser (exactly AgentPier's slots, each resolving to its own
+endpoint and key, every key name one Hermes hides), shows what Hermes would make of a
+preset AgentPier never writes, and runs a turn with three advisors (one answering, one
+refused, one unreachable) that brings one advisor step each to the run events;
 `hermes-user-agent-lock-contract.test.js` forces a restricted user's agent to call each
 locked tool and finds each refused; `hermes-user-skill-reads-contract.test.js` lets such
 an agent read its switched-on catalog skill and refuses every other catalog skill;

@@ -697,6 +697,30 @@ A switch with fresh chats also has the new model review the agent's memory; see
     processes restart with it. It is refused while the agent works, like other
     capability changes. A duplicate keeps the choice. Search for it with ⌘K ("Learns
     its own skills", "self-learning", "Skill workshop").
+- **Mixture of Agents** (Hermes agents only, last group of the tab): up to three
+  **advisor models**. Before each of your messages Hermes asks every advisor once and
+  hands their answers to the agent's own model, which then acts alone
+  ([how it maps](hermes-runtime.md#mixture-of-agents)). Pick each advisor's model
+  connection and model; **Add an advisor model** and **Remove advisor N** change the
+  list, and no advisor is off.
+  - **Which connections:** an OpenAI-compatible endpoint or OpenRouter. ChatGPT logins,
+    other protocols and endpoints that take their key in a header of their own are
+    listed disabled with the reason. The agent's own model must be such a connection
+    too, or the group says so.
+  - **Privacy:** every advisor receives the chat's text (not the agent's tools or
+    instructions), so its provider receives your conversation.
+  - **Cost:** every advisor adds one model call per message; the agent's own model
+    still runs the turn and pays for it.
+  - **Routines** of the agent use the advisors too.
+  - An advisor whose connection is deleted or loses its key is left out (the group
+    says so) until it works again; with none left the agent runs on its own model.
+  - Each advisor's answer appears in the chat as an expandable step of the running
+    turn, like tool steps, a failed one marked failed. Steps are shown while the turn
+    runs, not stored afterwards.
+  - Saving restarts the agent's own processes, as a model change does; it is refused
+    while the agent works. A duplicate keeps the advisors; a task member starts
+    without. Users never see or change it. Search for it with ⌘K ("Mixture of
+    Agents", "MoA", "advisor models", "Beratermodelle").
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent
