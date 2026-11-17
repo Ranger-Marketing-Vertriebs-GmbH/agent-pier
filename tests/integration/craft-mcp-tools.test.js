@@ -91,7 +91,12 @@ test("a session starts a rebuild, repeats it by requestId and reads its status",
       (entry) => entry.name === "craft_rebuild_start",
     );
     assert.equal(tool.annotations.idempotentHint, true);
-    const args = { request: "Clone it", target: "https://example.com", requestId: "a" };
+    const args = {
+      name: "app",
+      request: "Clone it",
+      target: "https://example.com",
+      requestId: "a",
+    };
     const first = data(
       await client.callTool({ name: "craft_rebuild_start", arguments: args }),
     );
@@ -132,11 +137,19 @@ test("owner-only fields are refused and errors carry stable codes", async (t) =>
       assert.match(result.content[0].text, /invalid|unrecognized|required/i);
       assert.equal(calls.length, 0);
     };
-    await invalid({ request: "x", requestId: "a", autoMode: true, accountId: "z" });
+    await invalid({
+      name: "app",
+      request: "x",
+      requestId: "a",
+      autoMode: true,
+      accountId: "z",
+    });
     await invalid({ request: "x" });
+    // A session names the rebuild's project itself.
+    await invalid({ request: "x", requestId: "a" });
     const refused = await client.callTool({
       name: "craft_rebuild_start",
-      arguments: { request: "refuse", requestId: "b" },
+      arguments: { name: "app", request: "refuse", requestId: "b" },
     });
     assert.equal(data(refused).code, "CRAFT_REBUILD_REFUSED");
     assert.equal(data(refused).status, 409);
@@ -156,7 +169,7 @@ test("a session reads why its pictures were refused by their stable codes", asyn
       data(
         await client.callTool({
           name: "craft_rebuild_start",
-          arguments: { request: "Like this", pictures, requestId },
+          arguments: { name: "app", request: "Like this", pictures, requestId },
         }),
       );
     const outside = await start(["/etc/hosts"], "a");
@@ -177,7 +190,7 @@ test("a revoked grant refuses the next call", async (t) => {
   await assert.rejects(
     f.application.mcpTools.call(
       "craft_rebuild_start",
-      { request: "x", requestId: "a" },
+      { name: "app", request: "x", requestId: "a" },
       grant,
       undefined,
       context,
@@ -197,7 +210,7 @@ test("a revoked grant refuses the next call", async (t) => {
 
 test("a session's requestId is scoped to that session", async (t) => {
   const { f, calls } = await craftApp(t);
-  const args = { request: "Clone it", requestId: "rebuild-1" };
+  const args = { name: "app", request: "Clone it", requestId: "rebuild-1" };
   const start = async (issued) => {
     const client = await connect(t, f, issued);
     try {
@@ -232,7 +245,7 @@ test("a session's start holds no mutation lease while the supervisor waits", asy
   const context = { sessionId: issued.session.id, revalidate() {} };
   const call = f.application.mcpTools.call(
     "craft_rebuild_start",
-    { request: "Slow", requestId: "slow" },
+    { name: "app", request: "Slow", requestId: "slow" },
     { allResources: true, scopes: [] },
     undefined,
     context,

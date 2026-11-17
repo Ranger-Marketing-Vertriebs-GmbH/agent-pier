@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  createProjectFolder,
-  projectFolderName,
-} from "../../server/features/projects/project-folder.js";
+import { createProjectFolder } from "../../server/features/projects/project-folder.js";
 
 function fixture(t, { defaultCwd } = {}) {
   const parent = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "pfolder-")));
@@ -103,16 +100,4 @@ test("rollback removes only the folder it made", async (t) => {
     { status: 409 },
   );
   assert.equal(fs.existsSync(path.join(f.parent, "Broken")), false);
-});
-
-test("projectFolderName turns a request into a folder name", () => {
-  assert.equal(
-    projectFolderName("Rebuild the  Todo app\nplease"),
-    "Rebuild the Todo app please",
-  );
-  assert.equal(projectFolderName("a/b\\c"), "a b c");
-  assert.equal(projectFolderName("x".repeat(100)).length, 60);
-  assert.equal(projectFolderName("  ..  "), "Rebuild");
-  assert.equal(projectFolderName(""), "Rebuild");
-  assert.equal(projectFolderName(undefined), "Rebuild");
 });

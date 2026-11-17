@@ -3,32 +3,18 @@ import { constants } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { safeGitArgs } from "../../lib/git-command.js";
-import { createDirectory, validDirectoryName } from "../../lib/directories.js";
+import { createDirectory } from "../../lib/directories.js";
 import { projectScope } from "../memory/project-scope.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 
 const run = promisify(execFile);
 const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
 const unavailable = () => assistantProblem("projectFolderUnavailable", 409);
-const NAME_LIMIT = 60;
 const SUFFIX_LIMIT = 200;
 
 /** `git init` in a new project folder, with the owner's normal Git environment. */
 export async function initRepository(cwd) {
   await run("git", safeGitArgs(["init", "--quiet"]), { cwd, timeout: 10000 });
-}
-
-/** A valid folder name from free text: one line, at most 60 characters, else `Rebuild`. */
-export function projectFolderName(text) {
-  const clean = String(text ?? "")
-    .replace(/[/\\\x00-\x1f\x7f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, NAME_LIMIT)
-    .trim()
-    .replace(/^\.+/, "")
-    .trim();
-  return validDirectoryName(clean) ? clean : "Rebuild";
 }
 
 /** Throws unless `target` is still the directory `made` (same device and inode). */

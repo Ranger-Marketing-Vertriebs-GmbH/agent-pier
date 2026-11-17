@@ -129,7 +129,7 @@ test("craft_rebuild_start passes a session's own pictures as staged copies", asy
   const result = await callCraftTool(
     services,
     "craft_rebuild_start",
-    { request: "Like this", pictures: ["shots/home.png"], requestId: "a" },
+    { name: "app", request: "Like this", pictures: ["shots/home.png"], requestId: "a" },
     context,
   );
   assert.equal(result.id, "r1");
@@ -142,7 +142,12 @@ test("craft_rebuild_start passes a session's own pictures as staged copies", asy
     callCraftTool(
       services,
       "craft_rebuild_start",
-      { request: "X", pictures: [path.join(f.outside, "secret.png")], requestId: "b" },
+      {
+        name: "app",
+        request: "X",
+        pictures: [path.join(f.outside, "secret.png")],
+        requestId: "b",
+      },
       context,
     ),
   );
@@ -152,7 +157,12 @@ test("craft_rebuild_start passes a session's own pictures as staged copies", asy
     callCraftTool(
       services,
       "craft_rebuild_start",
-      { request: "X", pictures: Array(11).fill("shots/home.png"), requestId: "c" },
+      {
+        name: "app",
+        request: "X",
+        pictures: Array(11).fill("shots/home.png"),
+        requestId: "c",
+      },
       context,
     ),
   );
@@ -183,6 +193,7 @@ test("agentpier_craft takes pictures from the agent's workspace", async (t) => {
   const f = await agentFixture(t);
   const started = await f.call({
     action: "start",
+    name: "app",
     request: "A shop like these screenshots",
     pictures: [{ path: "shots/home.png" }],
   });
@@ -203,7 +214,12 @@ test("agentpier_craft refuses pictures the agent may not read", async (t) => {
   fs.writeFileSync(path.join(f.workspace, "notes.txt"), "text");
   fs.mkdirSync(path.join(f.workspace, ".agentpier"));
   fs.writeFileSync(path.join(f.workspace, ".agentpier", "a.png"), png());
-  const start = (picture) => ({ action: "start", request: "X", pictures: [picture] });
+  const start = (picture) => ({
+    action: "start",
+    name: "app",
+    request: "X",
+    pictures: [picture],
+  });
   const cases = [
     [{ path: path.join(outside, "secret.png") }, "CRAFT_PICTURE_REFUSED"],
     [{ path: "../../secret.png" }, "CRAFT_PICTURE_REFUSED"],
@@ -261,6 +277,7 @@ test("a shared agent reads only this chat's uploads, and agentpier_craft refuses
   assert.equal(
     await f.code({
       action: "start",
+      name: "app",
       request: "X",
       pictures: [{ path: "attachments/theirs.png" }],
     }),

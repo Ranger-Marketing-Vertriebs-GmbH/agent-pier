@@ -24,8 +24,9 @@ test("start creates and registers a project, inits git and writes .gitignore", a
   const changes = [];
   f.rebuilds.onChange((event) => changes.push(event));
   const view = await f.rebuilds.start({ request: "A counter app" }, { source: "owner" });
-  assert.equal(view.folder, path.join(f.projectsDir, "A counter app"));
-  assert.equal(view.name, "A counter app");
+  // A short name from the request, never the request itself.
+  assert.equal(view.folder, path.join(f.projectsDir, "counter-app"));
+  assert.equal(view.name, "counter-app");
   assert.equal(view.projectId, f.projects[0].id);
   assert.equal(f.projects[0].cwd, view.folder);
   assert.ok(fs.existsSync(path.join(view.folder, ".git")));
@@ -44,7 +45,7 @@ test("start creates and registers a project, inits git and writes .gitignore", a
   assert.ok(changes.some((event) => event.list));
   // A second rebuild of the same request gets a folder of its own.
   const second = await f.rebuilds.start({ request: "A counter app" });
-  assert.equal(second.folder, path.join(f.projectsDir, "A counter app 2"));
+  assert.equal(second.folder, path.join(f.projectsDir, "counter-app 2"));
   const saved = JSON.parse(
     fs.readFileSync(path.join(f.dataDir, "craft-rebuilds", "rebuilds.json"), "utf8"),
   );
@@ -53,6 +54,25 @@ test("start creates and registers a project, inits git and writes .gitignore", a
     fs.statSync(path.join(f.dataDir, "craft-rebuilds", "rebuilds.json")).mode & 0o777,
     0o600,
   );
+});
+
+test("a start names its project with the given short name; prose or no name is refused", async (t) => {
+  const f = rebuildsFixture(t);
+  const prompt = "Eine App die das gleiche kann wie die Adresse jedes Feature";
+  const named = await f.rebuilds.start({ request: prompt, name: "adressen-app" });
+  assert.equal(named.folder, path.join(f.projectsDir, "adressen-app"));
+  assert.equal(named.name, "adressen-app");
+  const derived = await f.rebuilds.start({
+    request: prompt,
+    target: "https://example.com",
+  });
+  assert.equal(derived.name, "example-com");
+  await assert.rejects(f.rebuilds.start({ request: prompt, name: prompt }), {
+    status: 400,
+  });
+  await assert.rejects(f.rebuilds.start({ request: "Rebuild" }), { status: 400 });
+  assert.equal(fs.existsSync(path.join(f.projectsDir, prompt)), false);
+  assert.equal(f.rebuilds.list().length, 2);
 });
 
 test("start passes project_folder, build_with and rounds", async (t) => {

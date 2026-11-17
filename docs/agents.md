@@ -973,7 +973,9 @@ it up. An agent of users gets project folders only; the other groups show a lock
   user agents and not agents with their own Telegram bot for other people) can create a
   project for new work themselves, without asking you. This works in any run of your own
   chat with the agent (your messages, also from Telegram, its scheduled and follow-up
-  turns), never in a routine's or hook's own run, a team request or forwarded content. The agent gives a plain folder name; AgentPier
+  turns), never in a routine's or hook's own run, a team request or forwarded content. The agent gives a short folder name of a few words (at most 48 characters and 6 words,
+  such as `shop-redesign`; a name that reads like your request is refused with
+  `PROJECT_NAME_TOO_LONG`); AgentPier
   makes that new, empty folder in your **Default working directory** (**Settings ›
   General**, or your home folder while it is unset), runs `git init` in it so coding
   sessions can use worktrees (the agent can skip this) and registers it as a project.
@@ -1557,7 +1559,8 @@ hand each other tasks and report back
 
 An agent that may create projects can start a [Craft Anything rebuild](craft.md) for you
 with the tool `agentpier_craft`, while Craft Anything is installed. `start` takes a
-request and optionally a target, a stack and `pictures`: up to 10 screenshots or photos
+request, a short project name the agent chooses (`name`, at most 48 characters and 6
+words, never the request itself) and optionally a target, a stack and `pictures`: up to 10 screenshots or photos
 of the original from the agent's workspace (also a file you sent in this chat) or from a
 project folder it may read ([Screenshots](craft.md#screenshots)); `status` reads a
 rebuild the agent started.

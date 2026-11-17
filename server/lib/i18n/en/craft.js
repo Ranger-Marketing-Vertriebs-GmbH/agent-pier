@@ -25,6 +25,10 @@ export const craft = Object.freeze({
   rebuildRequestRequired: "Describe what Craft Anything should rebuild.",
   rebuildRequestTooLong:
     "The rebuild's description is too long (at most 8000 characters).",
+  rebuildNameInvalid:
+    "A rebuild's project name must be a short folder name: at most 48 characters and 6 words, no / or \\, no control characters, no leading dot.",
+  rebuildNameRequired:
+    "Name the rebuild's project: no short folder name can be derived from the request.",
   rebuildTargetInvalid:
     "A rebuild's target must be a web address (http or https), an absolute path or empty.",
   rebuildTargetPathRefused:
@@ -34,7 +38,7 @@ export const craft = Object.freeze({
   rebuildAccountIneligible:
     "This account cannot run a rebuild. Choose a Claude account of your own without a provider.",
   rebuildToolInvalid:
-    "Invalid input. A rebuild needs a request and a requestId (at most 100 characters), and at most 10 pictures.",
+    "Invalid input. A rebuild needs a request, a short project name and a requestId (at most 100 characters), and at most 10 pictures.",
   rebuildPicturesInvalid:
     "A rebuild takes at most 10 pictures with a valid path, each only once.",
   rebuildPictureType: "Only PNG, JPEG, WebP or GIF pictures can be added.",

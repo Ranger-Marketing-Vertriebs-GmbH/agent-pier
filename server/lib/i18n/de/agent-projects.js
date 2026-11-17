@@ -2,6 +2,8 @@
 export const agentProjects = Object.freeze({
   projectNameInvalid:
     "Der Projektname ist ungültig: kein / oder \\, keine Steuerzeichen, kein führender Punkt, höchstens 255 Bytes.",
+  projectNameTooLong:
+    "Der Projektname ist zu lang: Benenne den Ordner mit wenigen Wörtern (höchstens 48 Zeichen und 6 Wörter), zum Beispiel shop-redesign, nie mit der Anfrage des Owners.",
   projectExists:
     "Im Standard-Arbeitsverzeichnis gibt es schon einen Eintrag mit diesem Namen.",
   projectNotCreatedByYou: "Dieses Projekt hat der Agent nicht selbst angelegt.",

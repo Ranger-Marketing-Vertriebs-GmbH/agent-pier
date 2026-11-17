@@ -2,11 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { logCraftFailure } from "./craft-log.js";
-import {
-  createProjectFolder,
-  initRepository,
-  projectFolderName,
-} from "../projects/project-folder.js";
+import { createProjectFolder, initRepository } from "../projects/project-folder.js";
 import { cleanStart } from "./rebuild-input.js";
 import { initialFields } from "./rebuild-view.js";
 
@@ -36,12 +32,13 @@ export async function beginRebuild(r, input, source, requestId) {
   }
 }
 
-async function startRebuild(r, options, source, requestId, pictures) {
+// `name` names the folder only: the record keeps the folder's actual (unique) name.
+async function startRebuild(r, { name, ...options }, source, requestId, pictures) {
   const { made, record } = await r.barrier.run(async () => {
     const folder = await createProjectFolder({
       preferences: r.preferences,
       memory: r.memory,
-      name: projectFolderName(options.request),
+      name,
       git: false,
       unique: true,
       label: "Rebuild folder",

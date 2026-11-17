@@ -24,6 +24,12 @@ form says so next to **Start rebuild**.
 | **Auto mode**      | See [Auto mode](#auto-mode).                                                                                                                                                                                               |
 | **Rounds**         | How many build and check rounds Craft Anything may use.                                                                                                                                                                    |
 
+**Project name** names the rebuild's new project folder. The form suggests a few words
+from the request (or the target's host or file name), for example `counter-app`; edit it
+as you like. It must be short (at most 48 characters and 6 words): **Start rebuild**
+refuses a name that reads like the request, and stays blocked while the field is empty,
+which it is when nothing sensible can be derived from the request.
+
 ### Screenshots
 
 Craft Anything can also rebuild from pictures of a product. Choose **Screenshots** as
@@ -55,8 +61,9 @@ points to **CLIs & extensions › Accounts**.
 
 ## The project of a rebuild
 
-Every rebuild creates a fresh folder in your default projects folder, named from the
-request (a number is appended when the name is taken), and registers it as an
+Every rebuild creates a fresh folder in your default projects folder, named with its
+short **Project name** (a number is appended when the name is taken; never the request
+itself), and registers it as an
 AgentPier project. AgentPier writes a `.gitignore` for Craft Anything's working
 folders (`capture/`, `checks/`, `inbox/`, `investigation.cany/`) and runs `git init`;
 the project then becomes a Git project and keeps that id. AgentPier makes no commits.
@@ -144,7 +151,9 @@ rebuilds too:
 - Agents that may create projects get `agentpier_craft`
   ([agents](agents.md#rebuilds-with-craft-anything)).
 
-They choose only the request, the target, the stack and pictures. The account, the
+They choose only the request, the project name, the target, the stack and pictures. The
+project name (`name`) is required and short (at most 48 characters and 6 words); a
+name that reads like the request is refused as invalid input. The account, the
 mode and auto mode always follow your defaults. A session's target may be a web
 address, an absolute local path or nothing; an agent's only a web address or nothing,
 never a local path. Pictures (`pictures`, at most 10, in the formats and sizes above; refusals carry

@@ -100,7 +100,14 @@ export class AgentCraft {
       return this.status(agent, input.id);
     }
     if (input?.action === "start") {
-      exact(input, ["action", "request", "target", "stack", "pictures"]);
+      exact(input, ["action", "request", "name", "target", "stack", "pictures"]);
+      // The agent names the project itself: never derived from its request.
+      if (typeof input.name !== "string")
+        throw craftProblem(
+          "CRAFT_REBUILD_INVALID_INPUT",
+          messages.rebuildNameInvalid,
+          400,
+        );
       return this.start(inv, { agent, conversation }, input);
     }
     throw assistantProblem("invalid");
@@ -134,7 +141,7 @@ export class AgentCraft {
   }
 
   async begin(inv, { agent, conversation }, input, requestId) {
-    const { request, target, stack } = input;
+    const { request, name, target, stack } = input;
     const list = pictureList(input.pictures);
     loopGuard(this.w.a.store).take(agent.id);
     inv.assertCurrent();
@@ -148,7 +155,14 @@ export class AgentCraft {
       );
       inv.assertCurrent();
       started = await rebuilds.start(
-        { request, target, stack, ...(pictures.length && { pictures }), requestId },
+        {
+          request,
+          name,
+          target,
+          stack,
+          ...(pictures.length && { pictures }),
+          requestId,
+        },
         { source },
       );
     } catch (error) {

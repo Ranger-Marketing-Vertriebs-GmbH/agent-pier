@@ -1,6 +1,12 @@
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { validDirectoryName } from "../../lib/directories.js";
+import {
+  disguisingCharacters,
+  isShortProjectName,
+  suggestProjectName,
+} from "../projects/project-names.js";
 import { record } from "../extensions/mcp-config.js";
 import { craftStacks, defaultCraftStack } from "./craft-stacks.js";
 import { cleanPictureIds } from "./rebuild-pictures.js";
@@ -40,6 +46,28 @@ function cleanTarget(value, paths = true) {
   throw problem(messages.rebuildTargetInvalid, 400);
 }
 
+/**
+ * The rebuild's project (folder) name: the given one, a short folder name without a
+ * leading dot (project-names.js), else a short one derived from the request and target,
+ * never the request itself. Nothing sensible to derive: the caller must name it.
+ */
+export function cleanName(value, request, target) {
+  if (value === undefined || value === null) {
+    const suggested = suggestProjectName(request, target);
+    if (!suggested) throw problem(messages.rebuildNameRequired, 400);
+    return suggested;
+  }
+  const name = typeof value === "string" ? value.trim() : "";
+  if (
+    !validDirectoryName(name) ||
+    name.startsWith(".") ||
+    disguisingCharacters.test(name) ||
+    !isShortProjectName(name)
+  )
+    throw problem(messages.rebuildNameInvalid, 400);
+  return name;
+}
+
 function cleanStack(value) {
   if (value === undefined || value === null || value === "") return defaultCraftStack;
   if (!craftStacks.includes(value)) throw problem(messages.rebuildStackInvalid, 400);
@@ -66,7 +94,7 @@ function cleanAutoMode(value, fallback) {
 }
 
 /**
- * A start's options. Only the owner chooses account, mode, auto mode and rounds; any
+ * A start's options, with the project's short folder `name`. Only the owner chooses account, mode, auto mode and rounds; any
  * other source gets the owner's defaults (`settings`) and Craft Anything's rounds. An
  * agent's target is a web address or none, never a local path. `pictures` are staged
  * picture ids (rebuild-pictures.js), never paths; they are not kept with the record.
@@ -74,9 +102,12 @@ function cleanAutoMode(value, fallback) {
 export function cleanStart(input, source, settings) {
   const body = record(input) ? input : {};
   const owner = source === "owner";
+  const request = cleanRequest(body.request);
+  const target = cleanTarget(body.target, source !== "agent");
   return {
-    request: cleanRequest(body.request),
-    target: cleanTarget(body.target, source !== "agent"),
+    request,
+    target,
+    name: cleanName(body.name, request, target),
     stack: cleanStack(body.stack),
     accountId:
       owner && typeof body.accountId === "string" && body.accountId

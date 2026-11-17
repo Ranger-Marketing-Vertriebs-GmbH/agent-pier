@@ -147,6 +147,16 @@ test("invalid names are refused before anything is created", async (t) => {
       "PROJECT_NAME_INVALID",
       String(name),
     );
+  // The owner's request pasted in as the folder name (the owner's report).
+  for (const name of [
+    "Eine App die das gleiche kann wie die Adresse jedes Feature",
+    "x".repeat(49),
+  ])
+    assert.equal(
+      await f.code(f.call({ action: "create", name })),
+      "PROJECT_NAME_TOO_LONG",
+      name,
+    );
   assert.deepEqual(fs.readdirSync(f.parent), []);
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
 });

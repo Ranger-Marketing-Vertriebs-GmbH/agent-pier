@@ -10,9 +10,10 @@ export const craftInstruction =
 
 export const craftTools = {
   craft_rebuild_start: {
-    description: `Start a Craft Anything rebuild of an app, a website or a file in AgentPier. Give a request and optionally a target (a web address or an absolute path), a stack (one of: ${craftStacks.join(", ")}) and pictures: up to ${pictureLimits.count} screenshots or photos of the original (PNG, JPEG, WebP or GIF, at most 20 MB each), as paths inside this session's working folder, which show the look the owner expects. Pictures without a target rebuild from the pictures alone. Reuse requestId when you retry the same start; it returns the same rebuild. ${craftInstruction}`,
+    description: `Start a Craft Anything rebuild of an app, a website or a file in AgentPier. Give a request, a name (a short folder name of a few words for the rebuild's new project, at most 48 characters and 6 words, for example notes-clone, never the request itself) and optionally a target (a web address or an absolute path), a stack (one of: ${craftStacks.join(", ")}) and pictures: up to ${pictureLimits.count} screenshots or photos of the original (PNG, JPEG, WebP or GIF, at most 20 MB each), as paths inside this session's working folder, which show the look the owner expects. Pictures without a target rebuild from the pictures alone. Reuse requestId when you retry the same start; it returns the same rebuild. ${craftInstruction}`,
     schema: z.strictObject({
       request: z.string().min(1).max(8000),
+      name: z.string().min(1).max(255),
       target: z.string().max(2048).optional(),
       stack: z.string().max(100).optional(),
       pictures: z.array(z.string().min(1).max(4096)).max(pictureLimits.count).optional(),
