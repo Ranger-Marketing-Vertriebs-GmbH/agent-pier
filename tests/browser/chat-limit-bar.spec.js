@@ -4,7 +4,7 @@ import { baseURL } from "../helpers/browser.js";
 
 const detail = "You've hit your Fable limit · resets Nov 20 at 4pm (Europe/Berlin)";
 
-async function fixture(page, { limit = true } = {}) {
+async function fixture(page, { limit = true, uploadGate = null } = {}) {
   const session = {
     id: "limited",
     accountId: "fixture",
@@ -12,6 +12,7 @@ async function fixture(page, { limit = true } = {}) {
     cwd: "/fixture",
     status: "running",
     name: "Limited session",
+    attachments: { directory: "/fixture/attachments" },
     activity: { state: "idle", ...(limit && { limit: { detail } }) },
   };
   const data = {
@@ -24,6 +25,12 @@ async function fixture(page, { limit = true } = {}) {
   const calls = { inputs: [], models: [] };
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
+    if (pathname.endsWith("/chat/attachments")) {
+      await uploadGate;
+      return route.fulfill({
+        json: { name: "note.txt", path: "/fixture/attachments/note.txt" },
+      });
+    }
     const body =
       route.request().method() === "POST" ? route.request().postDataJSON() : null;
     let result = {};
@@ -94,6 +101,25 @@ test.describe("in English", () => {
     await expect.poll(() => calls.inputs.length).toBe(1);
     expect(calls.inputs[0]).toMatchObject({ text: "Please continue.", submit: true });
     await expect(composer).toHaveValue("Keep this draft");
+  });
+
+  test("Continue stays disabled while an attachment uploads", async ({ page }) => {
+    let release;
+    const uploadGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    await fixture(page, { uploadGate });
+    const bar = page.getByRole("status", { name: "Usage limit reached" });
+    const next = bar.getByRole("button", { name: "Continue", exact: true });
+    await expect(next).toBeEnabled();
+    await page.setInputFiles('input[type="file"]', {
+      name: "note.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("note"),
+    });
+    await expect(next).toBeDisabled();
+    release();
+    await expect(next).toBeEnabled();
   });
 
   test("a session without a limit shows no limit bar", async ({ page }) => {

@@ -329,6 +329,7 @@ export default function ChatView({
                 delivery.locked ||
                 session.status !== "running"
               }
+              continueDisabled={attachments.uploading || attachments.blocked}
               onChangeModel={() => setModelOpenRequest((count) => count + 1)}
               onContinue={() => void sendText(copy.limitContinuePrompt)}
             />

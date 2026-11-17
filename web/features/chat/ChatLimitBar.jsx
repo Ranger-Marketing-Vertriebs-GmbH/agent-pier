@@ -2,7 +2,13 @@ import React from "react";
 import { chatViewCopy as copy } from "../../lib/i18n/messages/chat.js";
 
 // A session stopped at a usage limit: the CLI's own text, and the two ways on.
-export default function ChatLimitBar({ detail, disabled, onChangeModel, onContinue }) {
+export default function ChatLimitBar({
+  detail,
+  disabled,
+  continueDisabled = false,
+  onChangeModel,
+  onContinue,
+}) {
   return (
     <div
       className="chat-limit-warnings chat-limit-bar"
@@ -23,7 +29,7 @@ export default function ChatLimitBar({ detail, disabled, onChangeModel, onContin
         <button
           type="button"
           className="button primary compact"
-          disabled={disabled}
+          disabled={disabled || continueDisabled}
           onClick={onContinue}
         >
           {copy.limitContinue}
