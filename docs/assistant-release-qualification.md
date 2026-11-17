@@ -815,6 +815,21 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   whose wait ran out once writes without waiting (`configWrite`), so a wedged
   Gateway fails each write within its own timeout. An unchanged provider is not
   written again.
+- **Lease release patch.** A spike found why the lease stays held: the reload's
+  release of the plugin lifecycle lease (`releaseOpenClawStateLeaseBestEffort`,
+  src/state/openclaw-state-lease-storage.ts) retries only within
+  `LEASE_CONTENTION_RETRY_TIMEOUT_MS`, 2 s, while one attempt already waits SQLite's
+  5 s busy timeout; a release that meets one lock fails without a retry ("lease
+  release failed after 0 retries … database is locked", logged as "config reload
+  failed"), and the lease stays until it expires. Until upstream fixes it, the
+  installer raises that constant, which only the release reads, to 30 s in the
+  installed 2026.11.3 package (`runtime-bundle-patches.js`,
+  `assistant-runtime-updates.md` "Package patches"). Throttled as above with four
+  busy loops, the stock runtime wedged in 6 of 9 runs, the runtime provisioned
+  through the installer with the patch in none of 10 (an earlier hand-patched copy:
+  0 of 11 against 6 of 16). A forced Gateway restart also ended the wedge (urgent
+  stop: writes again after about 74 s); it is not used. Remove the patch once the
+  pinned OpenClaw retries the release itself.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

@@ -1,0 +1,136 @@
+import fs from "node:fs";
+import path from "node:path";
+import { createHash } from "node:crypto";
+
+/**
+ * Exact edits AgentPier makes to the installed OpenClaw package of one pinned
+ * version, until upstream ships the fix. Each names a file under the package root,
+ * the text it must contain exactly once and its replacement. Remove a version's
+ * entry when the pin moves to a release with the fix; a version without entries is
+ * installed unchanged.
+ *
+ * 2026.11.3, "lease-release-retry": `releaseOpenClawStateLeaseBestEffort`
+ * (src/state/openclaw-state-lease-storage.ts) retries a lease release only within
+ * `LEASE_CONTENTION_RETRY_TIMEOUT_MS` (2 s, src/state/openclaw-state-lease-heartbeat-
+ * shared.ts), while one attempt already waits SQLite's 5 s busy timeout. A release
+ * that meets one lock (another writer of the state database holds it for about 5 s,
+ * as during an agents.create on a slow disk) is never retried: the plugin lifecycle
+ * lease stays held for its 5 minutes and every configuration write waits on it
+ * ("config reload failed: database is locked", then `Waiting for plugin lifecycle
+ * lease`). The constant is read by that release alone. 30 s ended the wedge in a
+ * throttled reproduction (0 of 11 runs against 6 of 16;
+ * docs/assistant-release-qualification.md "Lease release patch").
+ */
+export const runtimeBundlePatches = Object.freeze({
+  "2026.11.3": Object.freeze([
+    Object.freeze({
+      id: "lease-release-retry",
+      file: "dist/openclaw-state-lease-heartbeat-shared-BczGehzh.mjs",
+      before: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;",
+      after: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;",
+    }),
+  ]),
+});
+
+// OpenClaw's own record of its files (path, sha256, size); its update and doctor
+// checks compare the package with it, so a patched file is recorded as patched.
+const contentInventory = "dist/postinstall-content-inventory.json";
+
+const patchFailure = (detail) =>
+  Object.assign(Error(`Assistant runtime patch failed: ${detail}.`), {
+    code: "RUNTIME_PATCH_MISMATCH",
+  });
+
+/** The patches of `version` (an empty list when none). */
+export const bundlePatchesFor = (version, patches = runtimeBundlePatches) =>
+  patches[version] || [];
+
+/**
+ * A short identity of the patches of `version`, or undefined without any. It joins
+ * the runtime's identity (runtime-install.js), so an installation made before a
+ * patch existed is no longer the shipped one and the update path installs anew.
+ */
+export function bundlePatchId(version, patches = runtimeBundlePatches) {
+  const list = bundlePatchesFor(version, patches);
+  if (!list.length) return undefined;
+  return createHash("sha256").update(JSON.stringify(list)).digest("hex").slice(0, 12);
+}
+
+const count = (text, part) => text.split(part).length - 1;
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+function packageFile(packageDir, relative) {
+  const file = path.join(packageDir, ...relative.split("/"));
+  if (!file.startsWith(path.resolve(packageDir) + path.sep))
+    throw patchFailure(`unsafe path ${relative}`);
+  let stat;
+  try {
+    stat = fs.lstatSync(file);
+  } catch {
+    throw patchFailure(`${relative} is missing`);
+  }
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
+    throw patchFailure(`${relative} is not a regular file`);
+  return file;
+}
+
+// The state of one patch in `text`: "applied", "original", or a mismatch.
+function stateOf(text, patch) {
+  const before = count(text, patch.before),
+    after = count(text, patch.after);
+  if (before === 1 && after === 0) return "original";
+  if (before === 0 && after === 1) return "applied";
+  throw patchFailure(
+    `${patch.file} holds the expected text ${before} times and its replacement ${after} times`,
+  );
+}
+
+// Records `relative`'s new digest and size in OpenClaw's content inventory, when it
+// lists the file with the digest of `previous`.
+function recordInventory(packageDir, relative, previous, next) {
+  const file = path.join(packageDir, ...contentInventory.split("/"));
+  if (!fs.existsSync(file)) return;
+  const inventory = JSON.parse(
+    fs.readFileSync(packageFile(packageDir, contentInventory)),
+  );
+  const entry = Array.isArray(inventory)
+    ? inventory.find((item) => item?.path === relative)
+    : null;
+  if (!entry) return;
+  if (entry.sha256 === sha256(next) && entry.size === next.length) return;
+  if (entry.sha256 !== sha256(previous))
+    throw patchFailure(`${contentInventory} does not record the original ${relative}`);
+  entry.sha256 = sha256(next);
+  entry.size = next.length;
+  fs.writeFileSync(file, `${JSON.stringify(inventory, null, 2)}\n`);
+}
+
+/**
+ * Applies the patches of `version` to the installed package at `packageDir`
+ * (node_modules/openclaw). Each must find its text exactly once, or its
+ * replacement exactly once (already applied); anything else refuses the
+ * installation (RUNTIME_PATCH_MISMATCH). Returns the patch identity, or undefined.
+ */
+export function applyBundlePatches(packageDir, version, patches = runtimeBundlePatches) {
+  const list = bundlePatchesFor(version, patches);
+  for (const patch of list) {
+    const file = packageFile(packageDir, patch.file);
+    const bytes = fs.readFileSync(file);
+    const text = bytes.toString("utf8");
+    if (stateOf(text, patch) === "applied") continue;
+    const next = Buffer.from(text.replace(patch.before, patch.after), "utf8");
+    fs.writeFileSync(file, next);
+    recordInventory(packageDir, patch.file, bytes, next);
+  }
+  verifyBundlePatches(packageDir, version, patches);
+  return bundlePatchId(version, patches);
+}
+
+/** Throws unless every patch of `version` is applied at `packageDir`. */
+export function verifyBundlePatches(packageDir, version, patches = runtimeBundlePatches) {
+  for (const patch of bundlePatchesFor(version, patches)) {
+    const text = fs.readFileSync(packageFile(packageDir, patch.file), "utf8");
+    if (stateOf(text, patch) !== "applied")
+      throw patchFailure(`${patch.file} is not patched`);
+  }
+}

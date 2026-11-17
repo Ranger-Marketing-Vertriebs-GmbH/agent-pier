@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createOpenClawRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-runtime.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
+import { bundlePatchId } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { assistantInstallFixture } from "../helpers/assistant-install-fixture.js";
 
@@ -25,8 +26,11 @@ test("the OpenClaw host ships the manifest's version and recognises its records"
     version: runtimeManifest.version,
     nodeVersion: runtimeManifest.nodeVersion,
     dependencyLockSha256: runtimeManifest.dependencyLockSha256,
+    bundlePatch: bundlePatchId(runtimeManifest.version),
   };
   assert.equal(host.current(shipped), true);
+  // Installed before the package patches of its version: an update is due.
+  assert.equal(host.current({ ...shipped, bundlePatch: undefined }), false);
   // Another lock of the same version is another runtime: an update is due.
   assert.equal(host.current({ ...shipped, dependencyLockSha256: "other" }), false);
   assert.equal(host.current({ ...shipped, version: "2026.1.1" }), false);

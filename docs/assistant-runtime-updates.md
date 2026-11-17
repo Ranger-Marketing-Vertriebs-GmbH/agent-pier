@@ -411,6 +411,30 @@ overridden package has another version. The receipt records the overrides; a run
 installed before they existed has none and still starts. Remove an entry once the
 pinned OpenClaw ships the fixed version itself.
 
+### Package patches
+
+A few exact edits of the installed OpenClaw package carry fixes upstream has not
+shipped yet (`runtimes/openclaw/runtime-bundle-patches.js`, one list per pinned
+version: file, the text it must contain exactly once, its replacement). The installer
+applies them after `npm ci` and before the version check; a file that is missing or
+holds the expected text not exactly once (and not its replacement exactly once, the
+already applied state) refuses the installation with `RUNTIME_PATCH_MISMATCH`.
+OpenClaw's own content inventory (`dist/postinstall-content-inventory.json`) records
+the patched file's digest and size. The patch identity (a short digest of the list)
+is part of the installation directory (`…-lock<digest>-patch<id>`), the receipt and
+the runtime record (`bundlePatch`): an installation made before a patch existed is no
+longer the shipped runtime, so after an AgentPier update the patched runtime is
+staged beside it and the owner activates it through the usual update flow (same
+OpenClaw version, so no Doctor migration). Until then the unpatched runtime keeps
+running as installed. Starting a patched installation verifies its patches again.
+
+2026.11.3 carries one patch, `lease-release-retry`: `LEASE_CONTENTION_RETRY_TIMEOUT_MS`
+(`dist/openclaw-state-lease-heartbeat-shared-*.mjs`, read only by the lease release)
+goes from 2 s to 30 s, so a plugin lifecycle lease release that meets one SQLite
+lock is retried instead of leaving the lease held for 5 minutes (see
+`assistant-release-qualification.md`, "Lease release patch"). Remove the entry, and
+with it the patch identity, once the pinned OpenClaw fixes the release itself.
+
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
 `ci --ignore-scripts --include=optional`. User/global npm configuration and inherited

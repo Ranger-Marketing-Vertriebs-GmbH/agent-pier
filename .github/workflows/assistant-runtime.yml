@@ -126,7 +126,9 @@ jobs:
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
           "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
-          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          import { bundlePatchId as p } from
+          "./server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}${p(m.version) ? `-patch${p(m.version)}` : ""}`)'
           >> "$GITHUB_OUTPUT"
       # Only the immutable installation is cached; the data directory stays fresh.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -329,7 +331,9 @@ jobs:
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
           "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
-          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          import { bundlePatchId as p } from
+          "./server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}${p(m.version) ? `-patch${p(m.version)}` : ""}`)'
           >> "$GITHUB_OUTPUT"
       # Same path and key as native-contracts, so either job reuses the other's cache.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -5,6 +5,10 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { runtimeManifest } from "../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
+import {
+  bundlePatchId,
+  verifyBundlePatches,
+} from "../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
 import { stageAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { RuntimeSupervisor } from "../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
@@ -323,6 +327,10 @@ export async function qualifyFreshInstallation() {
     assert.equal(installed.nodeVersion, runtimeManifest.nodeVersion);
     assert.ok(runtimeManifest.dependencyLockSha256);
     assert.equal(receipt.dependencyLockSha256, runtimeManifest.dependencyLockSha256);
+    // The package carries the patches of the pinned version (runtime-bundle-patches.js).
+    assert.equal(receipt.bundlePatch, bundlePatchId(runtimeManifest.version));
+    assert.equal(installed.bundlePatch, receipt.bundlePatch);
+    verifyBundlePatches(path.dirname(installed.entryPath), runtimeManifest.version);
     const versionEnv = runtimeEnvironment(paths, installed.nodePath);
     const version = (args) =>
       runQualificationCommand(installed.nodePath, args, {
