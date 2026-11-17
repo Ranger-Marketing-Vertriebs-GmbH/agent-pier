@@ -26,6 +26,14 @@ function componentOf(runtime, surface) {
 export const describedFieldCopy = runtimeFieldCopy;
 
 /**
+ * Why the options of runtime `runtimeId` in an agent's draft (`options`, edited by its
+ * surfaces in the slot agent.capabilities) cannot be saved yet, or null: the page
+ * keeps its save disabled with that message.
+ */
+export const runtimeOptionsProblem = (runtimeId, options) =>
+  webRuntime(runtimeId)?.optionsProblem?.(options) ?? null;
+
+/**
  * A named slot of a page AgentPier owns (docs/adr/0007-runtime-descriptor.md): for
  * every runtime of the runtime list, in its order, each surface the server lists for
  * slot `name` that shows now (runtime-surfaces.js). A built surface is rendered by

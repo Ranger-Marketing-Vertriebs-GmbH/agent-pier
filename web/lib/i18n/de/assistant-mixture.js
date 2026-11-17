@@ -16,6 +16,8 @@ export const assistantMixtureCopy = {
   remove: (number) => `Berater ${number} entfernen`,
   most: (max) => `Höchstens ${max} Beratermodelle.`,
   incomplete: "Wähle einen Zugang und ein Modell.",
+  incompleteSave:
+    "Wähle für jeden Berater einen Zugang und ein Modell oder entferne ihn, um zu speichern.",
   leftOut: (reason) => `Ausgelassen, bis er wieder verfügbar ist: ${reason}`,
   reasons: {
     kind: "ChatGPT-Anmeldungen und andere Protokolle können noch nicht beraten",
