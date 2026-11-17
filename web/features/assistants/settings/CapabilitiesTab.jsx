@@ -30,7 +30,7 @@ import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
 import LockedNotice, { OwnContentNotice, ownContent } from "./LockedNotice.jsx";
 import AgentCapability from "./AgentCapability.jsx";
-import RuntimeSlot from "../RuntimeSlot.jsx";
+import RuntimeSlot, { runtimeOptionsProblem } from "../RuntimeSlot.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -93,13 +93,17 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       <UnsavedChangesSheet {...sheet} />
     </>
   );
+  const runtimeId = assistant.runtimeInfo?.id ?? assistant.runtime;
+  // The runtime's own options (slot agent.capabilities) may not be savable yet.
+  const optionsProblem = runtimeOptionsProblem(runtimeId, draft.values.runtimeOptions);
   const saveBar = (
     <SaveBar
       draft={draft}
       onSave={save}
       onOverwrite={overwrite}
       saveLabel={copy.save}
-      note={copy.pendingConfigShort}
+      note={optionsProblem || copy.pendingConfigShort}
+      saveDisabled={Boolean(optionsProblem)}
     />
   );
   const Subpage = page === "memory" && own === "private" ? null : subpages[page];
@@ -181,7 +185,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       )}
       <RuntimeSlot
         name="agent.capabilities"
-        runtime={assistant.runtimeInfo?.id ?? assistant.runtime}
+        runtime={runtimeId}
         context={{
           assistant,
           navigate,

@@ -16,6 +16,8 @@ export const assistantMixtureCopy = {
   remove: (number) => `Remove advisor ${number}`,
   most: (max) => `At most ${max} advisor models.`,
   incomplete: "Choose a connection and a model.",
+  incompleteSave:
+    "Choose a connection and a model for every advisor, or remove the advisor, to save.",
   leftOut: (reason) => `Left out until it is available again: ${reason}`,
   reasons: {
     kind: "ChatGPT logins and other protocols cannot be advisors yet",

@@ -112,3 +112,24 @@ test("the Capabilities draft holds the agent's runtime options and saves them", 
     {},
   );
 });
+
+test("a half-filled advisor row blocks the save with its own message", async () => {
+  const { incompleteAdvisors } = await import(
+    "../../web/features/assistants/runtimes/hermes/mixture-rules.js"
+  );
+  assert.equal(incompleteAdvisors({}), false);
+  assert.equal(
+    incompleteAdvisors(withAdvisors([{ connectionId: "c-or", modelId: "a/b" }])),
+    false,
+  );
+  for (const row of [
+    { connectionId: "", modelId: "" },
+    { connectionId: "c-or", modelId: "" },
+    { connectionId: "", modelId: "a/b" },
+  ])
+    assert.equal(
+      incompleteAdvisors(withAdvisors([{ connectionId: "c-or", modelId: "a/b" }, row])),
+      true,
+      JSON.stringify(row),
+    );
+});

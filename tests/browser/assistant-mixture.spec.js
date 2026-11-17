@@ -23,11 +23,16 @@ const copy = {
     keyHeader: "This endpoint takes its key in a header of its own",
     receives: "Their providers therefore receive your conversation",
     save: "Save",
+    incompleteSave:
+      "Choose a connection and a model for every advisor, or remove the advisor, to save.",
     unsaved: "Unsaved changes",
     capabilities: "Capabilities",
     steps: "3 steps",
     done: "Done",
     failed: "Failed",
+    status401: "The advisor's provider answered with HTTP status 401.",
+    fallback:
+      "If this advisor's provider could not serve the request, Hermes answered with the agent's own model instead.",
   },
   de: {
     group: "Mixture of Agents",
@@ -41,11 +46,16 @@ const copy = {
     keyHeader: "Dieser Endpunkt nimmt seinen Schlüssel in einem eigenen Header",
     receives: "Ihre Anbieter erhalten also deine Unterhaltung",
     save: "Speichern",
+    incompleteSave:
+      "Wähle für jeden Berater einen Zugang und ein Modell oder entferne ihn, um zu speichern.",
     unsaved: "Ungespeicherte Änderungen",
     capabilities: "Fähigkeiten",
     steps: "3 Schritte",
     done: "Erledigt",
     failed: "Fehlgeschlagen",
+    status401: "Der Anbieter des Beraters hat mit HTTP-Status 401 geantwortet.",
+    fallback:
+      "Konnte der Anbieter dieses Beraters die Anfrage nicht bedienen, hat Hermes stattdessen mit dem eigenen Modell des Agenten geantwortet.",
   },
 };
 const hermesInfo = {
@@ -191,6 +201,31 @@ for (const [language, text] of Object.entries(copy))
       expect(state.patches[1]).toEqual({ runtimeOptions: {}, revision: 2 });
     });
 
+    test("a half-filled advisor row keeps the save disabled and says why", async ({
+      page,
+    }) => {
+      const state = await setup(page, language);
+      await page.goto(settingsPath("capabilities"));
+      const mixture = group(page, text.group);
+      await mixture.getByRole("button", { name: text.add }).click();
+      const bar = saveBar(page, text.unsaved);
+      const save = bar.getByRole("button", { name: text.save });
+      await expect(bar).toContainText(text.incompleteSave);
+      await expect(save).toBeDisabled();
+      await mixture
+        .getByRole("combobox", { name: text.advisor(1) })
+        .selectOption("router");
+      await expect(save).toBeDisabled();
+      await mixture.getByRole("textbox", { name: text.modelId }).fill("a/b");
+      await expect(save).toBeEnabled();
+      await expect(bar).not.toContainText(text.incompleteSave);
+      await save.click();
+      await expect.poll(() => state.patches.length).toBe(1);
+      expect(state.patches[0].runtimeOptions).toEqual({
+        hermes: { mixture: { advisors: [{ connectionId: "router", modelId: "a/b" }] } },
+      });
+    });
+
     test("an advisor whose connection cannot serve is shown left out", async ({
       page,
     }) => {
@@ -255,7 +290,8 @@ for (const [language, text] of Object.entries(copy))
               kind: "advisor",
               advisor: 2,
               model: "m-1",
-              output: "[failed: Error code: 401]",
+              output: "",
+              failure: "http-401",
               state: "failed",
             },
             { id: "thinking:2", kind: "thinking", state: "done" },
@@ -277,6 +313,11 @@ for (const [language, text] of Object.entries(copy))
       await expect(answer).toBeHidden();
       await steps.nth(0).locator("summary").click();
       await expect(answer).toBeVisible();
+      await expect(steps.nth(0)).toContainText(text.fallback);
+      // A failed advisor names only its status, translated.
+      await steps.nth(1).locator("summary").click();
+      await expect(steps.nth(1)).toContainText(text.status401);
+      await expect(steps.nth(1)).toContainText(text.fallback);
       await expect(details.locator("summary").first()).toHaveText(text.steps);
     });
   });

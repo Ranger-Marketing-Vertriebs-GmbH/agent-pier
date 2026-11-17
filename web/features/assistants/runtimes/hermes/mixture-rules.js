@@ -74,3 +74,10 @@ export function connectionChoices(models, current, label, reasonText) {
 /** The model ids an endpoint connection lists, or null for a free one (OpenRouter). */
 export const listedModels = (connection) =>
   connection?.providerId === "endpoint" ? connection.models || [] : null;
+
+/**
+ * Whether an advisor row of `options` still lacks its connection or model: the tab
+ * cannot save it (the server refuses an advisor without either), so its save waits.
+ */
+export const incompleteAdvisors = (options) =>
+  advisorsOf(options).some((advisor) => !advisor.connectionId || !advisor.modelId);
