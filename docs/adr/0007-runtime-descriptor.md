@@ -4,7 +4,7 @@
 
 Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
 (slots and built surfaces), 4 (described surfaces, advanced settings per runtime) and
-5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Step 6 is implemented narrowed (decision 8): the first shared per-agent option; per-agent options of one runtime follow with their first consumer.
+5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Step 6 is implemented narrowed (decision 8): the first shared per-agent option. Step 7a is implemented (decision 9): per-agent options of one runtime, the slot `agent.capabilities` and their first consumer, Mixture of Agents on Hermes.
 
 Date: 2026-11-16
 
@@ -92,8 +92,9 @@ is either _described_ (fields AgentPier renders, validates, stores and hands to 
 runtime's compiler) or _built_ (a component in the runtime's web module). Per-agent
 options of one runtime are stored in the agent's profile under `runtimeOptions`. An
 option both runtimes have is a field of AgentPier's own agent model, mapped by each
-compiler. Built surfaces (decision 4) and described surfaces for a runtime's
-advanced settings (decision 5) are implemented; per-agent options are not yet.
+compiler. Built surfaces (decision 4), described surfaces for a runtime's advanced
+settings (decision 5) and per-agent options of one runtime with a built surface
+(decision 9) are implemented; described per-agent fields are not yet.
 
 ### 3. No runtime ids outside the runtime modules
 
@@ -154,9 +155,10 @@ name on the built-in runtime's host page.
 
 A **slot** is a named place on a page AgentPier owns. AgentPier owns the list
 (`RUNTIME_SLOTS`, `runtimes/runtime-surfaces.js`, exported from the port) and adds a
-slot with the first surface that needs it. Today there are two: `hub.runtime`, a
-group of Agents › Runtime, and `hub.runtime.advanced`, the runtime's own rows in
-Agents › Runtime › Advanced (decision 5).
+slot with the first surface that needs it. Today there are three: `hub.runtime`, a
+group of Agents › Runtime, `hub.runtime.advanced`, the runtime's own rows in
+Agents › Runtime › Advanced (decision 5), and `agent.capabilities`, groups at the end
+of an agent's Capabilities tab (decision 9).
 
 A descriptor states its surfaces as `surfaces: [{ id, slot, kind, shows }]`. `kind`
 is `built` or `described` (decision 5). `shows` says
@@ -422,6 +424,57 @@ people never learns (the review reads its other sessions); the feature code name
 runtime-neutral effective value and asks the compiler port for OpenClaw's tool, so no
 shared module names `skill_workshop` as a grant.
 
+### 9. Per-agent runtime options
+
+Built with their first consumer, Mixture of Agents on Hermes (step 7a).
+
+- **The field.** `runtimeOptions: { [runtimeId]: object }` on the agent profile.
+  `runtimes/runtime-options.js` (a public port module without an adapter, so the
+  desired state may read it) keeps each runtime's options module, `{ validate(value,
+context), read(value), connections(options) }`; a runtime without one takes none.
+  A write (create, the owner's PATCH) is checked against the agent's runtime: an
+  unknown runtime id (`optionsUnknownRuntime`), another runtime's options
+  (`optionsOtherRuntime`) and an unknown key (`optionsUnknownKey`) are refused with
+  translated, stable messages (`runtimeOptions.*`); the runtime refuses what it does
+  not take. `{}` stores nothing: the store drops the field, so a record whose options
+  were switched off is the record that never had any. On read, `read` leaves out what
+  a descriptor no longer names, never failing, so a rollback starts the agent.
+- **Travel.** Backups keep the profile and so the options. A duplicate (the wizard's
+  create body) keeps them, on the same runtime by definition; Agency templates carry
+  none. A task member (`reserveMember`) starts without. An agent's runtime never
+  changes, so no migration. Only the owner writes them: `runtimeOptions` is a locked
+  key of a user's own settings.
+- **Compile.** The desired state carries `runtimeOptions`, the agent's options for
+  the runtime it runs on and never another's, and on a live apply
+  `optionConnections`: the model connections the options name, resolved like the
+  agent's own model (`option-connections.js`; an unavailable one as `{ unavailable }`).
+  A connection an agent's options name counts as used by the agent
+  (`assistant-provider-synchronization.js` `uses`).
+- **The slot.** `agent.capabilities` renders, at the end of an agent's Capabilities
+  tab, the built surfaces of the runtime that agent runs on (`<RuntimeSlot
+runtime={…}>`), with the same `shows` rules as the hub's slots; another runtime's
+  surface never renders there. The component gets `context: { assistant, navigate,
+options, setOptions }`: the tab's draft holds the options as `runtimeOptions`
+  (`capabilityServer`) and its PATCH sends `{ [runtime]: options }`
+  (`capabilityPatch`). The owner's ⌘K index lists each such surface per agent
+  (`agentSurfaceEntries`), opening the agent's Capabilities tab; users' search has
+  none.
+- **Hermes: Mixture of Agents.** `runtimeOptions.hermes.mixture.advisors`, one to three
+  available OpenAI-compatible endpoint or OpenRouter models (`hermes-options.js`),
+  compiled to a MoA preset of named providers that never lets Hermes repair a slot
+  with its own providers ([Hermes runtime](../hermes-runtime.md#mixture-of-agents)),
+  edited in Hermes's built surface `mixture` (`runtimes/hermes/MixtureSurface.jsx`).
+  Each advisor's answer reaches the chat as a normalized `advisor` step of the run
+  (`agent-runtime.js`), the one step that carries model text, live like tool steps.
+
+Not decided by the plan and chosen here: the agent's own model is a named provider
+too (a bare `custom` aggregator beside `provider: moa` resolves to the first entry of
+`providers:`), so an agent whose model is a ChatGPT login or takes its key in a header
+of its own cannot use advisors; an advisor stored before its connection became
+unavailable is kept on a save and left out by the compile; the advisor's number in
+its provider name is its stored position. Described per-agent fields (`scope:
+"agent"`, a `connection` field type) are still not built: no consumer needs them.
+
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
@@ -433,9 +486,9 @@ shared module names `skill_workshop` as a grant.
 5. Server: port methods for memory and the readers of a runtime id; Hermes's own
    services in its adapter, wired through the port. Done.
 6. "Learns its own skills" as the first shared per-agent option. Done (decision 8).
-   Per-agent options of one runtime (`runtimeOptions`, the slot `agent.capabilities`)
-   come with their first consumer.
-7. Mixture of Agents on Hermes; the memory wiki on OpenClaw.
+7. Mixture of Agents on Hermes with per-agent options of one runtime
+   (`runtimeOptions`, the slot `agent.capabilities`): done as step 7a (decision 9).
+   The memory wiki on OpenClaw follows.
 
 ## Considered options
 
