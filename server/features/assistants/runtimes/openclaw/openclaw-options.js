@@ -14,12 +14,14 @@ const isRecord = (value) => !!value && typeof value === "object" && !Array.isArr
 /**
  * Why `agent` (a stored record, or a create's input with its `userAccess`) may not
  * keep a wiki, or null: "shared" (shared with users), "userAgent" (a user's own),
- * "taskMember" (a temporary team member).
+ * "taskMember" (a temporary team member), "channelBot" (`senderFacing`: its own
+ * Telegram bot serves other people, whose prompts would write lasting pages).
  */
-export function wikiRefusal(agent) {
+export function wikiRefusal(agent, { senderFacing = false } = {}) {
   if (isShared(agent)) return "shared";
   if (isUserAgent(agent)) return "userAgent";
   if (agent && temporaryMember(agent)) return "taskMember";
+  if (senderFacing) return "channelBot";
   return null;
 }
 
@@ -27,6 +29,7 @@ const refusals = {
   shared: "memoryWikiShared",
   userAgent: "memoryWikiUserAgent",
   taskMember: "memoryWikiTaskMember",
+  channelBot: "memoryWikiChannelBot",
 };
 
 /**
@@ -34,9 +37,9 @@ const refusals = {
  * unknown keys are left out, and the wiki of an agent that may not keep one (it
  * became shared or a user's after it was switched on) reads as off. `{}` when off.
  */
-export function readOpenClawOptions(value, agent) {
+export function readOpenClawOptions(value, agent, context = {}) {
   if (!isRecord(value) || value.memoryWiki !== true) return {};
-  if (agent && wikiRefusal(agent)) return {};
+  if (agent && wikiRefusal(agent, context)) return {};
   return { memoryWiki: true };
 }
 
@@ -45,14 +48,14 @@ export function readOpenClawOptions(value, agent) {
  * unknown key, a value that is not a boolean, and the wiki for an agent that may not
  * keep one (409). Returns the stored form, `{}` when off.
  */
-export function validateOpenClawOptions(value, { agent } = {}) {
+export function validateOpenClawOptions(value, { agent, senderFacing } = {}) {
   if (!isRecord(value)) throw assistantProblem("optionsInvalid");
   const unknown = Object.keys(value).find((key) => !optionKeys.has(key));
   if (unknown) throw assistantProblem("optionsUnknownKey", 400, unknown);
   if (!("memoryWiki" in value)) return {};
   if (typeof value.memoryWiki !== "boolean") throw assistantProblem("optionsInvalid");
   if (!value.memoryWiki) return {};
-  const refusal = wikiRefusal(agent);
+  const refusal = wikiRefusal(agent, { senderFacing });
   if (refusal) throw assistantProblem(refusals[refusal], 409);
   return { memoryWiki: true };
 }

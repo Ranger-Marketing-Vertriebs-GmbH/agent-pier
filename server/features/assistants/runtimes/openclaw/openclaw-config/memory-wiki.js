@@ -52,11 +52,15 @@ export const wikiConfig = () => ({
  * its own option, only for an agent of this runtime that is the owner's own (never
  * shared with users, never a user's, never a temporary member) and not archived.
  * The options module already reads the option as off for such an agent
- * (openclaw-options.js); this repeats the rule where the grant is compiled.
+ * (openclaw-options.js); this repeats the rule where the grant is compiled. Never an
+ * agent whose own Telegram bot for other people this Gateway runs (`senderFacing`):
+ * `wiki_apply` would let strangers' prompts write lasting pages (the owner's
+ * decision of 2026-11-17, as for learned skills).
  */
-export const hasWiki = (agent) => {
+export const hasWiki = (agent, { senderFacing = false } = {}) => {
   const desired = asDesired(agent);
   return (
+    !senderFacing &&
     desired.runtime === openClawDescriptor.id &&
     desired.eligible &&
     !desired.archived &&
@@ -68,21 +72,30 @@ export const hasWiki = (agent) => {
 };
 
 /** The tools the wiki adds to the agent's entry, once native tools are ready. */
-export const agentWikiTools = (agent, { nativeReady } = {}) =>
-  nativeReady && hasWiki(agent) ? [...wikiTools] : [];
+export const agentWikiTools = (agent, { nativeReady, senderFacing = false } = {}) =>
+  nativeReady && hasWiki(agent, { senderFacing }) ? [...wikiTools] : [];
 
-/** Whether the Gateway loads the plugin: at least one of `agents` keeps a wiki. */
-export const hostWiki = (agents = []) => agents.some((agent) => hasWiki(agent));
+/**
+ * Whether the Gateway loads the plugin: at least one of `agents` keeps a wiki.
+ * `senderFacing(agent)` names the agents whose bot for other people it runs.
+ */
+export const hostWiki = (agents = [], { senderFacing = () => false } = {}) =>
+  agents.some((agent) => hasWiki(agent, { senderFacing: !!senderFacing(agent) }));
 
 /**
  * What an agent apply writes: the agent's own tools (agentWikiTools) and whether the
  * host's global list holds the wiki's tools (`global`, undefined while native tools
  * are not ready), from every agent's record (`profiles`, else the agent's alone).
  */
-export const agentWiki = (agent, { nativeReady, profiles } = {}) => ({
-  tools: agentWikiTools(agent, { nativeReady }),
-  global: nativeReady ? hostWiki(profiles || [agent]) : undefined,
-});
+export const agentWiki = (agent, { nativeReady, profiles, senderFacing } = {}) => {
+  const sender = senderFacing || (() => false);
+  return {
+    tools: agentWikiTools(agent, { nativeReady, senderFacing: !!sender(agent) }),
+    global: nativeReady
+      ? hostWiki(profiles || [agent], { senderFacing: sender })
+      : undefined,
+  };
+};
 
 /**
  * The global tools.allow with the wiki's tools present exactly when `wanted`, or null

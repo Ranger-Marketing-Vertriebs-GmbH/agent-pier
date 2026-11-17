@@ -513,7 +513,10 @@ export class TelegramSenders {
       () => {
         // Checked again: a shell raise or stdio binding may have raced this save.
         this.eligible(assistantId);
-        return this.store.save(assistantId, { identity, people }, input.revision);
+        const saved = this.store.save(assistantId, { identity, people }, input.revision);
+        // An agent serving other people keeps no memory wiki (openclaw-options.js).
+        this.assistants.store.restrictOptions?.(assistantId, { senderFacing: true });
+        return saved;
       },
       confirmed,
     );

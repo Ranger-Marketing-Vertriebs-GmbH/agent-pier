@@ -28,4 +28,6 @@ export const runtimeOptions = Object.freeze({
     "The memory wiki is available after the pending restart of the agent service.",
   runtimeOptionsRestartRequired:
     "Switching on the first memory wiki restarts the agents' Gateway; confirm the restart.",
+  memoryWikiChannelBot:
+    "An agent whose own Telegram bot serves other people cannot keep a memory wiki: their messages would write lasting pages.",
 });

@@ -2,13 +2,16 @@
 
 /**
  * Why `assistant` cannot keep a wiki, or null: "shared" (shared with users),
- * "userAgent" (a user's own) or "taskMember" (a temporary team member). The server
+ * "userAgent" (a user's own), "taskMember" (a temporary team member) or "channelBot"
+ * (its own Telegram bot serves other people). The server
  * refuses the same (server runtimes/openclaw/openclaw-options.js wikiRefusal).
  */
 export function wikiLock(assistant) {
   if (assistant?.userAccess?.mode === "shared") return "shared";
   if (assistant?.userAccess) return "userAgent";
   if (assistant?.teamMemberId && assistant.lifetime !== "permanent") return "taskMember";
+  // Its own Telegram bot serves other people (the view's ownChannelBot).
+  if (assistant?.ownChannelBot) return "channelBot";
   return null;
 }
 

@@ -224,3 +224,14 @@ test("a create with the wiki asks for the restart, or queues it in the app", asy
   assert.deepEqual(queued, ["runtimeOptions"]);
   assert.ok(!f.calls.includes("stop"));
 });
+
+test("an agent whose own bot serves other people cannot switch the wiki on", async (t) => {
+  const f = fixture(t);
+  const first = f.agent("First");
+  f.service.telegramSenders = { connected: (id) => id === first.id };
+  await assert.rejects(f.wiki(first, on, { confirmed: true }), {
+    status: 409,
+    key: "memoryWikiChannelBot",
+  });
+  assert.equal(f.service.withMcp(f.store.getAssistant(first.id)).ownChannelBot, true);
+});

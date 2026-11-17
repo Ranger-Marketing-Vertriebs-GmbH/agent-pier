@@ -322,16 +322,15 @@ export class RuntimeSupervisor extends EventEmitter {
     this.telegram = null;
     this.telegramStarting = null;
     // Must match the compile in runtime-config.js, or the bot stays pending.
-    const telegram =
+    const bots =
       native &&
-      telegramSnapshot(
-        telegramSections({
-          profiles: agents,
-          telegram: host.telegram,
-          // The agents the compile below finds in the configuration it starts from.
-          agents: configuredAgents(readJSON(this.paths.config, null)),
-        }),
-      );
+      telegramSections({
+        profiles: agents,
+        telegram: host.telegram,
+        // The agents the compile below finds in the configuration it starts from.
+        agents: configuredAgents(readJSON(this.paths.config, null)),
+      });
+    const telegram = bots && telegramSnapshot(bots);
     // What this start compiles, before it answers: a revocation saved meanwhile must
     // be compared with it (telegram-senders.js), not with "no Gateway".
     this.telegramStarting = telegram || null;
@@ -469,7 +468,8 @@ export class RuntimeSupervisor extends EventEmitter {
     // Live applies grant web tools against the state this Gateway was started with.
     this.webTools = webTools;
     // Whether it loaded the memory wiki's plugin (memory-wiki.js optionsRestart).
-    this.memoryWiki = native && hostWiki(agents);
+    const senderFacing = (agent) => !!bots.accounts[agent.runtimeAgentId];
+    this.memoryWiki = native && hostWiki(agents, { senderFacing });
     this.shell = shell;
     this.mcp = mcp;
     this.telegram = telegram || null;
