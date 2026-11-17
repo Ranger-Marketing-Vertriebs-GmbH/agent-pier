@@ -105,6 +105,27 @@ function databasesHolding(paths, secret) {
   return hits;
 }
 
+// The Gateway's warnings about agent databases, admission and reloads (both runtimes
+// log at `warn`; the fixture's keys are synthetic).
+function gatewayDiagnostics(t, paths) {
+  for (const name of ["gateway-console.log", "openclaw.log"]) {
+    let text = "";
+    try {
+      text = fs.readFileSync(path.join(paths.logs, name), "utf8");
+    } catch {
+      continue;
+    }
+    const lines = text
+      .split("\n")
+      .filter((line) =>
+        /database|admission|inspect|supersed|reload|lease|locked/i.test(line),
+      )
+      .filter((line) => !/startup phase/.test(line))
+      .slice(-30);
+    for (const line of lines) t.diagnostic(`${name}: ${line.slice(0, 400)}`);
+  }
+}
+
 test(
   "native cross-version activation keeps openclaw.json's model key authoritative",
   { skip: !previousRoot || !candidateRoot, timeout: 240000 },
@@ -200,11 +221,18 @@ test(
       agentId: a.runtimeAgentId,
     });
     const turn = async (text) => {
-      const sent = await runtime.client.call("sessions.send", {
-        key: chat.key,
-        message: text,
-        idempotencyKey: `doctor-keys-${text}`,
-      });
+      const sent = await runtime.client
+        .call("sessions.send", {
+          key: chat.key,
+          message: text,
+          idempotencyKey: `doctor-keys-${text}`,
+        })
+        .catch((error) => {
+          // An agent refused after the activation (agent-database-inspection-failed,
+          // seen on ubuntu-latest only): what the Gateway logged about its databases.
+          if (error.admissionRefusal) gatewayDiagnostics(t, runtime.paths);
+          throw error;
+        });
       return runtime.client.call(
         "agent.wait",
         { runId: sent.runId, timeoutMs: 45000 },
