@@ -93,6 +93,14 @@ for (const [name, viewport] of [
             ),
         ).toBeVisible();
         await expect(gate.getByRole("switch")).toBeDisabled();
+        // A SelectRow lists an option it cannot take, disabled (docs/ui-guide.md).
+        await expect(
+          page
+            .getByRole("combobox", { name: en ? "Selection" : "Auswahl", exact: true })
+            .locator("option", {
+              hasText: en ? "Unavailable option" : "Nicht verfügbare Option",
+            }),
+        ).toBeDisabled();
         await expectNoOverflow(page);
         await page.screenshot({
           path: test.info().outputPath(`component-gallery-${name}-${locale}.png`),
