@@ -79,11 +79,13 @@ export function runtimeOptionsOf(agent) {
 
 /**
  * The ids of the runtime's own pages the agent's options switch on (slot
- * `agent.page`): `[]` without any.
+ * `agent.page`): `[]` without any, and for an archived agent.
  */
-export const runtimePagesOf = (agent) => [
-  ...(moduleOf(runtimeIdOf(agent)).pages?.(runtimeOptionsOf(agent)) || []),
-];
+// An archived agent has none: its runtime compiles nothing of it.
+export const runtimePagesOf = (agent) =>
+  agent?.archivedAt
+    ? []
+    : [...(moduleOf(runtimeIdOf(agent)).pages?.(runtimeOptionsOf(agent)) || [])];
 
 /** The model connections `[{ connectionId, modelId }]` the agent's options name. */
 export const optionConnections = (agent) =>

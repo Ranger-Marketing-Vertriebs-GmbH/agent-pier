@@ -324,3 +324,14 @@ test("the wiki topic is sampled only while its last read said rebuilding", async
   assert.equal(await topic.sampling("a1"), false);
   stop();
 });
+
+test("an archived agent has no wiki page, and its routes refuse", async () => {
+  const archived = { ...keeper, archivedAt: "2026-11-17T00:00:00.000Z" };
+  assert.deepEqual(runtimePagesOf(archived), []);
+  assert.equal("runtimePages" in withRuntime(archived, null), false);
+  const { files } = gateway({ "wiki.overview": overview, "wiki.get": page });
+  await assert.rejects(wikiPages(assistants(archived), "a1", over(files)), { status: 404 });
+  await assert.rejects(wikiPage(assistants(archived), "a1", "x.md", over(files)), {
+    status: 404,
+  });
+});
