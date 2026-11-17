@@ -2,6 +2,7 @@ import { clearContext, resetPresentation, validResetContext } from "./chat-reset
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import { reusedDraft } from "./chat-draft-reuse.js";
+import { withStopNotes } from "./stop-notes.js";
 import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 import {
   confirmationFields,
@@ -345,7 +346,8 @@ export class ChatDraft {
         return saved.outbox;
       }
       const next = { ...saved, ...this.unsaved };
-      const { text, attachments } = next;
+      const { attachments } = next;
+      const { text, stopNoteIds } = withStopNotes(next, context.stopNotes);
       const body = attachments.length
         ? [text.trimEnd(), ...attachments.map((a) => a.path)].filter(Boolean).join("\n")
         : text;
@@ -368,6 +370,7 @@ export class ChatDraft {
         baselineIds: messages.filter((m) => m.role === "user").map((m) => m.id),
         status: "waiting",
         resetContext,
+        stopNoteIds,
       };
       if (!this.write({ ...next, outbox, epoch: browserUuid(), revision: 0 }))
         return null;

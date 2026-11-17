@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   completedStartsOpen,
   groupSubagents,
+  groupTasks,
   tasksLine,
 } from "../../web/features/chat/background-tasks.js";
 
@@ -69,6 +70,38 @@ test("the line prefers running agents, then open to-dos, then history", () => {
     kind: "history",
   });
   assert.equal(tasksLine({ running: [], finished: [], tasks: [] }), null);
+});
+
+test("tasks group agents and shells by kind; stopped counts as finished", () => {
+  const g = groupTasks(
+    {
+      subagents: [{ id: "a", status: "stopped" }],
+      shells: [{ id: "s", status: "running", command: "sleep 300" }],
+    },
+    true,
+  );
+  assert.deepEqual(
+    [g.running.map((e) => e.kind), g.finished.map((e) => e.id)],
+    [["shell"], ["a"]],
+  );
+  assert.equal(g.finished[0].kind, "agent");
+  assert.deepEqual(tasksLine({ ...g, tasks: [] }), { kind: "running", count: 1 });
+});
+
+test("saved tasks keep a stopped entry and drop a running shell", () => {
+  const g = groupTasks(
+    {
+      subagents: [{ id: "a", status: "stopped" }],
+      shells: [
+        { id: "s", status: "running" },
+        { id: "t", status: "completed", updatedAt: "2026-11-16T10:00:00Z" },
+      ],
+    },
+    false,
+  );
+  assert.deepEqual(g.running, []);
+  assert.deepEqual(ids(g.finished), ["t", "a"]);
+  assert.deepEqual(groupTasks({}, true), { running: [], finished: [] });
 });
 
 test("Completed starts collapsed above five entries", () => {
