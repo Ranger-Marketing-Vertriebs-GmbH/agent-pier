@@ -9,13 +9,14 @@ import {
   runtimeBundlePatches,
   verifyBundlePatches,
 } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+import { assertCodexClientVersionFloor } from "../helpers/codex-client-version-floor.js";
 
 // The pinned runtime as the installer provisioned it carries AgentPier's patches of
 // its version (runtime-bundle-patches.js): the patched text, the receipt that records
 // them, and OpenClaw's content inventory naming the patched file's digest and size.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "the provisioned pinned runtime carries the lease release patch",
+  "the provisioned pinned runtime carries the lease release and Codex catalog patches",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
@@ -37,5 +38,17 @@ test(
       assert.equal(entry.sha256, createHash("sha256").update(bytes).digest("hex"));
       assert.equal(entry.size, bytes.length);
     }
+  },
+);
+
+// Independent of any patch: the installed package asks the ChatGPT model catalog as a
+// Codex client of at least 0.169.0, so a pin bump cannot drop the patch unnoticed.
+test(
+  "the provisioned pinned runtime asks the Codex catalog as a recent client",
+  { skip: !installed },
+  () => {
+    const app = path.join(installed, "app", "node_modules", "openclaw");
+    const found = assertCodexClientVersionFloor(app);
+    assert.ok(found.length >= 2, JSON.stringify(found));
   },
 );
