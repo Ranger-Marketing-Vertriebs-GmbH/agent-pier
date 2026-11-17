@@ -12,7 +12,9 @@ import { openClawOptions } from "./openclaw/openclaw-options.js";
 // a write (a translated refusal, or the stored form; `{}` stores nothing),
 // `read(value, agent)` tolerantly on every read (what a later descriptor no longer
 // names, or what the agent may no longer hold, is left out, never an error, so a
-// rollback still starts the agent) and `connections(options)`,
+// rollback still starts the agent), optionally `pages(options)` (the agent's pages
+// of the runtime's own the options switch on, slot `agent.page`) and
+// `connections(options)`,
 // the model connections the options name, which a live apply resolves. A runtime
 // without options of its own takes none: any key is refused, nothing is read.
 const modules = Object.freeze({
@@ -74,6 +76,14 @@ export function runtimeOptionsOf(agent) {
     return Object.freeze({});
   }
 }
+
+/**
+ * The ids of the runtime's own pages the agent's options switch on (slot
+ * `agent.page`): `[]` without any.
+ */
+export const runtimePagesOf = (agent) => [
+  ...(moduleOf(runtimeIdOf(agent)).pages?.(runtimeOptionsOf(agent)) || []),
+];
 
 /** The model connections `[{ connectionId, modelId }]` the agent's options name. */
 export const optionConnections = (agent) =>

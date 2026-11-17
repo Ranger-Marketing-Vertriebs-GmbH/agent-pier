@@ -3,7 +3,7 @@
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
 import { confirmFromEvent } from "./run-confirmation.js";
 import { admissionDoneOn } from "./agent-admission.js";
-import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
+import { compilerFor, hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
 export function runtimeStatusHandler(service) {
@@ -94,6 +94,14 @@ export function chatEventListener(service) {
     confirmFromEvent(service, conversation, event);
     // Its live steps, and any frame at all as a sign of life (run-steps.js).
     publishSteps(service, conversation, event);
+    // A wiki tool call that ended may have changed the agent's memory wiki (only the
+    // shared host's agents keep one: its compiler names the tools).
+    if (
+      event.step?.type === "tool" &&
+      event.step.phase === "end" &&
+      compilerFor(null).wikiChangedBy?.(event.step.name)
+    )
+      service.onWikiChange?.(conversation.assistantId);
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The chat's live feed always holds the reply so far.
     const text = event.kind === "text" ? service.chatStreams.delta(event) : undefined;

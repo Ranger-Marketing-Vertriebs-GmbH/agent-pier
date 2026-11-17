@@ -8,4 +8,11 @@ import { defineRuntimeDescriptor } from "../agent-runtime.js";
 export const openClawDescriptor = defineRuntimeDescriptor({
   id: "openclaw",
   name: "OpenClaw",
+  surfaces: [
+    // An agent's Capabilities tab › Memory wiki: the switch (runtimeOptions.openclaw,
+    // openclaw-options.js) and a link to the agent's wiki while it is on.
+    { id: "memoryWiki", slot: "agent.capabilities", kind: "built" },
+    // The agent's wiki, read only: its pages and one page (agentFiles.wikiPages).
+    { id: "wiki", slot: "agent.page", kind: "built" },
+  ],
 });

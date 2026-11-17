@@ -69,6 +69,9 @@ export const ownerContentRoutes = {
   // The entries archived from its memory, verbatim, and restoring one.
   "GET /api/assistants/:id/memory/archive": "agent",
   "POST /api/assistants/:id/memory/archive/:entryId/restore": "agent",
+  // Its memory wiki, read only (agent-wiki.js; only the owner's own agents keep one).
+  "GET /api/assistants/:id/wiki": "agent",
+  "GET /api/assistants/:id/wiki/page": "agent",
   "GET /api/assistants/:id/browser": "agent",
   "POST /api/assistants/:id/browser/reset": "agent",
   // Reminders and routines carry the texts a user asked for.

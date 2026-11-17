@@ -204,6 +204,12 @@ export const liveTopics = Object.freeze({
     path: (id) => `/assistants/${encodeURIComponent(id)}/shell-allowlist`,
     interval: 30000,
   }),
+  // The pages of the agent's memory wiki, pushed when a turn ends a wiki tool call.
+  "agent.wiki": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/wiki`,
+    interval: 30000,
+  }),
   "runtime.updates": Object.freeze({
     mode: "state",
     path: () => "/assistant-runtime/updates",

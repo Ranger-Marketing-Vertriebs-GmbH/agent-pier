@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { setTimeout as delay } from "node:timers/promises";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { compiledShell } from "../helpers/assistant-shell-compiled.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
@@ -13,6 +14,7 @@ import {
   wikiTools,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/memory-wiki.js";
 import { stripOpenClawRows } from "../../server/features/operations/private-tables.js";
+import { wikiPage, wikiPages } from "../../server/features/assistants/agent-wiki.js";
 
 // OpenClaw's memory wiki against the pinned Gateway (ADR 0007, step 7b). AgentPier
 // loads the bundled plugin `memory-wiki` while an owner's own agent keeps a wiki, one
@@ -152,6 +154,23 @@ test(
     calls.set("[cmd:lint]", { name: "wiki_lint", arguments: {} });
     assert.match((await h.direct(idOf(keeper), "lint", "true")).result, /Issues:/);
     assert.ok(fs.existsSync(path.join(vault, "syntheses", "quartz-notes.md")));
+
+    // The owner's read page reads it through the agentFiles sub-port: the page the turn
+    // filed is listed and opens as Markdown; the other agents have no wiki to read.
+    let listing;
+    for (let n = 0; n < 40; n++) {
+      listing = await wikiPages(h.assistants, keeper.id);
+      if (listing.pages.some((page) => page.title === "Quartz Notes")) break;
+      await delay(250);
+    }
+    t.diagnostic(`wiki listing: ${JSON.stringify(listing)}`);
+    const listed = listing.pages.find((page) => page.title === "Quartz Notes");
+    assert.equal(listed?.kind, "synthesis");
+    const opened = await wikiPage(h.assistants, keeper.id, listed.lookup);
+    assert.match(opened.content, /Quartz is grey and the owner likes it\./);
+    assert.equal(JSON.stringify(opened).includes(h.runtime.paths.workspaces), false);
+    for (const agent of [plain, user])
+      await assert.rejects(wikiPages(h.assistants, agent.id), { status: 404 });
 
     // No vault for the others, and nothing of their notes in any vault.
     for (const agent of [plain, user])

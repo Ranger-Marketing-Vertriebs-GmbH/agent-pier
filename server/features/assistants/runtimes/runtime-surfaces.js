@@ -14,11 +14,15 @@
  * - `agent.capabilities`: groups at the end of an agent's Capabilities tab, for the
  *   agents of that runtime only, inside the tab's draft: the runtime's per-agent
  *   options (runtime-options.js), saved with the tab's PATCH.
+ * - `agent.page`: a page of its own below an agent's Capabilities tab, for the agents
+ *   of that runtime whose options switch it on (runtime-options.js `pages`; the
+ *   agent's view names them as `runtimePages`); the surface's id is the page's.
  */
 export const RUNTIME_SLOTS = Object.freeze([
   "hub.runtime",
   "hub.runtime.advanced",
   "agent.capabilities",
+  "agent.page",
 ]);
 
 // How a surface is made: `built` is a component of the runtime's web module;

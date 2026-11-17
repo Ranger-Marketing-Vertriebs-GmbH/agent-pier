@@ -551,3 +551,36 @@ test("a Hermes agent's Mixture of Agents is found by MoA", () => {
     false,
   );
 });
+
+// ADR 0007, step 7b: an OpenClaw agent's memory wiki switch, and its wiki page while
+// it keeps one, by "wiki", "Memory wiki" and "Wissens-Wiki".
+test("an OpenClaw agent's memory wiki and its wiki page are found", () => {
+  const built = (id, slot) => ({ id, slot, kind: "built", shows: "whileEnabled" });
+  const runtimes = [
+    {
+      id: "openclaw",
+      name: "OpenClaw",
+      ready: true,
+      surfaces: [built("memoryWiki", "agent.capabilities"), built("wiki", "agent.page")],
+    },
+  ];
+  const owl = { id: "owl", name: "Owl", runtimeInfo: { id: "openclaw" } };
+  const keeper = { ...owl, runtimePages: ["wiki"] };
+  const without = buildSearchIndex({ agents: [owl], agentsEnabled: true, runtimes });
+  assert.equal(first("Owl Memory wiki", without)?.id, "agent:owl:openclaw-memoryWiki");
+  assert.equal(
+    without.some((item) => item.id === "agent:owl:openclaw-wiki"),
+    false,
+  );
+  const entries = buildSearchIndex({ agents: [keeper], agentsEnabled: true, runtimes });
+  for (const query of [
+    "Owl Wissens-Wiki",
+    "Owl wiki",
+    "Owl Memory-Wiki",
+    "Owl Memory wiki",
+  ])
+    assert.ok(
+      results(query, entries).some((item) => item.id === "agent:owl:openclaw-wiki"),
+      query,
+    );
+});

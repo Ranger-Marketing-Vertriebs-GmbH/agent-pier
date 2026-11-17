@@ -554,3 +554,32 @@ test("quick open finds a Hermes agent's Mixture of Agents; the user's index neve
   const users = buildUserSearchIndex({ agents: [heron] });
   assert.equal(flat(searchEntries(users, "beratermodelle")).length, 0);
 });
+
+// ADR 0007, step 7b: an OpenClaw agent's wiki page opens below its Capabilities tab;
+// the owner's alone.
+test("quick open opens an OpenClaw agent's wiki page; the user's index never", () => {
+  const built = (id, slot) => ({ id, slot, kind: "built", shows: "whileEnabled" });
+  const owl = {
+    id: "owl",
+    name: "Owl",
+    runtimeInfo: { id: "openclaw" },
+    runtimePages: ["wiki"],
+  };
+  const runtimes = [
+    {
+      id: "openclaw",
+      ready: true,
+      surfaces: [built("memoryWiki", "agent.capabilities"), built("wiki", "agent.page")],
+    },
+  ];
+  const owner = buildSearchIndex({ agents: [owl], agentsEnabled: true, runtimes });
+  const hit = flat(searchEntries(owner, "owl wissens-wiki")).find((item) =>
+    item.id.endsWith("openclaw-wiki"),
+  );
+  assert.equal(
+    routePath(hit.target.route),
+    "/agents/owl/settings?tab=capabilities&page=wiki",
+  );
+  const users = buildUserSearchIndex({ agents: [owl] });
+  assert.equal(flat(searchEntries(users, "wissens-wiki")).length, 0);
+});

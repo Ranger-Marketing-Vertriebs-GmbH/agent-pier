@@ -9,6 +9,13 @@ import {
   settledAdmission,
 } from "./agent-admission.js";
 import { openClawMemory } from "./openclaw-memory.js";
+import {
+  buildingListing,
+  wikiBuilding,
+  wikiGetParams,
+  wikiListing,
+  wikiPageOf,
+} from "./openclaw-wiki.js";
 
 // Binds the methods `over(current)` builds to the supervisor's client of each call,
 // with `on(connection)` binding them to the client behind a handle of
@@ -97,6 +104,17 @@ function agentFilesOver(current) {
     // no view_image or pdf without an agent directory) yet checks the full allowlists,
     // so the Gateway logs once that read, write, edit, view_image and pdf are unknown
     // there. An agent's turns build them all; the names are OpenClaw's own.
+    // The agent's memory wiki, read only (openclaw-wiki.js).
+    wikiPages: async ({ agentId }) => {
+      try {
+        return wikiListing(await call("wiki.overview", { agentId }));
+      } catch (error) {
+        if (wikiBuilding(error)) return buildingListing();
+        throw error;
+      }
+    },
+    wikiPage: async ({ agentId, lookup }) =>
+      wikiPageOf(await call("wiki.get", wikiGetParams(agentId, lookup))),
     searchMemory: ({ agentId, query, maxResults }) =>
       call("tools.invoke", {
         name: "memory_search",

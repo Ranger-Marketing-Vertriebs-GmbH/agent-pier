@@ -89,9 +89,10 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
     "advancedSettings",
   ])
     assert.equal(capabilities[name].available, true, name);
-  // Every capability is served.
+  // Every capability is served but the memory wiki, OpenClaw's own (ADR 0007, 7b).
   for (const [name, capability] of Object.entries(capabilities))
-    assert.equal(capability.available, true, name);
+    assert.equal(capability.available, name !== "memoryWiki", name);
+  assert.equal(capabilities.memoryWiki.reason, "memoryWikiUnsupported");
   // Unreachable while stopped, as every runtime's sub-ports are.
   await assert.rejects(
     runtime.sessions.create({ agentId: "agent-1" }),

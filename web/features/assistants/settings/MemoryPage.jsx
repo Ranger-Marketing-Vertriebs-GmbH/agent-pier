@@ -19,6 +19,7 @@ import MemoryPins from "./MemoryPins.jsx";
 import ConflictNotice from "./ConflictNotice.jsx";
 import MemoryArchiveList from "./MemoryArchiveList.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
+import { RuntimePageLinks } from "../RuntimeSlot.jsx";
 
 /**
  * The agent's two root notes and its day notes under memory/ (editable, saved against
@@ -29,7 +30,7 @@ import SubpageHeader from "./SubpageHeader.jsx";
  * pin each (MemoryPins). `readOnly` (a user's own agent under her opt-in) shows every
  * note read only.
  */
-export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
+export default function MemoryPage({ assistant, onBack, go, readOnly: locked = false }) {
   const copy = assistantCopy.personal;
   const assistantId = assistant.id;
   const [name, setName] = useState("MEMORY.md"),
@@ -188,6 +189,8 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
       <SubpageHeader title={copy.memory} tab="capabilities" onBack={onBack} />
       <ErrorMessage error={error} />
       <ConflictNotice draft={draft} labels={{ content: () => copy.notes }} />
+      {/* The pages of its runtime that read what it keeps (OpenClaw's memory wiki). */}
+      {go && <RuntimePageLinks assistant={assistant} go={go} label={copy.memory} />}
       <div className="list-card agent-fields">
         <label className="agent-field">
           {copy.noteType}

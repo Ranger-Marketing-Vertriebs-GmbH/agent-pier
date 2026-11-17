@@ -29,6 +29,7 @@ import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js
 import {
   agentActionsChanged,
   agentMemoryChanged,
+  agentWikiChanged,
   agentChannelsChanged,
   agentPinboardChanged,
   followReminderWrites,
@@ -93,6 +94,8 @@ export function createAssistantServices(options) {
     if (graph.assistants.agentDreams)
       graph.assistants.agentDreams.onChange = (id) =>
         agentMemoryChanged(options.live, id);
+    // A wiki tool call of an agent's turn shows on its wiki page (agent-wiki.js).
+    graph.assistants.onWikiChange = (id) => agentWikiChanged(options.live, id);
     // The agents' pinboards (agentpier_pinboard), on the shares of the connected graph.
     graph.assistants.pinboard = new AgentPinboard({
       assistants: graph.assistants,

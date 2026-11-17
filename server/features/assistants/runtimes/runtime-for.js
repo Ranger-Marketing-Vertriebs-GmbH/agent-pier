@@ -1,6 +1,7 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { DEFAULT_RUNTIME, RUNTIME_CAPABILITIES, unavailable } from "./agent-runtime.js";
 import { DEFAULT_TRAITS } from "./runtime-traits.js";
+import { runtimePagesOf } from "./runtime-options.js";
 import { RUNTIME_IDS, runtimeIdOf, traitOf } from "./runtime-descriptors.js";
 import { openClawDescriptor } from "./openclaw/descriptor.js";
 import { hermesDescriptor } from "./hermes/descriptor.js";
@@ -419,10 +420,15 @@ function installState(installs, id) {
 }
 
 /** A copy of the agent view `agent` with its `runtimeInfo` (runtimeDetails). */
-export const withRuntime = (agent, supervisor) => ({
-  ...agent,
-  runtimeInfo: runtimeDetails(agent, supervisor),
-});
+export const withRuntime = (agent, supervisor) => {
+  // The runtime's own pages its options switch on (runtime-options.js runtimePagesOf).
+  const pages = runtimePagesOf(agent);
+  return {
+    ...agent,
+    runtimeInfo: runtimeDetails(agent, supervisor),
+    ...(pages.length && { runtimePages: pages }),
+  };
+};
 
 /** A resolver `(agent) => AgentRuntime` bound to the supervisor `supervisor()` returns. */
 export const runtimeResolver = (supervisor) => (agent) => runtimeFor(agent, supervisor());

@@ -139,6 +139,13 @@ function filesOver(current, supervisor) {
       writePrivateText(place.file, text);
       return { ok: true, file: fileOf(name, text) };
     },
+    // Hermes keeps no memory wiki (hermes-runtime.js: capability memoryWiki).
+    wikiPages: async () => {
+      throw refusal("UNSUPPORTED", 409, "Hermes keeps no memory wiki.");
+    },
+    wikiPage: async () => {
+      throw refusal("UNSUPPORTED", 409, "Hermes keeps no memory wiki.");
+    },
     async searchMemory({ query, maxResults = 10 }) {
       const words = [
         ...new Set(

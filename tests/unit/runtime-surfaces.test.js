@@ -34,6 +34,7 @@ test("the slots are AgentPier's: a fixed list the port exports", () => {
     "hub.runtime",
     "hub.runtime.advanced",
     "agent.capabilities",
+    "agent.page",
   ]);
   assert.ok(Object.isFrozen(RUNTIME_SLOTS));
 });
@@ -72,12 +73,17 @@ test("a wrong surface fails as the module loads, naming what is wrong", () => {
     );
 });
 
-test("Hermes registers its install group and Mixture of Agents, OpenClaw no surface", () => {
+const openClawSurfaces = [
+  { id: "memoryWiki", slot: "agent.capabilities", kind: "built", shows: "whileEnabled" },
+  { id: "wiki", slot: "agent.page", kind: "built", shows: "whileEnabled" },
+];
+
+test("Hermes registers its install group and Mixture of Agents, OpenClaw its wiki", () => {
   assert.deepEqual(hermesDescriptor.surfaces, [
     { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
     { id: "mixture", slot: "agent.capabilities", kind: "built", shows: "whileEnabled" },
   ]);
-  assert.deepEqual(openClawDescriptor.surfaces, []);
+  assert.deepEqual(openClawDescriptor.surfaces, openClawSurfaces);
 });
 
 test("an agent's runtime view and the runtime list carry the surfaces", () => {
@@ -86,12 +92,16 @@ test("an agent's runtime view and the runtime list carry the surfaces", () => {
     runtimeDetails({ runtime: "hermes" }, null).surfaces,
     hermesDescriptor.surfaces,
   );
-  assert.deepEqual(runtimeDetails({ runtime: "openclaw" }, supervisor).surfaces, []);
-  assert.deepEqual(runtimeDetails(null, null).surfaces, []);
+  assert.deepEqual(
+    runtimeDetails({ runtime: "openclaw" }, supervisor).surfaces,
+    openClawSurfaces,
+  );
+  // An agent that names no runtime runs on the default one, OpenClaw.
+  assert.deepEqual(runtimeDetails(null, null).surfaces, openClawSurfaces);
   // A runtime this AgentPier lacks registers nothing here.
   assert.deepEqual(runtimeDetails({ runtime: "next" }, supervisor).surfaces, []);
   const [openclaw, hermes] = runtimeList(supervisor);
-  assert.deepEqual(openclaw.surfaces, []);
+  assert.deepEqual(openclaw.surfaces, openClawSurfaces);
   assert.deepEqual(hermes.surfaces, hermesDescriptor.surfaces);
   // The list is sent as JSON: the surfaces survive it unchanged.
   assert.deepEqual(JSON.parse(JSON.stringify(hermes)).surfaces, hermes.surfaces);

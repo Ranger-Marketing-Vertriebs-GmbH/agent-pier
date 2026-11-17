@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo } from "react";
+import ListCard from "../../components/ListCard.jsx";
+import ListRow from "../../components/ListRow.jsx";
+import { routePath } from "../../app/routes.js";
 import { slotEntries, surfaceKey } from "./runtime-surfaces.js";
 import { runtimeFieldCopy } from "./runtimes/fields.js";
 import { webRuntime } from "./runtimes/index.js";
+import { agentRoute } from "./settings/agent-settings-fields.js";
 import useRuntimes from "./useRuntimes.js";
 
 // The surfaces already reported as lacking a component, so each is named once.
@@ -96,4 +100,47 @@ export default function RuntimeSlot({
         />
       ),
     );
+}
+
+// The runtime an agent runs on, as its view names it.
+const runtimeOf = (assistant) => assistant?.runtimeInfo?.id ?? assistant?.runtime;
+
+/**
+ * Page `page` of the agent's runtime (slot `agent.page`, below the Capabilities tab):
+ * the built surface of that id the runtime registers, which receives `context`
+ * (`{ assistant, onBack }`). Nothing while the runtime has none.
+ */
+export function RuntimePage({ assistant, page, context }) {
+  const { runtimes } = useRuntimes();
+  const shown = runtimes.filter((r) => r.id === runtimeOf(assistant));
+  const entry = slotEntries(shown, "agent.page").find(
+    ({ surface }) => surface.kind === "built" && surface.id === page,
+  );
+  const Component = entry && componentOf(entry.runtime, entry.surface);
+  return Component ? <Component runtime={entry.runtime} context={context} /> : null;
+}
+
+/**
+ * Links to the pages of its runtime the agent's options switch on (the view's
+ * `runtimePages`, slot `agent.page`), each named as the runtime's search entry names
+ * it; `go(tab, page)` opens one. Nothing without any.
+ */
+export function RuntimePageLinks({ assistant, go, label }) {
+  const search = webRuntime(runtimeOf(assistant))?.search || [];
+  const links = (Array.isArray(assistant?.runtimePages) ? assistant.runtimePages : [])
+    .map((page) => ({ page, entry: search.find((entry) => entry.surface === page) }))
+    .filter(({ entry }) => entry);
+  if (!links.length) return null;
+  return (
+    <ListCard label={label}>
+      {links.map(({ page, entry }) => (
+        <ListRow
+          key={page}
+          label={entry.label()}
+          href={routePath(agentRoute(assistant.id, "capabilities", page))}
+          onClick={() => go("capabilities", page)}
+        />
+      ))}
+    </ListCard>
+  );
 }

@@ -1,0 +1,23 @@
+// The rules behind OpenClaw's memory wiki surfaces (tests/unit/memory-wiki-web.test.js).
+
+/**
+ * Why `assistant` cannot keep a wiki, or null: "shared" (shared with users),
+ * "userAgent" (a user's own) or "taskMember" (a temporary team member). The server
+ * refuses the same (server runtimes/openclaw/openclaw-options.js wikiRefusal).
+ */
+export function wikiLock(assistant) {
+  if (assistant?.userAccess?.mode === "shared") return "shared";
+  if (assistant?.userAccess) return "userAgent";
+  if (assistant?.teamMemberId && assistant.lifetime !== "permanent") return "taskMember";
+  return null;
+}
+
+/** The draft's options with the wiki `on` or off (off stores nothing). */
+export const withWiki = (options, on) => {
+  const { memoryWiki: _old, ...rest } = options || {};
+  return on ? { ...rest, memoryWiki: true } : rest;
+};
+
+/** Whether the saved agent has its wiki page (the server names its runtime pages). */
+export const wikiOpen = (assistant) =>
+  Array.isArray(assistant?.runtimePages) && assistant.runtimePages.includes("wiki");

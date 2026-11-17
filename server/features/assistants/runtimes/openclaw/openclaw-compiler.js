@@ -43,6 +43,7 @@ import {
   agentWikiTools,
   hostWiki,
   optionsRestart,
+  wikiTools,
 } from "./openclaw-config/memory-wiki.js";
 
 /**
@@ -95,6 +96,8 @@ export const openClawCompiler = Object.freeze({
   wikiTools: agentWikiTools,
   hostWiki,
   wiki: agentWiki,
+  // Whether a call of tool `name` may have changed an agent's wiki (a wiki tool).
+  wikiChangedBy: (name) => wikiTools.includes(name),
   optionsRestart,
   // Assigned skills a same-named skill in the agent's folders would replace
   // (skill-shadows.js), and every name found there as `{ has(name) }`.

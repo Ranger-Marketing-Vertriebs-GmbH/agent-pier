@@ -1,5 +1,5 @@
 import { sameValue } from "../../../lib/settings/draft-state.js";
-import { agentPages, agentSettingsLocation } from "../settings-routes.js";
+import { agentPages, agentSettingsLocation, runtimePageIds } from "../settings-routes.js";
 import { heartbeatForm } from "../heartbeat.js";
 import {
   offersEveryCommand,
@@ -108,6 +108,14 @@ export function visibleAgentTabs(assistant) {
 /** Whether the agent has this subpage; Telegram subpages also need a channel (tab). */
 export function agentPageAllowed(assistant, page) {
   if (!page) return true;
+  // A page of the agent's runtime, only while its options switch it on (slot
+  // agent.page; server runtime-options.js runtimePagesOf).
+  if (runtimePageIds.includes(page))
+    return (
+      isPersonal(assistant) &&
+      Array.isArray(assistant?.runtimePages) &&
+      assistant.runtimePages.includes(page)
+    );
   if (!agentPages[page]) return false;
   // A task member's own memory is always on; the owner can read it (AGENTPIER-119).
   if (page === "memory")
