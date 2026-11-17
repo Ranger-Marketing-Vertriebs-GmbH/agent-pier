@@ -3,7 +3,7 @@
 // working one.
 // Codex's error code for a turn that hit the account's usage limit (app-server
 // camelCase, rollout snake_case).
-const usageLimitCodes = new Set(["usageLimitExceeded", "usage_limit_exceeded"]);
+export const usageLimitCodes = new Set(["usageLimitExceeded", "usage_limit_exceeded"]);
 
 /** A failed turn's usage limit, with Codex's own message (it names the reset time). */
 export function codexTurnLimit(params) {
