@@ -355,7 +355,10 @@ export class AssistantService {
       // (pending-restart.js); otherwise nothing changes without the confirmation.
       const queued = restart && queue && !!this.webTools.pending;
       if (restart && !queued) {
-        this.webTools.confirm(confirmed);
+        this.webTools.confirm(
+          confirmed,
+          webRestart ? undefined : "runtimeOptionsRestartRequired",
+        );
         // Reminders are switched off inside the restart, once no blocker can refuse.
         return { restart, disableReminders, plan };
       }

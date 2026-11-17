@@ -146,10 +146,15 @@ export class WebToolsChanges {
    * plugins.allow, read only at a start). A stopped Gateway compiles them at its next
    * start, so nothing needs a restart then.
    */
-  // `agent` is the one whose options change: only its runtime's compiler decides.
+  // `agent` is the one whose options change: only its runtime's compiler decides. A
+  // starting Gateway may have compiled before the save, so it counts as running
+  // (host.restartNeeded, as PendingRestart#request asks).
   optionsDiffer(profiles, agent = null) {
     const runtime = this.assistants.runtime;
-    if (!hostReady(runtime, agent)) return false;
+    if (!runtime || typeof runtime !== "object") return false;
+    const host = hostOf(runtime, agent);
+    const running = host.restartNeeded ? host.restartNeeded() : hostReady(runtime, agent);
+    if (!running) return false;
     return !!compilerFor(agent).optionsRestart?.(profiles, runtime);
   }
   /**
@@ -191,9 +196,12 @@ export class WebToolsChanges {
   queue(reason = "webTools") {
     return this.pending?.request(reason, this.usage());
   }
-  /** Refuses without the owner's confirmation; nothing is persisted then. */
-  confirm(confirmed) {
-    if (!confirmed) throw restartRequired("webToolsRestartRequired", this.usage());
+  /**
+   * Refuses without the owner's confirmation; nothing is persisted then. `key` names
+   * what needs the restart (a web tool change by default).
+   */
+  confirm(confirmed, key = "webToolsRestartRequired") {
+    if (!confirmed) throw restartRequired(key, this.usage());
   }
   /**
    * Persists `operation` in maintenance and restarts the Gateway with its result.
