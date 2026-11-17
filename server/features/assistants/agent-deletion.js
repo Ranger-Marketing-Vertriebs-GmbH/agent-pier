@@ -95,6 +95,8 @@ export function agentFolders(paths, agent) {
     path.join(paths.root, "memory-backups", agent.runtimeAgentId),
     // OpenClaw's agent state: sessions, transcripts and their archives.
     path.join(paths.state, "agents", agent.runtimeAgentId),
+    // Its memory wiki's vault (runtimes/openclaw/openclaw-config/memory-wiki.js).
+    path.join(paths.state, "wiki", agent.runtimeAgentId),
     ...(profile ? [path.join(paths.state, "browser", profile)] : []),
   ];
 }
