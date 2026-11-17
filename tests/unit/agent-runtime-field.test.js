@@ -190,6 +190,7 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
     learnsByDefault: true,
     userAgentsLearn: true,
     writesWhenAsked: true,
+    channelBotsLearn: true,
   });
   assert.deepEqual(hermes.capabilities.browser, { available: true });
   // The advanced settings Hermes has an equivalent of (hermes-config/advanced.js).

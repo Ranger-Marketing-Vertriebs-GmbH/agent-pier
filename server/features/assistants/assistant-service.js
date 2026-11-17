@@ -246,6 +246,7 @@ export class AssistantService {
   withMcp(profile) {
     const decorated = learningView(
       withRuntime(this.shellChanges.decorate(profile), this.runtime),
+      { senderFacing: !!this.telegramSenders?.connected(profile.id) },
     );
     // The badge while the agent's own browser runs (agent-browsers.js).
     if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;

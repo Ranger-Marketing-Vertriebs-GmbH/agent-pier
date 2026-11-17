@@ -28,8 +28,15 @@ export const hermesDescriptor = defineRuntimeDescriptor({
     channelBots: { peopleApply: "restart" },
     // Every agent reviews its work and writes skills unless AgentPier switches the
     // review off (hermes-config/skills.js); the skills stay in the agent's own home,
-    // so a user's agent may learn too, and `skill_manage` stays with learning off.
-    skills: { learnsByDefault: true, userAgentsLearn: true, writesWhenAsked: true },
+    // so a user's agent may learn too, and `skill_manage` stays with learning off. An
+    // agent with a bot for other people has no session_search (hermes-config/
+    // telegram.js), so its review never reads those people's chats.
+    skills: {
+      learnsByDefault: true,
+      userAgentsLearn: true,
+      writesWhenAsked: true,
+      channelBotsLearn: true,
+    },
     // Each chat's uploads live in a folder of that chat (chat-file-folders.js).
     sessions: { chatFolders: true },
     // One process set per agent (ADR 0006 decision 4), installed by the owner.

@@ -33,10 +33,11 @@ import {
   validSettingValue,
 } from "./openclaw-config/advanced-settings.js";
 import { validateOverride } from "./openclaw-config/overrides.js";
-import { hostLearns, learningTools } from "./openclaw-config/skill-learning.js";
-import { isDesiredAgent } from "../../agent-desired-state.js";
-import { runtimeIdOf } from "../runtime-descriptors.js";
-import { openClawDescriptor } from "./descriptor.js";
+import {
+  agentLearning,
+  hostLearns,
+  learningTools,
+} from "./openclaw-config/skill-learning.js";
 
 /**
  * The owner's advanced OpenClaw settings (openclaw-config/advanced-settings.js): the
@@ -75,17 +76,12 @@ export const openClawCompiler = Object.freeze({
   // One agent's exec override for a shell level (config.apply writes it).
   agentExec,
   // "Learns its own skills" (skill-learning.js): the tools it adds to an agent's
-  // entry for what the runtime offers, and whether any of `agents` learns (the
-  // Gateway-wide review mode and the global tool). `agents` are desired agents of
-  // this host, or stored records, of which only this runtime's count: another
-  // runtime's agents learn by other means and never switch the Gateway's mode.
+  // entry, whether any of `agents` learns (the Gateway-wide review mode and the
+  // global tool; desired agents or stored records of any runtime, of which only
+  // OpenClaw's count, each `senderFacing` left out) and both for one agent apply.
   learningTools,
-  hostLearns: (agents = []) =>
-    hostLearns(
-      agents.filter(
-        (agent) => isDesiredAgent(agent) || runtimeIdOf(agent) === openClawDescriptor.id,
-      ),
-    ),
+  hostLearns,
+  learning: agentLearning,
   // Assigned skills a same-named skill in the agent's folders would replace
   // (skill-shadows.js), and every name found there as `{ has(name) }`.
   shadowedSkills,

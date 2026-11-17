@@ -9,6 +9,7 @@ import { learningSwitch } from "../../web/features/assistants/settings/skill-lea
 import {
   duplicateFields,
   emptyDraft,
+  forUserAgent,
 } from "../../web/features/assistants/wizard/wizard-draft.js";
 import { createBody } from "../../web/features/assistants/wizard/wizard-creation.js";
 
@@ -47,7 +48,7 @@ test("the tab's draft holds the effective value and saves only a change", () => 
 });
 
 test("a locked or following agent never sends the field", () => {
-  const locked = agent({ userAccess, skillLearningLocked: true });
+  const locked = agent({ userAccess, skillLearningLocked: "userAgent" });
   const base = capabilityServer(locked);
   assert.deepEqual(
     capabilityPatch({
@@ -71,23 +72,24 @@ test("a locked or following agent never sends the field", () => {
 test("the switch shows for agents with settings of their own, locked with the reason", () => {
   assert.deepEqual(learningSwitch(agent()), {
     shown: true,
-    locked: false,
+    locked: null,
     writesWhenAsked: false,
   });
   assert.deepEqual(learningSwitch(agent({ runtimeInfo: perAgent })), {
     shown: true,
-    locked: false,
+    locked: null,
     writesWhenAsked: true,
   });
   assert.equal(
-    learningSwitch(agent({ userAccess, skillLearningLocked: true })).locked,
-    true,
+    learningSwitch(agent({ userAccess, skillLearningLocked: "userAgent" })).locked,
+    "userAgent",
+  );
+  assert.equal(
+    learningSwitch(agent({ skillLearningLocked: "channelBot" })).locked,
+    "channelBot",
   );
   // A user's agent on a runtime that lets it learn has a working switch.
-  assert.equal(
-    learningSwitch(agent({ userAccess, runtimeInfo: perAgent })).locked,
-    false,
-  );
+  assert.equal(learningSwitch(agent({ userAccess, runtimeInfo: perAgent })).locked, null);
   assert.equal(learningSwitch(agent({ archivedAt: "2026-11-01" })).shown, false);
   assert.equal(
     learningSwitch(agent({ teamMemberId: "a1", lifetime: "task" })).shown,
@@ -125,9 +127,23 @@ test("the create body names learning only when the draft chose it", () => {
   assert.equal("skillLearning" in createBody(draft), false);
   assert.equal(createBody({ ...draft, skillLearning: true }).skillLearning, true);
   assert.equal(createBody({ ...draft, skillLearning: false }).skillLearning, false);
-  // An agent for a user never asks for learning: the server refuses it where learned
-  // skills bypass her skill list. Switching it off travels.
-  const hers = { ...draft, owner: "u1" };
-  assert.equal("skillLearning" in createBody({ ...hers, skillLearning: true }), false);
-  assert.equal(createBody({ ...hers, skillLearning: false }).skillLearning, false);
+});
+
+test("an agent for a user keeps learning only where its runtime lets users' agents learn", () => {
+  const draft = { ...emptyDraft(), name: "Hers", connectionId: "c", modelId: "m" };
+  const hers = (skillLearning, runtimeInfo) =>
+    createBody(forUserAgent({ ...draft, owner: "u1", skillLearning }, runtimeInfo));
+  // The default runtime refuses it (the server answers 409): "on" is not sent.
+  assert.equal("skillLearning" in hers(true), false);
+  assert.equal("skillLearning" in hers(true, { capabilities: {} }), false);
+  // Off always travels.
+  assert.equal(hers(false).skillLearning, false);
+  // A runtime whose users' agents learn keeps an explicit choice either way.
+  assert.equal(hers(true, perAgent).skillLearning, true);
+  assert.equal(hers(false, perAgent).skillLearning, false);
+  // The owner's own agent is untouched.
+  assert.equal(
+    createBody(forUserAgent({ ...draft, skillLearning: true })).skillLearning,
+    true,
+  );
 });

@@ -45,6 +45,7 @@ test("the traits: the default runtime's agents do not learn unless switched on",
     learnsByDefault: false,
     userAgentsLearn: false,
     writesWhenAsked: false,
+    channelBotsLearn: false,
   });
   assert.equal(traitOf(agent(), "skills", "learnsByDefault"), false);
   const own = agent({ runtime: perAgent });
@@ -100,7 +101,27 @@ test("the view carries the effective value and whether the switch is locked", ()
   assert.equal(learningView(agent({ runtime: perAgent })).skillLearning, true);
   const locked = learningView(agent({ skillLearning: true, userAccess }));
   assert.equal(locked.skillLearning, false);
-  assert.equal(locked.skillLearningLocked, true);
+  assert.equal(locked.skillLearningLocked, "userAgent");
+});
+
+test("an agent with a bot for other people shows the switch locked where the runtime refuses it", () => {
+  const mine = agent({ skillLearning: true });
+  const view = learningView(mine, { senderFacing: true });
+  assert.equal(view.skillLearning, false);
+  assert.equal(view.skillLearningLocked, "channelBot");
+  assert.equal(learnsSkills(mine, { senderFacing: true }), false);
+  assert.equal(learningView(mine, { senderFacing: false }).skillLearning, true);
+  // A user agent's own reason comes first.
+  assert.equal(
+    learningView(agent({ userAccess }), { senderFacing: true }).skillLearningLocked,
+    "userAgent",
+  );
+  // The runtime whose bots leave the agent's other chats out keeps the switch.
+  const own = learningView(agent({ runtime: perAgent }), { senderFacing: true });
+  assert.equal(own.skillLearning, true);
+  assert.equal("skillLearningLocked" in own, false);
+  assert.equal(traitOf(own, "skills", "channelBotsLearn"), true);
+  assert.equal(traitOf(agent(), "skills", "channelBotsLearn"), false);
 });
 
 test("the desired state names learning; a task member follows its lead", () => {

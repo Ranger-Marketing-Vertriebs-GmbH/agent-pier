@@ -141,7 +141,7 @@ test("a user agent cannot be created learning: new, as a duplicate, from a templ
   const { agent } = await ownUserAgent(f, { username: "Ben" });
   const view = await listed(f, agent.id);
   assert.equal(view.skillLearning, false);
-  assert.equal(view.skillLearningLocked, true);
+  assert.equal(view.skillLearningLocked, "userAgent");
   const restated = await post({
     skillLearning: false,
     userAccess: { mode: "own", members: [{ userId: user.id, level: "chat" }] },
@@ -194,7 +194,7 @@ test("an agent that serves users stops learning, whatever its record says", asyn
   assert.equal(stored.skillLearning, true);
   const view = await listed(f, agent.id);
   assert.equal(view.skillLearning, false);
-  assert.equal(view.skillLearningLocked, true);
+  assert.equal(view.skillLearningLocked, "userAgent");
   const start = compiled(f);
   assert.equal(start.skills.workshop.autonomous.mode, "off");
   assert.equal(
@@ -212,4 +212,23 @@ test("an agent that serves users stops learning, whatever its record says", asyn
   });
   assert.equal(assigned.status, 200, await assigned.clone().text());
   assert.equal("skillLearning" in store.storedAssistant(agent.id), false);
+});
+
+test("an agent with its own bot for other people shows the switch locked", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const agent = await json(await create(f, { skillLearning: true }));
+  assert.equal((await listed(f, agent.id)).skillLearning, true);
+  // Its bot for other people, as the senders store answers it.
+  const senders = f.application.assistants.telegramSenders;
+  const connected = senders.connected;
+  senders.connected = (id) => id === agent.id || connected.call(senders, id);
+  t.after(() => (senders.connected = connected));
+  const view = await listed(f, agent.id);
+  assert.equal(view.skillLearning, false);
+  assert.equal(view.skillLearningLocked, "channelBot");
+  // The stored choice stays and applies again once the bot is gone.
+  assert.equal(
+    f.application.assistants.store.storedAssistant(agent.id).skillLearning,
+    true,
+  );
 });

@@ -145,7 +145,7 @@ test("a user's agent shows the switch locked with the reason", async ({ page }) 
     agent: {
       userAccess: { mode: "own", members: [{ userId: "u1", level: "chat" }] },
       ownerReads: true,
-      skillLearningLocked: true,
+      skillLearningLocked: "userAgent",
       runtimeInfo: { id: "openclaw", name: "OpenClaw", capabilities: {} },
     },
   });
@@ -158,6 +158,28 @@ test("a user's agent shows the switch locked with the reason", async ({ page }) 
   await expect(learning).not.toBeChecked();
   await expect(skills(page)).toContainText(
     "Locked for agents of users on OpenClaw: learned skills would bypass the skill list that limits what they read.",
+  );
+  expect(state.patches).toEqual([]);
+});
+
+test("an agent with its own bot for other people shows the switch locked", async ({
+  page,
+}) => {
+  const state = await setup(page, {
+    agent: {
+      skillLearningLocked: "channelBot",
+      runtimeInfo: { id: "openclaw", name: "OpenClaw", capabilities: {} },
+    },
+  });
+  await page.goto(settingsPath("capabilities"));
+  const learning = page.getByRole("switch", {
+    name: "Learns its own skills",
+    exact: true,
+  });
+  await expect(learning).toBeDisabled();
+  await expect(learning).not.toBeChecked();
+  await expect(skills(page)).toContainText(
+    "Off while this agent has its own Telegram bot for other people on OpenClaw: the review would read their chats.",
   );
   expect(state.patches).toEqual([]);
 });

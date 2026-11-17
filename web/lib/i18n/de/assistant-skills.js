@@ -12,6 +12,8 @@ export const assistantSkillsCopy = {
     offNoSkills: "Ausgeschaltet kann der Agent keine eigenen Skills speichern.",
     userAgent: (runtime) =>
       `Für Agenten von Benutzern auf ${runtime} gesperrt: Gelernte Skills würden die Skill-Liste umgehen, die begrenzt, was sie lesen.`,
+    channelBot: (runtime) =>
+      `Aus, solange dieser Agent auf ${runtime} einen eigenen Telegram-Bot für andere Personen hat: Die Auswertung würde deren Chats lesen.`,
   },
   shellOff:
     "Die meisten Skills führen Kommandozeilenprogramme aus und brauchen Shell-Zugriff.",

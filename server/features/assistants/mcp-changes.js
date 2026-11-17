@@ -433,8 +433,11 @@ export class McpChanges {
     const { snapshot, build } = live.compiler.mcpLive({
       desired: desiredState({ profiles, mcp: inputs }),
       webTools: runtime.webTools,
-      // The global list keeps the tool of agents that learn their own skills.
-      learning: live.compiler.hostLearns?.(profiles),
+      // The global list keeps the tool of agents that learn their own skills; one
+      // with a bot for other people never does.
+      learning: live.compiler.hostLearns?.(profiles, {
+        senderFacing: (profile) => !!this.telegramSenders?.connected(profile.id),
+      }),
     });
     if (snapshot.signature === running.signature) return false;
     const adoption = live.watchAdoption(this.adoption);

@@ -339,9 +339,12 @@ export class AssistantConfig {
       ssh,
       craft,
     ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
-    // "Learns its own skills", as the runtime's compiler maps it (skill-learning.js).
-    const learning = { nativeReady, senderFacing };
-    allowed.push(...this.compiler.learningTools(assistant, learning));
+    const learning = this.compiler.learning(assistant, {
+      nativeReady,
+      senderFacing: this.senderFacing,
+      profiles: this.store.listAssistants?.(),
+    });
+    allowed.push(...learning.tools); // "Learns its own skills" (skill-learning.js)
     // The agent's SSH agent, synced first so this turn's PATH and instructions name
     // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
     const plainSsh = nativeReady
@@ -369,9 +372,6 @@ export class AssistantConfig {
           (profile) => personalShell(profile) !== "off",
         )
       : undefined;
-    // Likewise the learning tool, while some agent of this host learns its own skills.
-    const profiles = this.store.listAssistants?.() || [assistant];
-    const learningGlobal = nativeReady ? compiler.hostLearns(profiles) : undefined;
     // The agent's bundled, catalog and built-in skills (agentEntry), applied hot like
     // tools.allow, without names a same-named skill in its folders would replace
     // (skill-shadows.js). Its catalog copies are checked here, before every turn
@@ -451,7 +451,7 @@ export class AssistantConfig {
           capabilities,
           exec,
           shellGlobal,
-          learningGlobal,
+          learning.global,
           skills,
           catalog.unreadable,
           configured,
@@ -536,7 +536,7 @@ export class AssistantConfig {
             managed: !!(this.teamReady || this.nativeReady),
             hostCapacity: this.hostCapacity,
             shellGlobal,
-            learningGlobal,
+            learningGlobal: learning.global,
           }),
         });
       }
@@ -565,7 +565,7 @@ export class AssistantConfig {
             exec,
             skills,
             shellGlobal,
-            learningGlobal,
+            learningGlobal: learning.global,
             memory: this.nativeReady ? nativeReady && desired.memory : undefined,
           },
         })

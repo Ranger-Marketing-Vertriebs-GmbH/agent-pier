@@ -68,7 +68,12 @@ test("OpenClaw states the defaults, Hermes its own", () => {
     agentFiles: { memoryFormat: "entries", dreaming: "agent" },
     models: { chatgptLogin: "agentpierHeld" },
     channelBots: { peopleApply: "restart" },
-    skills: { learnsByDefault: true, userAgentsLearn: true, writesWhenAsked: true },
+    skills: {
+      learnsByDefault: true,
+      userAgentsLearn: true,
+      writesWhenAsked: true,
+      channelBotsLearn: true,
+    },
     sessions: { chatFolders: true },
     host: { process: "perAgent", install: "optional" },
   });

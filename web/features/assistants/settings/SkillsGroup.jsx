@@ -18,7 +18,7 @@ export default function SkillsGroup({ assistant, draft, go }) {
   const on = draft.values.skills.length;
   const learning = learningSwitch(assistant);
   const learningSub = learning.locked
-    ? copy.learning.userAgent(runtimeName(assistant))
+    ? copy.learning[learning.locked](runtimeName(assistant))
     : `${copy.learning.description} ${
         learning.writesWhenAsked
           ? copy.learning.offStillWrites

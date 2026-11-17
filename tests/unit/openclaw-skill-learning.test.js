@@ -38,10 +38,14 @@ const agent = (id, extra = {}) => ({
   ...extra,
 });
 const ready = { teamsReady: true, nativeReady: true, guardProven: true };
-const compile = (profiles) => {
+const compile = (profiles, telegram) => {
   const scenario = goldenScenarios["no-tools"]();
   return compilerFor(null).compile({
-    desired: desiredState({ ...scenario.teams, profiles }),
+    desired: desiredState({
+      ...scenario.teams,
+      profiles,
+      ...(telegram && { telegram }),
+    }),
     existing: {
       agents: {
         defaults: {},
@@ -342,4 +346,73 @@ test("a live MCP apply keeps the learning tool in the global list a start writes
   const off = compile([agent("a1"), agent("a2")]);
   assert.deepEqual(live(false).patch.tools.allow, off.tools.allow);
   assert.deepEqual(live(undefined).patch.tools.allow, off.tools.allow);
+});
+
+// An agent's own Telegram bot for other people, as the senders store holds it.
+const bot = (assistantId) => ({
+  accounts: [
+    { assistantId, botId: "b1", token: "111:tok", tokenRevision: 1, people: ["100"] },
+  ],
+  speech: null,
+  unreadable: false,
+});
+
+test("a start whose only learner has a bot for other people keeps the mode off", () => {
+  const profiles = [agent("a1", { skillLearning: true }), agent("a2")];
+  const config = compile(profiles, bot("a1"));
+  assert.ok(config.channels.telegram.accounts["ap-a1"], "the bot is compiled");
+  assert.equal(config.skills.workshop.autonomous.mode, "off");
+  assert.equal(config.tools.allow.includes(learningTool), false);
+  assert.equal(JSON.stringify(config).includes(learningTool), false);
+  // Another learner without a bot still switches the host on, for itself alone.
+  const two = compile([...profiles, agent("a3", { skillLearning: true })], bot("a1"));
+  assert.equal(two.skills.workshop.autonomous.mode, "auto");
+  assert.ok(two.agents.entries["ap-a3"].tools.allow.includes(learningTool));
+  assert.ok(!two.agents.entries["ap-a1"].tools.allow.includes(learningTool));
+});
+
+test("an agent apply counts an agent with a bot for other people as not learning", () => {
+  const compiler = compilerFor(null);
+  const learner = agent("a1", { skillLearning: true });
+  const profiles = [learner, agent("a2")];
+  const senderFacing = (profile) => profile.id === "a1";
+  assert.deepEqual(
+    compiler.learning(learner, { profiles, nativeReady: true, senderFacing }),
+    {
+      tools: [],
+      global: false,
+    },
+  );
+  assert.deepEqual(compiler.learning(learner, { profiles, nativeReady: true }), {
+    tools: [learningTool],
+    global: true,
+  });
+  // Without native tools the host's learning state is not managed.
+  assert.deepEqual(compiler.learning(learner, { profiles, nativeReady: false }), {
+    tools: [],
+    global: undefined,
+  });
+  assert.equal(compiler.hostLearns(profiles, { senderFacing }), false);
+});
+
+test("an agent of another runtime never switches the Gateway's mode", () => {
+  const compiler = compilerFor(null);
+  // The second runtime's agents learn by default; desired agents name their runtime.
+  const elsewhere = agent("h1", { runtime: RUNTIME_IDS[1] });
+  const mixed = [
+    elsewhere,
+    agent("a1"),
+    agent("h2", { runtime: RUNTIME_IDS[1], skillLearning: true }),
+  ];
+  assert.equal(compiler.hostLearns(desiredState({ profiles: mixed }).agents), false);
+  assert.equal(compiler.hostLearns(mixed), false);
+  assert.deepEqual(
+    compiler.learningTools(desiredState({ profiles: [elsewhere] }).agents[0], {
+      nativeReady: true,
+    }),
+    [],
+  );
+  const config = compile(mixed);
+  assert.equal(config.skills.workshop.autonomous.mode, "off");
+  assert.equal(JSON.stringify(config).includes(learningTool), false);
 });

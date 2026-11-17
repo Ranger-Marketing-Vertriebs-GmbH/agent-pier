@@ -12,6 +12,7 @@ import {
 } from "./native-capabilities.js";
 import { compiledSkillNames } from "./built-in-skills.js";
 import { learnsSkills } from "./skill-learning.js";
+import { runtimeIdOf } from "./runtimes/runtime-descriptors.js";
 import { agentProfileName } from "./browser-profile-names.js";
 import { isShared, isUserAgent } from "../users/user-access.js";
 import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
@@ -69,6 +70,8 @@ export function desiredAgent(
   const agent = frozen({
     id: profile.id,
     runtimeAgentId: profile.runtimeAgentId,
+    // The runtime it runs on (a team member's read carries its lead's).
+    runtime: runtimeIdOf(profile),
     name: profile.name,
     archived: !!profile.archivedAt,
     // Its own settings apply (an own agent or a permanent member).

@@ -12,7 +12,12 @@ test("the defaults are OpenClaw's behaviour", () => {
     agentFiles: { memoryFormat: "markdown", dreaming: "host" },
     models: { chatgptLogin: "any" },
     channelBots: { peopleApply: "live" },
-    skills: { learnsByDefault: false, userAgentsLearn: false, writesWhenAsked: false },
+    skills: {
+      learnsByDefault: false,
+      userAgentsLearn: false,
+      writesWhenAsked: false,
+      channelBotsLearn: false,
+    },
     sessions: { chatFolders: false },
     host: { process: "shared", install: "builtin" },
   });

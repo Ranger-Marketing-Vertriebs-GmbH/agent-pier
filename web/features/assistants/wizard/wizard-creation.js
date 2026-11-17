@@ -48,11 +48,8 @@ export function createBody(d) {
     ...(d.template && { template: { id: d.template.id, revision: d.template.revision } }),
     // A duplicate runs on its source's runtime (ADR 0006).
     ...(d.runtime && { runtime: d.runtime }),
-    // A duplicate's "Learns its own skills". A user's agent never asks for it (the
-    // server refuses it where learned skills bypass her skill list); off travels.
-    ...((d.skillLearning === false || (d.skillLearning === true && !d.owner)) && {
-      skillLearning: d.skillLearning,
-    }),
+    // A duplicate's "Learns its own skills" (for a user's agent as forUserAgent left it).
+    ...(typeof d.skillLearning === "boolean" && { skillLearning: d.skillLearning }),
   };
   if (d.owner)
     return {

@@ -1,4 +1,5 @@
 import { asDesired } from "./desired-agents.js";
+import { openClawDescriptor } from "../descriptor.js";
 
 // "Learns its own skills" on OpenClaw (the runtime's docs/tools/self-learning.md and
 // skill-workshop.md, verified for 2026.10.9). OpenClaw's review mode
@@ -13,12 +14,16 @@ export const learningTool = "skill_workshop";
 
 /**
  * Whether the agent (its desired state, or a stored record) learns on OpenClaw: its
- * own setting, never an archived agent, a task member or an agent of restricted
- * users (`locked`), whatever its record says.
+ * own setting, never an agent of another runtime (whose agents learn by other means),
+ * an archived agent, a task member, an agent of restricted users (`locked`) or one
+ * whose bot for other people this Gateway runs (`senderFacing`: the review reads the
+ * agent's other sessions, which are those people's chats), whatever its record says.
  */
-export const learns = (agent) => {
+export const learns = (agent, { senderFacing = false } = {}) => {
   const desired = asDesired(agent);
   return (
+    desired.runtime === openClawDescriptor.id &&
+    !senderFacing &&
     desired.eligible &&
     !desired.archived &&
     !desired.inherits &&
@@ -27,16 +32,32 @@ export const learns = (agent) => {
   );
 };
 
-/**
- * The tools learning adds to the agent's entry, once native tools are ready. An
- * agent with a bot for other people gets none: the background review reads the
- * agent's other sessions, which are those people's chats.
- */
+/** The tools learning adds to the agent's entry, once native tools are ready. */
 export const learningTools = (agent, { nativeReady, senderFacing = false } = {}) =>
-  nativeReady && !senderFacing && learns(agent) ? [learningTool] : [];
+  nativeReady && learns(agent, { senderFacing }) ? [learningTool] : [];
 
-/** Whether the host reviews at all: at least one of `agents` learns. */
-export const hostLearns = (agents = []) => agents.some(learns);
+/**
+ * Whether the host reviews at all: at least one of `agents` learns.
+ * `senderFacing(agent)` names the agents whose bot for other people the Gateway runs.
+ */
+export const hostLearns = (agents = [], { senderFacing = () => false } = {}) =>
+  agents.some((agent) => learns(agent, { senderFacing: !!senderFacing(agent) }));
+
+/**
+ * What an agent apply writes: the agent's own tools (learningTools) and whether the
+ * host learns (`global`, undefined while native tools are not ready), from every
+ * agent's record (`profiles`, else the agent's alone) and `senderFacing(agent)` as
+ * for hostLearns.
+ */
+export function agentLearning(agent, { nativeReady, senderFacing, profiles } = {}) {
+  const sender = senderFacing || (() => false);
+  return {
+    tools: learningTools(agent, { nativeReady, senderFacing: !!sender(agent) }),
+    global: nativeReady
+      ? hostLearns(profiles || [agent], { senderFacing: sender })
+      : undefined,
+  };
+}
 
 /** The Gateway-wide review mode for `wanted`. */
 export const learningMode = (wanted) => (wanted ? "auto" : "off");

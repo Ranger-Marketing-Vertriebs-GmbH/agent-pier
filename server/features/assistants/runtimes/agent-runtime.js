@@ -157,7 +157,7 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *   The desired state is AgentPier's, runtime-neutral (ADR 0006 decision 3), built
  *   by agent-desired-state.js from AgentPier's stores and never in a runtime's terms.
  *   `desiredState(inputs)` is `{ agents, host }`, frozen:
- *   - agents: one desiredAgent per agent: `{ id, runtimeAgentId, name, archived,
+ *   - agents: one desiredAgent per agent: `{ id, runtimeAgentId, runtime, name, archived,
  *     eligible` (its own settings apply), `inherits` (a temporary member running on
  *     its lead's grants), `locked` (a user agent under the hard lock), `team:
  *     { memberOf, permanent }`, `tools` (grants in offer order, each `{ tools,
