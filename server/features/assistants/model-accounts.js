@@ -290,12 +290,36 @@ export class AssistantModelAccounts {
     this.requireReady();
     // Before revocation: an update backup must never resurrect this profile.
     destroyBackupKeys(path.dirname(this.file));
-    await this.port().logout({
-      provider: "openai",
-      profileIds: [record.profileId],
-      timeoutMs: 60000,
-    });
+    await this.port()
+      .logout({
+        provider: "openai",
+        profileIds: [record.profileId],
+        timeoutMs: 60000,
+      })
+      .catch(async (error) => {
+        if (!(await this.#loggedOutDespite(error, record.profileId))) throw error;
+      });
     return this.list();
+  }
+  /**
+   * Whether a refused native logout still took effect. OpenClaw 2026.11.3 removes
+   * the profile first and then clears the sessions that name it; that second step
+   * reads every agent's session database and is refused (UNAVAILABLE, "Originally
+   * observed agent target requires its captured creating reference") while another
+   * task still creates one, as a fresh Gateway does for its own `main` agent. The
+   * profile is gone then, which OpenClaw's own status shows; any other refusal, or a
+   * profile it still lists, keeps the logout failed.
+   */
+  async #loggedOutDespite(error, profileId) {
+    if (error?.answered !== true || error.code !== "UNAVAILABLE") return false;
+    const status = await this.port()
+      .status({ timeoutMs: 60000 })
+      .catch(() => null);
+    const providers = status?.providers;
+    if (!Array.isArray(providers)) return false;
+    // No `openai` entry: its last profile is gone.
+    const profiles = providers.find((p) => p?.provider === "openai")?.profiles ?? [];
+    return Array.isArray(profiles) && !profiles.some((p) => p?.profileId === profileId);
   }
   /** Moves a login OpenClaw holds to AgentPier, on the owner's request. */
   move(id) {

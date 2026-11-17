@@ -222,3 +222,39 @@ test("during maintenance a renewal waits for the next Gateway spawn", async (t) 
   await accounts.sync(profileId);
   assert.equal(read().profiles[profileId].access, "second-access");
 });
+
+// OpenClaw 2026.11.3 removes the profile, then clears the sessions naming it; that
+// step is refused while a fresh Gateway still creates its main agent's database. The
+// logout took effect when OpenClaw no longer lists the profile.
+const sessionRaceRefusal = () =>
+  Object.assign(Error("Assistant Gateway unavailable (UNAVAILABLE)."), {
+    code: "UNAVAILABLE",
+    status: 503,
+    answered: true,
+  });
+const refusingLogout = (runtime, profiles, { removes, error = sessionRaceRefusal() }) => {
+  const call = runtime.client.call;
+  runtime.client.call = async (method, params) => {
+    if (method !== "models.authLogout") return call(method, params);
+    if (removes) profiles.splice(0);
+    throw error;
+  };
+};
+
+test("a logout refused after OpenClaw removed the profile took effect", async (t) => {
+  const { accounts, runtime, profiles } = fixture(t);
+  const [account] = await accounts.list();
+  refusingLogout(runtime, profiles, { removes: true });
+  assert.deepEqual(await accounts.logout(account.id), []);
+});
+
+test("a refused logout whose profile OpenClaw still lists stays failed", async (t) => {
+  const { accounts, runtime, profiles } = fixture(t);
+  const [account] = await accounts.list();
+  refusingLogout(runtime, profiles, { removes: false });
+  await assert.rejects(accounts.logout(account.id), { code: "UNAVAILABLE" });
+  // Only an answered UNAVAILABLE is looked into: a timeout leaves it unknown.
+  const timeout = Object.assign(Error("timeout"), { code: "TIMEOUT", status: 503 });
+  refusingLogout(runtime, profiles, { removes: true, error: timeout });
+  await assert.rejects(accounts.logout(account.id), { code: "TIMEOUT" });
+});

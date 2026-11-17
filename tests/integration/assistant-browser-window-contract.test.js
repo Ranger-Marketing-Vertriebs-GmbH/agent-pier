@@ -259,7 +259,16 @@ test(
 
     const check = async (label) => {
       assert.equal(await page.evaluate("document.visibilityState"), "visible", label);
-      const { first, samples } = await page.evaluate(frameProbe);
+      let { first, samples } = await page.evaluate(frameProbe);
+      // A visible page that painted no frame at all in eight seconds: once on an
+      // ubuntu-24.04-arm runner (timers on time, the snapshot 2.6 s), with no change to
+      // the browser or its launch. A page that is hidden or throttled stays without
+      // frames, so the probe runs once more; a stalled compositor has caught up.
+      if (first === null) {
+        t.diagnostic(`${label}: no frame in 8 s (${samples.join(",")}); probing again`);
+        await sleep(2000);
+        ({ first, samples } = await page.evaluate(frameProbe));
+      }
       const frames = Math.max(...samples);
       const timers = await page.evaluate(timerProbe);
       started = Date.now();

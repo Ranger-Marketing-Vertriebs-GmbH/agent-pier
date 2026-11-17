@@ -773,6 +773,16 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   repeats only the `config.patch` rate limit. Other retryable refusals are not repeated: OpenClaw may have acted
   before them (a `models.authLogout` that removed the profiles and then met an agent
   database still being inspected answers retryable too).
+- **Logout during a database creation.** `models.authLogout` removes the profile,
+  then clears the sessions that name it, reading every agent's session database.
+  While another task still creates one (a fresh Gateway creates its own `main`
+  agent's database in the background), that step is refused with `UNAVAILABLE`
+  ("Originally observed agent target requires its captured creating reference"),
+  after the removal. The account logout contract hit it twice on ubuntu-latest during
+  the v2.20.0-rc.3 release, with the same AgentPier calls as v2.20.0-rc.2. AgentPier
+  now counts such a refused logout as done once `models.authStatus` no longer lists
+  the profile (`model-accounts.js`); the Gateway restart of the logout follows as
+  before. A profile OpenClaw still lists, or any other failure, keeps it failed.
 - **Agent deletion budget.** 2026.11.3's journaled `agents.delete` drains the
   agent's work and databases, removes its cron jobs and is answered once the active
   Gateway applied the change: about 0.7 s on a fast macOS arm64 host (0.3 s on
