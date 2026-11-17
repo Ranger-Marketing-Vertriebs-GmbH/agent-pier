@@ -28,7 +28,7 @@ export default function ChatObservability({
           <span className="chat-working-spinner" aria-hidden="true" />
         ) : (
           <StatusDot
-            tone={activityTone(activity.state)}
+            tone={activity.limited ? "warning" : activityTone(activity.state)}
             className={`activity-dot ${activity.state}`}
           />
         )}

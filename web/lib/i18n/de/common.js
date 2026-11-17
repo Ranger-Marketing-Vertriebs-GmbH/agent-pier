@@ -11,6 +11,7 @@ export const commonCopy = {
   serviceUnavailable: "Dienst nicht erreichbar",
   ended: "Beendet",
   ready: "Bereit",
+  limitReached: "Limit erreicht",
   cancel: "Abbrechen",
   pending: "Einen Moment …",
   closeDialog: "Dialog schließen",

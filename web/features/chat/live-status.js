@@ -51,5 +51,13 @@ export function liveActivity(activity, live, running = true) {
               ? copy.liveAgents(live.agents)
               : "";
   const preparing = working && live.preparing ? liveToolName(live.preparing) : "";
-  return { state, label: labels[state] || activity.label, detail, preparing };
+  // A live idle report keeps the limited look; a working one means the limit is over.
+  const limited = state === "idle" && Boolean(activity.limited);
+  return {
+    state,
+    label: limited ? commonCopy.limitReached : labels[state] || activity.label,
+    ...(limited ? { limited } : {}),
+    detail,
+    preparing,
+  };
 }

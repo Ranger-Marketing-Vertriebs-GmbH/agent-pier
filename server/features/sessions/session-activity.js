@@ -16,7 +16,7 @@ const labels = {
 };
 const result = (state, extra = {}) => ({
   state,
-  label: labels[state],
+  label: extra.limit ? serverMessages.sessions.activityLimited : labels[state],
   ...extra,
 });
 /** Recognize only current native chrome near the composer, never transcript text. */
