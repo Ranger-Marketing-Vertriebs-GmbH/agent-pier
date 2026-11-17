@@ -144,6 +144,7 @@ export default function useChatController({ active, session, request, onConnecti
           ? data.providerSessionId
           : null,
       restartGeneration: session.restartGeneration || 0,
+      stopNotes: data?.observability?.stopNotes,
     });
   async function submit(event) {
     event.preventDefault();

@@ -22,7 +22,7 @@ import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
-import { groupSubagents, tasksLine } from "./background-tasks.js";
+import { groupTasks, tasksLine } from "./background-tasks.js";
 import useScrollbarWidth from "./useScrollbarWidth.js";
 export default function ChatView({
   active,
@@ -133,8 +133,11 @@ export default function ChatView({
   useScrollbarWidth(output);
   const subagentsLive =
     session.status === "running" && !restored && !data?.observability?.stale;
-  const grouped = groupSubagents(data?.observability?.subagents, subagentsLive);
-  const subagents = [...grouped.running, ...grouped.finished];
+  // Subagents and shells; the line counts both, the header lists the agents.
+  const grouped = groupTasks(data?.observability || {}, subagentsLive);
+  const subagents = [...grouped.running, ...grouped.finished].filter(
+    (entry) => entry.kind === "agent",
+  );
   const tasks = data?.tasks || [];
   const line = tasksLine({ ...grouped, tasks });
   // A sheet whose content vanished closes for good instead of reopening later.
@@ -145,7 +148,13 @@ export default function ChatView({
   return (
     <div className="chat-layout">
       {tasksOpen && active && line && (
-        <BackgroundTasksSheet {...grouped} tasks={tasks} close={closeTasks} />
+        <BackgroundTasksSheet
+          {...grouped}
+          tasks={tasks}
+          session={session}
+          openFile={openFile}
+          close={closeTasks}
+        />
       )}
       <section
         className="chat-main"

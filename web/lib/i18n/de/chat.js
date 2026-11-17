@@ -107,7 +107,21 @@ export const backgroundTasksCopy = {
     count === 1 ? "1 laufende Aufgabe" : `${count} laufende Aufgaben`,
   todosLine: (done, total) => `Aufgaben ${done}/${total}`,
   kindAgent: "Agent",
+  kindShell: "Shell",
   progress: "Aufgabenfortschritt",
+  stop: "Aufgabe stoppen",
+  stopRefused: (message, reason) => `${message} (${reason})`,
+  showTranscript: "Verlauf anzeigen",
+  showOutput: "Ausgabe anzeigen",
+  back: "Zurück zur Liste",
+  loading: "Wird geladen …",
+  transcriptEmpty: "Noch keine Nachrichten.",
+  transcriptTruncated: (count) => `Zeigt die letzten ${count} Nachrichten.`,
+  transcriptPartial:
+    "Die Aufgabe läuft noch: Der Verlauf enthält nur ihre abgeschlossenen Schritte.",
+  outputEmpty: "Noch keine Ausgabe.",
+  outputTruncated: "Zeigt das Ende der Ausgabe.",
+  outputGone: "Die Ausgabe ist nicht mehr vorhanden.",
 };
 export const chatAttachmentCopy = {
   attachments: "Anhänge",

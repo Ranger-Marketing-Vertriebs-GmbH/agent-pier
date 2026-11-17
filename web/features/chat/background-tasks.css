@@ -44,10 +44,6 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.subagent-entry > strong {
-  color: var(--text);
-  font-weight: 600;
-}
 .subagent-entry > p {
   margin: 0;
   color: var(--text-row);
@@ -124,4 +120,87 @@
 }
 .background-tasks-todos .task-completed > div > span {
   color: var(--muted);
+}
+/* Task cards (BackgroundTaskCard.jsx) and the detail view (BackgroundTaskDetail.jsx). */
+.task-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.task-card-head > strong {
+  min-width: 0;
+  padding-top: 2px;
+  color: var(--text);
+  font-weight: var(--font-weight-semibold);
+}
+/* The button reaches into the card's padding, so its 44px phone target does not push
+   the lines below it down. */
+.task-card-head .task-stop {
+  margin: -11px -11px -11px 0;
+  color: var(--error-text);
+}
+.task-command {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+code.task-command {
+  color: var(--text-row);
+}
+.task-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.subagent-entry > .error {
+  margin: 4px 0 0;
+}
+.subagent-status.stopped {
+  color: var(--warning);
+}
+.task-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  min-width: 0;
+}
+.task-detail-head > h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.task-detail-head > .icon-button {
+  margin-left: -8px;
+}
+.task-detail-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.task-detail-transcript .chat-message,
+.task-detail-transcript .chat-tool {
+  margin-bottom: 18px;
+}
+.task-detail-output {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+  color: var(--text-row);
+  font:
+    12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

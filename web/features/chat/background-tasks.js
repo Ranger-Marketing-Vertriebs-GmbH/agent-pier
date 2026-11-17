@@ -1,10 +1,14 @@
 /** Above this many entries the Completed group of the sheet starts collapsed. */
 export const COMPLETED_OPEN_LIMIT = 5;
 
+/** End states worth listing from saved data. */
+const ENDED = ["completed", "failed", "stopped"];
+
 const updated = (agent) => {
   const time = Date.parse(agent?.updatedAt);
   return Number.isFinite(time) ? time : null;
 };
+const list = (value) => (Array.isArray(value) ? value : []);
 
 /**
  * Subagents for the background tasks sheet. Saved or stale data (`live` false)
@@ -15,12 +19,12 @@ const updated = (agent) => {
 export function groupSubagents(subagents, live = false) {
   const running = [],
     finished = [];
-  for (const [order, agent] of (Array.isArray(subagents) ? subagents : []).entries()) {
+  for (const [order, agent] of list(subagents).entries()) {
     if (agent?.status === "running") {
       if (live) running.push(agent);
       continue;
     }
-    if (!live && !["completed", "failed"].includes(agent?.status)) continue;
+    if (!live && !ENDED.includes(agent?.status)) continue;
     finished.push({ agent, order, time: updated(agent) });
   }
   finished.sort((a, b) => {
@@ -31,6 +35,19 @@ export function groupSubagents(subagents, live = false) {
   });
   return { running, finished: finished.map(({ agent }) => agent) };
 }
+
+/**
+ * Subagents and shells of the sheet, each entry marked with its `kind`, grouped by
+ * the rules of `groupSubagents` (a stopped task counts as finished).
+ */
+export const groupTasks = ({ subagents, shells } = {}, live = false) =>
+  groupSubagents(
+    [
+      ...list(subagents).map((entry) => ({ ...entry, kind: "agent" })),
+      ...list(shells).map((entry) => ({ ...entry, kind: "shell" })),
+    ],
+    live,
+  );
 
 /**
  * What the line above the composer says, or null when there is nothing to say:

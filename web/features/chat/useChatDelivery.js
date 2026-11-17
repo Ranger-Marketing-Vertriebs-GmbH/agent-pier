@@ -141,6 +141,7 @@ export default function useChatDelivery({ session, request, active }) {
           submit: true,
           deliveryId: item.id,
           deliveryScope: item.scope,
+          ...(item.stopNoteIds?.length ? { stopNoteIds: item.stopNoteIds } : {}),
         },
         controller.signal,
       );

@@ -85,6 +85,8 @@ export async function subagentFixture(page, { older = false } = {}) {
           task: "Review parser",
           status: "completed",
           updatedAt: "2026-09-07T10:00:10Z",
+          canStop: false,
+          hasTranscript: true,
         },
         {
           id: "agentstyles02",
@@ -92,8 +94,12 @@ export async function subagentFixture(page, { older = false } = {}) {
           task: "Check styles",
           status: "running",
           updatedAt: "2026-09-07T10:00:03Z",
+          canStop: true,
+          hasTranscript: true,
         },
       ],
+      shells: [],
+      stopNotes: [],
     },
   };
   const publish = await mockChatStream(page, () => data);

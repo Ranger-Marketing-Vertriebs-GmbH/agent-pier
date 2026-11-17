@@ -28,6 +28,7 @@ export const chatObservabilityCopy = {
   running: "Working",
   completed: "Completed",
   failed: "Failed",
+  stopped: "Stopped",
   unknown: "Status unknown",
   noTask: "No task description reported.",
   contextUsed: "Context used",
