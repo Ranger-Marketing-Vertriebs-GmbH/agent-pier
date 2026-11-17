@@ -4,6 +4,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { hostOf, hostReady } from "./runtimes/runtime-for.js";
+import { optionConnections } from "./runtimes/runtime-options.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
@@ -137,11 +138,15 @@ export class AssistantProviderSynchronization {
       throw error;
     }
   }
-  /** Whether `profile` runs on the connection: its model, or the PDF fallback it may read with. */
+  /**
+   * Whether `profile` runs on the connection: its model, the PDF fallback it may read
+   * with, or a model its runtime options name (an advisor, runtime-options.js).
+   */
   uses(profile, connectionId, pdf = this.pdfModel()) {
     return (
       profile.model.connectionId === connectionId ||
-      (pdf?.connectionId === connectionId && personalCapabilities(profile).readPdfs)
+      (pdf?.connectionId === connectionId && personalCapabilities(profile).readPdfs) ||
+      optionConnections(profile).some((entry) => entry.connectionId === connectionId)
     );
   }
   /** True when changing this connection must restart the Gateway of its agents. */

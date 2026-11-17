@@ -1,5 +1,6 @@
 import { envNames, mergeAuth, mergeConfig, mergeEnv } from "./home-merge.js";
 import { modelEnvNames, modelSection } from "./model.js";
+import { mixtureEnvOwned, mixtureHome } from "./mixture.js";
 import {
   approvalMode,
   disabledToolsets,
@@ -161,6 +162,10 @@ export function compileHome(
   // Built-in skills (shopping) need the browser, so they come with the team plugin.
   const builtIn = builtInOffered(agent, browsing);
   const model = agent.model ? modelSection(agent.model, { modelProxy }) : null;
+  // Mixture of Agents over that model while the apply knows it (mixture.js).
+  const mixture = model
+    ? mixtureHome(agent, model.section, existing["config.yaml"])
+    : null;
   // The team plugin's guard, which image creation and the pdf tool ask at each call.
   const guarded = !!(connection?.url && connection?.token);
   // Image creation through the proxy, every call checked by the team plugin's guard.
@@ -214,7 +219,7 @@ export function compileHome(
     ...(webPart ? [webPart.plugin] : []),
   ];
   const config = [
-    ...(model ? [[["model"], model.section]] : []),
+    ...(model ? [[["model"], mixture.section], ...mixture.config] : []),
     [["agent", "disabled_toolsets"], [...new Set(toolsets)].sort()],
     ...(model
       ? [[["agent", "image_input_mode"], model.images ? "native" : undefined]]
@@ -272,7 +277,7 @@ export function compileHome(
   // the bot's while its settings are.
   const env = {
     owned: [
-      ...(model ? modelEnvNames : []),
+      ...(model ? [...modelEnvNames, mixtureEnvOwned] : []),
       ...(servers ? [mcpEnvOwned] : []),
       ...(bot ? channelBotEnvNames : []),
       // The web key names while the apply names the web settings, so a key the
@@ -289,6 +294,7 @@ export function compileHome(
     ],
     values: {
       ...model?.env,
+      ...mixture?.env,
       ...servers?.env,
       ...bot?.env,
       ...webPart?.env.values,
@@ -339,7 +345,7 @@ export function compileHome(
         team,
         browser: browsing,
         images,
-      }).concat(webPart?.unsupported || []),
+      }).concat(webPart?.unsupported || [], mixture?.unsupported || []),
     ),
   });
 }

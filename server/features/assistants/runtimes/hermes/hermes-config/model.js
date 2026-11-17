@@ -28,7 +28,7 @@ export const modelEnvNames = Object.freeze([
   codexBaseEnv,
 ]);
 
-const openRouterUrl = "https://openrouter.ai/api/v1";
+export const openRouterUrl = "https://openrouter.ai/api/v1";
 const reference = (name) => `\${${name}}`;
 
 // Request headers for an endpoint that takes its key in another header than

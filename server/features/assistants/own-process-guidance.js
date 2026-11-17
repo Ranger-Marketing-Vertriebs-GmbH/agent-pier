@@ -1,5 +1,6 @@
 import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { memoryFor, traitOf } from "./runtimes/runtime-for.js";
+import { resolveOptionConnections } from "./option-connections.js";
 
 /**
  * What the apply of an agent on its own process set (Hermes, AssistantConfig
@@ -14,7 +15,8 @@ import { memoryFor, traitOf } from "./runtimes/runtime-for.js";
  * format's `pinMarker`): Hermes's own memory tool, never AgentPier's memory files;
  * image creation is, while its images reach the chat through the team plugin
  * (`images`: a ChatGPT login AgentPier holds serves them, hermes-config/images.js).
- * Never fails the apply.
+ * `optionConnections`: the model connections its runtime options name, resolved
+ * (option-connections.js). Never fails the apply.
  */
 export async function ownProcessInputs(
   config,
@@ -49,5 +51,6 @@ export async function ownProcessInputs(
     craft: tools && craft && mayCreateProjects(assistant, senderFacing),
     previews: tools && mayOpenPreviews(assistant, senderFacing),
   };
-  return { ssh, craft, shellPath, guidance };
+  const optionConnections = await resolveOptionConnections(config.models, assistant);
+  return { ssh, craft, shellPath, guidance, optionConnections };
 }
