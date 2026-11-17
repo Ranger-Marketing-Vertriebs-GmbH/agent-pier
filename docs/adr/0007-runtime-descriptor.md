@@ -4,7 +4,7 @@
 
 Status: accepted; steps 1 (traits), 2 (the runtime list with install state), 3
 (slots and built surfaces), 4 (described surfaces, advanced settings per runtime) and
-5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Step 6 is implemented narrowed (decision 8): the first shared per-agent option. Step 7a is implemented (decision 9): per-agent options of one runtime, the slot `agent.capabilities` and their first consumer, Mixture of Agents on Hermes.
+5 (the server readers, decision 6; a runtime's own services in its adapter, decision 7) implemented. Step 6 is implemented narrowed (decision 8): the first shared per-agent option. Step 7a is implemented (decision 9): per-agent options of one runtime, the slot `agent.capabilities` and their first consumer, Mixture of Agents on Hermes. Step 7b is implemented (decision 10): the memory wiki on OpenClaw, the slot `agent.page` and the capability `memoryWiki`.
 
 Date: 2026-11-16
 
@@ -155,10 +155,11 @@ name on the built-in runtime's host page.
 
 A **slot** is a named place on a page AgentPier owns. AgentPier owns the list
 (`RUNTIME_SLOTS`, `runtimes/runtime-surfaces.js`, exported from the port) and adds a
-slot with the first surface that needs it. Today there are three: `hub.runtime`, a
+slot with the first surface that needs it. Today there are four: `hub.runtime`, a
 group of Agents › Runtime, `hub.runtime.advanced`, the runtime's own rows in
-Agents › Runtime › Advanced (decision 5), and `agent.capabilities`, groups at the end
-of an agent's Capabilities tab (decision 9).
+Agents › Runtime › Advanced (decision 5), `agent.capabilities`, groups at the end
+of an agent's Capabilities tab (decision 9), and `agent.page`, a page of the runtime's
+own below that tab (decision 10).
 
 A descriptor states its surfaces as `surfaces: [{ id, slot, kind, shows }]`. `kind`
 is `built` or `described` (decision 5). `shows` says
@@ -167,7 +168,7 @@ on the runtime, the list entry's `ready`; `always` also before, as the install g
 of an optional runtime must. A missing or repeated id and an unknown slot, kind,
 `shows` or key fail when the module loads, like a wrong trait. Hermes registers
 `{ id: "install", slot: "hub.runtime", kind: "built", shows: "always" }`; OpenClaw
-registers none. The runtime list and an agent's `runtimeInfo` carry `surfaces`; a
+registered none until its memory wiki (decision 10). The runtime list and an agent's `runtimeInfo` carry `surfaces`; a
 runtime this AgentPier lacks has none.
 
 In the web app each runtime with UI of its own has a web module,
@@ -475,6 +476,53 @@ unavailable is kept on a save and left out by the compile; the advisor's number 
 its provider name is its stored position. Described per-agent fields (`scope:
 "agent"`, a `connection` field type) are still not built: no consumer needs them.
 
+### 10. OpenClaw's memory wiki: a runtime's own page
+
+Built as step 7b, on the owner's decisions of 2026-11-17: a per-agent switch "Memory
+wiki" and a read-only page where the owner reads the agent's wiki; only the owner's
+own agents, never a shared agent, a user's own agent or a task member.
+
+- **The option.** `runtimeOptions.openclaw.memoryWiki: true`, OpenClaw's options
+  module (`openclaw/openclaw-options.js`). It refuses the wiki for an agent shared
+  with users, a user's own agent and a temporary team member (409, translated) on
+  create, duplicate and update; its `read(value, agent)` reads it as off for such an
+  agent, so the desired state never carries it; `restrictRuntimeOptions`
+  (`runtime-options.js`) drops it from the stored record when the agent is assigned
+  to users. `read` now receives the agent, and a module may name `pages(options)`.
+- **The compile** (`openclaw-config/memory-wiki.js`, [Gateway](../assistant-gateway.md#memory-wiki)):
+  OpenClaw's bundled `memory-wiki` plugin, one vault per agent in bridge mode, loaded
+  while an agent keeps a wiki; its five tools only in those agents' lists. Without
+  one the compiled configuration is unchanged. The first wiki needs a restart
+  (`plugins.allow`), which the save asks for like a web tool change (pending restart
+  reason `runtimeOptions`); the supervisor records whether its start loaded the
+  plugin, and the compiler port answers `optionsRestart`.
+- **The page.** A new slot `agent.page`: a page of the runtime's own below an agent's
+  Capabilities tab, whose surface id is the page id. The agent's view names the pages
+  its options switch on (`runtimePages`, from the options module's `pages`), and only
+  those open. OpenClaw registers `memoryWiki` (slot `agent.capabilities`) and `wiki`
+  (slot `agent.page`) in its new web module (`web/features/assistants/runtimes/openclaw/`).
+  `RuntimeSlot.jsx` renders the page (`RuntimePage`) and the links to an agent's
+  runtime pages on its Memory page (`RuntimePageLinks`), each named by the runtime's
+  search entry for that surface.
+- **The port.** A capability `memoryWiki` and two methods of the agentFiles sub-port,
+  `wikiPages({ agentId })` and `wikiPage({ agentId, lookup })`: OpenClaw answers from
+  `wiki.overview` and `wiki.get`, Hermes declares both, rejects them and states the
+  capability unavailable (`memoryWikiUnsupported`). Feature code (`agent-wiki.js`)
+  reads the wiki only through them, never from the vault on disk.
+- **Live.** The list is the topic `agent.wiki:<id>`, pushed when a turn of the agent
+  ends a wiki tool call (the compiler port's `wikiChangedBy`).
+- **Backups.** The vault lies below `state/` and is private content; the plugin's
+  rows in `plugin_state_entries` name the paths of imported notes and leave the public
+  copy (`private-tables.js`), with no change of the archive format.
+
+Not decided by the brief and chosen here: bridge mode rather than isolated, because
+the contract test showed it imports the agent's notes with AgentPier's memory
+settings and a synthesis needs a source to cite; memory event logs off; the wiki's
+search local and wiki-only. The page lists `wiki.overview`'s items (syntheses,
+entities, concepts and pages with claims or questions), not the raw imported notes,
+which the Memory page shows. A switched-off or reassigned agent keeps its vault; only
+deletion removes it.
+
 ## Delivery order
 
 1. Traits, descriptors, the runtime list, the rule. Done.
@@ -488,7 +536,7 @@ its provider name is its stored position. Described per-agent fields (`scope:
 6. "Learns its own skills" as the first shared per-agent option. Done (decision 8).
 7. Mixture of Agents on Hermes with per-agent options of one runtime
    (`runtimeOptions`, the slot `agent.capabilities`): done as step 7a (decision 9).
-   The memory wiki on OpenClaw follows.
+   The memory wiki on OpenClaw: done as step 7b (decision 10).
 
 ## Considered options
 

@@ -15,6 +15,19 @@ const when = (iso) => {
     ? ""
     : date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 };
+// A link inside the vault (another page, a source) has no address here: its text
+// stays, plainly; a web link opens in a new tab as ChatMarkdown opens every link.
+const external = /^https?:\/\//i;
+const links = {
+  a: ({ node: _node, href, children, ...props }) =>
+    external.test(href || "") ? (
+      <a {...props} href={href} target="_blank" rel="noreferrer noopener">
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    ),
+};
 const pageSub = (page) =>
   [
     copy.page.kinds[page.kind] || page.kind,
@@ -84,7 +97,7 @@ export default function WikiPage({ context }) {
               <p className="field-description">{pageSub(page)}</p>
               {page.truncated && <p className="field-description">{copy.page.cut}</p>}
               <div className="message-content agent-markdown-preview">
-                <ChatMarkdown>{page.content}</ChatMarkdown>
+                <ChatMarkdown components={links}>{page.content}</ChatMarkdown>
               </div>
             </article>
           )}

@@ -146,10 +146,11 @@ export class WebToolsChanges {
    * plugins.allow, read only at a start). A stopped Gateway compiles them at its next
    * start, so nothing needs a restart then.
    */
-  optionsDiffer(profiles) {
+  // `agent` is the one whose options change: only its runtime's compiler decides.
+  optionsDiffer(profiles, agent = null) {
     const runtime = this.assistants.runtime;
-    if (!hostReady(runtime)) return false;
-    return !!compilerFor(null).optionsRestart?.(profiles, runtime);
+    if (!hostReady(runtime, agent)) return false;
+    return !!compilerFor(agent).optionsRestart?.(profiles, runtime);
   }
   /**
    * The profiles once `patch` is saved for `id`, as the store merges capabilities
