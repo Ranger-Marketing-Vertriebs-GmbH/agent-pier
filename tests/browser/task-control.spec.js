@@ -50,8 +50,12 @@ async function taskRoutes(page, answers = {}) {
   return requests;
 }
 
-/** Accepts every message as handed off and records the bodies. */
-async function inputRoute(page) {
+/**
+ * Records every message body and answers with the next status of `outcomes`
+ * (handed off once they run out). "absent" drops the request, as when the network
+ * fails before the server saw it.
+ */
+async function inputRoute(page, outcomes = []) {
   const posts = [];
   const receipts = new Map();
   await page.route("**/api/sessions/subagents/input**", (route) => {
@@ -59,10 +63,9 @@ async function inputRoute(page) {
     if (request.method() === "POST") {
       const body = request.postDataJSON();
       posts.push(body);
-      receipts.set(body.deliveryId, {
-        deliveryId: body.deliveryId,
-        status: "handed-off",
-      });
+      const status = outcomes.shift() || "handed-off";
+      receipts.set(body.deliveryId, { deliveryId: body.deliveryId, status });
+      if (status === "absent") return route.abort();
       return route.fulfill({ json: receipts.get(body.deliveryId) });
     }
     const id = new URL(request.url()).pathname.split("/").pop();
@@ -273,6 +276,107 @@ test("the composer appends pending stop notes once and never to commands", async
   await expect.poll(() => posts.length).toBe(3);
   expect(posts[2].text).toBe("/compact");
   expect(posts[2].stopNoteIds).toBeUndefined();
+});
+
+test("a note goes again with the resend of an absent or rejected message, once", async ({
+  page,
+}) => {
+  const { data, publish } = await subagentFixture(page);
+  await taskRoutes(page);
+  const posts = await inputRoute(page, ["absent", "rejected", "handed-off"]);
+  data.observability.stopNotes = [note];
+  publish();
+  const composer = page.locator(".chat-composer textarea");
+  const send = page.getByRole("button", { name: "Senden", exact: true });
+  const carried = `weiter\n\n${note.text}`;
+  await composer.fill("weiter");
+  await send.click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toMatchObject({ text: carried, stopNoteIds: ["n1"] });
+  // Never reached the server: taken back into the composer and sent again.
+  await page.getByRole("button", { name: "Nachricht bearbeiten" }).click();
+  await expect(composer).toHaveValue("weiter");
+  await send.click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toMatchObject({ text: carried, stopNoteIds: ["n1"] });
+  // Rejected: the composer keeps the text, and the next send carries the note again.
+  await expect(composer).toHaveValue("weiter");
+  await send.click();
+  await expect.poll(() => posts.length).toBe(3);
+  expect(posts[2]).toMatchObject({ text: carried, stopNoteIds: ["n1"] });
+  await expect(composer).toHaveValue("");
+  // Handed off and not yet accepted: the note is not repeated.
+  await composer.fill("danach");
+  await send.click();
+  await expect.poll(() => posts.length).toBe(4);
+  expect(posts[3].text).toBe("danach");
+  expect(posts[3].stopNoteIds).toBeUndefined();
+});
+
+test("a transcript names the main agent's prompt and never loads rows from the main chat", async ({
+  page,
+}) => {
+  const { publish } = await subagentFixture(page);
+  const loads = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/chat/messages/")) loads.push(request.url());
+  });
+  await taskRoutes(page, {
+    transcript: () => ({
+      messages: [
+        { id: "claude:0", role: "user", text: "Check the stylesheet." },
+        {
+          id: "claude:1",
+          role: "tool",
+          toolName: "Bash",
+          status: "completed",
+          text: "first lines",
+          textTail: "last lines",
+          truncated: { length: 40000, bytes: 40000 },
+        },
+        { id: "claude:2", role: "assistant", text: "Done." },
+      ],
+      partial: false,
+      truncated: false,
+    }),
+  });
+  publish();
+  await line(page).click();
+  await card(page, "agentstyles02")
+    .getByRole("button", { name: "Verlauf anzeigen" })
+    .click();
+  const detail = sheet(page).locator(".background-task-detail");
+  await expect(detail).toContainText("Done.");
+  await expect(detail.locator(".chat-message.user")).toHaveCount(0);
+  await expect(
+    detail.getByRole("region", { name: "Auftrag vom Hauptagenten" }),
+  ).toContainText("Check the stylesheet.");
+  await detail.locator(".chat-tool-group .activity-row-head").click();
+  await detail.locator(".chat-tool > summary").click();
+  await expect(detail.locator(".tool-output-omitted")).toBeVisible();
+  await expect(detail).toContainText("last lines");
+  await expect(detail.locator(".tool-output-truncated button")).toHaveCount(0);
+  await page.clock.runFor(1000);
+  expect(loads).toEqual([]);
+});
+
+test("a stopped task whose frame keeps it listed frees its stop button", async ({
+  page,
+}) => {
+  const { data, publish } = await subagentFixture(page);
+  await taskRoutes(page, { stop: () => ({ stopped: true }) });
+  await line(page).click();
+  const target = card(page, "agentstyles02");
+  const stop = target.getByRole("button", { name: "Aufgabe stoppen" });
+  await stop.click();
+  await expect(stop).toBeDisabled();
+  data.observability.subagents[1].canStop = false;
+  publish();
+  await expect(stop).toHaveCount(0);
+  data.observability.subagents[1].canStop = true;
+  publish();
+  await expect(stop).toBeEnabled();
+  await expect(stop).not.toHaveAttribute("aria-busy", "true");
 });
 
 test("the stop button is a full touch target on a phone", async ({ page }) => {

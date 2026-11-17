@@ -20,7 +20,10 @@ function useTaskRead(session, entry, view) {
     // The old content stays visible while it reloads.
     setState((current) => ({ ...current, loading: true }));
     read(session.id, entry.id, controller.signal).then(
-      (result) => setState({ result, error: "", loading: false }),
+      // A late answer of a read that was replaced never overwrites the newer one.
+      (result) => {
+        if (!controller.signal.aborted) setState({ result, error: "", loading: false });
+      },
       (error) => {
         if (!controller.signal.aborted)
           setState((current) => ({ ...current, error: error.message, loading: false }));
@@ -29,6 +32,21 @@ function useTaskRead(session, entry, view) {
     return () => controller.abort();
   }, [session.id, entry.id, entry.status, entry.updatedAt, view, reloads]);
   return { ...state, reload: () => setReloads((count) => count + 1) };
+}
+
+/**
+ * The transcript in runs: what the main agent wrote to the subagent stands as its
+ * prompt, never as the owner's own message; the rest renders as chat rows.
+ */
+function runs(messages) {
+  const result = [];
+  for (const message of messages) {
+    const prompt = message.role === "user";
+    const last = result.at(-1);
+    if (!prompt && last && !last.prompt) last.messages.push(message);
+    else result.push(prompt ? { prompt: message } : { messages: [message] });
+  }
+  return result;
 }
 
 function Transcript({ result, session, openFile }) {
@@ -41,15 +59,30 @@ function Transcript({ result, session, openFile }) {
       )}
       {messages.length ? (
         <div className="task-detail-transcript">
-          <ChatTranscript
-            messages={messages}
-            live={false}
-            tool={session.tool}
-            sandboxProfile={session.sandbox?.profile}
-            sessionId={session.id}
-            cwd={session.cwd}
-            openFile={openFile}
-          />
+          {runs(messages).map((run) =>
+            run.prompt ? (
+              <section
+                key={run.prompt.id}
+                className="task-detail-prompt"
+                aria-label={copy.promptFromMainAgent}
+              >
+                <small>{copy.promptFromMainAgent}</small>
+                <p>{run.prompt.text}</p>
+              </section>
+            ) : (
+              <ChatTranscript
+                key={run.messages[0].id}
+                messages={run.messages}
+                live={false}
+                tool={session.tool}
+                sandboxProfile={session.sandbox?.profile}
+                sessionId={session.id}
+                cwd={session.cwd}
+                openFile={openFile}
+                fullOutput={false}
+              />
+            ),
+          )}
         </div>
       ) : (
         <p className="task-detail-note">{copy.transcriptEmpty}</p>

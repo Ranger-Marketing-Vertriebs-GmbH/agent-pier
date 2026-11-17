@@ -190,6 +190,27 @@ code.task-command {
 .task-detail-transcript .chat-tool {
   margin-bottom: 18px;
 }
+/* What the main agent asked the subagent: its prompt, not a message of the owner. */
+.task-detail-prompt {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent-line);
+  background: var(--surface-page);
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+}
+.task-detail-prompt > small {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+.task-detail-prompt > p {
+  margin: 0;
+  color: var(--text-row);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .task-detail-output {
   margin: 0;
   padding: 10px 12px;

@@ -116,6 +116,7 @@ export const backgroundTasksCopy = {
   back: "Zurück zur Liste",
   loading: "Wird geladen …",
   transcriptEmpty: "Noch keine Nachrichten.",
+  promptFromMainAgent: "Auftrag vom Hauptagenten",
   transcriptTruncated: (count) => `Zeigt die letzten ${count} Nachrichten.`,
   transcriptPartial:
     "Die Aufgabe läuft noch: Der Verlauf enthält nur ihre abgeschlossenen Schritte.",

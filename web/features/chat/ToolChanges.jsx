@@ -7,7 +7,7 @@ import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import "../../components/diff/diff.css";
 import "./tool-changes.css";
 const DiffRows = lazy(() => import("../../components/diff/DiffRows.jsx"));
-export default function ToolChanges({ message, sessionId }) {
+export default function ToolChanges({ message, sessionId, fullOutput = true }) {
   const [limit, setLimit] = useState(8);
   const [raw, setRaw] = useState(false);
   const id = useId();
@@ -110,6 +110,7 @@ export default function ToolChanges({ message, sessionId }) {
               key={`${message.id}:${message.truncated.length}`}
               message={message}
               sessionId={sessionId}
+              loadable={fullOutput}
             />
           ) : (
             <ToolOutput text={message.text} toolName={message.toolName} />

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   appendStopNotes,
   carriedStopNoteIds,
+  withStopNotes,
 } from "../../web/features/chat/stop-notes.js";
 
 const note = {
@@ -76,4 +77,32 @@ test("carried ids come from the outbox and recent items that were not rejected",
   });
   assert.deepEqual([...carried].sort(), ["a", "b"]);
   assert.deepEqual([...carriedStopNoteIds({ outbox: null, recent: [] })], []);
+});
+
+test("an absent delivery taken back into the composer no longer carries its notes", () => {
+  const carried = carriedStopNoteIds({
+    outbox: null,
+    recent: [{ status: "absent", stopNoteIds: ["a"] }],
+  });
+  assert.deepEqual([...carried], []);
+  // While it is still the outbox, its retry sends the same text with the note.
+  const queued = carriedStopNoteIds({
+    outbox: { status: "absent", stopNoteIds: ["a"] },
+    recent: [],
+  });
+  assert.deepEqual([...queued], ["a"]);
+});
+
+test("attachment paths count towards the limit; a note that does not fit waits", () => {
+  const attachments = [{ path: `/uploads/${"p".repeat(60)}` }];
+  const draft = { text: "x".repeat(32000 - 100), attachments, recent: [] };
+  assert.deepEqual(withStopNotes(draft, [note]), {
+    text: draft.text,
+    stopNoteIds: [],
+  });
+  const short = { text: "go on", attachments, recent: [] };
+  assert.deepEqual(withStopNotes(short, [note]), {
+    text: `go on\n\n${note.text}`,
+    stopNoteIds: ["n1"],
+  });
 });

@@ -19,17 +19,27 @@ const stopMessage = (error) =>
     ? copy.stopRefused(error.message, error.reason)
     : error.message;
 
-/** The stop button of a running task: busy while the request runs, errors inline. */
+/**
+ * The stop button of a running task: busy while the request runs, errors inline.
+ * After a stop it stays busy until the chat frame changes the entry's status or
+ * `canStop` (the busy state belongs to the entry state it was pressed in).
+ */
 function useStop(sessionId, entry) {
+  const state = `${entry.status}:${Boolean(entry.canStop)}`;
   const [busy, setBusy] = useState(false);
+  const [seen, setSeen] = useState(state);
   const [error, setError] = useState("");
+  if (seen !== state) {
+    // Adjusting state during render: the entry changed, so the press is over.
+    setSeen(state);
+    setBusy(false);
+  }
   const stop = async () => {
     if (busy) return;
     setBusy(true);
     setError("");
     try {
       await stopTask(sessionId, entry.id);
-      // The next chat frame moves the card to Completed; until then it stays busy.
     } catch (failure) {
       // TASK_STOP_NOT_RUNNING: the task ended by itself a moment earlier; the next
       // frame moves the card as well.

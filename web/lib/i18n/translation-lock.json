@@ -2890,6 +2890,7 @@
   "chat:backgroundTasksCopy.outputGone": "de:084be444bc5c en:203294fef58d",
   "chat:backgroundTasksCopy.outputTruncated": "de:045f8ac032e9 en:39f3a8f8a7fd",
   "chat:backgroundTasksCopy.progress": "de:79a0ed1c8304 en:e38b9d46e214",
+  "chat:backgroundTasksCopy.promptFromMainAgent": "de:8b7735dd615a en:defcb5926e5e",
   "chat:backgroundTasksCopy.running": "de:1fe6a7f6e8a2 en:f4ccae29e1bb",
   "chat:backgroundTasksCopy.runningLine": "de:fb0f922df51e en:90a37c6eecc3",
   "chat:backgroundTasksCopy.showOutput": "de:39cfcb376611 en:9dbbb249c2a7",
