@@ -26,10 +26,13 @@ function wikiOf(assistants, id, { runtimeOf }) {
 }
 
 // A call of the sub-port; a failure says only that the wiki is unavailable now.
+// One the Gateway has not loaded yet (its restart is pending) says so.
 async function read(call) {
   try {
     return await call();
-  } catch {
+  } catch (error) {
+    if (error?.code === "WIKI_NOT_LOADED")
+      throw assistantProblem("memoryWikiNotLoaded", 503);
     throw assistantProblem("unavailable", 503);
   }
 }

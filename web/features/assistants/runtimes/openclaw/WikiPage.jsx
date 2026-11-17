@@ -50,6 +50,15 @@ export default function WikiPage({ context }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const listing = topic.data;
+  // While OpenClaw rebuilds the wiki the server samples the topic; without the live
+  // channel the page reads the route again after the wait the Gateway asked for.
+  const { connected, refresh } = topic;
+  const retry = listing?.state === "building" ? listing.retryAfterMs || 2000 : 0;
+  useEffect(() => {
+    if (!retry || connected) return undefined;
+    const timer = setTimeout(() => refresh(), Math.max(retry, 2000));
+    return () => clearTimeout(timer);
+  }, [retry, connected, refresh, listing]);
   // A pushed listing reads the open page again.
   const seen = useRef(null);
   const [version, setVersion] = useState(0);
@@ -85,7 +94,9 @@ export default function WikiPage({ context }) {
         hint={copy.hint}
       />
       <ErrorMessage
-        error={error || (topic.error && !listing ? copy.page.unavailable : "")}
+        error={
+          error || (topic.error && !listing ? topic.error || copy.page.unavailable : "")
+        }
       />
       {open ? (
         <>

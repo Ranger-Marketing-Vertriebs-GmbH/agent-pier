@@ -29,6 +29,9 @@ const options = {
   timeout: contractTimeout(400000),
 };
 const on = { openclaw: { memoryWiki: true } };
+// What wiki.overview answers for a vault no wiki call has touched (2026.11.3): the
+// dashboard is being rebuilt (UNAVAILABLE, details state "rebuilding"); the read
+// starts a background sync, after which it settles.
 const shared = {
   mode: "shared",
   members: [{ userId: "user-fixture", level: "chat" }],
@@ -234,6 +237,18 @@ test(
       );
     await h.runtime.start();
     for (const agent of [first, second]) await h.config.apply(agent.id);
+    // A vault nobody used yet: what the read page shows before the first wiki call.
+    const fresh = await wikiPages(h.assistants, first.id);
+    t.diagnostic(`fresh wiki: ${JSON.stringify(fresh)}`);
+    assert.equal(fresh.state, "building");
+    assert.deepEqual(fresh.pages, []);
+    let settled = fresh;
+    for (let n = 0; n < 40 && settled.state === "building"; n++) {
+      await delay(fresh.retryAfterMs);
+      settled = await wikiPages(h.assistants, first.id);
+    }
+    t.diagnostic(`settled wiki: ${JSON.stringify(settled)}`);
+    assert.notEqual(settled.state, "building", "the rebuild ends by itself");
     const generation = h.runtime.generation;
     const before = (await h.running()).tools.allow;
 
@@ -259,5 +274,16 @@ test(
     assert.equal(restarted.plugins.allow.includes(wikiPlugin), false);
     assert.equal(restarted.plugins.entries[wikiPlugin], undefined);
     assert.equal(h.runtime.memoryWiki, false);
+    // A wiki switched on while this start runs without the plugin (its restart still
+    // pending): the read page says the wiki comes with the restart.
+    store.updateAssistant(
+      first.id,
+      { runtimeOptions: on },
+      store.getAssistant(first.id).revision,
+    );
+    await assert.rejects(wikiPages(h.assistants, first.id), {
+      status: 503,
+      key: "memoryWikiNotLoaded",
+    });
   },
 );

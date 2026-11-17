@@ -122,6 +122,8 @@ export const AGENT_SENDERS_SAMPLE_MS = 5000;
 // The cron jobs behind the reminders live in the Gateway too: an agent's own cron
 // tool changes them, and a next run moves on without AgentPier hearing of it.
 export const AGENT_REMINDERS_SAMPLE_MS = 30000;
+// A memory wiki being rebuilt is read again this often while a visible tab watches.
+export const AGENT_WIKI_SAMPLE_MS = 2000;
 
 // Pinned files change without a tool call (an agent edits one in its workspace), and
 // a view opens every entry: sampled while a visible tab watches, no faster.
@@ -182,16 +184,21 @@ const assistantUnavailable = () =>
  * its value depends on owner privacy, so a privacy change resets it at once
  * (live-wiring.js, LiveHub#resetWhere).
  */
+// `sampleWhile(value)`: with `sampleMs`, an agent's topic is sampled only while its
+// last read answered true (a wiki being rebuilt), as job topics sample a running job.
 function detailTopic(
   services,
-  { name, content = false, privacy = content, read, watch, sampleMs },
+  { name, content = false, privacy = content, read, watch, sampleMs, sampleWhile },
 ) {
+  const due = new Set();
+  const watched = new Set();
   return {
     name,
     mode: "state",
     param: AGENT_PARAM,
     privacy,
     ...(sampleMs && { sampleMs }),
+    ...(sampleWhile && { sampling: (id) => due.has(id) }),
     authorize: (principal, id) =>
       owner(principal) && (!content || ownerReadsAgent(services, id)),
     scopeKey: () => "owner",
@@ -199,12 +206,24 @@ function detailTopic(
       running(services);
       if (content && !ownerReadsAgent(services, id)) throw notFound();
       try {
-        return await read(id);
+        const value = await read(id);
+        if (sampleWhile && watched.has(id) && sampleWhile(value)) due.add(id);
+        else due.delete(id);
+        return value;
       } catch (error) {
+        due.delete(id);
         throw refusal(error);
       }
     },
-    watch: ({ invalidate }) => watch(() => invalidate()),
+    watch: ({ param, invalidate }) => {
+      watched.add(param);
+      const unwatch = watch(() => invalidate());
+      return () => {
+        watched.delete(param);
+        due.delete(param);
+        if (typeof unwatch === "function") unwatch();
+      };
+    },
   };
 }
 
@@ -285,8 +304,12 @@ export function agentDetailTopics(services) {
       name: "agent.wiki",
       content: true,
       read: (id) => wikiPages(running(services), id),
-      // A wiki tool call of the agent's turn signals it (agentWikiChanged).
+      // A wiki tool call of the agent's turn signals it (agentWikiChanged); while
+      // OpenClaw rebuilds the compiled wiki, which announces its end to nobody, it is
+      // sampled (OpenClaw asks for 500 ms; bounded to every 2 s, visible tabs only).
       watch: switched,
+      sampleMs: AGENT_WIKI_SAMPLE_MS,
+      sampleWhile: (value) => value?.state === "building",
     }),
     detailTopic(services, {
       name: "agent.allowlist",
