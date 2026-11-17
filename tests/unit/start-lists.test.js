@@ -156,3 +156,16 @@ test("any filter is a subset of the search result and the search never adds rows
     ),
   );
 });
+
+test("a session stopped at a usage limit gets the warning dot tone", () => {
+  const session = (id, limit) => ({
+    id,
+    name: id,
+    tool: "claude",
+    status: "running",
+    activity: { state: "idle", ...(limit && { limit: { detail: null } }) },
+  });
+  const [limited, plain] = sessionItems([session("a", true), session("b", false)]);
+  assert.equal(limited.tone, "warning");
+  assert.notEqual(plain.tone, "warning");
+});
