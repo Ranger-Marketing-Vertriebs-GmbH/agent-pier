@@ -48,6 +48,8 @@ export function endpointCapability(connection) {
   return {
     available: models.length > 0,
     ...(models.length ? {} : { reason: "modelConfiguration" }),
+    // A key sent in a header of its own instead of as a bearer token.
+    ...(hasSecret && endpoint.authHeader ? { keyHeader: true } : {}),
     models,
   };
 }

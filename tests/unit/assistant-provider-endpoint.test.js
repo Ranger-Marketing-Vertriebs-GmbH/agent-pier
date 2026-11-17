@@ -103,6 +103,9 @@ test("Azure v1 credentials use native header controls", (t) => {
     },
   ]);
   assert.equal(JSON.stringify(capability).includes("private-azure-fixture"), false);
+  // Its key goes in a header of its own, not as a bearer token (a Hermes advisor
+  // model needs one, runtimes/hermes/hermes-options.js).
+  assert.equal(capability.keyHeader, true);
   const hosts = JSON.stringify(capability).match(/https?:\/\/[^"\\/\s]+/g) ?? [];
   assert.equal(
     hosts.some((host) => new URL(host).hostname === "fixture.openai.azure.com"),
