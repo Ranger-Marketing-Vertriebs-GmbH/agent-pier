@@ -12,6 +12,7 @@ export default function ModelControl({
   onPendingChange,
   blocked = false,
   openRequest = 0,
+  onOpenableChange,
 }) {
   const {
     state,
@@ -46,6 +47,16 @@ export default function ModelControl({
   const requiresRestart = Boolean(
     state.modelChangeRequiresRestart || configuration?.modelChangeRequiresRestart,
   );
+  const triggerDisabled =
+    blocked ||
+    session.pipeline?.headless ||
+    busy ||
+    session.status !== "running" ||
+    (requiresRestart && !picker && !state.pending);
+  // Lets other controls that open the picker (the limit bar) follow the trigger.
+  useEffect(() => {
+    onOpenableChange?.(!triggerDisabled);
+  }, [onOpenableChange, triggerDisabled]);
   return (
     <div className="model-control">
       <SessionProviderConfiguration
@@ -65,13 +76,7 @@ export default function ModelControl({
           aria-haspopup="dialog"
           aria-expanded={visible}
           aria-controls={visible ? panelId : undefined}
-          disabled={
-            blocked ||
-            session.pipeline?.headless ||
-            busy ||
-            session.status !== "running" ||
-            (requiresRestart && !picker && !state.pending)
-          }
+          disabled={triggerDisabled}
           onClick={() => (picker || state.pending ? setExpanded(true) : mutate("open"))}
         >
           <span>
