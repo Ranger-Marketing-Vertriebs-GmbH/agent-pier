@@ -57,7 +57,8 @@ export default function ControlsSection() {
           <SelectRow
             label={s.select}
             value={select}
-            options={options().filter((option) => !option.disabled)}
+            // The disabled option is listed but cannot be chosen (its reason in its label).
+            options={options()}
             onChange={setSelect}
           />
           <RadioRow
