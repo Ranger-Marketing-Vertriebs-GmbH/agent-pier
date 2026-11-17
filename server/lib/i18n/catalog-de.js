@@ -50,6 +50,7 @@ import { providers } from "./de/providers.js";
 import { notifications } from "./de/notifications.js";
 import { audit } from "./de/audit.js";
 import { users } from "./de/users.js";
+import { runtimeOptions } from "./de/runtime-options.js";
 import { storageCleanup } from "./de/storage-cleanup.js";
 import { rea } from "./de/rea.js";
 import { craft } from "./de/craft.js";
@@ -86,6 +87,7 @@ export const germanServerMessages = Object.freeze({
   notifications,
   audit,
   users,
+  runtimeOptions,
   storageCleanup,
   rea,
   craft,

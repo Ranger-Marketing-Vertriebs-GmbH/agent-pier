@@ -13,6 +13,7 @@ import {
 import { compiledSkillNames } from "./built-in-skills.js";
 import { learnsSkills } from "./skill-learning.js";
 import { runtimeIdOf } from "./runtimes/runtime-descriptors.js";
+import { runtimeOptionsOf } from "./runtimes/runtime-options.js";
 import { agentProfileName } from "./browser-profile-names.js";
 import { isShared, isUserAgent } from "../users/user-access.js";
 import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
@@ -47,7 +48,11 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
  * reads it, null for none, left out when unknown; `lead`, a temporary member's lead's
  * record, whose window setting its borrowed browser follows; `craft`, Craft Anything
- * rebuilds are available (native-capabilities.js toolGrants). Deeply frozen.
+ * rebuilds are available (native-capabilities.js toolGrants); `optionConnections`, for
+ * a live apply, the model connections its runtime options name as the apply resolved
+ * them (`[{ connectionId, modelId, ref, providerId, provider, display }]`, or `{
+ * connectionId, modelId, unavailable }` for one it could not resolve), left out when
+ * unknown. Deeply frozen.
  */
 export function desiredAgent(
   profile,
@@ -61,6 +66,7 @@ export function desiredAgent(
     channelBot,
     lead = null,
     craft = false,
+    optionConnections,
   } = {},
 ) {
   const capabilities = personalCapabilities(profile);
@@ -123,12 +129,20 @@ export function desiredAgent(
       },
     },
     ssh: !!ssh,
+    // Its options for the runtime it runs on (runtimes/runtime-options.js); another
+    // runtime's stored options never reach a compiler.
+    runtimeOptions: runtimeOptionsOf(profile),
   });
   // The model connection's provider stays the caller's object: frozen only here.
   const desired = Object.freeze({
     ...agent,
     ...(instructions !== undefined && { instructions }),
     ...(model && { model: Object.freeze({ ...model }) }),
+    ...(optionConnections && {
+      optionConnections: Object.freeze(
+        optionConnections.map((entry) => Object.freeze({ ...entry })),
+      ),
+    }),
     ...(channelBot !== undefined && {
       channelBot: channelBot && frozen(structuredClone(channelBot)),
     }),

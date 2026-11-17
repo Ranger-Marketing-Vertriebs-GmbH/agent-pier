@@ -11,7 +11,8 @@ export const assistantProblem = (key, status = 400, ...args) => {
     serverMessages.agentCodingSessions[key] ??
     serverMessages.agentProjects[key] ??
     serverMessages.agentPinboard[key] ??
-    serverMessages.mail[key];
+    serverMessages.mail[key] ??
+    serverMessages.runtimeOptions[key];
   return Object.assign(
     problem(typeof copy === "function" ? copy(...args) : copy, status),
     { key },
@@ -75,6 +76,7 @@ export const recompiles = (patch) =>
     "shopping",
     "shellEveryCommand",
     "skillLearning",
+    "runtimeOptions",
   ].some((key) => key in patch);
 export function validateDefinition(input, partial = false) {
   if (
@@ -98,6 +100,7 @@ export function validateDefinition(input, partial = false) {
           "runtime",
           "shellEveryCommand",
           "skillLearning",
+          "runtimeOptions",
         ].includes(k),
     ) ||
     ("confirmInstructions" in input &&
@@ -133,6 +136,19 @@ export function validateDefinition(input, partial = false) {
   if ("skillLearning" in input) {
     if (typeof input.skillLearning !== "boolean") throw assistantProblem("invalid");
     result.skillLearning = input.skillLearning;
+  }
+  // Options of the agent's runtime (runtimes/runtime-options.js): the service checks
+  // them against that runtime; here only their shape, `{ [runtimeId]: object }`.
+  if ("runtimeOptions" in input) {
+    const options = input.runtimeOptions;
+    if (
+      !options ||
+      typeof options !== "object" ||
+      Array.isArray(options) ||
+      Object.values(options).some((v) => !v || typeof v !== "object" || Array.isArray(v))
+    )
+      throw assistantProblem("optionsInvalid");
+    result.runtimeOptions = structuredClone(options);
   }
   if ("skills" in input) result.skills = validateSkills(input.skills);
   if ("avatar" in input) result.avatar = validateAvatar(input.avatar);

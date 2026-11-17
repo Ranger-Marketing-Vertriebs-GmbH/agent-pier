@@ -64,6 +64,7 @@ import {
   runtimeForSession,
   withRuntime,
 } from "./runtimes/runtime-for.js";
+import { validateRuntimeOptions } from "./runtimes/runtime-options.js";
 import { logoutAccount } from "./account-logout.js";
 import { followOwnProcesses, refuseEveryCommand } from "./own-process-agents.js";
 import { learningView } from "./skill-learning.js";
@@ -284,6 +285,17 @@ export class AssistantService {
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);
+      // Options of the agent's runtime, checked by that runtime against the model it
+      // will run on (runtimes/runtime-options.js).
+      if ("runtimeOptions" in patch)
+        patch = {
+          ...patch,
+          runtimeOptions: validateRuntimeOptions(
+            { ...current, ...(changes.model && { model: changes.model }) },
+            changes.runtimeOptions,
+            { models: this.models },
+          ),
+        };
       // A temporary member follows its lead's model until it is given one: picking
       // one, even the lead's current one, makes it its own; `followLead` undoes that.
       if (

@@ -4,6 +4,7 @@ import { newCapabilities } from "./memory-rules.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
 import { ownProcess } from "./runtimes/runtime-for.js";
 import { refuseRuntimeChoice } from "./own-process-agents.js";
+import { validateRuntimeOptions } from "./runtimes/runtime-options.js";
 
 // Creation validates the chosen area after asynchronous model/template checks,
 // before storing anything. Group assignment never applies runtime configuration.
@@ -23,6 +24,11 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
     // Skills are assigned once the agent exists (agent-skills.js).
     if (input.skills?.length) throw assistantProblem("invalid");
     refuseRuntimeChoice(service.runtime, input, service.accounts);
+    // A duplicate's options for its runtime, checked by that runtime.
+    if (input.runtimeOptions !== undefined)
+      input.runtimeOptions = validateRuntimeOptions(input, input.runtimeOptions, {
+        models: service.models,
+      });
     const lease = await service.models.resolve(input.model || {});
     lease.release();
     // Memory on by default, web capabilities off (memory-rules.js).

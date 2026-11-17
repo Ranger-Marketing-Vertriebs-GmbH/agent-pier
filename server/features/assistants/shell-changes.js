@@ -75,6 +75,8 @@ export function withoutUnchanged(patch, changes, current) {
     // The form shows the effective value (the runtime's default while unset).
     skillLearning: () => changes.skillLearning === learnsSkills(current),
     heartbeat: () => isDeepStrictEqual(changes.heartbeat, current.heartbeat),
+    runtimeOptions: () =>
+      isDeepStrictEqual(changes.runtimeOptions, current.runtimeOptions ?? {}),
   };
   return Object.fromEntries(
     Object.entries(patch).filter(

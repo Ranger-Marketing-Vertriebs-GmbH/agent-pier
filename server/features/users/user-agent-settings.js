@@ -14,6 +14,7 @@ const lockedKeys = new Set([
   "mcpServers",
   "skills",
   "skillLearning",
+  "runtimeOptions",
   "heartbeat",
   "model",
   "userAccess",
