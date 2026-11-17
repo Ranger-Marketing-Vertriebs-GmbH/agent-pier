@@ -1,5 +1,6 @@
 // The start page's session and agent lists (tests/unit/start-lists.test.js): their
 // order, filter chips, search and how many rows show.
+import { activityTone } from "../../components/status-tones.js";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
 
 /** Rows a card shows before "Show n more"; phones show fewer and no inner scroll. */
@@ -53,18 +54,19 @@ export const sessionTime = (session) =>
   time(session.activity?.since) || time(session.updatedAt) || time(session.createdAt);
 
 /**
- * Sessions as list items: `{ id, session, state, label, project, time, search }`.
+ * Sessions as list items: `{ id, session, state, label, tone, project, time, search }`.
  * `toolName(tool)` names the CLI for the search ("Claude Code").
  */
 export function sessionItems(sessions = [], toolName = (tool) => tool) {
   return sessions.map((session) => {
-    const { state, label } = sessionActivity(session);
+    const { state, label, limited } = sessionActivity(session);
     const project = sessionProject(session);
     return {
       id: session.id,
       session,
       state,
       label,
+      tone: limited ? "warning" : activityTone(state),
       project,
       time: sessionTime(session),
       rank: state === "stopped" ? 4 : (sessionRanks[state] ?? 3),

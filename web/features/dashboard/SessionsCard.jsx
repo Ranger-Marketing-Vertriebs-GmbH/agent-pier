@@ -3,7 +3,6 @@ import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import Skeleton from "../../components/Skeleton.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
-import { activityTone } from "../../components/status-tones.js";
 import { isPlainClick } from "../../components/link-click.js";
 import { routePath } from "../../app/routes.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
@@ -101,7 +100,7 @@ function Table({ rows, figures, navigate }) {
               </th>
               <td>
                 <span className={`start-state ${item.state}`}>
-                  <StatusDot tone={activityTone(item.state)} />
+                  <StatusDot tone={item.tone} />
                   {item.label}
                 </span>
                 <small className="start-state-time">{stateTime(item, now)}</small>
@@ -143,7 +142,7 @@ function PhoneRows({ rows, navigate }) {
               </small>
             </span>
             <span className={`start-state ${item.state}`}>
-              <StatusDot tone={activityTone(item.state)} />
+              <StatusDot tone={item.tone} />
               {item.label}
             </span>
           </SessionLink>
