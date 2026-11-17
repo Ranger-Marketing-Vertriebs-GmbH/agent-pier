@@ -80,7 +80,7 @@ _(German)_ are not translated yet.
 | [Coding CLIs](coding-clis.md)                               | CLI definitions, drivers and how to add a CLI           |
 | [Protocol adapter](protocol-adapter.md)                     | How custom endpoints are adapted to each CLI's protocol |
 | [Startup loading](startup-loading.md)                       | The startup screen shown before the app loads           |
-| [Chat observability](chat-observability.md)                 | Chat context and subagent observations                  |
+| [Chat observability](chat-observability.md)                 | Chat context, subagents, shells and stopping tasks      |
 | [Native chat delivery](native-chat-delivery.md)             | How chat messages reach the native CLIs                 |
 | [AgentBus broker](agentbus.md)                              | Broker and queue behind AgentBus                        |
 | [Testing](testing.md)                                       | Test suites and the CI tiers                            |
