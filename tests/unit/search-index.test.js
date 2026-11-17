@@ -504,66 +504,6 @@ test("Delete project opens the dialog only for a project on screen", async () =>
   assert.equal(projectOnScreen(null), false);
 });
 
-// ADR 0007, step 3: a runtime's surface is found while it shows.
-const hermesListed = (ready, surfaces) => ({
-  id: "hermes",
-  name: "Hermes Agent",
-  ready,
-  surfaces: surfaces ?? [
-    { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
-  ],
-});
-const withRuntimes = (runtimes, agentsEnabled = true) =>
-  buildSearchIndex({ agents, connections, agentsEnabled, runtimes });
-
-test("the Hermes group of Runtime is found in both languages and lands on it", () => {
-  const entries = withRuntimes([{ id: "openclaw", surfaces: [] }, hermesListed(false)]);
-  const id = "page:runtime-hermes-install";
-  const entry = entries.find((item) => item.id === id);
-  assert.deepEqual(entry.label, { de: "Hermes Agent", en: "Hermes Agent" });
-  assert.deepEqual(entry.path, {
-    de: "Agenten › Laufzeit › Hermes Agent",
-    en: "Agents › Runtime › Hermes Agent",
-  });
-  assert.equal(pathOf(entry), "/agents?tab=runtime&section=runtimes");
-  for (const query of ["Hermes", "Hermes Agent", "hermes agent laufzeit"])
-    assert.equal(first(query, entries).id, id, query);
-  for (const query of [
-    "Second runtime",
-    "Zweite Laufzeit",
-    "Install Hermes Agent",
-    "Hermes Agent installieren",
-    "Update Hermes Agent",
-    "Hermes Agent aktualisieren",
-  ]) {
-    const hit = results(query, entries).find((item) => item.id === id);
-    assert.ok(hit, query);
-    assert.ok(hit.alias, `${query} is an alias`);
-  }
-  const ids = entries.map((item) => item.id);
-  assert.equal(new Set(ids).size, ids.length);
-});
-
-test("a surface's search entry shows when the surface shows", () => {
-  const id = "page:runtime-hermes-install";
-  const has = (entries) => entries.some((item) => item.id === id);
-  // An install group shows before the runtime is installed, and after.
-  assert.equal(has(withRuntimes([hermesListed(false)])), true);
-  assert.equal(has(withRuntimes([hermesListed(true)])), true);
-  // One that shows only while the runtime is enabled follows `ready`.
-  const whileEnabled = [
-    { id: "install", slot: "hub.runtime", kind: "built", shows: "whileEnabled" },
-  ];
-  assert.equal(has(withRuntimes([hermesListed(false, whileEnabled)])), false);
-  assert.equal(has(withRuntimes([hermesListed(true, whileEnabled)])), true);
-  // No list (not read yet, or a server without it), no surface, or agents off.
-  assert.equal(has(index), false);
-  assert.equal(has(withRuntimes([])), false);
-  assert.equal(has(withRuntimes([hermesListed(true, [])])), false);
-  assert.equal(has(withRuntimes([hermesListed(true)], false)), false);
-  assert.equal(results("Hermes", index).length, 0);
-});
-
 test("an agent's 'Learns its own skills' is found by its names in both languages", () => {
   for (const query of [
     "Ops Lernt eigene Skills",
@@ -583,5 +523,31 @@ test("an agent's 'Learns its own skills' is found by its names in both languages
   );
   assert.ok(
     entry.aliases.some((alias) => alias.en === "Ops-Wache · Learns its own skills"),
+  );
+});
+
+// ADR 0007, step 7a: a Hermes agent's Mixture of Agents (more in
+// search-index-runtimes.test.js).
+test("a Hermes agent's Mixture of Agents is found by MoA", () => {
+  const heron = {
+    id: "her",
+    name: "Heron",
+    runtime: "hermes",
+    runtimeInfo: { id: "hermes" },
+  };
+  const mixture = {
+    id: "mixture",
+    slot: "agent.capabilities",
+    kind: "built",
+    shows: "whileEnabled",
+  };
+  const runtimes = [
+    { id: "hermes", name: "Hermes Agent", ready: true, surfaces: [mixture] },
+  ];
+  const entries = buildSearchIndex({ agents: [heron], agentsEnabled: true, runtimes });
+  assert.equal(first("Heron MoA", entries)?.id, "agent:her:hermes-mixture");
+  assert.equal(
+    results("Ops MoA").some((item) => item.id.includes("mixture")),
+    false,
   );
 });

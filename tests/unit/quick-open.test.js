@@ -523,3 +523,34 @@ test("'Learns its own skills' is the owner's setting, not in the user's search",
   for (const query of ["Learns its own skills", "Lernt eigene Skills", "self-learning"])
     assert.equal(flat(searchEntries(users, query)).length, 0, query);
 });
+
+// ADR 0007, step 7a: Mixture of Agents of a Hermes agent is the owner's alone.
+test("quick open finds a Hermes agent's Mixture of Agents; the user's index never", () => {
+  const heron = {
+    id: "her",
+    name: "Heron",
+    runtime: "hermes",
+    runtimeInfo: { id: "hermes" },
+  };
+  const runtimes = [
+    {
+      id: "hermes",
+      ready: true,
+      surfaces: [
+        {
+          id: "mixture",
+          slot: "agent.capabilities",
+          kind: "built",
+          shows: "whileEnabled",
+        },
+      ],
+    },
+  ];
+  const owner = buildSearchIndex({ agents: [heron], agentsEnabled: true, runtimes });
+  const hit = flat(searchEntries(owner, "heron beratermodelle")).find((item) =>
+    item.id.endsWith("hermes-mixture"),
+  );
+  assert.equal(routePath(hit.target.route), "/agents/her/settings?tab=capabilities");
+  const users = buildUserSearchIndex({ agents: [heron] });
+  assert.equal(flat(searchEntries(users, "beratermodelle")).length, 0);
+});
