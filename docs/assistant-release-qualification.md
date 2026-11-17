@@ -788,7 +788,15 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   (the model provider, answered once applied while a fresh Gateway still loads its
   handlers) took about 5 s and more than 10 s on efficiency cores. Its setup now
   repeats a timed-out apply, as the app converges one, and a `TIMEOUT` names the
-  `method` and `timeoutMs` of the unanswered call.
+  `method` and `timeoutMs` of the unanswered call. The v2.20.0-rc.3 release run then
+  named it: `agents.create` (30 s) on macos-latest, twice. Reproduced throttled to
+  efficiency cores with six busy loops: the repeated apply sent its `agents.create`
+  (and an unchanged provider `config.patch`) while the Gateway still reloaded the
+  timed-out first patch; the reload failed with "database is locked" and left the
+  plugin lifecycle lease held for 5 minutes, which the create waited on. A write now
+  waits for the late answer of a timed-out one on its connection (`configWrite`,
+  `configSettleMs`), and an unchanged provider is not written again; the same run
+  then passed, its first `agents.create` taking 15 s.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

@@ -72,7 +72,9 @@ test(
     // once OpenClaw applied it, while it still loads and prewarms its handlers: about
     // 0.8 s on a fast host, 5 s under load and more than its 10 s budget on a slow
     // runner. AgentPier converges a timed-out configuration write with the next apply,
-    // and so does this setup; the deletion below is what the contract checks.
+    // and so does this setup; the deletion below is what the contract checks. The next
+    // apply's writes wait for the timed-out patch's late answer (live-patch.js
+    // configWrite): sent during its reload, the agents.create hung on a lease.
     const apply = async (id) => {
       for (let n = 0; ; n++)
         try {

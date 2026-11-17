@@ -11,16 +11,62 @@ import { setTimeout as delay } from "node:timers/promises";
 // (`configWrite`), so writers that waited together do not race one base hash.
 const writes = new WeakMap();
 
-/** Runs `write` after every earlier configuration write of `client`. */
-export function configWrite(client, write) {
+// A write that timed out still runs in the Gateway: OpenClaw answers config.patch
+// only once it applied the change (its reload) and agents.create or agents.delete
+// once done. A write sent meanwhile races that work; on a slow host an agents.create
+// during the first reload of a fresh Gateway locked the reload out of its database
+// ("config reload failed: database is locked"), which left the plugin lifecycle lease
+// held for its 5 minutes and the create waiting on it (TIMEOUT). So the next write of
+// the client waits for the timed-out call's late answer, at most `configSettleMs`,
+// or until the connection drops.
+export const configSettleMs = 60000;
+
+function lateAnswer(client, settleMs) {
+  let settle;
+  const settled = new Promise((resolve) => (settle = resolve));
+  const timer = setTimeout(() => settle(), settleMs);
+  timer.unref?.();
+  const dropped = () => settle();
+  client?.once?.("disconnected", dropped);
+  settled.then(() => {
+    clearTimeout(timer);
+    client?.off?.("disconnected", dropped);
+  });
+  return { settled, settle };
+}
+
+/**
+ * Runs `write(call)` after every earlier configuration write of `client` and the
+ * late answers of those that timed out. `call(method, params, options)` is
+ * `client.call` for the writes: one that times out holds the next write back until
+ * the Gateway answers it (configSettleMs).
+ */
+export function configWrite(client, write, { settleMs = configSettleMs } = {}) {
+  const unanswered = [];
+  const call = (method, params, options = {}) => {
+    const late = lateAnswer(client, settleMs);
+    return client
+      .call(method, params, { ...options, onLate: late.settle, lateMs: settleMs })
+      .then(
+        (answer) => {
+          late.settle();
+          return answer;
+        },
+        (error) => {
+          if (error?.code === "TIMEOUT") unanswered.push(late.settled);
+          else late.settle();
+          throw error;
+        },
+      );
+  };
   const run = (writes.get(client) || Promise.resolve()).then(async () => {
     await settledAdmission(client);
-    return write();
+    return write(call);
   });
   if (client)
     writes.set(
       client,
-      run.catch(() => {}),
+      run.catch(() => {}).then(() => Promise.all(unanswered)),
     );
   return run;
 }
@@ -45,11 +91,11 @@ export function patchConfig(
   build,
   { maxWaitMs = configRetryLimitMs, wait = delay, now = Date.now } = {},
 ) {
-  return configWrite(client, async () => {
+  return configWrite(client, async (call) => {
     const deadline = now() + maxWaitMs;
     for (;;) {
       try {
-        return await patchOnce(client, build);
+        return await patchOnce(client, build, call);
       } catch (error) {
         if (!refusedForNow(error)) throw error;
         // At least a moment, so a zero answer at a window's edge is no busy loop.
@@ -65,12 +111,12 @@ export function patchConfig(
   });
 }
 
-async function patchOnce(client, build) {
+async function patchOnce(client, build, write) {
   const current = await client.call("config.get", {});
-  const change = build(current.config || {});
+  const change = build(current.config || {}, current);
   if (!change) return null;
   try {
-    await client.call("config.patch", {
+    await write("config.patch", {
       baseHash: current.hash,
       raw: JSON.stringify(change.patch),
       ...(change.replacePaths ? { replacePaths: change.replacePaths } : {}),

@@ -21,12 +21,21 @@ export function shellAllow(allow = [], wanted) {
 
 /**
  * The `config.patch` of the desired agent's model connection (`desired.model`): its
- * provider entry, written before the agent's own entry; null without a provider.
+ * provider entry, written before the agent's own entry; null without a provider, or
+ * when the configuration as written (`config`, config.get's sourceConfig) already
+ * holds exactly that entry. OpenClaw reloads after every write, an unchanged one
+ * too, and the next write (an
+ * agents.create) must not race that reload (live-patch.js configWrite). A value
+ * config.get redacts never equals, so such an entry is written again.
  */
-export const providerPatch = ({ model } = {}) =>
-  model?.provider
-    ? { patch: { models: { providers: { [model.providerId]: model.provider } } } }
-    : null;
+export function providerPatch({ model } = {}, config = {}) {
+  if (!model?.provider) return null;
+  // As the patch carries it: JSON leaves out the keys whose value is undefined.
+  const written = JSON.parse(JSON.stringify(model.provider));
+  if (isDeepStrictEqual(config?.models?.providers?.[model.providerId], written))
+    return null;
+  return { patch: { models: { providers: { [model.providerId]: model.provider } } } };
+}
 
 /**
  * The live `config.patch` of one agent's entry over the running configuration
