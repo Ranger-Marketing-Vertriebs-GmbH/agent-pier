@@ -131,6 +131,7 @@ export function claudeConversationRecord(record) {
         ...record,
         type: "assistant",
         isApiErrorMessage: true,
+        apiErrorStatus: record.error?.status,
         message: { role: "assistant", content: text },
       };
   }

@@ -18,6 +18,7 @@ test("Codex turn and rollout errors stay visible without assistant items", () =>
       role: "assistant",
       text: error.message,
       status: "failed",
+      notice: "usage-limit",
     },
   ];
   assert.deepEqual(normalizeCodex({ turns: [turn] }).messages, expected);
@@ -59,4 +60,48 @@ test("Claude API failures and existing synthetic limit replies are visible; unre
     normalizeClaude(records).messages.map(({ text }) => text),
     [message, message],
   );
+});
+
+test("Codex errors without a usage-limit code carry no notice", () => {
+  const error = { message: "boom", codex_error_info: "other" };
+  const turn = { id: "t", items: [], status: "failed", error };
+  assert.equal(normalizeCodex({ turns: [turn] }).messages[0].notice, undefined);
+  const record = {
+    type: "event_msg",
+    payload: { type: "task_complete", turn_id: "t", error },
+  };
+  assert.equal(normalizeCodexRecords([record]).messages[0].notice, undefined);
+});
+
+test("Claude limit replies are marked as notices, other API errors are not", () => {
+  const record = (error, extra = {}) => ({
+    type: "assistant",
+    uuid: "l",
+    isApiErrorMessage: true,
+    error,
+    ...extra,
+    message: {
+      id: "m",
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: "You've hit your Fable limit \u00b7 resets Nov 20 at 4pm (Europe/Berlin)",
+        },
+      ],
+    },
+  });
+  const limited = normalizeClaude([record("rate_limit")]).messages;
+  assert.equal(limited.length, 1);
+  assert.equal(limited[0].notice, "usage-limit");
+  assert.equal(normalizeClaude([record("server_error")]).messages[0].notice, undefined);
+  const api = {
+    uuid: "api",
+    type: "system",
+    subtype: "api_error",
+    error: { status: 429, error: { message: "limit" } },
+  };
+  assert.equal(normalizeClaude([api]).messages[0].notice, "usage-limit");
+  const other = { ...api, error: { status: 500, error: { message: "down" } } };
+  assert.equal(normalizeClaude([other]).messages[0].notice, undefined);
 });

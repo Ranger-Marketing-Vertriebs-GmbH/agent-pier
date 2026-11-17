@@ -18,6 +18,7 @@ import {
   extractToolImages,
   imagePlaceholders,
 } from "./tool-images.js";
+import { claudeNotice, codexErrorMessage } from "./limit-notice.js";
 import { createHash } from "node:crypto";
 
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -196,6 +197,7 @@ export function normalizeClaude(records) {
             ...(record.shellOmitted && { shellOmitted: record.shellOmitted }),
           }),
           text: content,
+          ...claudeNotice(record),
           ...timestamp,
         });
       continue;
@@ -218,6 +220,7 @@ export function normalizeClaude(records) {
           id,
           role: record.type,
           text: block.text,
+          ...claudeNotice(record),
           ...timestamp,
           ...(queuedImages && { claudeImageInput: queuedImages }),
         });
@@ -402,7 +405,7 @@ export function normalizeCodex(thread) {
     const error = string(turn?.error?.message);
     if (error) {
       const id = `codex-turn-error:${identifier(turn.id) || turnIndex}`;
-      messages.set(id, { id, role: "assistant", text: error, status: "failed" });
+      messages.set(id, codexErrorMessage(id, turn.error));
     }
     // Optional reader enrichment from a captured turn/plan/updated notification.
     if (Array.isArray(turn?.plan)) tasks = taskList(turn.plan, "codex-plan");
@@ -436,10 +439,7 @@ export function normalizeCodexRecords(records) {
     if (isEvent && item.type === "task_complete" && string(item.error?.message)) {
       const id = `codex-turn-error:${identifier(item.turn_id) || index}`;
       const message = {
-        id,
-        role: "assistant",
-        text: item.error.message,
-        status: "failed",
+        ...codexErrorMessage(id, item.error),
         ...stamp(record.timestamp),
       };
       const existing = messages.findIndex((entry) => entry.id === id);
