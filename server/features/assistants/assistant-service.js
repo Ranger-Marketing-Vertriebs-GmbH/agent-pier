@@ -340,10 +340,15 @@ export class AssistantService {
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
       // Bundled and catalog skills the Gateway reports; refused before any change.
       if (patch.skills) await this.skills.check(current, changes.skills);
-      // A change of what a used capability compiles (web-tools-changes.js).
-      const restart =
+      // A change of what a used capability compiles (web-tools-changes.js), or runtime
+      // options that need a plugin the running Gateway did not load.
+      const webRestart =
         (!!patch.capabilities || "browserVisible" in patch) &&
         !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
+      const optionsRestart =
+        "runtimeOptions" in patch &&
+        !!this.webTools?.optionsDiffer(this.webTools.profilesWith(id, patch));
+      const restart = webRestart || optionsRestart;
       const disableReminders =
         !!current.capabilities?.reminders && patch.capabilities?.reminders === false;
       // In the app it is saved now and the restart waits until nothing is busy
@@ -371,7 +376,7 @@ export class AssistantService {
       else if (recompiles(patch) && runtimeAccepts(this.runtime, current))
         await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
-      if (queued) this.webTools.queue();
+      if (queued) this.webTools.queue(webRestart ? "webTools" : "runtimeOptions");
       this.changed();
       return { record, pending, plan, swapped };
     });

@@ -140,13 +140,29 @@ export class WebToolsChanges {
     const now = compilerFor(null).webToolsSignatures({ webTools });
     return keys.some((key) => key in now && now[key] !== running.signatures?.[key]);
   }
-  /** The profiles once `patch` is saved for `id`, as the store merges capabilities. */
+  /**
+   * True when the running Gateway lacks a plugin the runtime options of `profiles`
+   * need (the compiler's optionsRestart: OpenClaw's memory wiki is listed in
+   * plugins.allow, read only at a start). A stopped Gateway compiles them at its next
+   * start, so nothing needs a restart then.
+   */
+  optionsDiffer(profiles) {
+    const runtime = this.assistants.runtime;
+    if (!hostReady(runtime)) return false;
+    return !!compilerFor(null).optionsRestart?.(profiles, runtime);
+  }
+  /**
+   * The profiles once `patch` is saved for `id`, as the store merges capabilities
+   * and replaces the runtime options.
+   */
   profilesWith(id, patch) {
     return this.assistants.store.listAssistants().map((profile) =>
-      profile.id === id && (patch.capabilities || "browserVisible" in patch)
+      profile.id === id &&
+      (patch.capabilities || "browserVisible" in patch || "runtimeOptions" in patch)
         ? {
             ...profile,
             ...("browserVisible" in patch && { browserVisible: patch.browserVisible }),
+            ...("runtimeOptions" in patch && { runtimeOptions: patch.runtimeOptions }),
             capabilities: { ...profile.capabilities, ...patch.capabilities },
           }
         : profile,

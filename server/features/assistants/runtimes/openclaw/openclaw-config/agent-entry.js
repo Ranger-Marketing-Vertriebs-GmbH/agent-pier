@@ -3,6 +3,7 @@ import { agentExec } from "./shell.js";
 import { lockEntry } from "../../../../users/user-agent-lock.js";
 import { asDesired } from "./desired-agents.js";
 import { learningTools } from "./skill-learning.js";
+import { agentWikiTools } from "./memory-wiki.js";
 
 // One definition for a Gateway start and a live apply: the same agent (its desired
 // state, agent-desired-state.js) and runtime state always yield the same managed
@@ -51,6 +52,8 @@ export function agentEntry(
         }).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
         // "Learns its own skills" (skill-learning.js): OpenClaw's skill_workshop.
         ...learningTools(agent, { nativeReady, senderFacing }),
+        // The memory wiki (memory-wiki.js): OpenClaw's five wiki tools.
+        ...agentWikiTools(agent, { nativeReady }),
       ],
       ...(exec && { exec }),
     };

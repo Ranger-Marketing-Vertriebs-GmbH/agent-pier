@@ -14,6 +14,7 @@ import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell
 import { dreamingSection } from "./openclaw-config/dreaming.js";
 import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import { applyLearning, hostLearns } from "./openclaw-config/skill-learning.js";
+import { applyMemoryWiki, hostWiki } from "./openclaw-config/memory-wiki.js";
 import {
   applyTelegram,
   configuredAgents,
@@ -318,6 +319,8 @@ export function compileOpenClawConfig({
     // An agent whose bot for other people this start runs never learns.
     const senderFacing = (agent) => !!telegramCompiled.accounts[agent.runtimeAgentId];
     applyLearning(config, hostLearns(agents, { senderFacing }));
+    // The memory wiki's plugin and tools, only while an agent keeps a wiki.
+    applyMemoryWiki(config, hostWiki(agents));
     const available = webToolsAvailability(host.webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {

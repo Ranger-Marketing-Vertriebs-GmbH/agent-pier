@@ -75,13 +75,12 @@ export class AssistantConfig {
   }
   /**
    * Keeps only the names the Gateway reports as the skill AgentPier means: a built-in
-   * skill only as the team plugin's own copy (built-in-skills.js), a catalog skill
-   * only as the catalog's own live copy (`catalogSource`, below its liveRoot,
-   * reported by no other source and needing no settings), any other name only as the
-   * bundled skill. Fails closed: without a report (an error, or none) nothing is
-   * verified, and `complete` is false so the apply is not cached and asks again next
-   * time. A name the report resolves elsewhere is dropped reliably and the apply is
-   * cached: skills.changed and the ready re-apply bring it back once that changes.
+   * skill only as the team plugin's own copy (built-in-skills.js), a catalog skill only
+   * as the catalog's own live copy (below its liveRoot, reported by no other source,
+   * needing no settings), any other name only as the bundled skill. Fails closed:
+   * without a report nothing is verified and `complete` is false, so the apply is not
+   * cached. A name resolved elsewhere is dropped and the apply cached (skills.changed
+   * and the ready re-apply bring it back).
    */
   async verifySkills(assistant, names) {
     if (!names.length) return { skills: [], complete: true };
@@ -145,16 +144,11 @@ export class AssistantConfig {
       ...this.compiler.shadowedSkills(path.dirname(this.workspaces), assistant, assigned),
       ...this.catalogCheck(assigned).dropped,
     ];
-    return (
-      await this.verifySkills(
-        assistant,
-        assigned.filter((name) => !shadowed.includes(name)),
-      )
-    ).skills;
+    const kept = assigned.filter((name) => !shadowed.includes(name));
+    return (await this.verifySkills(assistant, kept)).skills;
   }
-  // Runs before every turn admission, including when the configuration is unchanged,
-  // so instructions planted between turns never reach the next prompt.
-  // `bootstrap` is the managed AGENTS.md content (owner instructions + guidance).
+  // Runs before every turn admission, the configuration unchanged too, so instructions
+  // planted between turns never reach the next prompt. `bootstrap`: the managed AGENTS.md.
   async verifyBootstrap(assistant, bootstrap) {
     const { agentFiles } = runtimeFor(assistant, this.runtime);
     for (const name of ["AGENTS.md", ...foreignBootstrap]) {
@@ -339,12 +333,16 @@ export class AssistantConfig {
       ssh,
       craft,
     ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
+    const profiles = this.store.listAssistants?.();
     const learning = this.compiler.learning(assistant, {
       nativeReady,
       senderFacing: this.senderFacing,
-      profiles: this.store.listAssistants?.(),
+      profiles,
     });
     allowed.push(...learning.tools); // "Learns its own skills" (skill-learning.js)
+    // The memory wiki's tools, and whether some agent keeps one (its global tools).
+    const wiki = this.compiler.wiki?.(assistant, { nativeReady, profiles });
+    allowed.push(...(wiki?.tools || []));
     // The agent's SSH agent, synced first so this turn's PATH and instructions name
     // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
     const plainSsh = nativeReady
@@ -451,7 +449,7 @@ export class AssistantConfig {
           capabilities,
           exec,
           shellGlobal,
-          learning.global,
+          [learning.global, wiki?.global],
           skills,
           catalog.unreadable,
           configured,
@@ -537,6 +535,7 @@ export class AssistantConfig {
             hostCapacity: this.hostCapacity,
             shellGlobal,
             learningGlobal: learning.global,
+            wikiGlobal: wiki?.global,
           }),
         });
       }
@@ -566,6 +565,7 @@ export class AssistantConfig {
             skills,
             shellGlobal,
             learningGlobal: learning.global,
+            wikiGlobal: wiki?.global,
             memory: this.nativeReady ? nativeReady && desired.memory : undefined,
           },
         })

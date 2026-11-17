@@ -438,6 +438,8 @@ export class McpChanges {
       learning: live.compiler.hostLearns?.(profiles, {
         senderFacing: (profile) => !!this.telegramSenders?.connected(profile.id),
       }),
+      // And the memory wiki's tools while an agent keeps a wiki.
+      wiki: live.compiler.hostWiki?.(profiles),
     });
     if (snapshot.signature === running.signature) return false;
     const adoption = live.watchAdoption(this.adoption);

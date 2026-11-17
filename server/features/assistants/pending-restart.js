@@ -12,6 +12,8 @@ export const pendingRestartReasons = [
   "pdfModel",
   "connection",
   "telegram",
+  // An agent's runtime option that needs a plugin the start loads (memory wiki).
+  "runtimeOptions",
   // OpenClaw's offline-only commands (offline-commands.js): their start runs them.
   "memoryForget",
   "mcpLogout",

@@ -1483,6 +1483,7 @@
   "assistant-restart:assistantRestartCopy.reason.mcpLogout": "de:e0b84b969227 en:b58ac07d9939",
   "assistant-restart:assistantRestartCopy.reason.memoryForget": "de:79c584fd1782 en:9e9e159305e7",
   "assistant-restart:assistantRestartCopy.reason.pdfModel": "de:e610f93bcd42 en:6a39494a88e2",
+  "assistant-restart:assistantRestartCopy.reason.runtimeOptions": "de:909beac9645b en:e948b5ff777c",
   "assistant-restart:assistantRestartCopy.reason.telegram": "de:b78cea125fef en:91a7ef51179d",
   "assistant-restart:assistantRestartCopy.reason.webSearch": "de:90e309852755 en:185474f7f146",
   "assistant-restart:assistantRestartCopy.reason.webTools": "de:e13df0fe369b en:f74da61c3f27",

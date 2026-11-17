@@ -3,6 +3,7 @@ import { applyMcp, mcpSections, mcpSnapshot } from "./mcp-servers.js";
 import { applyShell, shellSections } from "./shell.js";
 import { nativeTools } from "../runtime-config.js";
 import { learningAllow } from "./skill-learning.js";
+import { wikiAllow } from "./memory-wiki.js";
 
 // Compiled server names; anything else cannot be addressed as a dotted path.
 const pathName = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
@@ -28,9 +29,10 @@ function mergeDiff(current, target) {
  * own (`webTools`: the start's web tools snapshot, whose tools it appended) with the
  * shell tools while some agent has shell (they apply hot) and the learning tool while
  * `learning` (some agent of this host learns its own skills, the compiler's
- * hostLearns), so it equals what a start writes.
+ * hostLearns) and the wiki's tools while `wiki` (some agent keeps a memory wiki, the
+ * compiler's hostWiki), so it equals what a start writes.
  */
-export function mcpLive({ desired, webTools, learning = false }) {
+export function mcpLive({ desired, webTools, learning = false, wiki = false }) {
   const { agents: profiles, host } = desired;
   const sections = mcpSections({ profiles, ...host.mcp });
   const snapshot = mcpSnapshot(sections);
@@ -38,6 +40,7 @@ export function mcpLive({ desired, webTools, learning = false }) {
   const target = applyMcp(applyShell(global, shellSections({ profiles })), sections);
   target.tools.allow =
     learningAllow(target.tools.allow, !!learning) ?? target.tools.allow;
+  target.tools.allow = wikiAllow(target.tools.allow, !!wiki) ?? target.tools.allow;
   const build = (config) => {
     const current = record(config.mcp?.servers) ? config.mcp.servers : {};
     const servers = target.mcp?.servers || {};
