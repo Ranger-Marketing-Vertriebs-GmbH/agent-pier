@@ -23,14 +23,25 @@ export const wikiTools = Object.freeze([
 
 /**
  * The plugin's configuration as AgentPier compiles it. Unknown keys are refused by
- * the plugin's schema. Isolated: the vault holds what the agent writes with
- * `wiki_apply`, nothing is imported from elsewhere. Obsidian, URL ingestion, the
- * shared memory search and the compiled digest in the prompt stay off.
+ * the plugin's schema. Bridge: at each wiki tool call the plugin imports the agent's
+ * own memory notes (MEMORY.md, its day notes under memory/ and dream reports, which
+ * memory-core exports with search off) as source pages of the agent's vault, so the
+ * wiki fills by itself and `wiki_apply` has sources to cite (a synthesis needs one;
+ * isolated, nothing could be cited). Memory event logs stay out. Obsidian, URL
+ * ingestion, the shared memory search and the compiled digest in the prompt stay off.
  */
 export const wikiConfig = () => ({
-  vaultMode: "isolated",
+  vaultMode: "bridge",
   vault: { scope: "agent", renderMode: "native" },
   obsidian: { enabled: false, useOfficialCli: false, openAfterWrites: false },
+  bridge: {
+    enabled: true,
+    readMemoryArtifacts: true,
+    indexMemoryRoot: true,
+    indexDailyNotes: true,
+    indexDreamReports: true,
+    followMemoryEvents: false,
+  },
   ingest: { autoCompile: true, allowUrlIngest: false },
   search: { backend: "local", corpus: "wiki" },
   context: { includeCompiledDigestPrompt: false },

@@ -140,7 +140,16 @@ test("a start loads the plugin with one vault per agent while an agent keeps a w
   assert.equal(entry.enabled, true);
   const { config } = entry;
   assert.deepEqual(config.vault, { scope: "agent", renderMode: "native" });
-  assert.ok(["isolated", "bridge"].includes(config.vaultMode));
+  // Bridge: the agent's own memory notes become source pages; no event logs.
+  assert.equal(config.vaultMode, "bridge");
+  assert.deepEqual(config.bridge, {
+    enabled: true,
+    readMemoryArtifacts: true,
+    indexMemoryRoot: true,
+    indexDailyNotes: true,
+    indexDreamReports: true,
+    followMemoryEvents: false,
+  });
   assert.deepEqual(config.obsidian, {
     enabled: false,
     useOfficialCli: false,

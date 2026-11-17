@@ -106,6 +106,12 @@ export const openClawConfigurationTables = new Set([
   "worktree_templates",
 ]);
 
+// Plugins whose rows in the configuration table plugin_state_entries are private all
+// the same: OpenClaw's memory wiki records the absolute path of every memory note of
+// an agent it imported (namespace "source-sync") and the pages of each import run
+// (2026.11.3). They travel only in the sealed full copy; the wiki rebuilds them.
+const privatePluginState = ["memory-wiki"];
+
 /** Empties virtual table `name` (full-text or vector index) through its module. */
 function emptyVirtual(db, name) {
   for (const statement of [
@@ -124,7 +130,8 @@ function emptyVirtual(db, name) {
 
 /**
  * Removes every row of OpenClaw's database copy `db` outside the configuration
- * tables; the schema stays. Returns true: OpenClaw's databases are always split.
+ * tables, and the private plugins' rows of plugin_state_entries; the schema stays.
+ * Returns true: OpenClaw's databases are always split.
  */
 export function stripOpenClawRows(db) {
   const tables = tableNames(db);
@@ -147,5 +154,11 @@ export function stripOpenClawRows(db) {
     if (owner && openClawConfigurationTables.has(owner.name)) continue;
     db.exec(`DELETE FROM ${quote(name)}`);
   }
+  if (tables.some((row) => row.name === "plugin_state_entries"))
+    db.prepare(
+      `DELETE FROM plugin_state_entries WHERE plugin_id IN (${privatePluginState
+        .map(() => "?")
+        .join(",")})`,
+    ).run(...privatePluginState);
   return true;
 }
