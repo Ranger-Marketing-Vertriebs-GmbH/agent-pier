@@ -1,5 +1,6 @@
 // Ablehnungen der Laufzeitoptionen eines Agenten (runtimes/runtime-options.js) und der
-// Mixture of Agents von Hermes (runtimes/hermes/hermes-options.js).
+// Mixture of Agents von Hermes (runtimes/hermes/hermes-options.js) und des Memory-Wikis
+// von OpenClaw (runtimes/openclaw/openclaw-options.js).
 export const runtimeOptions = Object.freeze({
   optionsInvalid: "Diese Laufzeitoptionen sind ungültig.",
   optionsUnknownRuntime: (runtime) =>
@@ -17,4 +18,10 @@ export const runtimeOptions = Object.freeze({
     "Der Modell-Zugang oder das Modell dieses Beraters ist nicht verfügbar. Prüfe ihn unter Zugänge › Modell-Zugänge.",
   mixtureModelKind:
     "Mixture of Agents braucht das eigene Modell des Agenten auf einem OpenAI-kompatiblen Endpunkt oder OpenRouter mit Bearer-Schlüssel: Es handelt nach den Ratschlägen.",
+  memoryWikiShared:
+    "Ein mit Nutzern geteilter Agent kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
+  memoryWikiUserAgent:
+    "Der eigene Agent eines Nutzers kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
+  memoryWikiTaskMember:
+    "Ein temporäres Teammitglied kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
 });

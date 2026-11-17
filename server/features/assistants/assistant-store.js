@@ -15,6 +15,7 @@ import { validateDefinition, assistantProblem } from "./assistant-validation.js"
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { DEFAULT_RUNTIME } from "./runtimes/agent-runtime.js";
 import { assertRuntime } from "./runtimes/runtime-for.js";
+import { restrictRuntimeOptions } from "./runtimes/runtime-options.js";
 import { learningLocked, learnsSkills, refuseLearning } from "./skill-learning.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
@@ -275,7 +276,12 @@ export class AssistantStore {
     const current = this.storedAssistant(id);
     if (!Number.isSafeInteger(revision) || current.revision !== revision)
       throw assistantProblem("conflict", 409);
-    const result = { ...current, userAccess: value, revision: revision + 1 };
+    // Options a user agent may not hold (an OpenClaw memory wiki) end for good.
+    const result = restrictRuntimeOptions({
+      ...current,
+      userAccess: value,
+      revision: revision + 1,
+    });
     // Learning ends for good where the agent's runtime refuses it to user agents.
     if (learningLocked(result)) delete result.skillLearning;
     if (
