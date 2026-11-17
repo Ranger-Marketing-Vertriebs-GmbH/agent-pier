@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { agentRunStepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 
 // The live steps of an agent's running turn, from the chat feed's `steps` frames
-// (server/features/assistants/run-steps.js): only metadata, never output or text.
+// (server/features/assistants/run-steps.js): only metadata, never output or text,
+// except an advisor's answer of a Mixture of Agents turn.
 
 /** A turn waiting this long for the model without any sign of life is stalled. */
 export const stallMs = 3 * 60 * 1000;
@@ -20,14 +21,22 @@ const phases = new Set([
 const busy = new Set(["tool", "approval", "compacting"]);
 const states = new Set(["running", "done", "failed"]);
 
+const kinds = new Set(["thinking", "advisor"]);
+
 function step(value) {
   if (!value || typeof value.id !== "string") return null;
-  const kind = value.kind === "thinking" ? "thinking" : "tool";
+  const kind = kinds.has(value.kind) ? value.kind : "tool";
   return {
     id: value.id,
     kind,
     tool: typeof value.tool === "string" ? value.tool : "",
     label: typeof value.label === "string" ? value.label : "",
+    // An advisor's number, model and answer (server run-steps.js).
+    ...(kind === "advisor" && {
+      advisor: Number.isSafeInteger(value.advisor) ? value.advisor : 0,
+      model: typeof value.model === "string" ? value.model : "",
+      output: typeof value.output === "string" ? value.output : "",
+    }),
     state: states.has(value.state) ? value.state : "running",
   };
 }

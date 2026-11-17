@@ -5,13 +5,20 @@
 // `waiting-approval`) and compaction. Only metadata leaves here: never command
 // output, thinking or reply text, tool arguments or results. A tool's label is the
 // runtime's `title` for it, and only when it reads like a title, not like a command
-// line or a secret.
+// line or a secret. The one exception is an advisor's answer of a Mixture of Agents
+// turn (the owner's decision of 2026-11-17, ADR 0007): model text like the reply,
+// shown as the step's output, capped.
 
 /** At most this many steps per run go to the chat; older ones are counted. */
 export const maxSteps = 24;
 // Runs whose end never arrives are forgotten oldest first.
 const maxRuns = 32;
 const maxLabel = 80;
+// An advisor's answer is kept up to this many characters.
+const maxOutput = 8000;
+const control = /[\u0000-\u0008\u000b-\u001f\u007f]/g;
+const capped = (value, max) =>
+  value.length > max ? `${value.slice(0, max - 1)}…` : value;
 // The kinds of run events that belong to a run (RUN_EVENT_KINDS without approvals).
 const runKinds = new Set([
   "started",
@@ -104,6 +111,23 @@ export class RunSteps {
         run.phase = run.steps.some((s) => s.kind === "tool" && s.state === "running")
           ? "tool"
           : "model";
+        break;
+      }
+      case "advisor": {
+        if (typeof step.id !== "string" || !Number.isSafeInteger(step.advisor)) break;
+        const id = step.id.slice(0, 128);
+        if (run.steps.some((s) => s.id === id)) break;
+        this.add(run, {
+          id,
+          kind: "advisor",
+          advisor: step.advisor,
+          model: typeof step.model === "string" ? step.model.slice(0, 128) : "",
+          output:
+            typeof step.text === "string"
+              ? capped(step.text.replace(control, ""), maxOutput)
+              : "",
+          state: step.failed === true ? "failed" : "done",
+        });
         break;
       }
       case "thinking":

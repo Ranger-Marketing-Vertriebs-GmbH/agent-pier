@@ -42,6 +42,28 @@
 .assistant-run-step-state {
   flex-shrink: 0;
 }
+/* An advisor's answer (Mixture of Agents): the name opens it below. */
+.assistant-run-advisor {
+  align-items: flex-start;
+}
+.assistant-run-advisor > .assistant-run-step-dot {
+  margin-top: 7px;
+}
+.assistant-run-advisor-answer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.assistant-run-advisor-answer > summary {
+  cursor: pointer;
+}
+.assistant-run-advisor-output {
+  margin: 4px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
 .assistant-run-step.omitted {
   font-style: italic;
 }

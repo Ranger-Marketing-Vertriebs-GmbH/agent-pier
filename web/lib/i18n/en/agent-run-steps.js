@@ -33,6 +33,8 @@ export const agentRunStepsCopy = {
     memory_get: "Reading memory",
   },
   tool: (name) => `Tool ${name}`,
+  // An advisor model's answer of a Mixture of Agents turn.
+  advisor: (number) => `Advisor ${number}`,
   state: {
     running: "Running",
     done: "Done",
