@@ -4,7 +4,10 @@ import { baseURL } from "../helpers/browser.js";
 
 const detail = "You've hit your Fable limit · resets Nov 20 at 4pm (Europe/Berlin)";
 
-async function fixture(page, { limit = true, uploadGate = null } = {}) {
+async function fixture(
+  page,
+  { limit = true, uploadGate = null, input = null, provider = undefined } = {},
+) {
   const session = {
     id: "limited",
     accountId: "fixture",
@@ -14,6 +17,7 @@ async function fixture(page, { limit = true, uploadGate = null } = {}) {
     name: "Limited session",
     attachments: { directory: "/fixture/attachments" },
     activity: { state: "idle", ...(limit && { limit: { detail } }) },
+    provider,
   };
   const data = {
     availability: "ready",
@@ -44,7 +48,7 @@ async function fixture(page, { limit = true, uploadGate = null } = {}) {
     else if (pathname.endsWith("/chat")) result = data;
     else if (pathname.endsWith("/input")) {
       calls.inputs.push(body);
-      result = { deliveryId: body.deliveryId, status: "handed-off" };
+      result = { deliveryId: body.deliveryId, status: "handed-off", ...input };
     } else if (pathname.includes("/input/"))
       result = { deliveryId: pathname.split("/").at(-1), status: "handed-off" };
     else if (pathname.includes("/models")) {
@@ -120,6 +124,40 @@ test.describe("in English", () => {
     await expect(next).toBeDisabled();
     release();
     await expect(next).toBeEnabled();
+  });
+
+  test("Continue stays disabled while a hook-blocked message waits in the CLI prompt", async ({
+    page,
+  }) => {
+    const calls = await fixture(page, {
+      input: { status: "rejected", reason: "CHAT_HOOK_BLOCKED_DRAFT", released: false },
+    });
+    const bar = page.getByRole("status", { name: "Usage limit reached" });
+    const next = bar.getByRole("button", { name: "Continue", exact: true });
+    await expect(next).toBeEnabled();
+    await page.getByLabel("Message", { exact: true }).fill("Twice would double");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByRole("status", { name: "Message delivery" })).toContainText(
+      "The text is still in the CLI prompt.",
+    );
+    await expect(next).toBeDisabled();
+    expect(calls.inputs).toHaveLength(1);
+  });
+
+  test("Change model follows the model picker when a restart is required", async ({
+    page,
+  }) => {
+    await fixture(page, {
+      provider: { modelId: "fable", modelChangeRequiresRestart: true },
+    });
+    const bar = page.getByRole("status", { name: "Usage limit reached" });
+    await expect(page.locator(".model-trigger")).toBeDisabled();
+    await expect(
+      bar.getByRole("button", { name: "Change model", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      bar.getByRole("button", { name: "Continue", exact: true }),
+    ).toBeEnabled();
   });
 
   test("a session without a limit shows no limit bar", async ({ page }) => {

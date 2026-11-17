@@ -82,6 +82,7 @@ export default function ChatView({
   );
   const [requestState, setRequestState] = useState(null);
   const [modelOpenRequest, setModelOpenRequest] = useState(0);
+  const [modelOpenable, setModelOpenable] = useState(false);
   const requestPending =
     requestsAvailable && (requestState?.sessionId !== session.id || requestState.blocked);
   const drop = useFileDrop({
@@ -329,7 +330,10 @@ export default function ChatView({
                 delivery.locked ||
                 session.status !== "running"
               }
-              continueDisabled={attachments.uploading || attachments.blocked}
+              changeModelDisabled={!modelOpenable}
+              continueDisabled={
+                attachments.uploading || attachments.blocked || delivery.sendHeld
+              }
               onChangeModel={() => setModelOpenRequest((count) => count + 1)}
               onContinue={() => void sendText(copy.limitContinuePrompt)}
             />
@@ -351,6 +355,7 @@ export default function ChatView({
               openTerminal={openTerminal}
               onPendingChange={setModelPending}
               openRequest={modelOpenRequest}
+              onOpenableChange={setModelOpenable}
             />
             <ChatComposer
               {...{

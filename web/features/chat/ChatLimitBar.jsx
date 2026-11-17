@@ -5,6 +5,7 @@ import { chatViewCopy as copy } from "../../lib/i18n/messages/chat.js";
 export default function ChatLimitBar({
   detail,
   disabled,
+  changeModelDisabled = false,
   continueDisabled = false,
   onChangeModel,
   onContinue,
@@ -21,7 +22,7 @@ export default function ChatLimitBar({
         <button
           type="button"
           className="button secondary compact"
-          disabled={disabled}
+          disabled={disabled || changeModelDisabled}
           onClick={onChangeModel}
         >
           {copy.limitChangeModel}
