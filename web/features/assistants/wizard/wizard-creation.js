@@ -46,8 +46,9 @@ export function createBody(d) {
       ...Object.fromEntries(web.map((key) => [key, false])),
     },
     ...(d.template && { template: { id: d.template.id, revision: d.template.revision } }),
-    // A duplicate runs on its source's runtime (ADR 0006).
+    // A duplicate runs on its source's runtime (ADR 0006), with its options there.
     ...(d.runtime && { runtime: d.runtime }),
+    ...(d.runtimeOptions && { runtimeOptions: d.runtimeOptions }),
     // A duplicate's "Learns its own skills" (for a user's agent as forUserAgent left it).
     ...(typeof d.skillLearning === "boolean" && { skillLearning: d.skillLearning }),
   };
