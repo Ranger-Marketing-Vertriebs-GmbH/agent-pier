@@ -38,6 +38,12 @@ import {
   hostLearns,
   learningTools,
 } from "./openclaw-config/skill-learning.js";
+import {
+  agentWiki,
+  agentWikiTools,
+  hostWiki,
+  optionsRestart,
+} from "./openclaw-config/memory-wiki.js";
 
 /**
  * The owner's advanced OpenClaw settings (openclaw-config/advanced-settings.js): the
@@ -82,6 +88,14 @@ export const openClawCompiler = Object.freeze({
   learningTools,
   hostLearns,
   learning: agentLearning,
+  // The memory wiki (memory-wiki.js): the tools it adds to an agent's entry, whether
+  // any of `agents` keeps one (the plugin and the global tools), both for one agent
+  // apply, and whether saved runtime options need a restart of a running start
+  // (`{ memoryWiki }`).
+  wikiTools: agentWikiTools,
+  hostWiki,
+  wiki: agentWiki,
+  optionsRestart,
   // Assigned skills a same-named skill in the agent's folders would replace
   // (skill-shadows.js), and every name found there as `{ has(name) }`.
   shadowedSkills,

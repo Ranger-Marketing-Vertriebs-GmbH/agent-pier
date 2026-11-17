@@ -14,6 +14,7 @@ export const assistantRestartCopy = {
     telegram: "einen Telegram-Bot",
     memoryForget: "das Entfernen gelöschter Chats aus dem Gedächtnis",
     mcpLogout: "eine MCP-Abmeldung",
+    runtimeOptions: "eine Laufzeitoption eines Agenten, etwa das Memory-Wiki",
   },
   waiting: (labels) => `Wartet auf: ${labels}.`,
   waitingFor: {

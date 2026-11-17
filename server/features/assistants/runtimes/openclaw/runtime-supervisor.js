@@ -32,6 +32,7 @@ import {
   telegramSnapshot,
 } from "./openclaw-config/telegram-senders.js";
 import { asDesiredState } from "./openclaw-config/desired-agents.js";
+import { hostWiki } from "./openclaw-config/memory-wiki.js";
 import { readJSON } from "../../../../lib/storage.js";
 import { closeConnection } from "../../../../lib/socket-errors.js";
 
@@ -291,7 +292,7 @@ export class RuntimeSupervisor extends EventEmitter {
     if (generation !== this.generation) return;
     // What this start compiles, without the search key. It becomes the running
     // Gateway's state only once that Gateway answers; until then nothing runs.
-    this.webTools = null;
+    this.webTools = this.memoryWiki = null;
     const webTools =
       host.webTools &&
       webToolsSnapshot({ profiles: agents, webTools: host.webTools, port });
@@ -467,6 +468,8 @@ export class RuntimeSupervisor extends EventEmitter {
     this.lastReadyMs = Date.now() - spawned;
     // Live applies grant web tools against the state this Gateway was started with.
     this.webTools = webTools;
+    // Whether it loaded the memory wiki's plugin (memory-wiki.js optionsRestart).
+    this.memoryWiki = native && hostWiki(agents);
     this.shell = shell;
     this.mcp = mcp;
     this.telegram = telegram || null;

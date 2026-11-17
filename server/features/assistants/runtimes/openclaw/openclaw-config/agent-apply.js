@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { shellTools } from "../../../native-capabilities.js";
 import { agentEntry } from "./agent-entry.js";
 import { learningAllow, learningApplied, learningModeChange } from "./skill-learning.js";
+import { wikiAllow, wikiApplied } from "./memory-wiki.js";
 
 /**
  * The global tools.allow with exec and process present exactly when `wanted`, or
@@ -37,10 +38,18 @@ export const providerPatch = ({ model } = {}) =>
  * `hostCapacity` (a function: the host's member slots, when wired), `shellGlobal`
  * (whether some agent has shell, undefined while that is not managed) and
  * `learningGlobal` (whether some agent learns its own skills, likewise: the global
- * tool and the Gateway-wide review mode, skill-learning.js).
+ * tool and the Gateway-wide review mode, skill-learning.js) and `wikiGlobal` (whether
+ * some agent keeps a memory wiki, likewise: the wiki's global tools, memory-wiki.js).
  */
 export function agentPatch(config, desired, state) {
-  const { managed, hostCapacity, shellGlobal, learningGlobal, ...entryOptions } = state();
+  const {
+    managed,
+    hostCapacity,
+    shellGlobal,
+    learningGlobal,
+    wikiGlobal,
+    ...entryOptions
+  } = state();
   const agentRuntime = desired.model?.agentRuntime;
   const agents = config.agents;
   const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
@@ -93,9 +102,12 @@ export function agentPatch(config, desired, state) {
   if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.tools?.deny))
     replacePaths.push(`agents.entries.${desired.runtimeAgentId}.tools.deny`);
   const shellGlobalAllow = shellAllow(config.tools?.allow, shellGlobal);
-  const globalAllow =
+  const learningGlobalAllow =
     learningAllow(shellGlobalAllow ?? config.tools?.allow, learningGlobal) ??
     shellGlobalAllow;
+  const globalAllow =
+    wikiAllow(learningGlobalAllow ?? config.tools?.allow, wikiGlobal) ??
+    learningGlobalAllow;
   if (globalAllow) replacePaths.push("tools.allow");
   const mode = learningModeChange(config, learningGlobal);
   return {
@@ -112,13 +124,15 @@ export function agentPatch(config, desired, state) {
  * Whether the running configuration `config` holds anything else for the desired
  * agent than its apply wrote (`expected`): its tools (`tools`), exec override and
  * skills while `managed`, the global shell tools while `shellGlobal` is managed, the
- * learning tool and review mode while `learningGlobal` is, its
+ * learning tool and review mode while `learningGlobal` is, the wiki's global tools
+ * while `wikiGlobal` is, its
  * memory search while `memory` is (a boolean), and the agent runtime and model of
  * its model connection, when it names one. True means the apply did not take.
  */
 export function agentDrift(config, desired, expected) {
   const { managed, tools: allowed, exec, skills, shellGlobal, memory } = expected;
   if (!learningApplied(config, expected.learningGlobal)) return true;
+  if (!wikiApplied(config, expected.wikiGlobal)) return true;
   const { runtimeAgentId, model: connection } = desired;
   const agentRuntime = connection?.agentRuntime;
   const entries = config?.agents?.entries;
