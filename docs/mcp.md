@@ -173,7 +173,8 @@ These tools are never offered to external OAuth clients.
 
 While [Craft Anything](#managed-craft-anything) is installed, a session with full
 **AgentPier tools** access also receives `craft_rebuild_start` and `craft_rebuild_status`.
-`craft_rebuild_start` takes a `request`, an optional `target` (a web address or an
+`craft_rebuild_start` takes a `request`, a `name` for the rebuild's new project (a short
+folder name of at most 48 characters and 6 words, never the request itself), an optional `target` (a web address or an
 absolute path), an optional `stack` and optional `pictures` (up to 10 screenshots or
 photos of the original as paths inside the session's working folder; with no target
 the rebuild starts from them alone, see [Screenshots](craft.md#screenshots)), plus a

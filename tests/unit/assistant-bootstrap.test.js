@@ -318,7 +318,7 @@ test("an agent with email accounts learns the mail pattern and that mail is untr
 
 test("agents holding agentpier_craft learn to start rebuilds in their Projects section", () => {
   const line =
-    "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start). It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
+    "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start) and a short project name of a few words. It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
   const text = assistantBootstrap(assistant, {}, { projectCreation: true, craft: true });
   assert.ok(text.includes(`\n## Projects\n`));
   assert.ok(text.includes(`${line}\n`));
@@ -340,7 +340,7 @@ test("eligible agents learn they can create a project and share it with their te
   const text = assistantBootstrap(assistant, {}, { projectCreation: true });
   assert.match(text, /\n## Projects\n/);
   for (const line of [
-    "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
+    "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. Name it with a short folder name of a few words (for example shop-redesign), never the owner's request. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
     "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
   ])
     assert.ok(text.includes(`${line}\n`), line);

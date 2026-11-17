@@ -32,6 +32,14 @@ export const craftCopy = {
     title: "Start a rebuild",
     request: "What to make",
     requestPlaceholder: "A to-do app like the target, with a dark theme",
+    name: "Project name",
+    namePlaceholder: "notes-clone",
+    nameHint:
+      "The folder of the rebuild's new project in your default projects folder: a few words, suggested from the request.",
+    nameTooLong:
+      "Shorten the project name to a few words: at most 48 characters and 6 words.",
+    nameRequired:
+      "Give the project a short name of a few words (at most 48 characters and 6 words).",
     target: "Target",
     targetNone: "None",
     targetUrl: "Web address",

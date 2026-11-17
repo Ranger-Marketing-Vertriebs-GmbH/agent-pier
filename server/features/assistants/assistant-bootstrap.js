@@ -214,12 +214,12 @@ const mailGuidance = (accounts) =>
 // agentpier_project (own agents and leads without a bot for other people).
 const projectGuidance = [
   "## Projects",
-  "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
+  "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. Name it with a short folder name of a few words (for example shop-redesign), never the owner's request. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
   "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
 ].join("\n");
 // While it also holds agentpier_craft (craft/agent-craft.js): Craft Anything is installed.
 const craftGuidance =
-  "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start). It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
+  "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start) and a short project name of a few words. It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
 
 // Previews of servers the agent runs (agent-previews.js), while it holds
 // agentpier_preview (own agents and permanent members without a bot for other people).

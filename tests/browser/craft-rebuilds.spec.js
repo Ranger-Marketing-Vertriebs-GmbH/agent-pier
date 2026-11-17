@@ -37,7 +37,11 @@ test("starts a rebuild from the form and opens it", async ({ page }) => {
   await page.getByLabel("What to make").fill("A to-do app like the target");
   const form = page.getByRole("group", { name: "Start a rebuild" });
   await form.getByRole("radio", { name: "Web address" }).check();
+  const name = form.getByLabel("Project name");
+  // A short name from the request, then from the target, never the request itself.
+  await expect(name).toHaveValue("to-do-app");
   await form.getByLabel("Web address of the target").fill("https://todo.example");
+  await expect(name).toHaveValue("todo-example");
   await form.getByRole("combobox", { name: "Stack" }).selectOption("Plain HTML and CSS");
   await form
     .getByRole("combobox", { name: "Claude account" })
@@ -53,6 +57,7 @@ test("starts a rebuild from the form and opens it", async ({ page }) => {
   expect(new Set(starts.map((call) => call.body.requestId)).size).toBe(1);
   expect(starts[0].body).toEqual({
     request: "A to-do app like the target",
+    name: "todo-example",
     target: "https://todo.example",
     stack: "Plain HTML and CSS",
     accountId: "work-claude",
@@ -63,6 +68,36 @@ test("starts a rebuild from the form and opens it", async ({ page }) => {
   });
   expect(state.rebuilds.filter((item) => item.id === startedId)).toHaveLength(1);
   await expect(page.getByRole("heading", { name: "todo-app", level: 1 })).toBeVisible();
+});
+
+test("the project name must be short and given when none can be derived", async ({
+  page,
+}) => {
+  const state = await craftRebuildsFixture(page);
+  await page.goto(`${baseURL}/craft`);
+  const form = page.getByRole("group", { name: "Start a rebuild" });
+  const name = form.getByLabel("Project name");
+  const prompt = "Eine App die das gleiche kann wie die Adresse jedes Feature";
+  await page.getByLabel("What to make").fill(prompt);
+  await expect(name).toHaveValue("app-adresse-feature");
+  await name.fill(prompt);
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(form.getByText(/Shorten the project name/)).toBeVisible();
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page.getByText(/Give the project a short name/)).toBeVisible();
+  // Nothing sensible to derive: the field stays empty and required.
+  await name.fill("");
+  await page.getByLabel("What to make").fill("Rebuild");
+  await expect(name).toHaveValue("");
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  expect(callsTo(state, "/craft/rebuilds")).toHaveLength(0);
+  await name.fill("adressen-app");
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect.poll(() => callsTo(state, "/craft/rebuilds").length).toBe(1);
+  expect(callsTo(state, "/craft/rebuilds")[0].body).toMatchObject({
+    request: "Rebuild",
+    name: "adressen-app",
+  });
 });
 
 test("answers a question and allows an approval on the rebuild's page", async ({

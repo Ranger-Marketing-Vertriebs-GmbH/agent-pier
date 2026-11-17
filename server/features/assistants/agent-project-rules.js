@@ -4,14 +4,19 @@
 // lives in goal-turns.js, which this module must not be imported from.
 import { validDirectoryName } from "../../lib/directories.js";
 import { assistantProblem } from "./assistant-validation.js";
+import { disguisingCharacters, isShortProjectName } from "../projects/project-names.js";
 
-// Invisible format and bidi characters, line and paragraph separators, and slash
-// look-alikes: they could disguise the name in the owner's notice.
-const disguising = /[\p{Cf}\p{Zl}\p{Zp}\u2215\u2044\uff0f\u29f8]/u;
-
-/** A project name: a plain folder name without a leading dot, or a 400. */
+/**
+ * A project name: a plain folder name without a leading dot, or a 400. It must be
+ * short (project-names.js), never the owner's request pasted in as the folder name.
+ */
 export function projectName(value) {
-  if (!validDirectoryName(value) || value.startsWith(".") || disguising.test(value))
+  if (
+    !validDirectoryName(value) ||
+    value.startsWith(".") ||
+    disguisingCharacters.test(value)
+  )
     throw assistantProblem("projectNameInvalid");
+  if (!isShortProjectName(value)) throw assistantProblem("projectNameTooLong");
   return value;
 }

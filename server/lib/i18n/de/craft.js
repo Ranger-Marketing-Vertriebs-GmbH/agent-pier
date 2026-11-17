@@ -25,6 +25,10 @@ export const craft = Object.freeze({
   rebuildRequestRequired: "Beschreibe, was Craft Anything nachbauen soll.",
   rebuildRequestTooLong:
     "Die Beschreibung des Nachbaus ist zu lang (höchstens 8000 Zeichen).",
+  rebuildNameInvalid:
+    "Der Projektname eines Nachbaus muss ein kurzer Ordnername sein: höchstens 48 Zeichen und 6 Wörter, kein / oder \\, keine Steuerzeichen, kein führender Punkt.",
+  rebuildNameRequired:
+    "Gib dem Projekt des Nachbaus einen Namen: Aus der Beschreibung lässt sich kein kurzer Ordnername ableiten.",
   rebuildTargetInvalid:
     "Das Ziel eines Nachbaus muss eine Webadresse (http oder https), ein absoluter Pfad oder leer sein.",
   rebuildTargetPathRefused:
@@ -35,7 +39,7 @@ export const craft = Object.freeze({
   rebuildAccountIneligible:
     "Dieses Konto kann keinen Nachbau ausführen. Wähle ein eigenes Claude-Konto ohne Provider.",
   rebuildToolInvalid:
-    "Ungültige Eingabe. Ein Nachbau braucht eine Beschreibung und eine requestId (höchstens 100 Zeichen) und nimmt höchstens 10 Bilder.",
+    "Ungültige Eingabe. Ein Nachbau braucht eine Beschreibung, einen kurzen Projektnamen und eine requestId (höchstens 100 Zeichen) und nimmt höchstens 10 Bilder.",
   rebuildPicturesInvalid:
     "Ein Nachbau nimmt höchstens 10 Bilder mit gültigem Pfad, jedes nur einmal.",
   rebuildPictureType:

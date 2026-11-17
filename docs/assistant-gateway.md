@@ -5263,7 +5263,8 @@ A failure removes the folder, grant, record and registration. Each change settle
 (`project.created`, `assistant.updated`) and is sent to the owner's Telegram chat
 through the channel outbox.
 
-Codes: `PROJECT_NAME_INVALID` (400), `PROJECT_EXISTS` (409), `AGENT_LOOP_LIMIT`
+Codes: `PROJECT_NAME_INVALID` (400), `PROJECT_NAME_TOO_LONG` (400, a name over 48
+characters or 6 words: `projectName` refuses prose, `project-names.js`), `PROJECT_EXISTS` (409), `AGENT_LOOP_LIMIT`
 (429), `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE` (403)
 and `PROJECT_FOLDER_UNAVAILABLE` (409). Switching coding on also answers the existing
 `PROJECT_NOT_GRANTED` (403) when the agent no longer holds the project or its folder

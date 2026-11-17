@@ -253,9 +253,12 @@ It has three actions:
   scheduled and result turns, goal continuations and runs without a turn. A routine's
   or hook's own run, team requests and forwarded content answer `FORBIDDEN`.
 - **Where:** the project is a new folder directly in the owner's default working
-  directory (`defaultCwd`, the home folder while unset). The name is a plain folder name:
+  directory (`defaultCwd`, the home folder while unset). The name is a short, plain folder name:
   no `/` or `\`, no control or disguising characters, no leading dot, not `.` or `..`, at
-  most 255 bytes. An existing entry of that name is never adopted
+  most 255 bytes (`PROJECT_NAME_INVALID`), and at most 48 characters and 6 words (split
+  at spaces, hyphens and underscores) so that a request pasted in as the name is refused
+  (`PROJECT_NAME_TOO_LONG`, which asks the agent for a few words such as
+  `shop-redesign`). An existing entry of that name is never adopted
   (`PROJECT_EXISTS`). The folder must be registered as a project of its own: if the
   default folder lies inside a Git repository, or the folder resolves to a known
   project, creation fails and nothing is left behind (`PROJECT_FOLDER_UNAVAILABLE`).
@@ -282,7 +285,7 @@ It has three actions:
   cannot re-grant itself a removed project.
 - **Sharing:** the agent shares the project with permanent members through
   `agentpier_team_grant` ([sharing](agents.md#sharing-a-leads-access-with-permanent-members)).
-- **Codes:** `PROJECT_NAME_INVALID`, `PROJECT_EXISTS`, `AGENT_LOOP_LIMIT`,
+- **Codes:** `PROJECT_NAME_INVALID`, `PROJECT_NAME_TOO_LONG`, `PROJECT_EXISTS`, `AGENT_LOOP_LIMIT`,
   `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE`, `PROJECT_FOLDER_UNAVAILABLE`.
 
 ## Agent access from the project

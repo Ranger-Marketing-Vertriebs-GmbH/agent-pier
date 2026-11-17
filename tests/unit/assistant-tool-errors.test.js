@@ -127,6 +127,7 @@ test("the attachment mail errors keep their codes and the source problems their 
 test("project tool problems carry their stable codes and English reasons", () => {
   for (const [key, status, code] of [
     ["projectNameInvalid", 400, "PROJECT_NAME_INVALID"],
+    ["projectNameTooLong", 400, "PROJECT_NAME_TOO_LONG"],
     ["projectExists", 409, "PROJECT_EXISTS"],
     ["projectNotCreatedByYou", 403, "PROJECT_NOT_CREATED_BY_YOU"],
     ["projectNotEligible", 403, "PROJECT_NOT_ELIGIBLE"],

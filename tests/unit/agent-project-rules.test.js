@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { projectName } from "../../server/features/assistants/agent-project-rules.js";
+import { isShortProjectName } from "../../server/features/projects/project-names.js";
 import { mayCreateProjects } from "../../server/features/assistants/goal-turns.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 
@@ -19,7 +20,7 @@ const throwsKey = (run, key) => {
 };
 
 test("project names follow createDirectory's rules and refuse a leading dot", () => {
-  for (const ok of ["Shop", "my project", "Ünïcödé", "a".repeat(255)])
+  for (const ok of ["Shop", "my project", "Ünïcödé", "a".repeat(48)])
     assert.equal(projectName(ok), ok);
   for (const bad of [
     "",
@@ -46,6 +47,21 @@ test("project names follow createDirectory's rules and refuse a leading dot", ()
     );
 });
 
+test("a request pasted in as the name is refused with a code that asks for a short name", () => {
+  for (const prose of [
+    "Eine App die das gleiche kann wie die Adresse jedes Feature",
+    "a".repeat(49),
+    "a".repeat(255),
+    "one two three four five six seven",
+  ])
+    assert.throws(
+      () => projectName(prose),
+      (e) => e.key === "projectNameTooLong" && e.status === 400,
+      prose,
+    );
+  assert.equal(projectName("adressen-feature-app"), "adressen-feature-app");
+});
+
 test("names with invisible format, separator or slash look-alike characters are refused", () => {
   for (const bad of [
     "a\u200bb", // zero-width space (Cf)
@@ -70,12 +86,14 @@ test("names with invisible format, separator or slash look-alike characters are 
 });
 
 const disguising = /[\p{Cf}\p{Zl}\p{Zp}\u2215\u2044\uff0f\u29f8]/u;
-test("every name createDirectory accepts without a leading dot or disguise is a project name", () =>
+test("every short name createDirectory accepts without a leading dot or disguise is a project name", () =>
   fc.assert(
     fc.property(fc.string({ maxLength: 300, unit: "grapheme" }), (name) =>
-      validDirectoryName(name) && !name.startsWith(".") && !disguising.test(name)
-        ? projectName(name) === name
-        : throwsKey(() => projectName(name), "projectNameInvalid"),
+      !validDirectoryName(name) || name.startsWith(".") || disguising.test(name)
+        ? throwsKey(() => projectName(name), "projectNameInvalid")
+        : isShortProjectName(name)
+          ? projectName(name) === name
+          : throwsKey(() => projectName(name), "projectNameTooLong"),
     ),
   ));
 

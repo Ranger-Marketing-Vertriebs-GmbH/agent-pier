@@ -6,6 +6,7 @@ import { NumberRow, SelectRow, ToggleRow } from "../../components/ListRow.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { craftCopy } from "../../lib/i18n/messages/craft.js";
+import { isShortProjectName, shownProjectName } from "./start-project-name.js";
 import CraftPictures from "./CraftPictures.jsx";
 import useCraftPictures from "./useCraftPictures.js";
 
@@ -34,7 +35,8 @@ export const targetOptions = () => [
 ];
 
 /**
- * The start form: what to make, the target (none, a web address, a local path or
+ * The start form: what to make, the project's short name (prefilled from the request
+ * and target, required, never prose), the target (none, a web address, a local path or
  * screenshots alone), screenshots of the look for an address or a path, stack,
  * account, mode, auto mode and rounds, preset from the owner's defaults. Pictures
  * upload only when the form is sent. `onStarted(view)` hears the new rebuild.
@@ -48,6 +50,8 @@ export default function CraftStartForm({ data, start, onStarted }) {
   const accounts = data.accounts || [];
   const [form, setForm] = useState(() => ({
     request: "",
+    name: "",
+    nameEdited: false,
     targetKind: "none",
     target: "",
     stack: data.stacks?.[0] ?? "",
@@ -61,9 +65,12 @@ export default function CraftStartForm({ data, start, onStarted }) {
   const set = (key) => (value) => setForm((held) => ({ ...held, [key]: value }));
   const kind = form.targetKind;
   const withPictures = kind !== "none";
+  const name = shownProjectName(form).trim();
+  const nameTooLong = !!name && !isShortProjectName(name);
   const submit = (event) => {
     event.preventDefault();
     action.run(async () => {
+      if (!name || nameTooLong) throw new Error(copy.nameRequired);
       if (kind === "pictures" && !pictures.items.length)
         throw new Error(craftCopy.pictures.required);
       const ids = withPictures ? await pictures.upload() : [];
@@ -71,6 +78,7 @@ export default function CraftStartForm({ data, start, onStarted }) {
       try {
         view = await start({
           request: form.request,
+          name,
           target: kind === "none" || kind === "pictures" ? "-" : form.target.trim(),
           ...(ids.length && { pictures: ids }),
           stack: form.stack,
@@ -145,6 +153,29 @@ export default function CraftStartForm({ data, start, onStarted }) {
               disabled={action.busy}
             />
           )}
+          <label className="craft-row-field">
+            {copy.name}
+            <input
+              type="text"
+              required
+              spellCheck={false}
+              autoComplete="off"
+              placeholder={copy.namePlaceholder}
+              aria-invalid={nameTooLong || undefined}
+              aria-describedby={`${id}-name-note`}
+              value={shownProjectName(form)}
+              onChange={(event) =>
+                setForm((held) => ({
+                  ...held,
+                  name: event.target.value,
+                  nameEdited: true,
+                }))
+              }
+            />
+          </label>
+          <p id={`${id}-name-note`} className="craft-row-note">
+            {nameTooLong ? copy.nameTooLong : copy.nameHint}
+          </p>
           <SelectRow
             label={copy.stack}
             value={form.stack}

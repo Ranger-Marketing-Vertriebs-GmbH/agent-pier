@@ -98,7 +98,12 @@ test("start runs a rebuild with the owner's defaults; a retry returns the same o
   const f = await craftFixture(t);
   await f.r.rebuilds.saveSettings({ accountId: "acc-b", mode: "deep", autoMode: true });
   const inv = await f.invocation(randomUUID());
-  const input = { action: "start", request: "A counter app", stack: "Python" };
+  const input = {
+    action: "start",
+    name: "app",
+    request: "A counter app",
+    stack: "Python",
+  };
   const started = await f.tool(inv, input);
   assert.deepEqual(Object.keys(started).sort(), statusKeys);
   assert.equal(started.link, `/craft/${started.id}`);
@@ -116,7 +121,7 @@ test("start runs a rebuild with the owner's defaults; a retry returns the same o
   assert.equal(retry.id, started.id);
   assert.equal(f.r.rebuilds.list().length, 1);
   // A new call starts a second rebuild.
-  const second = await f.call({ action: "start", request: "A counter app" });
+  const second = await f.call({ action: "start", name: "app", request: "A counter app" });
   assert.notEqual(second.id, started.id);
   assert.equal(f.r.rebuilds.list().length, 2);
   const audits = f.audit.filter((e) => e.details.kind === "agent-craft");
@@ -135,13 +140,13 @@ test("start runs a rebuild with the owner's defaults; a retry returns the same o
 
 test("status reads only the agent's own rebuilds and never the questions", async (t) => {
   const f = await craftFixture(t);
-  const started = await f.call({ action: "start", request: "A clock" });
+  const started = await f.call({ action: "start", name: "app", request: "A clock" });
   const status = await f.call({ action: "status", id: started.id });
   assert.deepEqual(Object.keys(status).sort(), statusKeys);
   assert.equal(status.id, started.id);
   const owner = await f.r.rebuilds.start({ request: "Owner's" }, { source: "owner" });
   const session = await f.r.rebuilds.start(
-    { request: "Session's", requestId: `${f.id}:x` },
+    { name: "app", request: "Session's", requestId: `${f.id}:x` },
     { source: "session" },
   );
   for (const id of [owner.id, session.id, "missing"])
@@ -152,7 +157,7 @@ test("status reads only the agent's own rebuilds and never the questions", async
     );
   // Another agent's rebuild is not this agent's.
   const other = await f.r.rebuilds.start(
-    { request: "Other's", requestId: "other-agent:abc" },
+    { name: "app", request: "Other's", requestId: "other-agent:abc" },
     { source: "agent" },
   );
   assert.equal(
@@ -165,9 +170,17 @@ test("invalid input, refusals and a missing Craft Anything answer with stable co
   const f = await craftFixture(t);
   for (const input of [
     { action: "start" },
-    { action: "start", request: "   " },
-    { action: "start", request: "X", target: "relative/path" },
-    { action: "start", request: "X", stack: "COBOL" },
+    // The agent names the project: no name, or the request as the name, is refused.
+    { action: "start", request: "A counter app" },
+    { action: "start", name: 7, request: "A counter app" },
+    {
+      action: "start",
+      name: "Eine App die das gleiche kann wie die Adresse jedes Feature",
+      request: "Eine App die das gleiche kann wie die Adresse jedes Feature",
+    },
+    { action: "start", name: "app", request: "   " },
+    { action: "start", name: "app", request: "X", target: "relative/path" },
+    { action: "start", name: "app", request: "X", stack: "COBOL" },
   ])
     assert.equal(
       await f.code(f.call(input)),
@@ -175,8 +188,8 @@ test("invalid input, refusals and a missing Craft Anything answer with stable co
       JSON.stringify(input),
     );
   for (const input of [
-    { action: "start", request: "X", accountId: "acc-a" },
-    { action: "start", request: "X", autoMode: true },
+    { action: "start", name: "app", request: "X", accountId: "acc-a" },
+    { action: "start", name: "app", request: "X", autoMode: true },
     { action: "status" },
     { action: "status", id: 1 },
     { action: "answer", id: "q" },
@@ -185,20 +198,27 @@ test("invalid input, refusals and a missing Craft Anything answer with stable co
     assert.equal(await f.code(f.call(input)), "INVALID_INPUT", JSON.stringify(input));
   assert.equal(f.r.rebuilds.list().length, 0);
   // The English reason of an invalid target.
-  const error = await f.call({ action: "start", request: "X", target: "nope" }).then(
+  const error = await f
+    .call({ action: "start", name: "app", request: "X", target: "nope" })
+    .then(
+      () => null,
+      (e) => toolError(e),
+    );
+  assert.match(error.reason, /web address|absolute path/i);
+  const unnamed = await f.call({ action: "start", request: "A clock" }).then(
     () => null,
     (e) => toolError(e),
   );
-  assert.match(error.reason, /web address|absolute path/i);
+  assert.match(unnamed.reason, /short folder name/i);
   // A default projects folder that is not writable.
   fs.chmodSync(f.r.projectsDir, 0o500);
   assert.equal(
-    await f.code(f.call({ action: "start", request: "Blocked" })),
+    await f.code(f.call({ action: "start", name: "app", request: "Blocked" })),
     "PROJECT_FOLDER_UNAVAILABLE",
   );
   fs.chmodSync(f.r.projectsDir, 0o700);
   const bare = await craftFixture(t, { installed: false });
-  const missing = await bare.call({ action: "start", request: "X" }).then(
+  const missing = await bare.call({ action: "start", name: "app", request: "X" }).then(
     () => null,
     (e) => toolError(e),
   );
@@ -214,7 +234,7 @@ test("invalid input, refusals and a missing Craft Anything answer with stable co
 
 test("only the owner's chat of an eligible agent starts rebuilds", async (t) => {
   const f = await craftFixture(t);
-  const start = { action: "start", request: "A clock" };
+  const start = { action: "start", name: "app", request: "A clock" };
   for (const origin of [{ kind: "owner", forwarded: true }, { kind: "lead-request" }])
     assert.equal(await f.code(f.call(start, origin)), "FORBIDDEN", origin.kind);
   for (const field of ["hook", "routine"]) {
@@ -259,7 +279,7 @@ test("a call through the team bridge starts a rebuild and reads its status", asy
       f.assistants.ledger.transition(attempt.id, "completed");
     return result;
   };
-  const started = await call({ action: "start", request: "A clock" });
+  const started = await call({ action: "start", name: "app", request: "A clock" });
   assert.equal(f.r.rebuilds.get(started.id).source, "agent");
   const status = await call({ action: "status", id: started.id });
   assert.equal(status.id, started.id);
@@ -284,17 +304,24 @@ test("the audit keeps a rebuild's id only for agent-craft records", () => {
 test("an agent's rebuild targets a web address or nothing, never a local path", async (t) => {
   const f = await craftFixture(t);
   for (const target of ["/Users/owner/.ssh", f.r.dataDir, " /etc "]) {
-    const error = await f.call({ action: "start", request: "X", target }).then(
-      () => null,
-      (e) => toolError(e),
-    );
+    const error = await f
+      .call({ action: "start", name: "app", request: "X", target })
+      .then(
+        () => null,
+        (e) => toolError(e),
+      );
     assert.equal(error.code, "CRAFT_REBUILD_INVALID_INPUT", target);
     assert.match(error.reason, /never a local path/);
   }
   assert.equal(f.r.rebuilds.list().length, 0);
-  const url = await f.call({ action: "start", request: "X", target: "https://a.test/" });
+  const url = await f.call({
+    action: "start",
+    name: "app",
+    request: "X",
+    target: "https://a.test/",
+  });
   assert.equal(f.r.rebuilds.get(url.id).target, "https://a.test/");
-  const none = await f.call({ action: "start", request: "Y", target: "-" });
+  const none = await f.call({ action: "start", name: "app", request: "Y", target: "-" });
   assert.equal(f.r.rebuilds.get(none.id).target, "-");
   // Sessions and the owner keep paths.
   for (const source of ["session", "owner"]) {
@@ -308,7 +335,7 @@ test("an agent's rebuild targets a web address or nothing, never a local path", 
 
 test("a user agent and a user's conversation are refused at the service", async (t) => {
   const f = await craftFixture(t);
-  const start = { action: "start", request: "A clock" };
+  const start = { action: "start", name: "app", request: "A clock" };
   f.setAgent("userAccess", { mode: "shared", userIds: ["u"] });
   assert.equal(await f.code(f.call(start)), "FORBIDDEN");
   assert.equal(await f.code(f.call({ action: "status", id: "x" })), "FORBIDDEN");
@@ -330,7 +357,7 @@ test("a retry while the first start runs joins it and charges the loop guard onc
     return take(id);
   };
   const inv = await f.invocation(randomUUID());
-  const input = { action: "start", request: "A counter app" };
+  const input = { action: "start", name: "app", request: "A counter app" };
   const [first, retry] = await Promise.all([f.tool(inv, input), f.tool(inv, input)]);
   assert.equal(retry.id, first.id);
   assert.equal(taken, 1);

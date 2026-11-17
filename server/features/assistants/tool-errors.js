@@ -274,6 +274,8 @@ const reasons = {
     "You may not save the attachment there: only under mail/ in your workspace or in a project folder you may write to, never in instruction, skill, .git or AgentPier folders. Do not retry the same place; save without projectId and path, or tell the owner.",
   PROJECT_NAME_INVALID:
     "Give name as a plain folder name: no / or \\, no control characters, not . or .., no leading dot, at most 255 bytes. Fix it and try again.",
+  PROJECT_NAME_TOO_LONG:
+    "The name reads like a request, not a folder name. Give name as a short folder name of a few words (at most 48 characters and 6 words), for example shop-redesign, never the owner's request, and try again.",
   PROJECT_EXISTS:
     "The owner's default working directory already has an entry with this name. Pick another name; never reuse an existing folder.",
   PROJECT_NOT_CREATED_BY_YOU:
@@ -378,6 +380,7 @@ const byKey = {
   sessionLimit: "SESSION_LIMIT",
   talkLimit: "TALK_LIMIT",
   projectNameInvalid: "PROJECT_NAME_INVALID",
+  projectNameTooLong: "PROJECT_NAME_TOO_LONG",
   projectExists: "PROJECT_EXISTS",
   projectNotCreatedByYou: "PROJECT_NOT_CREATED_BY_YOU",
   projectNotEligible: "PROJECT_NOT_ELIGIBLE",

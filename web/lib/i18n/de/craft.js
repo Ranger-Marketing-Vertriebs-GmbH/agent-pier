@@ -33,6 +33,14 @@ export const craftCopy = {
     title: "Nachbau starten",
     request: "Was soll entstehen?",
     requestPlaceholder: "Eine To-do-App wie das Ziel, mit dunklem Design",
+    name: "Projektname",
+    namePlaceholder: "notizen-klon",
+    nameHint:
+      "Der Ordner des neuen Projekts im Standard-Projektordner: wenige Wörter, aus der Beschreibung vorgeschlagen.",
+    nameTooLong:
+      "Kürze den Projektnamen auf wenige Wörter: höchstens 48 Zeichen und 6 Wörter.",
+    nameRequired:
+      "Gib dem Projekt einen kurzen Namen aus wenigen Wörtern (höchstens 48 Zeichen und 6 Wörter).",
     target: "Ziel",
     targetNone: "Keins",
     targetUrl: "Webadresse",
