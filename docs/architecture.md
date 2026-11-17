@@ -43,6 +43,8 @@ Native history adapters normalize stored messages, tasks and available telemetry
 
 The URL owns durable navigation state: page, session, Chat/Terminal mode, extension/plugin profile, AgentBus selection and memory filters. Local component state owns transient drafts and pending operations. Navigation cancels obsolete reads; pending mutations retain their operation identity and cannot submit twice.
 
+A native session's activity file also carries `limit: { detail }` while the CLI is stopped at a usage limit. `recordNativeActivity` writes it from a `StopFailure` (Claude Code) or failed turn (Codex) report with `failure: "usage-limit"`; any newer report of another kind clears it, and the merge in `session-activity-merge.js` passes it through to `session.activity`. The web app derives the "Limit reached" label and the chat's limit bar from it (see [native chat delivery](native-chat-delivery.md#sessions-stopped-at-a-usage-limit)).
+
 See [native observation semantics and limitations](chat-observability.md) for the per-CLI context formula, identity correlation and source ordering.
 
 ## Chat delivery confirmation
