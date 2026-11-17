@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import {
   configWrite,
   patchConfig,
+  reloadPending,
 } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { providerPatch } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-apply.js";
 
@@ -197,10 +198,24 @@ function slowGateway(timeouts = 1) {
   const gateway = new EventEmitter();
   gateway.calls = [];
   gateway.late = [];
+  gateway.reads = 0;
+  // As OpenClaw answers config.get: the written and the applied revision.
+  gateway.revision = { written: "r1", applied: "r1" };
+  gateway.read = () => {
+    gateway.reads++;
+    const { written, applied } = gateway.revision;
+    return {
+      hash: "h1",
+      config: {},
+      configRevisionHash: written,
+      appliedConfigHash: applied,
+    };
+  };
   gateway.call = async (method, params, options = {}) => {
     if (method === "agents.list") return { agents: [] };
+    // Reads are counted apart: every write reads the applied state first.
+    if (method === "config.get") return gateway.read();
     gateway.calls.push(method);
-    if (method === "config.get") return { hash: "h1", config: {} };
     if (timeouts-- <= 0) return {};
     gateway.late.push(options.onLate);
     throw Object.assign(Error("timeout"), { code: "TIMEOUT", method });
@@ -218,10 +233,10 @@ test("the next write waits for the late answer of one that timed out", async () 
   assert.equal(typeof gateway.late[0], "function");
   const create = configWrite(gateway, (call) => call("agents.create", {}));
   for (let n = 0; n < 5; n++) await tick();
-  assert.deepEqual(gateway.calls, ["config.get", "config.patch"]);
+  assert.deepEqual(gateway.calls, ["config.patch"]);
   gateway.late[0](true, {});
   await create;
-  assert.deepEqual(gateway.calls, ["config.get", "config.patch", "agents.create"]);
+  assert.deepEqual(gateway.calls, ["config.patch", "agents.create"]);
 });
 
 test("a dropped connection or the settle bound ends the wait", async () => {
@@ -243,7 +258,10 @@ test("a dropped connection or the settle bound ends the wait", async () => {
     configWrite(bounded, (call) => call("agents.delete", {}), { settleMs: 30 }),
     { code: "TIMEOUT" },
   );
-  await configWrite(bounded, (call) => call("agents.update", {}));
+  await configWrite(bounded, (call) => call("agents.update", {}), {
+    settleMs: 30,
+    warn: () => {},
+  });
   assert.ok(Date.now() - started >= 25);
   assert.deepEqual(bounded.calls, ["agents.delete", "agents.update"]);
 });
@@ -304,4 +322,71 @@ test("a provider the configuration already holds is not written again", async ()
   assert.ok(providerPatch(desired, {}));
   assert.ok(providerPatch(desired));
   assert.equal(providerPatch({ model: { providerId: "ap-c" } }, {}), null);
+});
+
+// OpenClaw 2026.11.3 may answer a config.patch before the reload that applies it ran;
+// an agents.create sent then hung on the lease that reload left behind (the
+// attachments contract on macos-latest). config.get tells: `configRevisionHash` (as
+// written) runs ahead of `appliedConfigHash` until the reload applied it.
+test("a write waits until the Gateway applied what is written", async () => {
+  const gateway = slowGateway(0);
+  gateway.revision = { written: "r2", applied: "r1" };
+  const sleeps = [];
+  const create = configWrite(gateway, (call) => call("agents.create", {}), {
+    sleep: async (ms) => {
+      sleeps.push(ms);
+      await tick();
+    },
+  });
+  for (let n = 0; n < 10; n++) await tick();
+  assert.deepEqual(gateway.calls, []);
+  gateway.revision.applied = "r2";
+  await create;
+  assert.deepEqual(gateway.calls, ["agents.create"]);
+  // Polled from 100 ms on, doubling up to a second.
+  assert.deepEqual(sleeps.slice(0, 5), [100, 200, 400, 800, 1000]);
+  assert.equal(reloadPending({ configRevisionHash: "a", appliedConfigHash: "b" }), true);
+  // A runtime that names no revisions (2026.10.x) is never waited for.
+  assert.equal(reloadPending({ hash: "h1" }), false);
+  assert.equal(reloadPending(null), false);
+});
+
+test("a Gateway that applies nothing is waited for once, then writes go at once", async () => {
+  const gateway = slowGateway(0);
+  gateway.revision = { written: "r2", applied: "r1" };
+  let at = 0;
+  const warnings = [];
+  const options = {
+    settleMs: 1000,
+    now: () => at,
+    sleep: async (ms) => void (at += ms),
+    warn: (text) => warnings.push(text),
+  };
+  await configWrite(gateway, (call) => call("agents.create", {}), options);
+  assert.equal(at, 1000, "the first write waited the whole bound");
+  assert.equal(warnings.length, 1);
+  await configWrite(gateway, (call) => call("agents.update", {}), options);
+  assert.equal(at, 1000, "a stuck client writes at once");
+  // Applied again: the client is no longer stuck, so the next pending reload is
+  // waited for again.
+  gateway.revision.applied = "r2";
+  await configWrite(gateway, (call) => call("agents.update", {}), options);
+  gateway.revision.written = "r3";
+  const next = configWrite(gateway, (call) => call("agents.delete", {}), options);
+  await next;
+  assert.equal(at, 2000);
+  assert.equal(warnings.length, 2);
+  assert.deepEqual(gateway.calls, [
+    "agents.create",
+    "agents.update",
+    "agents.update",
+    "agents.delete",
+  ]);
+});
+
+test("a patch builds on the configuration its wait read", async () => {
+  const gateway = slowGateway(0);
+  await patchConfig(gateway, () => ({ patch: { a: 1 } }));
+  assert.equal(gateway.reads, 1);
+  assert.deepEqual(gateway.calls, ["config.patch"]);
 });
