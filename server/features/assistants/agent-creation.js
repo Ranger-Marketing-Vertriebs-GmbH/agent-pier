@@ -24,11 +24,14 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
     // Skills are assigned once the agent exists (agent-skills.js).
     if (input.skills?.length) throw assistantProblem("invalid");
     refuseRuntimeChoice(service.runtime, input, service.accounts);
-    // A duplicate's options for its runtime, checked by that runtime.
-    if (input.runtimeOptions !== undefined)
-      input.runtimeOptions = validateRuntimeOptions(input, input.runtimeOptions, {
+    // A duplicate's options for its runtime, checked by that runtime against an agent
+    // that stores none yet, so every advisor must be available now.
+    if (input.runtimeOptions !== undefined) {
+      const { runtimeOptions: _given, ...created } = input;
+      input.runtimeOptions = validateRuntimeOptions(created, input.runtimeOptions, {
         models: service.models,
       });
+    }
     const lease = await service.models.resolve(input.model || {});
     lease.release();
     // Memory on by default, web capabilities off (memory-rules.js).
