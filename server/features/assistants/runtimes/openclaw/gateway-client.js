@@ -182,6 +182,12 @@ export class GatewayClient extends EventEmitter {
                   /^[A-Z][A-Za-z]{0,80}Error(?=: )/.test(frame.error.message)
                     ? { remoteError: frame.error.message.split(":", 1)[0] }
                     : {}),
+                  // A short state word a plugin names in its refusal's details (the
+                  // memory wiki's `rebuilding`, `compile-required`).
+                  ...(typeof frame.error?.details?.state === "string" &&
+                  /^[a-z][a-z-]{0,39}$/.test(frame.error.details.state)
+                    ? { detailState: frame.error.details.state }
+                    : {}),
                   // A plugin method's failure whose whole message is a stable code
                   // (team-plugin/chat-title.js): no text, so it may be logged.
                   ...(frame.error?.code === "UNAVAILABLE" &&

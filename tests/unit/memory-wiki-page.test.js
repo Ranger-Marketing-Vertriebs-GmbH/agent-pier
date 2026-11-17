@@ -133,14 +133,17 @@ test("OpenClaw lists the pages newest first and reads one page", async () => {
   assert.equal(calls[1][1].lookup, "syntheses/quartz-notes.md");
 });
 
-test("a wiki still compiling lists no page yet; a missing page is null", async () => {
+test("a rebuilding wiki says so with its retry; a missing page is null", async () => {
   const building = Object.assign(new Error("rebuilding"), {
     code: "UNAVAILABLE",
     retryable: true,
+    retryAfterMs: 500,
+    detailState: "rebuilding",
   });
   const { files } = gateway({ "wiki.overview": building, "wiki.get": null });
   assert.deepEqual(await files.wikiPages({ agentId: "ap-a1" }), {
     state: "building",
+    retryAfterMs: 500,
     totalPages: 0,
     truncated: false,
     pages: [],
@@ -148,6 +151,52 @@ test("a wiki still compiling lists no page yet; a missing page is null", async (
   assert.equal(await files.wikiPage({ agentId: "ap-a1", lookup: "x.md" }), null);
   const other = gateway({ "wiki.overview": new Error("closed") }).files;
   await assert.rejects(other.wikiPages({ agentId: "ap-a1" }), /closed/);
+});
+
+test("a wiki waiting for its first compile is empty, not building", async () => {
+  const waiting = Object.assign(new Error("compile"), {
+    code: "INVALID_REQUEST",
+    detailState: "compile-required",
+  });
+  const { files } = gateway({ "wiki.overview": waiting });
+  assert.deepEqual(await files.wikiPages({ agentId: "ap-a1" }), {
+    state: "empty",
+    totalPages: 0,
+    truncated: false,
+    pages: [],
+  });
+});
+
+test("a Gateway without the plugin says the wiki waits for its restart", async () => {
+  const unknown = Object.assign(new Error("unknown"), {
+    code: "INVALID_REQUEST",
+    remoteMessage: "unknown method: wiki.overview",
+  });
+  const { files } = gateway({ "wiki.overview": unknown, "wiki.get": unknown });
+  await assert.rejects(files.wikiPages({ agentId: "ap-a1" }), {
+    code: "WIKI_NOT_LOADED",
+  });
+  await assert.rejects(files.wikiPage({ agentId: "ap-a1", lookup: "x" }), {
+    code: "WIKI_NOT_LOADED",
+  });
+  // Any other refusal stays a refusal, never "building".
+  const invalid = Object.assign(new Error("bad"), { code: "INVALID_REQUEST" });
+  await assert.rejects(gateway({ "wiki.overview": invalid }).files.wikiPages({}), {
+    code: "INVALID_REQUEST",
+  });
+  // The routes answer it as a translated 503.
+  await assert.rejects(
+    wikiPages(
+      assistants(keeper),
+      "a1",
+      over(gateway({ "wiki.overview": unknown }).files),
+    ),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.equal(error.key, "memoryWikiNotLoaded");
+      return true;
+    },
+  );
 });
 
 test("Hermes declares the methods and refuses them", async () => {
@@ -239,4 +288,39 @@ test("a wiki tool call that ends signals the agent's wiki; other steps do not", 
   listen(step("wiki_apply", "end"));
   listen(step("wiki_lint", "end"));
   assert.deepEqual(signals, ["a1", "a1"]);
+});
+
+test("the wiki topic is sampled only while its last read said rebuilding", async () => {
+  const { agentDetailTopics } =
+    await import("../../server/features/assistants/live-topics.js");
+  let answer = Object.assign(new Error("rebuilding"), {
+    code: "UNAVAILABLE",
+    retryable: true,
+    detailState: "rebuilding",
+  });
+  const client = {
+    ready: true,
+    call: async () => {
+      if (answer instanceof Error) throw answer;
+      return answer;
+    },
+  };
+  const services = {
+    assistants: {
+      store: { getAssistant: () => keeper },
+      runtime: { client, status: () => ({ availability: "ready" }) },
+      admit: (fn) => fn(),
+      requireReady() {},
+    },
+  };
+  const topic = agentDetailTopics(services).find((t) => t.name === "agent.wiki");
+  assert.ok(topic.sampleMs >= 500 && topic.sampleMs <= 10000);
+  const stop = topic.watch({ param: "a1", invalidate() {} });
+  assert.equal(await topic.sampling("a1"), false);
+  assert.equal((await topic.read({ role: "owner" }, "a1")).state, "building");
+  assert.equal(await topic.sampling("a1"), true);
+  answer = overview;
+  assert.equal((await topic.read({ role: "owner" }, "a1")).state, "ready");
+  assert.equal(await topic.sampling("a1"), false);
+  stop();
 });

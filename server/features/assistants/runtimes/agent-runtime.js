@@ -147,10 +147,12 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     { results } } }`.
  *   - wikiPages({ agentId }): the agent's wiki while the `memoryWiki` capability is
  *     available: `{ state, totalPages, truncated, pages: [{ lookup, title, kind,
- *     updatedAt }] }`, newest first, `state` "ready" or "building" (no page listed
- *     yet). wikiPage({ agentId, lookup }): `{ lookup, title, kind, updatedAt, content,
- *     truncated }` (Markdown) or null. A runtime without the capability rejects both
- *     (code UNSUPPORTED).
+ *     updatedAt }] }`, newest first; `state` "ready", "empty" (nothing compiled yet)
+ *     or "building" (being rebuilt; read again after `retryAfterMs`). wikiPage({
+ *     agentId, lookup }): `{ lookup, title, kind, updatedAt, content, truncated }`
+ *     (Markdown) or null. Both reject with code WIKI_NOT_LOADED while the host has
+ *     not loaded the wiki yet (its restart pending); a runtime without the capability
+ *     rejects both (code UNSUPPORTED).
  *   - memory: synchronously, how the runtime writes an agent's memory files, the
  *     same object in every view and the one runtime-for.js `memoryFor(agent)`
  *     returns without a host. Pure: it reads only the text it is given.

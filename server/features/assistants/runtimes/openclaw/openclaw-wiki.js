@@ -35,21 +35,47 @@ export function wikiListing(overview) {
   };
 }
 
-/**
- * Whether a refusal of wiki.overview says the compiled dashboard is not there yet:
- * rebuilding (UNAVAILABLE, retryable) or waiting for a compile (INVALID_REQUEST).
- */
-export const wikiBuilding = (error) =>
-  (error?.code === "UNAVAILABLE" && error.retryable === true) ||
-  error?.code === "INVALID_REQUEST";
+// How long a rebuilding wiki asks to wait before the next read, bounded.
+const retryBounds = [500, 10000];
+const empty = { totalPages: 0, truncated: false, pages: [] };
 
-/** An empty listing while the wiki compiles. */
-export const buildingListing = () => ({
-  state: "building",
-  totalPages: 0,
-  truncated: false,
-  pages: [],
-});
+/**
+ * The listing a refusal of wiki.overview stands for, or null for a real failure:
+ * `building` while OpenClaw rebuilds the compiled dashboard (UNAVAILABLE, details
+ * state `rebuilding`, with its `retryAfterMs`, bounded), `empty` while a vault waits
+ * for its first compile (INVALID_REQUEST, `compile-required`, which only the agent's
+ * next wiki tool call ends).
+ */
+export function wikiRefusalListing(error) {
+  if (error?.code === "UNAVAILABLE" && error.detailState === "rebuilding") {
+    const wait = Number.isFinite(error.retryAfterMs) ? error.retryAfterMs : 1000;
+    return {
+      state: "building",
+      retryAfterMs: Math.min(retryBounds[1], Math.max(retryBounds[0], wait)),
+      ...empty,
+    };
+  }
+  if (error?.code === "INVALID_REQUEST" && error.detailState === "compile-required")
+    return { state: "empty", ...empty };
+  return null;
+}
+
+/**
+ * `error` as the port names a Gateway that has not loaded the plugin (unknown
+ * method: normal after the first wiki until the queued restart ran): code
+ * WIKI_NOT_LOADED. Any other error as it is.
+ */
+export function wikiError(error) {
+  if (
+    error?.code === "INVALID_REQUEST" &&
+    /^unknown method: wiki\./.test(error.remoteMessage || "")
+  )
+    return Object.assign(new Error("The memory wiki is not loaded yet."), {
+      code: "WIKI_NOT_LOADED",
+      status: 503,
+    });
+  return error;
+}
 
 /** One page of wiki.get's answer, or null for none. */
 export function wikiPageOf(answer) {

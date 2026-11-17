@@ -10,9 +10,9 @@ import {
 } from "./agent-admission.js";
 import { openClawMemory } from "./openclaw-memory.js";
 import {
-  buildingListing,
-  wikiBuilding,
+  wikiError,
   wikiGetParams,
+  wikiRefusalListing,
   wikiListing,
   wikiPageOf,
 } from "./openclaw-wiki.js";
@@ -109,12 +109,18 @@ function agentFilesOver(current) {
       try {
         return wikiListing(await call("wiki.overview", { agentId }));
       } catch (error) {
-        if (wikiBuilding(error)) return buildingListing();
-        throw error;
+        const listing = wikiRefusalListing(error);
+        if (listing) return listing;
+        throw wikiError(error);
       }
     },
-    wikiPage: async ({ agentId, lookup }) =>
-      wikiPageOf(await call("wiki.get", wikiGetParams(agentId, lookup))),
+    wikiPage: async ({ agentId, lookup }) => {
+      try {
+        return wikiPageOf(await call("wiki.get", wikiGetParams(agentId, lookup)));
+      } catch (error) {
+        throw wikiError(error);
+      }
+    },
     searchMemory: ({ agentId, query, maxResults }) =>
       call("tools.invoke", {
         name: "memory_search",
