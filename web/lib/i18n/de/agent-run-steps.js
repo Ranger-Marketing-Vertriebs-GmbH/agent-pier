@@ -33,6 +33,8 @@ export const agentRunStepsCopy = {
     memory_get: "Liest das Gedächtnis",
   },
   tool: (name) => `Tool ${name}`,
+  // Die Antwort eines Beratermodells in einem Mixture-of-Agents-Durchlauf.
+  advisor: (number) => `Berater ${number}`,
   state: {
     running: "Läuft",
     done: "Erledigt",

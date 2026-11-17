@@ -110,6 +110,9 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     `failed` whether an ended call failed), `{ type: "thinking" }`,
  *     `{ type: "writing" }`, `{ type: "status", phase, attempt, of, reason }`
  *     (`phase` "retrying" with its attempt of `of` and why, or "starting_model"),
+ *     `{ type: "advisor", id, advisor, model, text, failed }` (one advisor model's
+ *     answer of a Mixture of Agents turn: its number, model, text and whether it
+ *     failed),
  *     `{ type: "lifecycle", phase }` ("start", "model", "waiting-approval" while an
  *     approval of the run waits, "approval-resolved") and `{ type: "compaction",
  *     phase }` ("start", "end").

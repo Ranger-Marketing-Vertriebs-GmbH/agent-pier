@@ -24,6 +24,28 @@ function phaseText(view) {
 }
 
 /**
+ * One advisor model's answer of a Mixture of Agents turn: its number and model, the
+ * answer behind a disclosure (server run-steps.js keeps it, capped).
+ */
+function AdvisorStep({ step }) {
+  return (
+    <li className="assistant-run-step assistant-run-advisor" data-state={step.state}>
+      <StatusDot tone={tones[step.state]} className="assistant-run-step-dot" />
+      <details className="assistant-run-advisor-answer">
+        <summary className="assistant-run-step-name">
+          {copy.advisor(step.advisor)}
+          {step.model && (
+            <span className="assistant-run-step-label"> · {step.model}</span>
+          )}
+        </summary>
+        <p className="assistant-run-advisor-output">{step.output}</p>
+      </details>
+      <span className="assistant-run-step-state">{copy.state[step.state]}</span>
+    </li>
+  );
+}
+
+/**
  * The state of a chat's latest turn below its messages, for the owner's and a user's
  * chat: the attempt's status, while it runs its live steps (collapsed, the newest
  * last), a turn that hears nothing from the model with Stop and Try again, a turn
@@ -94,18 +116,27 @@ export default function AgentRunState({
             {view.omitted > 0 && (
               <li className="assistant-run-step omitted">{copy.earlier(view.omitted)}</li>
             )}
-            {view.steps.map((step) => (
-              <li key={step.id} className="assistant-run-step" data-state={step.state}>
-                <StatusDot tone={tones[step.state]} className="assistant-run-step-dot" />
-                <span className="assistant-run-step-name">
-                  {stepName(step)}
-                  {step.label && (
-                    <span className="assistant-run-step-label"> · {step.label}</span>
-                  )}
-                </span>
-                <span className="assistant-run-step-state">{copy.state[step.state]}</span>
-              </li>
-            ))}
+            {view.steps.map((step) =>
+              step.kind === "advisor" ? (
+                <AdvisorStep key={step.id} step={step} />
+              ) : (
+                <li key={step.id} className="assistant-run-step" data-state={step.state}>
+                  <StatusDot
+                    tone={tones[step.state]}
+                    className="assistant-run-step-dot"
+                  />
+                  <span className="assistant-run-step-name">
+                    {stepName(step)}
+                    {step.label && (
+                      <span className="assistant-run-step-label"> · {step.label}</span>
+                    )}
+                  </span>
+                  <span className="assistant-run-step-state">
+                    {copy.state[step.state]}
+                  </span>
+                </li>
+              ),
+            )}
           </ol>
         </details>
       )}

@@ -24,7 +24,7 @@
 
 const keyPrefix = (agentId) => `agent:${agentId}:hermes:`;
 // Event types that belong to a running turn even when its message.start was missed.
-const turnTypes = /^(?:message\.|tool\.|thinking\.|reasoning\.)/;
+const turnTypes = /^(?:message\.|tool\.|thinking\.|reasoning\.|moa\.)/;
 const toolTypes = new Set([
   "tool.generating",
   "tool.start",
@@ -84,6 +84,35 @@ const ending = new Set(["finished", "aborted", "failed"]);
 
 const text = (value) => (typeof value === "string" ? value : undefined);
 
+// A Mixture of Agents slot label (agent/moa_loop.py `_slot_label`) of an advisor
+// AgentPier compiled (hermes-config/mixture.js): its number and model.
+const advisorLabel = /^custom:agentpier-advisor-(\d+):(.*?)(?:\[reasoning=[^\]]*\])?$/;
+// Hermes's note for an advisor that failed or was skipped (agent/moa_loop.py).
+const failedNote = /^\s*\[(?:failed|skipped):/i;
+
+// The advisor step of a `moa.reference` (tui_gateway/tool_progress.py: `{ label,
+// text, index, count }`), or null: the advisor's number from AgentPier's provider
+// name (else Hermes's position), its model, its answer, and whether it failed.
+function advisorStep(payload) {
+  const label = text(payload?.label);
+  if (!label) return null;
+  const ours = advisorLabel.exec(label);
+  const n = ours ? Number(ours[1]) : payload.index;
+  if (!Number.isSafeInteger(n) || n < 1) return null;
+  const model = ours
+    ? ours[2]
+    : label.slice(label.indexOf(":") + 1).replace(/\[reasoning=[^\]]*\]$/, "");
+  const answer = text(payload.text) ?? "";
+  return {
+    type: "advisor",
+    id: `advisor:${n}`,
+    advisor: n,
+    model,
+    text: answer,
+    failed: failedNote.test(answer),
+  };
+}
+
 /**
  * The activity of one Hermes event (agent-runtime.js `step`), or null: a turn's
  * `message.start` starts it, `message.delta` writes, `thinking.*`/`reasoning.*`
@@ -91,8 +120,10 @@ const text = (value) => (typeof value === "string" ? value : undefined);
  * `tool_call_id` (`tool_id` on progress), failed when the completion reports
  * `is_error`. Hermes's `context` of a call is a preview of its arguments (a command,
  * a URL), so a tool step carries no title. `tool.generating` names no call yet.
+ * `moa.reference` is one advisor's answer of a Mixture of Agents turn (advisorStep).
  */
 export function hermesStep(type, payload) {
+  if (type === "moa.reference") return advisorStep(payload);
   if (type === "message.start") return { type: "lifecycle", phase: "start" };
   if (type === "message.delta") return { type: "writing" };
   if (/^(?:thinking|reasoning)\./.test(type)) return { type: "thinking" };
