@@ -1,4 +1,5 @@
 import InstallSurface from "./InstallSurface.jsx";
+import MixtureSurface from "./MixtureSurface.jsx";
 import { hermesSearch } from "./search.js";
 
 /**
@@ -8,6 +9,6 @@ import { hermesSearch } from "./search.js";
  */
 export default Object.freeze({
   id: hermesSearch.id,
-  surfaces: Object.freeze({ install: InstallSurface }),
+  surfaces: Object.freeze({ install: InstallSurface, mixture: MixtureSurface }),
   search: hermesSearch.entries,
 });

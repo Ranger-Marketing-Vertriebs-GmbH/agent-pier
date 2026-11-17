@@ -30,7 +30,11 @@ const surface = (extra = {}) => ({
 });
 
 test("the slots are AgentPier's: a fixed list the port exports", () => {
-  assert.deepEqual(RUNTIME_SLOTS, ["hub.runtime", "hub.runtime.advanced"]);
+  assert.deepEqual(RUNTIME_SLOTS, [
+    "hub.runtime",
+    "hub.runtime.advanced",
+    "agent.capabilities",
+  ]);
   assert.ok(Object.isFrozen(RUNTIME_SLOTS));
 });
 
@@ -68,9 +72,10 @@ test("a wrong surface fails as the module loads, naming what is wrong", () => {
     );
 });
 
-test("Hermes registers its install group, OpenClaw no surface", () => {
+test("Hermes registers its install group and Mixture of Agents, OpenClaw no surface", () => {
   assert.deepEqual(hermesDescriptor.surfaces, [
     { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
+    { id: "mixture", slot: "agent.capabilities", kind: "built", shows: "whileEnabled" },
   ]);
   assert.deepEqual(openClawDescriptor.surfaces, []);
 });
@@ -203,9 +208,9 @@ test("the search entries of a runtime are its web module's, each of a surface it
     // One entry per surface: its id in the index is the runtime's and the surface's.
     const surfaces = entries.map((entry) => entry.surface);
     assert.equal(new Set(surfaces).size, surfaces.length, descriptor.id);
-    // A group of Agents › Runtime is findable in the search.
+    // A group of Agents › Runtime, or of an agent's tab, is findable in the search.
     for (const entry of descriptor.surfaces)
-      if (entry.slot === "hub.runtime")
+      if (entry.kind === "built")
         assert.ok(surfaces.includes(entry.id), `${descriptor.id}.${entry.id}`);
   }
   assert.deepEqual(runtimeSearch("next"), []);

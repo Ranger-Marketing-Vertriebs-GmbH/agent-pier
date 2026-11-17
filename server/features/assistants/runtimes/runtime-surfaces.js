@@ -11,8 +11,15 @@
  * with the first surface that needs it.
  * - `hub.runtime`: a group of Agents › Runtime.
  * - `hub.runtime.advanced`: the runtime's own rows in Agents › Runtime › Advanced.
+ * - `agent.capabilities`: groups at the end of an agent's Capabilities tab, for the
+ *   agents of that runtime only, inside the tab's draft: the runtime's per-agent
+ *   options (runtime-options.js), saved with the tab's PATCH.
  */
-export const RUNTIME_SLOTS = Object.freeze(["hub.runtime", "hub.runtime.advanced"]);
+export const RUNTIME_SLOTS = Object.freeze([
+  "hub.runtime",
+  "hub.runtime.advanced",
+  "agent.capabilities",
+]);
 
 // How a surface is made: `built` is a component of the runtime's web module;
 // `described` a list of fields AgentPier renders, validates, stores and hands to the

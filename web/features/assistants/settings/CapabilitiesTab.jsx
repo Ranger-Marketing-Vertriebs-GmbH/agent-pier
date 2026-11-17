@@ -30,6 +30,7 @@ import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
 import LockedNotice, { OwnContentNotice, ownContent } from "./LockedNotice.jsx";
 import AgentCapability from "./AgentCapability.jsx";
+import RuntimeSlot from "../RuntimeSlot.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -46,11 +47,13 @@ const conflictLabels = {
   skills: () => assistantSkillsCopy.title,
   shopping: () => assistantShoppingCopy.title,
   skillLearning: () => assistantSkillsCopy.learning.title,
+  runtimeOptions: () => settingsCopy.runtimeOptions,
 };
 
 /**
  * Capabilities: memory, web, browser, shopping, shell and skills in one draft and one
- * PATCH.
+ * PATCH, and at the end the groups the agent's runtime registers in the slot
+ * `agent.capabilities` (its own options, in the same draft).
  * MCP servers and a member's grants from its lead live in the Access tab.
  */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
@@ -176,6 +179,16 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           <SkillsGroup assistant={assistant} draft={draft} go={go} />
         </AgentCapability>
       )}
+      <RuntimeSlot
+        name="agent.capabilities"
+        runtime={assistant.runtimeInfo?.id ?? assistant.runtime}
+        context={{
+          assistant,
+          navigate,
+          options: draft.values.runtimeOptions,
+          setOptions: (value) => draft.set("runtimeOptions", value),
+        }}
+      />
       {saveBar}
       {sheets}
     </>

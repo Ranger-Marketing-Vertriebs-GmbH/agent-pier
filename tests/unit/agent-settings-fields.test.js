@@ -240,6 +240,8 @@ test("capability drafts flatten switches and send only what changed", () => {
     skills: [],
     shopping: true,
     skillLearning: false,
+    // The agent's runtime options (ADR 0007, step 7a): none.
+    runtimeOptions: {},
   });
   // The visible browser window is sent on its own, and never for a member.
   assert.deepEqual(

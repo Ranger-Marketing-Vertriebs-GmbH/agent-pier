@@ -35,7 +35,7 @@ const field = (extra = {}) => ({
 });
 
 test("the advanced rows of a runtime have a slot of their own", () => {
-  assert.deepEqual(RUNTIME_SLOTS, ["hub.runtime", "hub.runtime.advanced"]);
+  assert.ok(RUNTIME_SLOTS.includes("hub.runtime.advanced"));
 });
 
 test("a descriptor resolves a described surface with its fields, frozen", () => {

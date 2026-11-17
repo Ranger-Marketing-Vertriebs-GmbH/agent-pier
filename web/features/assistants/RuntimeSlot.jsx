@@ -40,14 +40,27 @@ export const describedFieldCopy = runtimeFieldCopy;
  * pushes, useLiveTopic) and, the first of the slot, `anchor`: the element id `id` a
  * link to the slot scrolls to. `onSettled()` tells the page that the list was read
  * (or failed), so what the slot shows is on screen.
+ *
+ * `runtime` limits the slot to one runtime's surfaces: a slot of an agent's page
+ * (`agent.capabilities`) renders only those of the runtime the agent runs on, whose
+ * component gets the agent's draft in `context`.
  */
-export default function RuntimeSlot({ name, context, id, onSettled, Described }) {
+export default function RuntimeSlot({
+  name,
+  runtime,
+  context,
+  id,
+  onSettled,
+  Described,
+}) {
   const { runtimes, loading, error, refresh, written } = useRuntimes();
   const list = useMemo(() => ({ error, refresh, written }), [error, refresh, written]);
   useEffect(() => {
     if (!loading) onSettled?.();
   }, [loading, onSettled]);
-  return slotEntries(runtimes, name)
+  const shown =
+    runtime === undefined ? runtimes : runtimes.filter((r) => r.id === runtime);
+  return slotEntries(shown, name)
     .map((shown) => ({
       ...shown,
       Component:

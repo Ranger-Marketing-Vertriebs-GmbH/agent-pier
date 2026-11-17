@@ -10,6 +10,8 @@ export const assistantSettingsCopy = {
     channels: "Channels",
   },
   backToAgents: "Back to agents",
+  // The options of the agent's runtime (its own groups in the Capabilities tab).
+  runtimeOptions: "Runtime options",
   freshChats: {
     label: "Start fresh chats",
     hint: "New main chats for everyone using this agent; the old ones stay readable. Nothing running stops.",

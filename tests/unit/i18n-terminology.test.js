@@ -90,6 +90,8 @@ const properNouns = [
   /\bGmail\b|\b2-Step Verification\b/g,
   /Azure OpenAI/g,
   /Hermes Agent|\bHermes\b/g,
+  // Hermes's feature, named as Hermes names it (ADR 0007, step 7a).
+  /Mixture of Agents/g,
   /(Up|Down|Left|Right) Arrow|Escape|Tab|Enter|Control C/g,
   /\b(Telegram|Deepgram|GitHub|Plane|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
   /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519|Unicode|KiB|MiB|GiB)\b/g,
