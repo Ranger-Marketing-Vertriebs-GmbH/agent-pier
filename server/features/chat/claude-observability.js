@@ -159,17 +159,35 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
             status,
             source: launched ? "claude-async-launch" : "claude-tool-result",
             updatedAt: at,
+            ...(launched ? { runStartedAt: at } : {}),
           });
         }
+        // SendMessage resumed a stopped or finished agent: a new run of the same id.
+        const resumedId = nativeId(result.resumedAgentId);
+        if (
+          resumedId &&
+          agents.has(resumedId) &&
+          !list(record.message?.content).some(
+            (item) => item?.type === "tool_result" && item.is_error,
+          )
+        )
+          agent(resumedId, {
+            status: "running",
+            source: "claude-resume",
+            updatedAt: at,
+            runStartedAt: at,
+          });
       }
       // Background agents finish through generated user records, linked only by
       // the native tool-use id of a known Agent call or a known agent id. A resumed
-      // agent's notification names only its task id: the agent's own launch call.
+      // agent's notification names only its task id, or the SendMessage call that
+      // resumed it: the agent's own launch call stands in.
       const event = subagentEvent(record);
       const callId =
         event?.kind !== "notification"
           ? null
-          : event.toolUseId || agents.get(event.taskId)?.toolUseId;
+          : (calls.has(event.toolUseId) && event.toolUseId) ||
+            agents.get(event.taskId)?.toolUseId;
       if (callId && calls.has(callId)) {
         const input = calls.get(callId);
         nativeAgent(callId, agentByCall.get(callId) || event.taskId, {

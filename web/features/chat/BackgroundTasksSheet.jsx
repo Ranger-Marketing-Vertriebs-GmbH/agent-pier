@@ -4,7 +4,7 @@ import Modal from "../../components/Modal.jsx";
 import { backgroundTasksCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { completedStartsOpen } from "./background-tasks.js";
-import BackgroundTaskCard from "./BackgroundTaskCard.jsx";
+import BackgroundTaskCard, { taskTitle } from "./BackgroundTaskCard.jsx";
 import BackgroundTaskDetail from "./BackgroundTaskDetail.jsx";
 
 const taskLabels = {
@@ -95,6 +95,13 @@ export default function BackgroundTasksSheet({
   close,
 }) {
   const detail = useDetail([...running, ...finished]);
+  // A Codex child's shell names its agent as this sheet lists it.
+  const agentName = (id) => {
+    const agent = [...running, ...finished].find(
+      (item) => item.kind !== "shell" && item.id === id,
+    );
+    return agent ? taskTitle(agent) : null;
+  };
   // Decided once per opening, so a new completion never folds or unfolds the group.
   const [completedOpen] = useState(() => completedStartsOpen(finished));
   const done = tasks.filter((task) => task.status === "completed").length;
@@ -123,6 +130,7 @@ export default function BackgroundTasksSheet({
               label={copy.running}
               sessionId={session.id}
               onOpen={detail.show}
+              agentName={agentName}
               timed
             />
           </Group>
@@ -139,6 +147,7 @@ export default function BackgroundTasksSheet({
               label={copy.completed}
               sessionId={session.id}
               onOpen={detail.show}
+              agentName={agentName}
             />
           </Group>
         )}

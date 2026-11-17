@@ -14,6 +14,13 @@ const SUPPRESS_MS = 10 * 60 * 1000;
 const MAX_SUPPRESS = 64;
 const MAX_INSTANCES = 16;
 const DEFAULT_TIMEOUT_MS = 10000;
+// The Claude Code version a poll names (`x-agentpier-cli`), as `$.session.version()`
+// gives it: digits and dots, an optional pre-release or build suffix, 64 chars at most.
+const CLI_VERSION = /^\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][0-9A-Za-z.-]{1,40})?$/;
+export const cliVersion = (value) =>
+  typeof value === "string" && value.length <= 64 && CLI_VERSION.test(value)
+    ? value
+    : undefined;
 
 export class ClaudeModCommands {
   /**
@@ -60,6 +67,13 @@ export class ClaudeModCommands {
   changed(sessionId) {
     this.onChange(sessionId);
   }
+  /**
+   * The Claude Code version the polling mod named. Every poll carries it, so a
+   * restarted server knows it without the hello at `session.start`.
+   */
+  cli(sessionId) {
+    return this.sessions.get(sessionId)?.cli;
+  }
   /** The pending commands copy `instance` has not been given yet. */
   due(state, instance) {
     return [...state.pending.values()].filter((entry) => !entry.instances.has(instance));
@@ -72,12 +86,17 @@ export class ClaudeModCommands {
    * comes from another copy) or `holdMs` passed (empty). `closed` resolves when the
    * request's connection closed; an unanswered poll then ends. A copy older than the
    * newest one this server has seen is answered `superseded` at once and leaves the
-   * open poll alone.
+   * open poll alone. `cli` is the Claude Code version the copy named, if valid.
    */
-  poll(owner, closed, instance = "") {
+  poll(owner, closed, instance = "", cli = undefined) {
     const sessionId = owner.id;
     const state = this.session(sessionId);
     const wasConnected = this.connected(sessionId);
+    const version = cliVersion(cli);
+    if (version && version !== state.cli) {
+      state.cli = version;
+      if (wasConnected) this.onChange(sessionId);
+    }
     // Copies rank by when this server first saw them: a reload makes a newer one.
     let rank = state.seen.get(instance);
     const fresh = rank === undefined;

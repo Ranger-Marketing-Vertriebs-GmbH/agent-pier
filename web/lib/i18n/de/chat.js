@@ -108,6 +108,8 @@ export const backgroundTasksCopy = {
   todosLine: (done, total) => `Aufgaben ${done}/${total}`,
   kindAgent: "Agent",
   kindShell: "Shell",
+  exitCode: (code) => `Exit-Code ${code}`,
+  ownerAgent: (name) => `Von ${name}`,
   progress: "Aufgabenfortschritt",
   stop: "Aufgabe stoppen",
   stopRefused: (message, reason) => `${message} (${reason})`,

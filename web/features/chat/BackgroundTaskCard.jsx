@@ -50,14 +50,34 @@ function useStop(sessionId, entry) {
   return { busy, error, stop };
 }
 
+// A shell's exit code once it ended by itself; a stopped one's (-1, a signal) says
+// nothing the status does not.
+const shownExitCode = (entry) =>
+  ["completed", "failed"].includes(entry.status) && Number.isInteger(entry.exitCode)
+    ? entry.exitCode
+    : null;
+
 /**
  * One subagent or shell in the background tasks sheet: its kind, title and state,
  * a stop button while the server allows it, and the way to its transcript or output.
+ * A shell names the agent that started it (`agentName(id)`, the id when unknown) and
+ * its exit code.
  */
-export default function BackgroundTaskCard({ entry, sessionId, timed = false, onOpen }) {
+export default function BackgroundTaskCard({
+  entry,
+  sessionId,
+  timed = false,
+  onOpen,
+  agentName = () => null,
+}) {
   const { busy, error, stop } = useStop(sessionId, entry);
   const shell = entry.kind === "shell";
   const usage = shell ? null : usageSummary(entry.usage);
+  const exitCode = shell ? shownExitCode(entry) : null;
+  const owner =
+    shell && entry.ownerAgentId
+      ? agentName(entry.ownerAgentId) || entry.ownerAgentId
+      : null;
   const title = taskTitle(entry);
   const command = shell && entry.command && entry.command !== title;
   const detail = shell
@@ -90,6 +110,10 @@ export default function BackgroundTaskCard({ entry, sessionId, timed = false, on
         <small className={`subagent-status ${subagentStatus(entry)}`}>
           {subagentStatusLabel(entry.status)}
         </small>
+        {exitCode !== null && (
+          <small className="task-exit">{copy.exitCode(exitCode)}</small>
+        )}
+        {owner && <small className="task-owner">{copy.ownerAgent(owner)}</small>}
         {timed && entry.updatedAt && (
           <time dateTime={entry.updatedAt}>{formatTimestamp(entry.updatedAt)}</time>
         )}

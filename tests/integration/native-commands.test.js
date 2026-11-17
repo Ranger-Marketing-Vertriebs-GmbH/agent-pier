@@ -344,7 +344,7 @@ test("the OpenCode driver stops a child session through the plugin", async (t) =
     sessions: { get: async (id) => sessions.get(id) },
     chat: { read: async () => ({ observability: { subagents, shells: [] } }) },
     reads: { flags: () => ({}) },
-    stops: { has: () => false, record: () => {}, forget: () => {} },
+    stops: { has: () => false, get: () => null, record: () => {}, forget: () => {} },
     onChange: () => {},
   });
   control.register("opencode", openCodeTaskDriver({ commands: broker.commands }));

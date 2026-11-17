@@ -129,7 +129,8 @@ test("a down channel, a refusal and a vanished task each have their own error", 
   });
   driver.result = { ok: false, reason: "No task found", gone: true };
   await assert.rejects(control.stop("s1", "agent3"), { code: "TASK_STOP_NOT_RUNNING" });
-  assert.equal(stops.has(session, "agent3"), false);
+  // Not stopped: only marked as ended (task-control-marks.test.js).
+  assert.equal(stops.get(session, "agent3").ended, true);
 });
 
 test("a driver that cannot stop this task is unsupported", async (t) => {

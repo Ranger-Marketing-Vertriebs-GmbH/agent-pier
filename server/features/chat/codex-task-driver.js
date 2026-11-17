@@ -50,6 +50,13 @@ export function codexTaskDriver({
         ? state.knows(session.id, task.id)
         : task.kind === "shell" && state.terminalMethods(session.id),
     shells: (session, snapshot) => state.shells(session.id, snapshot?.providerSessionId),
+    // Input sent to an interrupted child starts a new turn on its thread: a turn other
+    // than the one the stop interrupted (any turn, for a child a stop found ended).
+    resumed(session, task, mark) {
+      const turn = task.kind === "agent" && state.turn(session.id, task.id);
+      if (!turn) return false;
+      return mark.run ? turn !== mark.run : mark.ended === true;
+    },
     async stop(session, task) {
       if (task.kind === "shell") {
         const terminal = state.terminal(session.id, task.id);
@@ -64,6 +71,7 @@ export function codexTaskDriver({
       const result = outcome(
         await send(session, "turn.interrupt", { threadId: task.id, turnId }),
       );
+      if (result.ok) result.run = turnId;
       if (!result.ok || !state.terminalMethods(session.id)) return result;
       const terminals = state
         .running(session.id, task.id)

@@ -26,9 +26,9 @@ const reply = (res, status, body) => {
  * `authenticate(sessionId, token)` resolves the owner or `{status}` (401: not this
  * launch, 410: the session no longer runs); `deliver(owner, {events, prompts})`
  * returns what the mod should know (`{resync: true}` when text offsets no longer fit).
- * `poll(owner, closed, instance)` answers a command poll of mod copy `instance`
- * (null: the request closed first); a server without it answers the route 404, and
- * the mod stops polling.
+ * `poll(owner, closed, instance, cli)` answers a command poll of mod copy `instance`
+ * that names Claude Code version `cli` (null: the request closed first); a server
+ * without it answers the route 404, and the mod stops polling.
  */
 export async function listenClaudeMod({ socketPath, authenticate, deliver, poll }) {
   const server = http.createServer((req, res) => {
@@ -62,7 +62,13 @@ export async function listenClaudeMod({ socketPath, authenticate, deliver, poll 
           const instance = req.headers["x-agentpier-instance"];
           if (typeof instance !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(instance))
             return reply(res, 400);
-          const answer = await poll(owner, closed, instance);
+          // Its Claude Code version (claude-mod-commands.js checks the value).
+          const answer = await poll(
+            owner,
+            closed,
+            instance,
+            req.headers["x-agentpier-cli"],
+          );
           return answer ? reply(res, 200, answer) : undefined;
         }
         let report;

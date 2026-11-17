@@ -59,6 +59,12 @@ const maxImages = 32;
 const maxReason = 500;
 const imageName = (name) =>
   typeof name === "string" && /^[^\0-\x1f\x7f/]{1,255}$/.test(name) ? name : "?";
+// Claude Code's version as its polls name it; AgentPier checks it again.
+const cliVersion = (value) =>
+  typeof value === "string" &&
+  /^\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][0-9A-Za-z.-]{1,40})?$/.test(value)
+    ? value
+    : undefined;
 
 const quietly = (fn) => {
   try {
@@ -98,6 +104,8 @@ export class Bridge {
   constructor() {
     this.io = null;
     this.config = null;
+    // Claude Code's version (a promise, read once per copy).
+    this.version = null;
     this.disabled = false;
     this.queue = [];
     this.timer = null;
@@ -122,6 +130,10 @@ export class Bridge {
   use(io) {
     this.io = io;
     this.config ??= launchConfig(io.env());
+    // Every poll names it, so a restarted AgentPier knows it without a new hello.
+    this.version ??= Promise.resolve()
+      .then(() => io.version?.())
+      .then(cliVersion, () => undefined);
     this.poll();
     return this;
   }
@@ -133,6 +145,7 @@ export class Bridge {
     try {
       const config = await this.config;
       if (!config) return void (this.pollOff = true);
+      const version = await this.version;
       const response = await this.io.fetch(commandsUrl, {
         method: "GET",
         socketPath: config.socketPath,
@@ -140,6 +153,7 @@ export class Bridge {
           authorization: `Bearer ${config.token}`,
           "x-agentpier-session": config.session,
           "x-agentpier-instance": this.instance,
+          ...(version ? { "x-agentpier-cli": version } : {}),
         },
       });
       // No command channel here (an older AgentPier, another launch): stop asking.
@@ -483,6 +497,7 @@ const ioOf = ($) => ({
   after: (ms, fn) => $.clock.after(ms, fn),
   fetch: (target, init) => $.http.fetch(target, init),
   call: (input) => $.tool.call(input),
+  version: () => $.session.version().then((value) => value?.version),
 });
 
 /** @type {import('claude-code').Register} */
@@ -490,10 +505,7 @@ export const register = (on) => {
   const bridge = new Bridge();
   on("session.start", async ($, e, next) => {
     bridge.use(ioOf($));
-    const version = await $.session.version().then(
-      (value) => value?.version,
-      () => undefined,
-    );
+    const version = await bridge.version;
     quietly(() => bridge.hello(version));
     return next(e);
   });
