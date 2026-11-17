@@ -87,6 +87,8 @@ export class AssistantStore {
     // A new user agent never starts learning where its runtime refuses it: this is
     // the one write every creation runs through (a duplicate, a template's agent).
     refuseLearning(record, values);
+    // No runtime options is no field (runtimes/runtime-options.js).
+    if (!Object.keys(record.runtimeOptions || {}).length) delete record.runtimeOptions;
     this.db
       .prepare("INSERT INTO assistants VALUES (?,?,?)")
       .run(id, 1, JSON.stringify(record));
@@ -243,6 +245,9 @@ export class AssistantStore {
       delete fields.skillLearning;
     }
     const result = { ...persisted(current), ...fields, revision: revision + 1 };
+    // Options switched off leave the record as one that never had any.
+    if ("runtimeOptions" in fields && !Object.keys(fields.runtimeOptions).length)
+      delete result.runtimeOptions;
     if (temporaryMember(current)) {
       if (followLead) delete result.ownModel;
       else if ("model" in fields) result.ownModel = true;

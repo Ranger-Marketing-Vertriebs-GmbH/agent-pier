@@ -61,6 +61,9 @@ export const publicPortModules = [
   `${portDirectory}runtime-wiring.js`,
   `${portDirectory}runtime-services.js`,
   `${portDirectory}runtime-backup-paths.js`,
+  // Each runtime's per-agent options (ADR 0007, decision 9), without an adapter, so
+  // the desired state may read them.
+  `${portDirectory}runtime-options.js`,
 ];
 // Imports and re-exports, static and dynamic: `from "…"`, `import "…"`, `import("…")`.
 const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'`](\.{1,2}\/[^"'`]+)["'`]/g;
