@@ -625,7 +625,9 @@ can fail while the Gateway creates an agent's database ("config reload failed:
 database is locked", OpenClaw's SQLite busy timeout is 5 s); the failed reload keeps
 the plugin lifecycle lease for its 5 minutes, and `agents.create` and every later
 write wait on it until they time out. `agents.create` sets this off by itself, with
-nothing else in flight, so only an upstream fix ends it (see
+nothing else in flight. The failed reload is the lease release meeting one SQLite
+lock without a retry; the installer patches 2026.11.3 to retry it
+(`runtime-bundle-patches.js`, see `assistant-runtime-updates.md` "Package patches" and
 `assistant-release-qualification.md`). AgentPier keeps its own writes apart from such
 work: before each write of a connection (`configWrite`) it waits for the late
 answers of its timed-out writes and until

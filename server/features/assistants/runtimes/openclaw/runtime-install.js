@@ -8,6 +8,12 @@ import { download as fetchDownload } from "../../../operations/releases.js";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
 import { runtimeManifest } from "./runtime-manifest.js";
+import {
+  applyBundlePatches,
+  bundlePatchId,
+  runtimeBundlePatches,
+  verifyBundlePatches,
+} from "./runtime-bundle-patches.js";
 import { runtimePaths, privateFolder } from "../../runtime-paths.js";
 import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.js";
 import { proxyEnvironment } from "./runtime-config.js";
@@ -20,6 +26,8 @@ const identityKeys = [
   "version",
   "nodeVersion",
   "dependencyLockSha256",
+  // The patches AgentPier applied to the package (runtime-bundle-patches.js).
+  "bundlePatch",
   "nodePath",
   "entryPath",
 ];
@@ -27,12 +35,21 @@ const identityKeys = [
 export function sameRuntime(a, b) {
   return !!a && !!b && identityKeys.every((key) => a[key] === b[key]);
 }
-/** True when a runtime descriptor names the version, Node and lock `manifest` ships. */
-export const shippedRuntime = (runtime, manifest = runtimeManifest) =>
+/**
+ * True when a runtime descriptor names the version, Node, lock and package patches
+ * `manifest` ships. An installation made before a patch existed is not: the update
+ * path stages the patched one beside it (runtime-provisioning.js).
+ */
+export const shippedRuntime = (
+  runtime,
+  manifest = runtimeManifest,
+  patches = runtimeBundlePatches,
+) =>
   !!runtime &&
   runtime.version === manifest.version &&
   runtime.nodeVersion === manifest.nodeVersion &&
-  runtime.dependencyLockSha256 === manifest.dependencyLockSha256;
+  runtime.dependencyLockSha256 === manifest.dependencyLockSha256 &&
+  runtime.bundlePatch === bundlePatchId(manifest.version, patches);
 // A candidate is recorded only when it differs from the selected runtime.
 function recordCandidate(root, result) {
   const file = path.join(root, "candidate.json");
@@ -121,6 +138,15 @@ export async function selectedAssistantRuntime(options) {
   const saved = readJSON(receipt);
   if (saved.dependencyLockSha256 !== selected.dependencyLockSha256)
     throw Error("Assistant dependency lock integrity mismatch.");
+  if (saved.bundlePatch !== selected.bundlePatch)
+    throw Error("Assistant runtime patch integrity mismatch.");
+  // A patched installation still holds its patches. One made before they existed
+  // runs as installed until the update path replaces it.
+  if (selected.bundlePatch && selected.bundlePatch === bundlePatchId(selected.version))
+    verifyBundlePatches(
+      path.join(directory, "app", "node_modules", "openclaw"),
+      selected.version,
+    );
   readRuntimeLock({ ...saved, version: selected.version }, path.join(directory, "app"));
   return {
     ...selected,
@@ -188,13 +214,16 @@ async function install({
   manifest = runtimeManifest,
   lockDirectory,
   environment = process.env,
+  bundlePatches = runtimeBundlePatches,
 }) {
   const target = `${platform}-${arch}`;
   if (!manifest.nodeChecksums[target])
     throw Error("Unsupported assistant runtime platform.");
   const lock = readRuntimeLock(manifest, lockDirectory);
   const paths = runtimePaths(dataDir);
-  const identity = `${manifest.version}-node${manifest.nodeVersion}-${target}-lock${lock.digest.slice(0, 12)}`;
+  const patch = bundlePatchId(manifest.version, bundlePatches);
+  // A patched package installs into its own directory (runtime-bundle-patches.js).
+  const identity = `${manifest.version}-node${manifest.nodeVersion}-${target}-lock${lock.digest.slice(0, 12)}${patch ? `-patch${patch}` : ""}`;
   const directory = path.join(paths.runtimes, identity);
   const result = {
     version: manifest.version,
@@ -202,7 +231,9 @@ async function install({
     dependencyLockSha256: lock.digest,
     nodePath: path.join(directory, "node", "bin", "node"),
     entryPath: path.join(directory, "app", "node_modules", "openclaw", "openclaw.mjs"),
+    ...(patch && { bundlePatch: patch }),
   };
+  const packageDir = (app) => path.join(app, "node_modules", "openclaw");
   const receipt = path.join(directory, "receipt.json");
   if (fs.existsSync(receipt)) {
     privateFolder(directory);
@@ -211,9 +242,15 @@ async function install({
     if (
       saved.dependencyLockSha256 !== lock.digest ||
       saved.packageIntegrity !== manifest.packageIntegrity ||
-      saved.nodeChecksum !== manifest.nodeChecksums[target]
+      saved.nodeChecksum !== manifest.nodeChecksums[target] ||
+      saved.bundlePatch !== patch
     )
       throw Error("Assistant runtime installation integrity changed.");
+    verifyBundlePatches(
+      packageDir(path.join(directory, "app")),
+      manifest.version,
+      bundlePatches,
+    );
     readRuntimeLock(manifest, path.join(directory, "app"));
     regular(result.nodePath);
     regular(result.entryPath);
@@ -282,6 +319,9 @@ async function install({
       manifest.version
     )
       throw Error("Assistant runtime version mismatch.");
+    // Exact edits of the pinned version until upstream fixes them; a package that
+    // does not hold the expected text refuses the installation.
+    applyBundlePatches(packageDir(app), manifest.version, bundlePatches);
     await execute(node, [entry, "--version"], {
       cwd: app,
       env,
@@ -298,6 +338,7 @@ async function install({
       searchPlugins: manifest.searchPlugins || {},
       // A runtime installed before overrides existed has none in its receipt.
       dependencyOverrides: manifest.dependencyOverrides || {},
+      ...(patch && { bundlePatch: patch }),
     });
     fs.renameSync(stage, directory);
     result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));

@@ -39,7 +39,9 @@ jobs:
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
           "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
-          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          import { bundlePatchId as p } from
+          "./server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}${p(m.version) ? `-patch${p(m.version)}` : ""}`)'
           >> "$GITHUB_OUTPUT"
       # Same cache key as assistant-runtime.yml: only the immutable installation.
       - if: steps.paths.outputs.relevant == 'true'

@@ -19,9 +19,10 @@ const writes = new WeakMap();
 // meanwhile competes with that reload for the state database; a reload that fails
 // there ("config reload failed: database is locked") keeps the plugin lifecycle lease
 // for its 5 minutes, and every later write waits on it until it times out. (An
-// agents.create on a slow disk sets this off by itself, which only an upstream fix
-// ends.) So before each write the client waits until the Gateway answered its
-// timed-out writes (their late answers) and applied what is written (both hashes
+// agents.create on a slow disk sets this off by itself: the lease release meets one
+// lock and is not retried, which runtime-bundle-patches.js patches in 2026.11.3.)
+// So before each write the client waits until the Gateway answered its timed-out
+// writes (their late answers) and applied what is written (both hashes
 // equal), at most `configSettleMs` in all. A wait that runs out marks the client
 // `stuck`: later writes no longer wait, so a Gateway that cannot apply anything fails
 // each write within its own timeout instead of after another full wait, until it is

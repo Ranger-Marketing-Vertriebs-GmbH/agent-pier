@@ -1,0 +1,41 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { createHash } from "node:crypto";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
+import {
+  bundlePatchId,
+  runtimeBundlePatches,
+  verifyBundlePatches,
+} from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+
+// The pinned runtime as the installer provisioned it carries AgentPier's patches of
+// its version (runtime-bundle-patches.js): the patched text, the receipt that records
+// them, and OpenClaw's content inventory naming the patched file's digest and size.
+const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
+test(
+  "the provisioned pinned runtime carries the lease release patch",
+  { skip: !installed },
+  () => {
+    const app = path.join(installed, "app", "node_modules", "openclaw");
+    const version = JSON.parse(fs.readFileSync(path.join(app, "package.json"))).version;
+    assert.equal(version, runtimeManifest.version);
+    const patches = runtimeBundlePatches[version] || [];
+    assert.ok(patches.length, "the pinned version has patches");
+    verifyBundlePatches(app, version);
+    const receipt = JSON.parse(fs.readFileSync(path.join(installed, "receipt.json")));
+    assert.equal(receipt.bundlePatch, bundlePatchId(version));
+    assert.match(path.basename(installed), new RegExp(`-patch${receipt.bundlePatch}$`));
+    const inventory = JSON.parse(
+      fs.readFileSync(path.join(app, "dist", "postinstall-content-inventory.json")),
+    );
+    for (const patch of patches) {
+      const bytes = fs.readFileSync(path.join(app, ...patch.file.split("/")));
+      assert.ok(bytes.toString("utf8").includes(patch.after), patch.id);
+      const entry = inventory.find((item) => item.path === patch.file);
+      assert.equal(entry.sha256, createHash("sha256").update(bytes).digest("hex"));
+      assert.equal(entry.size, bytes.length);
+    }
+  },
+);
