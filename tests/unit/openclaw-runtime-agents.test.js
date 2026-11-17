@@ -7,6 +7,7 @@ import {
   agentCreateTimeoutMs,
   agentDeleteTimeoutMs,
 } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
+import { configSettleMs } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   admittingOn,
   agentDegradedOn,
@@ -28,8 +29,18 @@ function recorder(answer = () => ({})) {
     },
   });
 }
-// The calls besides the admission's roster reads.
-const writes = (client) => client.calls.filter(([method]) => method !== "agents.list");
+// The calls besides the admission's roster reads, a write's late answer handler
+// (live-patch.js configWrite) as "onLate".
+const writes = (client) =>
+  client.calls
+    .filter(([method]) => method !== "agents.list")
+    .map(([method, params, options]) =>
+      options?.onLate
+        ? [method, params, { ...options, onLate: typeof options.onLate }]
+        : [method, params, ...(options ? [options] : [])],
+    );
+// What configWrite adds to each write's options.
+const late = { onLate: "function", lateMs: configSettleMs };
 
 test("the agents sub-port sends the Gateway requests callers sent before the port", async () => {
   const client = recorder((method, params) =>
@@ -44,13 +55,13 @@ test("the agents sub-port sends the Gateway requests callers sent before the por
     [
       "agents.create",
       { name: "ap-1", workspace: "/w/1", model: "openai/gpt" },
-      { timeoutMs: agentCreateTimeoutMs },
+      { timeoutMs: agentCreateTimeoutMs, ...late },
     ],
-    ["agents.update", { agentId: "ap-1", name: "Ada", model: "openai/gpt" }],
+    ["agents.update", { agentId: "ap-1", name: "Ada", model: "openai/gpt" }, late],
     [
       "agents.delete",
       { agentId: "ap-1", deleteFiles: false },
-      { timeoutMs: agentDeleteTimeoutMs },
+      { timeoutMs: agentDeleteTimeoutMs, ...late },
     ],
   ]);
   // On a slow host a delete takes longer than the default 10 s call timeout.
@@ -177,11 +188,12 @@ test("the config sub-port sends the Gateway requests callers sent before the por
     ["config.get", {}],
     ["config.schema.lookup", { path: "agents.defaults.timeoutSeconds" }],
     ["config.get", {}],
-    ["config.patch", { baseHash: "h1", raw: '{"cron":{"enabled":true}}' }],
+    ["config.patch", { baseHash: "h1", raw: '{"cron":{"enabled":true}}' }, late],
     ["config.get", {}],
     [
       "config.patch",
       { baseHash: "h1", raw: '{"tools":{"allow":[]}}', replacePaths: ["tools.allow"] },
+      late,
     ],
     ["config.get", {}],
   ]);

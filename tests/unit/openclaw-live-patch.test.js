@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
+import { EventEmitter } from "node:events";
+import {
+  configWrite,
+  patchConfig,
+} from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
+import { providerPatch } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-apply.js";
 
 function client(responses) {
   const calls = [];
@@ -182,4 +187,121 @@ test("a refusal without a retry hint is not repeated", async () => {
     refused,
   );
   assert.equal(waited, false);
+});
+
+// A write that timed out still runs in the Gateway (a config.patch is answered once
+// its reload applied it). On a slow host an agents.create sent meanwhile locked that
+// reload out of its database, which left the plugin lifecycle lease held for 5 min
+// and the create unanswered (agent-deletion-contract on macos-latest).
+function slowGateway(timeouts = 1) {
+  const gateway = new EventEmitter();
+  gateway.calls = [];
+  gateway.late = [];
+  gateway.call = async (method, params, options = {}) => {
+    if (method === "agents.list") return { agents: [] };
+    gateway.calls.push(method);
+    if (method === "config.get") return { hash: "h1", config: {} };
+    if (timeouts-- <= 0) return {};
+    gateway.late.push(options.onLate);
+    throw Object.assign(Error("timeout"), { code: "TIMEOUT", method });
+  };
+  return gateway;
+}
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("the next write waits for the late answer of one that timed out", async () => {
+  const gateway = slowGateway();
+  await assert.rejects(
+    patchConfig(gateway, () => ({ patch: { models: {} } })),
+    { code: "TIMEOUT" },
+  );
+  assert.equal(typeof gateway.late[0], "function");
+  const create = configWrite(gateway, (call) => call("agents.create", {}));
+  for (let n = 0; n < 5; n++) await tick();
+  assert.deepEqual(gateway.calls, ["config.get", "config.patch"]);
+  gateway.late[0](true, {});
+  await create;
+  assert.deepEqual(gateway.calls, ["config.get", "config.patch", "agents.create"]);
+});
+
+test("a dropped connection or the settle bound ends the wait", async () => {
+  const gateway = slowGateway();
+  await assert.rejects(
+    configWrite(gateway, (call) => call("agents.create", {})),
+    { code: "TIMEOUT" },
+  );
+  const next = configWrite(gateway, (call) => call("agents.update", {}));
+  await tick();
+  assert.deepEqual(gateway.calls, ["agents.create"]);
+  gateway.emit("disconnected");
+  await next;
+  assert.deepEqual(gateway.calls, ["agents.create", "agents.update"]);
+
+  const bounded = slowGateway();
+  const started = Date.now();
+  await assert.rejects(
+    configWrite(bounded, (call) => call("agents.delete", {}), { settleMs: 30 }),
+    { code: "TIMEOUT" },
+  );
+  await configWrite(bounded, (call) => call("agents.update", {}));
+  assert.ok(Date.now() - started >= 25);
+  assert.deepEqual(bounded.calls, ["agents.delete", "agents.update"]);
+});
+
+test("an answered or refused write holds nothing back", async () => {
+  const gateway = slowGateway(0);
+  await configWrite(gateway, (call) => call("agents.create", {}));
+  const refused = Object.assign(Error("no"), { code: "INVALID_REQUEST", answered: true });
+  await assert.rejects(
+    configWrite(gateway, async (call) => {
+      await call("agents.update", {}).catch(() => {});
+      throw refused;
+    }),
+    refused,
+  );
+  await configWrite(gateway, (call) => call("agents.delete", {}));
+  assert.deepEqual(gateway.calls, ["agents.create", "agents.update", "agents.delete"]);
+});
+
+// OpenClaw reloads after every config.patch, an unchanged one too; the provider of an
+// agent's model connection is written only when the configuration as written
+// (sourceConfig, without resolved defaults) does not hold it yet.
+test("a provider the configuration already holds is not written again", async () => {
+  const provider = {
+    baseUrl: "http://127.0.0.1:9/v1",
+    api: "openai-completions",
+    apiKey: undefined,
+    models: [{ id: "echo", name: "echo", contextWindow: 32768, maxTokens: 4096 }],
+  };
+  const desired = { model: { providerId: "ap-c", provider } };
+  const written = JSON.parse(JSON.stringify(provider));
+  // As config.get answers: `config` with OpenClaw's resolved defaults.
+  const resolved = {
+    ...written,
+    models: [{ ...written.models[0], reasoning: false, input: ["text"] }],
+  };
+  const gateway = client({
+    "config.get": {
+      hash: "h1",
+      config: { models: { providers: { "ap-c": resolved } } },
+      sourceConfig: { models: { providers: { "ap-c": written } } },
+    },
+  });
+  const build = (config, answer) =>
+    providerPatch(desired, answer?.sourceConfig ?? config);
+  assert.equal(await patchConfig(gateway, build), null);
+  assert.deepEqual(
+    gateway.calls.map(([method]) => method),
+    ["config.get"],
+  );
+  // A changed or missing entry, or none to compare (a redacted key never equals).
+  assert.deepEqual(
+    providerPatch(desired, { models: { providers: { "ap-c": resolved } } }),
+    {
+      patch: { models: { providers: { "ap-c": provider } } },
+    },
+  );
+  assert.ok(providerPatch(desired, {}));
+  assert.ok(providerPatch(desired));
+  assert.equal(providerPatch({ model: { providerId: "ap-c" } }, {}), null);
 });

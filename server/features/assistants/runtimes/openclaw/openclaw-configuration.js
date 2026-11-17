@@ -31,7 +31,13 @@ function configOver(current) {
     // host-wide shell tools (`state()`: what the runtime offers as the write runs,
     // agent-apply.js agentPatch). Each is a patch as above.
     applyModel: async ({ desired }) =>
-      patchConfig(current(), () => providerPatch(desired), {}),
+      patchConfig(
+        current(),
+        // The configuration as written (sourceConfig), without the defaults OpenClaw
+        // resolves into `config`.
+        (config, answer) => providerPatch(desired, answer?.sourceConfig ?? config),
+        {},
+      ),
     apply: async ({ desired, state }) =>
       patchConfig(current(), (config) => agentPatch(config, desired, state), {}),
     // Synchronously, whether `config` (a get() answer's) holds what the apply wrote.

@@ -42,7 +42,7 @@ function agentsOver(current) {
   // One client for the wait and the write, as the write is serialized on it.
   const write = async (method, params, ...options) => {
     const client = current();
-    return configWrite(client, () => client.call(method, params, ...options));
+    return configWrite(client, (call) => call(method, params, ...options));
   };
   return {
     list: () => call("agents.list", {}),

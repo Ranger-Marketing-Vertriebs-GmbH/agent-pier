@@ -618,6 +618,16 @@ and on 2026.11.3 the journaled delete took more than 10 s on slow macOS runners.
 delete that timed out stayed pending with `TIMEOUT` although the Gateway went on to
 finish it. A `TIMEOUT` error carries the unanswered call's `method` and `timeoutMs`.
 
+A write that timed out still runs in the Gateway, so the next write of the same
+connection waits for its late answer (`configWrite`, at most `configSettleMs`, 60 s,
+or until the connection drops). On 2026.11.3 an `agents.create` sent while the
+Gateway still reloaded a timed-out `config.patch` locked that reload out of the state
+database ("config reload failed: database is locked"); the failed reload left the
+plugin lifecycle lease held for its 5 minutes, and the create waited on it until its
+own 30 s ran out. OpenClaw reloads after every `config.patch`, an unchanged one too,
+so the provider of an agent's model connection is written only when the configuration
+as written (`config.get`'s `sourceConfig`) does not already hold it.
+
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
 refreshed and every chat subscribes again at once, so a healthy agent's chat that
