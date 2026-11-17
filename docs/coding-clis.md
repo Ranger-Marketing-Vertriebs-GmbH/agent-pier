@@ -210,6 +210,9 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 - `grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory })`:
   grants the session's chat attachment folder and returns whether it did. Claude Code and
   Codex add `--add-dir` after `ensure()` created the folder (a reload skips `ensure`);
+  Claude Code first records its folder trust for exactly that folder in a managed
+  profile's `.claude.json` (`clis/claude/attachment-trust.js`), so it does not stop at
+  its "Adding a new directory" dialog;
   Codex also pins its sandbox unless the mode is `yolo` (on a reload only when the launch
   lacks it). OpenCode writes an account-wide `references` entry into the profile
   (`profile`: a function returning the location, called only by OpenCode) and changes
@@ -283,8 +286,9 @@ member is used.
   reads as unknown.
 - `promptProof?(rows, text)`: whether the draft rows show `text` in another form than its
   lines (Codex joins wrapped rows).
-- `blockingScreen?(raw, { cwd, started })`: a screen that holds chat input as a pending
-  request (Codex hook review, Claude Code startup dialogs).
+- `blockingScreen?(raw, { cwd, started, session })`: a screen that holds chat input as a
+  pending request (Codex hook review, Claude Code startup dialogs, among them the trust
+  dialog for the session record's chat attachment folder).
 - `images`: `pathText(file)` (the paste of one image path; Codex quotes it),
   `wait?(manager, session, count, { timeoutMs, exact })` (the chip wait, default
   `waitForNativeImages`), and for a CLI with `capabilities.imagePaste`

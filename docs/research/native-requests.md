@@ -179,6 +179,33 @@ permissions; their audit entries carry `details.startup: true`, so statistics co
 them apart from tool permissions. The inbox shows the cause on a card that already
 ended.
 
+### Claude trust for the chat attachment folder (2026-11-17)
+
+Claude Code 2.1.326 asks at startup, right after the workspace trust and before its
+hooks run, whether to trust each folder passed with `--add-dir` that its profile
+does not trust ("Adding a new directory:", choices "No, exit" and "Yes, add it").
+AgentPier passes only the session's chat attachment folder, which it creates itself
+and fills only with the user's uploaded images. Before each launch and reload of a
+managed account it therefore records `projects[<real path>].hasTrustDialogAccepted`
+for exactly that folder in the profile's `.claude.json`
+(`server/features/clis/claude/attachment-trust.js`), editing only that entry with
+compare-and-swap; Claude merges `projects` from disk when it saves. A local account's
+own `~/.claude.json` is never written.
+
+When the dialog shows anyway (a local account, a write that failed or was lost), it
+reaches the chat as a startup request (`subject.dialog: "addedFolder"`, with the
+path), before and after the native receipt. Recognition is anchored on the dialog's
+own rule and heading, requires the session's attachment folder or its real path
+(rejoined across wraps), the exact choices and Claude's footer or its hint after a
+refused confirmation. Claude takes Enter on "Yes, add it" only right after ↓, so an
+answer that finds Yes already selected steps up and down again before Enter. A
+dialog for any other folder stays an unknown startup menu before the receipt.
+
+```sh
+node --test tests/unit/claude-added-folder.test.js tests/unit/claude-attachment-trust.test.js \
+  tests/integration/claude-added-folder-prompt.test.js
+```
+
 ### Hooks across AgentPier updates (2026-10-30)
 
 New hook invocations always run the current release through the dispatcher. A hook
@@ -332,7 +359,9 @@ localized folder approval with the full workspace path, or the option to exit.
 An explicit answer uses the session lock, rechecks launch identity and native
 selection, then sends one Enter. The brief native startup input-settling window is
 respected before sending keys. Success requires Claude's recorded workspace trust
-or the matching native binding receipt. No trust file is written by AgentPier.
+or the matching native binding receipt. AgentPier writes no workspace trust; the only
+trust it records is for the chat attachment folder
+([Claude trust for the chat attachment folder](#claude-trust-for-the-chat-attachment-folder-2026-11-17)).
 Ordinary Chat input is held at this menu even before request polling and is
 delivered after the answer.
 

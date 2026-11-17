@@ -179,8 +179,9 @@ const drivers = new Map();
  *   rows } or { state: "dialog" | "unknown" }; undefined reads as unknown.
  *   promptProof?(rows, text): whether the draft rows show `text` in a form other
  *   than its lines (Codex joins wrapped rows).
- *   blockingScreen?(raw, { cwd, started }): a screen that holds chat input as a
- *   pending request (Codex hook review, Claude Code startup dialogs).
+ *   blockingScreen?(raw, { cwd, started, session }): a screen that holds chat input as
+ *   a pending request (Codex hook review, Claude Code startup dialogs, among them the
+ *   trust of the session record's chat attachment folder).
  *   localCommands?: names of the slash commands the CLI runs locally, without a native
  *   submit event (bash-mode `!` input also sends none); delivery confirms them by screen.
  *   images: { pathText(file): the paste of one image path, wait?(manager, session,

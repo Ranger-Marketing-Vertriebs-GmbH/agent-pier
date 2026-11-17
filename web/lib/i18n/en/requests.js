@@ -44,6 +44,11 @@ export const requestCopy = {
       description:
         "Claude reports that this session's auto mode classifier requests are still billed as before. Continuing keeps auto mode working; cancelling interrupts the action that is waiting. Your chat draft is preserved until you decide.",
     },
+    addedFolder: {
+      title: "Add the chat attachment folder",
+      description:
+        "Claude asks whether it may read, edit and execute files in this folder. AgentPier created it for this session to hold the images you attach in chat. Exiting ends the session. Your chat draft is preserved until you decide.",
+    },
     unknown: {
       title: "Claude is waiting for input",
       description:
@@ -58,6 +63,7 @@ export const requestCopy = {
       decline: "Keep the current mode",
     },
     autoModeBilling: { continue: "Continue in auto mode", cancel: "Cancel the action" },
+    addedFolder: { add: "Add folder and continue", exit: "Exit session" },
   },
   title: "Native requests",
   permission: "Approval required",

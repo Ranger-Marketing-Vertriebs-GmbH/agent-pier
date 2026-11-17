@@ -327,6 +327,7 @@ export function withChatInput(manager, id, operation) {
         cliDriver(current.tool).tui.blockingScreen?.(fresh.raw, {
           cwd: current.cwd,
           started: fresh.nativeStarted,
+          session: current,
         })
       )
         throw requestPendingProblem();

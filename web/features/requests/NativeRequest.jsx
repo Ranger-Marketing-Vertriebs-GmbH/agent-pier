@@ -84,6 +84,10 @@ export default function NativeRequest({ request, updated, openTerminal }) {
       {hookTrust && <p>{copy.hookTrustDescription}</p>}
       {folderTrust && <p>{copy.folderTrustDescription}</p>}
       {startup && <p>{startupCopy.description}</p>}
+      {/* The folder of Claude's --add-dir trust dialog. */}
+      {startup && request.subject?.path && (
+        <pre aria-label={copy.details}>{request.subject.path}</pre>
+      )}
       {plan && <ClaudePlan plan={plan} />}
       {plan && pending && <p>{copy.planHint}</p>}
       {request.subject && !startup && !plan && (
