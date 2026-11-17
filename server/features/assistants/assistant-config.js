@@ -39,8 +39,7 @@ export class AssistantConfig {
     adoption = {},
     roster = {},
   }) {
-    // `roster`: agents.waitListed options (timeoutMs, and a clock for tests).
-    // `runtime`: the runtime supervisor.
+    // `runtime`: the supervisor; `roster`: agents.waitListed options (timeoutMs, a clock).
     Object.assign(this, {
       runtime,
       models,
@@ -267,6 +266,7 @@ export class AssistantConfig {
         // Its own Telegram bot for other people (assistant-channels/
         // telegram-senders-own.js), wired by TelegramSenders; unknown without it.
         channelBot: this.channelBot?.(assistant),
+        optionConnections: own.optionConnections,
       });
       await runtime.config.apply({
         desired,

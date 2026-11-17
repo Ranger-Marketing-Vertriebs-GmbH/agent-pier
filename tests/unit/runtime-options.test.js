@@ -272,3 +272,52 @@ test("the store keeps runtimeOptions, a member starts without, users never write
     key: "invalid",
   });
 });
+
+test("an apply resolves the connections the options name, never failing", async () => {
+  const { resolveOptionConnections } =
+    await import("../../server/features/assistants/option-connections.js");
+  const released = [];
+  const leases = {
+    resolve: async ({ connectionId, modelId }) => {
+      if (connectionId === "gone")
+        throw Object.assign(new Error("x"), { key: "provider" });
+      return {
+        modelRef: `ap-${connectionId}/${modelId}`,
+        providerId: `ap-${connectionId}`,
+        provider: { baseUrl: "https://x.test/v1", apiKey: "k" },
+        display: { connection: connectionId, model: modelId },
+        release: () => released.push(connectionId),
+      };
+    },
+  };
+  const agent = hermes({
+    runtimeOptions: mixture(
+      { connectionId: "c-or", modelId: "a/b" },
+      { connectionId: "gone", modelId: "a/c" },
+    ),
+  });
+  const resolved = await resolveOptionConnections(leases, agent);
+  assert.deepEqual(resolved[1], {
+    connectionId: "gone",
+    modelId: "a/c",
+    unavailable: "provider",
+  });
+  assert.equal(resolved[0].providerId, "ap-c-or");
+  assert.deepEqual(released, ["c-or"]);
+  assert.deepEqual(await resolveOptionConnections(leases, hermes()), []);
+});
+
+test("a connection an agent's advisors use counts as used by the agent", async () => {
+  const { AssistantProviderSynchronization } =
+    await import("../../server/features/assistants/assistant-provider-synchronization.js");
+  const agent = hermes({
+    runtimeOptions: mixture({ connectionId: "c-or", modelId: "a/b" }),
+  });
+  const sync = new AssistantProviderSynchronization({
+    assistants: { store: { listAssistants: () => [agent] } },
+  });
+  assert.equal(sync.uses(agent, "c-or"), true);
+  assert.equal(sync.affects("c-or"), true);
+  assert.equal(sync.affects("c-other"), false);
+  assert.deepEqual(sync.usage("c-or").agents, [{ id: "h1", name: undefined }]);
+});
