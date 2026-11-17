@@ -22,6 +22,8 @@ const busy = new Set(["tool", "approval", "compacting"]);
 const states = new Set(["running", "done", "failed"]);
 
 const kinds = new Set(["thinking", "advisor"]);
+// What a failed advisor's step may name (server run-steps.js).
+const failures = /^(?:http-[1-5]\d\d|timeout|connection|interrupted|error)$/;
 
 function step(value) {
   if (!value || typeof value.id !== "string") return null;
@@ -36,6 +38,12 @@ function step(value) {
       advisor: Number.isSafeInteger(value.advisor) ? value.advisor : 0,
       model: typeof value.model === "string" ? value.model : "",
       output: typeof value.output === "string" ? value.output : "",
+      // What failed, when it did: an HTTP status or a short kind, never a text.
+      failure: !value.failure
+        ? ""
+        : failures.test(value.failure)
+          ? value.failure
+          : "error",
     }),
     state: states.has(value.state) ? value.state : "running",
   };

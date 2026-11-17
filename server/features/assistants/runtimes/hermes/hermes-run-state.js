@@ -87,13 +87,27 @@ const text = (value) => (typeof value === "string" ? value : undefined);
 // A Mixture of Agents slot label (agent/moa_loop.py `_slot_label`) of an advisor
 // AgentPier compiled (hermes-config/mixture.js): its number and model.
 const advisorLabel = /^custom:agentpier-advisor-(\d+):(.*?)(?:\[reasoning=[^\]]*\])?$/;
-// Hermes's note for an advisor that failed or was skipped (agent/moa_loop.py).
+// Hermes's note for an advisor that failed or was skipped (agent/moa_loop.py
+// `[failed: <exception>]`, `[skipped: …]`).
 const failedNote = /^\s*\[(?:failed|skipped):/i;
+
+// What a failed advisor's note may tell the chat: an HTTP status or a short kind,
+// never the note itself, which can hold provider URLs, error bodies and key fragments.
+function failureOf(note) {
+  if (/^\s*\[skipped:\s*interrupted/i.test(note)) return "interrupted";
+  const status = /\bError code: ([1-5]\d\d)\b/.exec(note)?.[1];
+  if (status) return `http-${status}`;
+  if (/time[ds]?[\s_-]?out/i.test(note)) return "timeout";
+  if (/\bconnection\b/i.test(note)) return "connection";
+  return "error";
+}
 
 // The advisor step of a `moa.reference` (tui_gateway/tool_progress.py: `{ label,
 // text, index, count }`), or null: the advisor's number from AgentPier's provider
-// name (else Hermes's position), its model, its answer, and whether it failed.
-function advisorStep(payload) {
+// name (else Hermes's position), its model, its answer, and whether it failed (then
+// no text, only `failure`, failureOf). `fanout` counts the run's advisor rounds, so a
+// second one (a steered or queued message of the same run) keeps its own steps.
+function advisorStep(payload, fanout = 1) {
   const label = text(payload?.label);
   if (!label) return null;
   const ours = advisorLabel.exec(label);
@@ -103,13 +117,15 @@ function advisorStep(payload) {
     ? ours[2]
     : label.slice(label.indexOf(":") + 1).replace(/\[reasoning=[^\]]*\]$/, "");
   const answer = text(payload.text) ?? "";
+  const failed = failedNote.test(answer);
   return {
     type: "advisor",
-    id: `advisor:${n}`,
+    id: `advisor:${fanout}:${n}`,
     advisor: n,
     model,
-    text: answer,
-    failed: failedNote.test(answer),
+    text: failed ? "" : answer,
+    failed,
+    ...(failed && { failure: failureOf(answer) }),
   };
 }
 
@@ -120,10 +136,11 @@ function advisorStep(payload) {
  * `tool_call_id` (`tool_id` on progress), failed when the completion reports
  * `is_error`. Hermes's `context` of a call is a preview of its arguments (a command,
  * a URL), so a tool step carries no title. `tool.generating` names no call yet.
- * `moa.reference` is one advisor's answer of a Mixture of Agents turn (advisorStep).
+ * `moa.reference` is one advisor's answer of a Mixture of Agents turn (advisorStep,
+ * `fanout` the run's advisor round).
  */
-export function hermesStep(type, payload) {
-  if (type === "moa.reference") return advisorStep(payload);
+export function hermesStep(type, payload, { fanout = 1 } = {}) {
+  if (type === "moa.reference") return advisorStep(payload, fanout);
   if (type === "message.start") return { type: "lifecycle", phase: "start" };
   if (type === "message.delta") return { type: "writing" };
   if (/^(?:thinking|reasoning)\./.test(type)) return { type: "thinking" };
@@ -169,6 +186,8 @@ export class HermesRuns {
     this.listeners = new Set();
     // The reply so far of each run under way.
     this.replies = new Map();
+    // How many advisor rounds (Mixture of Agents fan-outs) each run under way had.
+    this.fanouts = new Map();
     // The title each key was last seen with (create, list, a rename).
     this.titles = new Map();
     client.subscribe((params) => this.observe(params));
@@ -343,17 +362,34 @@ export class HermesRuns {
       runId,
       reason,
       reply: runId ? this.reply(runId, type, payload) : null,
-      step: runId ? hermesStep(type, payload) : null,
+      step: runId
+        ? hermesStep(type, payload, { fanout: this.fanout(runId, type, payload) })
+        : null,
       event: type,
       // Hermes's own payload, with the session key and run id OpenClaw's carry.
       payload: { ...payload, sessionKey, runId },
     });
     if (runId && ending.has(kind)) {
       this.replies.delete(runId);
+      this.fanouts.delete(runId);
       turn.current = null;
       turn.open.delete(runId);
       this.ended(runId, kind, reason);
     }
+  }
+
+  /**
+   * The advisor round of run `runId` an event belongs to: Hermes numbers a round's
+   * answers from 1 (`index`), so a first answer starts the next round.
+   */
+  fanout(runId, type, payload) {
+    const before = this.fanouts.get(runId) || 0;
+    if (type !== "moa.reference") return before || 1;
+    const next = payload?.index === 1 || !before ? before + 1 : before;
+    this.fanouts.delete(runId);
+    this.fanouts.set(runId, next);
+    if (this.fanouts.size > 64) this.fanouts.delete(this.fanouts.keys().next().value);
+    return next;
   }
 
   /**

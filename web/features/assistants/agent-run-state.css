@@ -64,6 +64,10 @@
   overflow-wrap: anywhere;
   color: var(--text);
 }
+.assistant-run-advisor-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
 .assistant-run-step.omitted {
   font-style: italic;
 }
