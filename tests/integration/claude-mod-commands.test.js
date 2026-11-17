@@ -76,7 +76,7 @@ async function setup(t, { holdMs = 30, graceMs = 200 } = {}) {
     authorization: `Bearer ${token}`,
   });
   // `instance` stands for one loaded copy of the mod (its x-agentpier-instance).
-  const poll = ({ token, instance = "i1" } = {}) =>
+  const poll = ({ token, instance = "i1", cli } = {}) =>
     unixFetch({
       url: "http://agentpier/claude-mod/v1/commands",
       socketPath: broker.modSocketPath,
@@ -84,6 +84,7 @@ async function setup(t, { holdMs = 30, graceMs = 200 } = {}) {
       headers: {
         ...headers(token),
         ...(instance ? { "x-agentpier-instance": instance } : {}),
+        ...(cli === undefined ? {} : { "x-agentpier-cli": cli }),
       },
     });
   const postEvents = (events) =>
@@ -330,6 +331,22 @@ test("a reloaded copy gets a pending stop again; its 'gone' then counts as stopp
   await delay(50);
   assert.equal(first.polls.length, polls);
   assert.equal(second.polls.length >= 2, true);
+});
+
+test("a restarted server learns the Claude Code version from the next poll, not a hello", async (t) => {
+  const { commands, mod, poll } = await setup(t, { holdMs: 30 });
+  const driver = claudeTaskDriver({ commands, mod });
+  const session = { id: "s", tool: "claude", status: "running" };
+  for (const odd of ["2.1.325; x", "v2.1.325", `2.1.${"9".repeat(70)}`, ""]) {
+    assert.equal((await poll({ cli: odd })).status, 200, "an odd version never refuses");
+    assert.equal(commands.cli("s"), undefined, JSON.stringify(odd));
+  }
+  assert.equal(driver.connected(session), false);
+  await poll({ cli: "2.1.324" });
+  assert.equal(driver.connected(session), false, "too old");
+  await poll({ cli: CLAUDE_TASK_STOP_VERSION });
+  assert.equal(mod.cli("s"), undefined, "no hello was heard");
+  assert.equal(driver.connected(session), true);
 });
 
 test("a copy the server has not seen gets the suppress list at once", async (t) => {

@@ -83,6 +83,9 @@ export function putAgent(agents, id, values = {}) {
   next.name = text(next.name, 120);
   next.task = text(next.task, 1000);
   next.updatedAt = timestamp(next.updatedAt);
+  // When the latest run of this id began (a launch or a resume), where the CLI says.
+  if (next.runStartedAt !== undefined) next.runStartedAt = timestamp(next.runStartedAt);
+  if (next.runStartedAt === null) delete next.runStartedAt;
   if (!TASK_STATUSES.includes(next.status)) next.status = "unknown";
   agents.delete(id);
   agents.set(id, next);

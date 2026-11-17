@@ -103,6 +103,41 @@ test("a shell counts in the line and shows its kind and command", async ({ page 
   await expect(described.getByRole("button", { name: "Aufgabe stoppen" })).toHaveCount(0);
 });
 
+test("a finished shell shows its exit code and a child's shell the agent that owns it", async ({
+  page,
+}) => {
+  const { data, publish } = await subagentFixture(page);
+  await taskRoutes(page);
+  data.observability.shells = [
+    shell({ id: "c:1", command: "npm test", ownerAgentId: "agentstyles02" }),
+    shell({ id: "c:2", command: "make", ownerAgentId: "thread-gone" }),
+    shell({ id: "b2", command: "false", status: "failed", exitCode: 2, canStop: false }),
+    shell({
+      id: "b3",
+      command: "true",
+      status: "completed",
+      exitCode: 0,
+      canStop: false,
+    }),
+    shell({
+      id: "b4",
+      command: "sleep 9",
+      status: "stopped",
+      exitCode: -1,
+      canStop: false,
+    }),
+  ];
+  publish();
+  await line(page).click();
+  await expect(card(page, "c:1").locator(".task-owner")).toHaveText("Von Explore");
+  await expect(card(page, "c:2").locator(".task-owner")).toHaveText("Von thread-gone");
+  await expect(card(page, "c:1").locator(".task-exit")).toHaveCount(0);
+  await expect(card(page, "b2").locator(".task-exit")).toHaveText("Exit-Code 2");
+  await expect(card(page, "b3").locator(".task-exit")).toHaveText("Exit-Code 0");
+  await expect(card(page, "b4").locator(".task-exit")).toHaveCount(0);
+  await expect(card(page, "b2").locator(".task-owner")).toHaveCount(0);
+});
+
 test("the transcript opens in the sheet, reloads only on change, and back keeps the place", async ({
   page,
 }) => {

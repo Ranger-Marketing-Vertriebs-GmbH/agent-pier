@@ -383,6 +383,43 @@ test("each mod copy names itself on its polls; a replaced copy stops polling", a
   assert.equal(replaced.timers.length, 0);
 });
 
+test("every poll names the Claude Code version, also from a reloaded copy", async () => {
+  const pollVersion = (runtime) =>
+    runtime.polls.map((request) => request.headers["x-agentpier-cli"]);
+  const runtime = fakeModRuntime({ env, version: "2.1.325" });
+  register(runtime.on);
+  await runtime.dispatch("session.start", { cwd: "/p", isInteractive: true });
+  await runtime.settle();
+  assert.deepEqual(pollVersion(runtime), ["2.1.325"]);
+  // A copy the engine loaded mid-session hears no session.start.
+  const reloaded = fakeModRuntime({ env, version: "2.1.326" });
+  register(reloaded.on);
+  await reloaded.dispatch("turn.start", { turnId: "t1" });
+  await reloaded.settle();
+  assert.deepEqual(pollVersion(reloaded), ["2.1.326"]);
+  // A version that does not look like one is left out, the poll still goes.
+  const odd = fakeModRuntime({ env, version: "2.1.325\nx" });
+  register(odd.on);
+  await odd.dispatch("session.start", { cwd: "/p", isInteractive: true });
+  await odd.settle();
+  assert.deepEqual(pollVersion(odd), [undefined]);
+});
+
+test("a poll's version connects the driver after a restart that heard no hello", () => {
+  const commands = new ClaudeModCommands({ holdMs: 25000 });
+  const driver = claudeTaskDriver({ commands, mod: { cli: () => undefined } });
+  const session = { id: "s", tool: "claude", status: "running" };
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1", "2.1.324");
+  assert.equal(driver.connected(session), false, "too old");
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1", "2.1.325");
+  assert.equal(commands.cli("s"), "2.1.325");
+  assert.equal(driver.connected(session), true);
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  assert.equal(driver.connected(session), true, "a poll without one keeps it");
+  commands.forget("s");
+  assert.equal(commands.cli("s"), undefined);
+});
+
 test("suppressed ids live ten minutes, at most 64", () => {
   let now = 0;
   const commands = new ClaudeModCommands({ holdMs: 25000, now: () => now });

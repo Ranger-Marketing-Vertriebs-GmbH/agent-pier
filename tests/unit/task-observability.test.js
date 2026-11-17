@@ -224,3 +224,36 @@ test("101 background shells yield 100", () => {
   for (const record of records) tracker.record(record, null);
   assert.equal(tracker.snapshot().length, 100);
 });
+
+test("an OpenCode child continued with its task id is a new run of the same agent", () => {
+  const aborted = fixture("opencode-aborted");
+  const [first] = observeOpenCode(aborted).subagents;
+  assert.deepEqual(
+    [first.status, first.runStartedAt],
+    ["stopped", new Date(1100).toISOString()],
+  );
+  // The parent calls the task tool again with task_id: a new part for the same child.
+  const part = structuredClone(aborted.messages[0].parts[0]);
+  part.id = "part-continued";
+  part.state = {
+    status: "running",
+    input: { ...part.state.input, task_id: "native-child-aborted" },
+    metadata: part.state.metadata,
+    time: { start: 2000 },
+  };
+  const continued = {
+    ...aborted,
+    messages: [
+      ...aborted.messages,
+      {
+        info: { id: "continued", role: "assistant", time: { created: 1900 } },
+        parts: [part],
+      },
+    ],
+  };
+  const [again] = observeOpenCode(continued).subagents;
+  assert.deepEqual(
+    [again.id, again.status, again.runStartedAt],
+    ["native-child-aborted", "running", new Date(2000).toISOString()],
+  );
+});

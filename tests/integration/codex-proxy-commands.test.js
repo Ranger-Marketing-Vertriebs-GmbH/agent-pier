@@ -346,7 +346,7 @@ async function launched(t, options = {}) {
     sessions: { get: async () => session },
     chat: { read: async () => control.overlay(session, snapshot) },
     reads: { flags: () => ({}) },
-    stops: { has: () => false, record: () => {}, forget: () => {} },
+    stops: { has: () => false, get: () => null, record: () => {}, forget: () => {} },
     onChange: () => {},
   });
   control.register("codex", codexTaskDriver({ commands, state }));

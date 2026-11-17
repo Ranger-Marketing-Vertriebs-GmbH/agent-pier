@@ -19,7 +19,11 @@ async function app(t, driver) {
     sessions: { get: async () => session },
     chat: { read: async () => snapshot },
     reads: { flags: () => ({}) },
-    stops: { has: (_s, id) => stopped.has(id), record: (_s, { id }) => stopped.add(id) },
+    stops: {
+      has: (_s, id) => stopped.has(id),
+      get: (_s, id) => (stopped.has(id) ? { id, at: 0 } : null),
+      record: (_s, { id }) => stopped.add(id),
+    },
     onChange: () => {},
   });
   if (driver) control.register("claude", driver);

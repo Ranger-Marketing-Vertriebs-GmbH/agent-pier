@@ -322,7 +322,7 @@ test("an agent stop interrupts the child's turn, then terminates its running ter
     terminalMethods: true,
   });
   assert.equal(driver.canStop(session, agent()), true);
-  assert.deepEqual(await driver.stop(session, agent()), { ok: true });
+  assert.deepEqual(await driver.stop(session, agent()), { ok: true, run: "u1" });
   assert.deepEqual(sent, [
     { name: "turn.interrupt", params: { threadId: CHILD, turnId: "u1" } },
     { name: "terminal.terminate", params: { threadId: CHILD, processId: "1" } },
@@ -338,7 +338,7 @@ test("without the terminal methods an agent stop only interrupts and shells cann
     terminalMethods: false,
   });
   assert.equal(driver.canStop(session, shell(`${CHILD}:1`)), false);
-  assert.deepEqual(await driver.stop(session, agent()), { ok: true });
+  assert.deepEqual(await driver.stop(session, agent()), { ok: true, run: "u1" });
   assert.deepEqual(sent, [
     { name: "turn.interrupt", params: { threadId: CHILD, turnId: "u1" } },
   ]);
@@ -416,7 +416,7 @@ test("the stop control lists Codex shells and stops one through the driver", asy
     sessions: { get: async (id) => sessions.get(id) },
     chat: { read: async () => control.overlay(session, snapshot) },
     reads: { flags: (s, kind) => (kind === "shell" ? { hasOutput: false } : {}) },
-    stops: { has: () => false, record: () => {}, forget: () => {} },
+    stops: { has: () => false, get: () => null, record: () => {}, forget: () => {} },
     onChange: () => {},
   });
   control.register("codex", driver);
@@ -533,7 +533,7 @@ test("after an interrupt the terminates run at once, bounded, and never fail the
     { terminateBoundMs: 30 },
   );
   const begun = Date.now();
-  assert.deepEqual(await driver.stop(session, agent()), { ok: true });
+  assert.deepEqual(await driver.stop(session, agent()), { ok: true, run: "u1" });
   assert.ok(Date.now() - begun < 1000);
   assert.deepEqual(started, ["1", "2", "3"]);
   // A terminal that could not be terminated stays listed running, stoppable on its own.

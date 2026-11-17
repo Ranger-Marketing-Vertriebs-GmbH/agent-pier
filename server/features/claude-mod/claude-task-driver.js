@@ -7,15 +7,15 @@ const STOP_TIMEOUT_MS = 15000;
 /**
  * The Claude Code driver of TaskControl (task-control.js): a stop runs as the
  * bridge mod's `task.stop` command (`$.tool.call` TaskStop inside Claude Code). It
- * needs this launch's mod polling for commands and a hello from Claude Code
- * CLAUDE_TASK_STOP_VERSION or newer. `commands` is ClaudeModCommands, `mod` the
- * ClaudeModBridge that holds the hello's CLI version.
+ * needs this launch's mod polling for commands from Claude Code
+ * CLAUDE_TASK_STOP_VERSION or newer: the version its polls name, else its hello's.
+ * `commands` is ClaudeModCommands, `mod` the ClaudeModBridge that holds the hello's.
  */
 export function claudeTaskDriver({ commands, mod }) {
   return {
     connected: (session) =>
       commands.connected(session.id) &&
-      atLeast(mod.cli(session.id), CLAUDE_TASK_STOP_VERSION),
+      atLeast(commands.cli(session.id) ?? mod.cli(session.id), CLAUDE_TASK_STOP_VERSION),
     // Shells of the main loop and subagents alike; TaskStop knows both by id.
     canStop: (session, task) => task.kind === "agent" || task.kind === "shell",
     stop(session, task) {

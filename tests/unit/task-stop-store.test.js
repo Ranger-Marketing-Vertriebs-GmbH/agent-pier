@@ -59,3 +59,26 @@ test("at most 100 stops are kept", (t) => {
   assert.equal(saved.stops.length, 100);
   assert.equal(saved.stops[0].id, "t5");
 });
+
+test("a mark keeps its time, the stopped run and whether the task only ended", (t) => {
+  const dir = dataDir(t);
+  const store = new TaskStopStore({ dataDir: dir });
+  store.record(s1, { id: "a", kind: "agent", at: 5, run: "turn-1" });
+  store.record(s1, { id: "b", kind: "shell", at: 6, ended: true });
+  const again = new TaskStopStore({ dataDir: dir });
+  assert.deepEqual(again.get(s1, "a"), { id: "a", kind: "agent", at: 5, run: "turn-1" });
+  assert.deepEqual(again.get(s1, "b"), { id: "b", kind: "shell", at: 6, ended: true });
+  assert.equal(again.get(s1, "c"), null);
+});
+
+test("remove drops one mark and keeps the others", (t) => {
+  const dir = dataDir(t);
+  const store = new TaskStopStore({ dataDir: dir });
+  store.record(s1, { id: "a", kind: "agent", at: 1 });
+  store.record(s1, { id: "b", kind: "agent", at: 2 });
+  store.remove(s1, "a");
+  store.remove(s1, "missing");
+  assert.equal(store.has(s1, "a"), false);
+  const again = new TaskStopStore({ dataDir: dir });
+  assert.deepEqual([again.has(s1, "a"), again.has(s1, "b")], [false, true]);
+});

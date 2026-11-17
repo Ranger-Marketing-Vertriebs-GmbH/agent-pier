@@ -53,6 +53,8 @@ export function observeOpenCode(exported) {
         status,
         source: "opencode-task-metadata",
         updatedAt: timestamp(state.time?.end ?? state.time?.start) ?? at,
+        // Each task call is one run; a call with task_id continues the same child.
+        runStartedAt: timestamp(state.time?.start),
       });
     }
   }
