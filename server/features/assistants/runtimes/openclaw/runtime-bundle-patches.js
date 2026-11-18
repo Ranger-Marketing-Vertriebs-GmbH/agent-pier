@@ -29,6 +29,20 @@ import { createHash } from "node:crypto";
  * AgentPier never installs, so the bundled fallback `OPENAI_CODEX_CLIENT_VERSION`
  * (extensions/openai/base-url.ts, "0.164.0") is what OpenClaw sends. 0.164.0 does not
  * list GPT-6.2-Astra; 0.169.0 does (checked against a live ChatGPT account).
+ *
+ * 2026.11.3, "no-restart-resume": OpenClaw's main-session restart recovery
+ * (src/agents/main-session-recovery/, started by the Gateway's post-attach startup,
+ * by the next visible turn of an interrupted session and by a retried chat.send)
+ * asks the model to continue a turn a Gateway restart interrupted ("[System] Your
+ * previous turn was interrupted …"). AgentPier never replays interrupted work: its
+ * ledger records the turn as interrupted or uncertain for the owner to review
+ * (assistant-gateway.md). There is no configuration switch, so the one call that
+ * dispatches the resume (`resumeMainSession` in `recoverStore`) settles the turn
+ * instead, through upstream's own no-replay path `settleInterruptedRestartRecovery`:
+ * status "interrupted", recovery claim and markers cleared, and a local notice
+ * appended to the transcript, without a model request or channel delivery. Every
+ * step before it stays: orphan marking, settling turns whose reply was delivered,
+ * owed delivery notices, tombstones of exhausted recoveries.
  */
 export const runtimeBundlePatches = Object.freeze({
   "2026.11.3": Object.freeze([
@@ -53,6 +67,22 @@ export const runtimeBundlePatches = Object.freeze({
       file: "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs",
       before: 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";',
       after: 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";',
+    }),
+    // Carry this entry forward on every pin bump until upstream offers a switch that
+    // turns automatic resumption off; the patch contract and
+    // verify-assistant-installation.mjs fail otherwise
+    // (tests/helpers/restart-resume-guard.js). The call's arguments (entry, observation,
+    // agentId, sessionKey, storePath) are what the settlement needs; it adds the reason
+    // and maps a notice it could not write to "failed", so the sweep retries it.
+    Object.freeze({
+      id: "no-restart-resume",
+      file: "dist/main-session-restart-recovery-DekokRXp.mjs",
+      before: "const resumeResult = await resumeMainSession({",
+      after:
+        "const resumeResult = await (async (resume) => { const settled = await " +
+        "settleInterruptedRestartRecovery({ ...resume, reason: " +
+        '"AgentPier never resumes an interrupted turn on its own" }); ' +
+        'return settled === "notice_failed" ? "failed" : settled; })({',
     }),
   ]),
 });

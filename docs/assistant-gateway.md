@@ -198,6 +198,22 @@ own log runs at level `warn` and rotates at 10 MiB. Diagnostics flags, OTEL expo
 with content capture, and cache traces are switched off, so prompts are not
 logged.
 
+### Interrupted turns after a restart
+
+A turn that a Gateway crash, stop or restart interrupts is never run again on its
+own. AgentPier's ledger keeps it `interrupted` or `uncertain` until the owner reviews
+it in the chat's recovery flow. OpenClaw 2026.11.3 would resume such a turn itself
+after its next start (its main-session restart recovery asks the model "[System]
+Your previous turn was interrupted …") and has no setting to turn that off, so the
+installer patches it (`no-restart-resume` in `runtime-bundle-patches.js`, see
+`assistant-runtime-updates.md` "Package patches"). The patched recovery settles the
+turn instead: OpenClaw marks the session `interrupted` and adds its local notice
+"This interrupted turn could not resume after the Gateway restarted: AgentPier never
+resumes an interrupted turn on its own. …" to the transcript, without a model
+request or a channel message. The same applies before the next message in that
+chat and to a retried send. A runtime installed before the patch resumes until the
+owner activates the patched runtime in the update flow.
+
 ## Installation and update lifecycle
 
 Installation and updates are managed product capabilities. The transactional update

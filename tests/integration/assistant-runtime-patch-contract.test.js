@@ -10,13 +10,14 @@ import {
   verifyBundlePatches,
 } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
 import { assertCodexClientVersionFloor } from "../helpers/codex-client-version-floor.js";
+import { assertNoRestartResume } from "../helpers/restart-resume-guard.js";
 
 // The pinned runtime as the installer provisioned it carries AgentPier's patches of
 // its version (runtime-bundle-patches.js): the patched text, the receipt that records
 // them, and OpenClaw's content inventory naming the patched file's digest and size.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "the provisioned pinned runtime carries the lease release and Codex catalog patches",
+  "the provisioned pinned runtime carries the lease release, Codex catalog and restart resume patches",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
@@ -50,5 +51,22 @@ test(
     const app = path.join(installed, "app", "node_modules", "openclaw");
     const found = assertCodexClientVersionFloor(app);
     assert.ok(found.length >= 2, JSON.stringify(found));
+  },
+);
+
+// Independent of any patch: after a Gateway restart the installed package settles an
+// interrupted main-session turn and never asks the model to resume it, so a pin bump
+// cannot drop the patch unnoticed. The runtime contract's crash step checks the same
+// against a running Gateway (assistant-runtime-contract.test.js).
+test(
+  "the provisioned pinned runtime never resumes an interrupted turn on its own",
+  { skip: !installed },
+  () => {
+    const app = path.join(installed, "app", "node_modules", "openclaw");
+    const found = assertNoRestartResume(app);
+    assert.deepEqual(
+      found.filter((site) => site.defines).map((site) => site.calls),
+      [0],
+    );
   },
 );

@@ -21,6 +21,7 @@ import { waitForAgentInRoster } from "../server/features/assistants/runtimes/ope
 import { runtimeEnvironment } from "../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON } from "../server/lib/storage.js";
 import { assertCodexClientVersionFloor } from "../tests/helpers/codex-client-version-floor.js";
+import { assertNoRestartResume } from "../tests/helpers/restart-resume-guard.js";
 
 const repository = path.resolve(import.meta.dirname, "..");
 
@@ -334,6 +335,8 @@ export async function qualifyFreshInstallation() {
     verifyBundlePatches(path.dirname(installed.entryPath), runtimeManifest.version);
     // ChatGPT model discovery asks as a Codex client of at least 0.169.0, patched or not.
     assertCodexClientVersionFloor(path.dirname(installed.entryPath));
+    // A Gateway restart never resumes an interrupted turn on its own, patched or not.
+    assertNoRestartResume(path.dirname(installed.entryPath));
     const versionEnv = runtimeEnvironment(paths, installed.nodePath);
     const version = (args) =>
       runQualificationCommand(installed.nodePath, args, {
