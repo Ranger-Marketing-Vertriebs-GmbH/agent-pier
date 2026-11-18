@@ -105,6 +105,33 @@ test("closed browser observes completion and every pipeline gate without replayi
   assert.equal(JSON.stringify(audit.export()).includes("Phone"), false);
 });
 
+test("close waits for a running poll but does not rethrow its reported failure", async () => {
+  let fail;
+  const errors = [];
+  const events = new OperationsEvents({
+    audit: { record: () => {} },
+    notifications: { status: () => ({ subscriptions: [] }), notify: async () => {} },
+    // The data directory went while the poll listed the sessions (a shutdown).
+    sessions: { list: () => new Promise((_, reject) => (fail = reject)) },
+    pipelines: { store: { all: () => [] } },
+    intervalMs: 0,
+    onError: (error) => errors.push(error),
+  });
+  // The poll's caller reports its failure, as the interval does.
+  events.poll().catch(events.onError);
+  const closing = events.close();
+  let closed = false;
+  closing.then(() => (closed = true));
+  await new Promise(setImmediate);
+  assert.equal(closed, false, "close waits for the running poll");
+  fail(Object.assign(new Error("ENOENT: no such file or directory"), { code: "ENOENT" }));
+  await closing;
+  assert.deepEqual(
+    errors.map((error) => error.code),
+    ["ENOENT"],
+  );
+});
+
 test("ended pipeline runs are audited with their own status action", async (t) => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
   const audit = new AuditStore({ dataDir });

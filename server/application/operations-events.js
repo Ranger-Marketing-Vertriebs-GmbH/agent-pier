@@ -463,7 +463,9 @@ export class OperationsEvents {
   async close() {
     this.closed = true;
     clearInterval(this.timer);
+    // Waits for the running poll only to let it finish: its failure already went to
+    // onError from the poll's own caller, and must not abort the shutdown after it.
     await this.again;
-    await this.pending;
+    await this.pending?.catch(() => {});
   }
 }
