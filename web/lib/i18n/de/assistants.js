@@ -403,6 +403,9 @@ export const assistantCopy = {
   send: "Senden",
   stop: "Antwort stoppen",
   stopShort: "Stoppen",
+  // A second press while the message is still on its way: nothing is lost or sent twice.
+  sendUnderway:
+    "Deine Nachricht ist noch unterwegs; sie bleibt im Feld, bis AgentPier sie bestätigt.",
   // A message written while the agent works waits above the composer until it is done.
   queued: {
     send: "Senden, wenn fertig",

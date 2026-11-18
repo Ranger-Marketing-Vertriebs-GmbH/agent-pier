@@ -11,6 +11,8 @@ import { takeBack } from "../assistants/queued-message.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
 import { userApi } from "./user-api.js";
 import { useRetry } from "../assistants/run-steps.js";
+import { sendRoute } from "../assistants/send-route.js";
+import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 
 const settled = new Set(["completed", "failed", "cancelled"]);
 
@@ -91,7 +93,7 @@ export default function useUserConversation(
   async function queue(ids) {
     if (!available || (!text.trim() && !ids.length)) return false;
     const append = appending.current;
-    if (append.busy) return false;
+    if (append.busy) return (setError(assistantCopy.sendUnderway), false);
     const submitted = text;
     const content = JSON.stringify([text, ids]);
     if (append.last?.content !== content)
@@ -118,8 +120,14 @@ export default function useUserConversation(
   }
   async function send(event, ids = []) {
     event.preventDefault();
-    if (active || queued || history.compacting) return queue(ids);
-    if (!available || busy || (!text.trim() && !ids.length)) return false;
+    // Never refused in silence (send-route.js).
+    const route = sendRoute({
+      content: Boolean(text.trim() || ids.length),
+      ...{ busy, active, queued, compacting: history.compacting, offline: !available },
+    });
+    if (route === "queue") return queue(ids);
+    if (route === "sending") setError(assistantCopy.sendUnderway);
+    if (route !== "send") return false;
     const submitted = drafts.delivery(conversationId);
     return deliver(submitted, ids, () => {
       if (drafts.acknowledge(conversationId, submitted.clientRequestId)) setText("");

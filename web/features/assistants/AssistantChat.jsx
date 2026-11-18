@@ -31,6 +31,7 @@ import useAssistants from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
+import { sendRoute } from "./send-route.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
@@ -164,16 +165,10 @@ export default function AssistantChat({
   const pushedActions =
     feed.connection === "connected" && Array.isArray(liveActions) ? liveActions : null;
   const ownActions = useAssistantActions(assistant.id, pushedActions);
+  // Send stays pressable while there is something to send (send-route.js): what cannot
+  // go out at once is queued on the server, and a delivery still under way says so.
   const canSend = Boolean(
-    (text.trim() || files) &&
-    !busy &&
-    !active &&
-    !history.queued &&
-    !memberBusy &&
-    !assistant.archivedAt &&
-    !readOnly &&
-    !offline &&
-    runtime.availability === "ready",
+    (text.trim() || files) && !assistant.archivedAt && !readOnly && !offline,
   );
   // A lead's members, for @mentions in its composer and as chips in its messages.
   const mentionMembers = useMemo(
@@ -257,7 +252,7 @@ export default function AssistantChat({
   async function queue(ids) {
     if (assistant.archivedAt || offline || (!text.trim() && !ids.length)) return false;
     const append = appending.current;
-    if (append.busy) return false;
+    if (append.busy) return (setError(copy.sendUnderway), false);
     setError("");
     const submitted = text;
     const content = JSON.stringify([text, teamAllowed, ids]);
@@ -288,8 +283,14 @@ export default function AssistantChat({
   }
   async function send(event, ids = []) {
     event.preventDefault();
-    if (active || queued || compacting) return queue(ids);
-    if (!canSend) return false;
+    const route = sendRoute({
+      content: Boolean(text.trim() || ids.length),
+      ...{ busy, active, queued, compacting, offline },
+      direct: !memberBusy && runtime.availability === "ready",
+    });
+    if (route === "queue") return queue(ids);
+    if (route === "sending") setError(copy.sendUnderway);
+    if (route !== "send" || !canSend) return false;
     const submitted = drafts.delivery(conversationId);
     return deliver(submitted, ids, () => {
       if (drafts.acknowledge(conversationId, submitted.clientRequestId)) {
