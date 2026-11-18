@@ -4961,8 +4961,10 @@ same save schedules its check-ins again. A creation whose acknowledgement was lo
 stays tracked until a listing shows its job; the job's first completion adopts it.
 
 The heartbeat contract (`tests/integration/assistant-heartbeat-contract.test.js`)
-force-runs the job on the pinned runtime with the compiled native configuration: the
-check-in sees the agent's instructions and the conversation, reads MEMORY.md through
+force-runs the job on the pinned runtime with the compiled native configuration. Its
+daily schedule is set twelve hours ahead, so no scheduled run joins a forced one (an
+hourly schedule once fired at the top of the hour beside one and committed a second
+check-in). The check-in sees the agent's instructions and the conversation, reads MEMORY.md through
 `memory_get`, reaches the paired chat once with its prefix, appears in the
 conversation, and is in the model input of the owner's next reply. `NO_REPLY` leaves
 no visible message and sends nothing. A check-in due during a running owner turn is
