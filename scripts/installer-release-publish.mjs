@@ -21,6 +21,9 @@ export async function publishInstallerRelease({
   const files = await validateInstallerRelease({ directory, tag });
   if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo))
     throw Error("Invalid release repository.");
+  // Every release is titled "AgentPier <version>"; without a title GitHub shows the tag.
+  // The final edit sets it too, so a draft created by an older run gets it as well.
+  const title = `AgentPier ${tag.replace(/^v/, "")}`;
   await requireSchemaContinuity({
     tag,
     manifest: JSON.parse(await fs.readFile(path.join(directory, "latest.json"), "utf8")),
@@ -55,6 +58,8 @@ export async function publishInstallerRelease({
       repo,
       "--draft",
       "--verify-tag",
+      "--title",
+      title,
       "--generate-notes",
     ]);
     release = await inspect();
@@ -132,6 +137,8 @@ export async function publishInstallerRelease({
       "--repo",
       repo,
       "--draft=false",
+      "--title",
+      title,
       ...(tag.includes("-") ? ["--prerelease"] : []),
       latest ? "--latest" : "--latest=false",
     ]);

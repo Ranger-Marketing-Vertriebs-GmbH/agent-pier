@@ -281,10 +281,12 @@ test("release candidates publish complete assets without replacing the stable la
   assert.equal(remote.release.draft, false);
   assert.equal(remote.remote.size, 9);
   assert.equal(remote.latestTag, "v1.28.0");
-  assert.equal(
-    remote.calls.find((args) => args[1] === "edit").includes("--prerelease"),
-    true,
-  );
+  const edit = remote.calls.find((args) => args[1] === "edit");
+  assert.equal(edit.includes("--prerelease"), true);
+  // Every release, stable or candidate, is titled "AgentPier <version>", never its tag.
+  assert.equal(edit[edit.indexOf("--title") + 1], "AgentPier 1.29.0-rc.1");
+  const create = remote.calls.find((args) => args[1] === "create");
+  assert.equal(create[create.indexOf("--title") + 1], "AgentPier 1.29.0-rc.1");
 });
 
 test("release validation requires the accepted data schema range", async (t) => {
