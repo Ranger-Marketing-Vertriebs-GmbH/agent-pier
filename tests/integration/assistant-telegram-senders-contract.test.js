@@ -82,7 +82,13 @@ test("agents' own bots on the compiled path", options, async (t) => {
   assert.ok(running.plugins.allow.includes("deepgram"));
   assert.equal(running.bindings.length, 3);
   await h.polling(token1, token2, token3);
-  const status = await h.senders.get(helper.id);
+  // OpenClaw marks an account connected only once a getUpdates call has returned,
+  // not when it is sent; the fake holds an empty long poll for up to 2 s, so the
+  // bot is "starting" until then.
+  const status = await h.until(async () => {
+    const got = await h.senders.get(helper.id);
+    return got.status.state === "running" && got;
+  }, "helper bot running");
   assert.equal(status.status.state, "running");
   assert.doesNotMatch(JSON.stringify(status), /fixture-token/);
 
