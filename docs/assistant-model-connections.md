@@ -139,8 +139,11 @@ The runtimes get access only:
 
 - **OpenClaw** gets an access-only OAuth profile (`type: "oauth"`,
   `provider: "openai"`, `access`, `expires`, `accountId`, `email`, `displayName`,
-  `chatgptPlanType`; no `refresh`, no `authFlow`) under the same profile id, so
-  `openai/<model>@<profile>` selections stay as they are. AgentPier writes it into
+  `chatgptPlanType`; an empty `refresh`, no `authFlow`) under the same profile id, so
+  `openai/<model>@<profile>` selections stay as they are. `refresh` is the empty
+  string, never missing: OpenClaw 2026.11.3 counts an OAuth profile without a string
+  `refresh` as retired, so no routine could record it as its inference account
+  (see [routine accounts](assistant-runtime-updates.md#routine-inference-accounts-openclaw-2026113)). AgentPier writes it into
   OpenClaw's own auth profile store (the state database's machine state, or the
   main agent's database on older layouts) in one `BEGIN IMMEDIATE` transaction that
   changes only that profile, refuses unknown layouts and shapes, and then calls
@@ -149,9 +152,9 @@ The runtimes get access only:
   agent degraded, see [degraded agents](assistant-gateway.md#degraded-agents-agentpier-238)).
   It writes again on every renewal and before every Gateway start; once that
   Gateway is ready it reloads only the profiles renewed while it started. With a usable token OpenClaw never
-  refreshes, and without a refresh token its refresh claim gives up quietly, so all
+  refreshes, and with an empty refresh token its refresh claim gives up quietly, so all
   of OpenClaw's ChatGPT features (chat, `image_generate`, transcription, realtime,
-  usage, embeddings) stay on the profile. Without a refresh token OpenClaw reports
+  usage, embeddings) stay on the profile. Without a usable refresh token OpenClaw reports
   the profile as `expiring` within 24 hours of its expiry; AgentPier counts that as
   signed in.
 - **Hermes** reaches the account through AgentPier's model proxy, for chat and for

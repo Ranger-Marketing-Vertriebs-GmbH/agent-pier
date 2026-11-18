@@ -46,6 +46,9 @@ for (const layout of ["state-db", "legacy-main"])
       type: "oauth",
       provider: "openai",
       access: "access-new",
+      // An empty refresh token: OpenClaw 2026.11.3 treats an OAuth profile without
+      // one as retired, so no automation could record it; empty never refreshes.
+      refresh: "",
       expires: 2e12,
       accountId: "acct",
       email: "owner@example.invalid",
@@ -62,7 +65,7 @@ test("a first write creates the store row; unknown layouts and shapes are refuse
   const empty = openClawStore(t);
   writeAccessProfile(empty.stateDir, "openai:a", credential);
   assert.equal(empty.read().version, 1);
-  assert.equal(empty.read().profiles["openai:a"].refresh, undefined);
+  assert.equal(empty.read().profiles["openai:a"].refresh, "");
 
   // No auth write yet and no legacy store: the state database becomes the owner.
   const fresh = openClawStore(t, { layout: "none" });

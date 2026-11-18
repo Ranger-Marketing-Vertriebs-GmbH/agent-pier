@@ -1692,8 +1692,14 @@ or proposing a team sends an **Agent approval** push notification as well.
   ssh ([Plain SSH from agents](ssh-access.md#plain-ssh-from-agents)).
 - **When a routine fails**, its row shows "Last run failed" and its details show the
   cause in plain words: the Gateway restarted or stopped during the run, the agent was
-  unavailable, the run took too long, the model provider returned an error, or the
-  result could not be delivered. Opening that line shows OpenClaw's own error message
+  unavailable, no usable AI account is recorded for the routine, the run took too
+  long, the model provider returned an error, or the result could not be delivered.
+  Since OpenClaw 2026.11.3 a routine on a ChatGPT login runs only with that account
+  recorded on it; AgentPier records the agent's account on every routine when the
+  agent service starts and whenever the agent's model or account changes, the
+  agent's own scheduled jobs included. If the account is signed out or no longer
+  usable, the routine's runs fail with the account cause until you sign in again
+  under **Connections › Model access**. Opening that line shows OpenClaw's own error message
   (at most 500 characters, keys and tokens hidden) to read or copy, and how many runs
   failed in a row; **Run history** lists the recent runs the same way. The agent sees
   the same cause and message when it lists its routines, so it can tell you why

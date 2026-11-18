@@ -5,7 +5,7 @@ import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { isLeadRoutine, LeadRoutines, ownRoutineWrites } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
-import { agentFailure } from "./routine-failures.js";
+import { agentFailure, failureMessage } from "./routine-failures.js";
 import { runWarnings } from "./routine-results.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 import { hostReady, routineRunOf } from "./runtimes/runtime-for.js";
@@ -490,11 +490,32 @@ export class NativeRoutines extends NativeReminders {
     });
   }
   /**
+   * Every agent-turn job on the shared OpenClaw host (of `agent` alone when given)
+   * records its agent's model account, without which 2026.11.3 refuses each run
+   * (openclaw-routine-accounts.js). A job OpenClaw refuses is logged; its runs show
+   * the account reason (routine-failures.js) until the account is usable again.
+   */
+  async adoptAccounts(agent = null) {
+    if (!hostReady(this.assistants.runtime, agent)) return;
+    const port = this.scheduler(agent);
+    if (!port.adoptAccounts) return;
+    const { adopted, failed } = await port.adoptAccounts({
+      agentId: agent?.runtimeAgentId,
+    });
+    for (const { id, agentId, message } of failed)
+      console.warn(
+        `Routine ${id} of ${agentId} has no usable model account: ${failureMessage(message, 200)}`,
+      );
+    if (adopted.length) this.assistants.changed();
+  }
+  /**
    * Every agent with routines whose runtime takes calls, outside any admission
-   * (Gateway ready, upgrade, a Hermes agent's set ready).
+   * (Gateway ready, upgrade, a Hermes agent's set ready). Jobs from before OpenClaw
+   * 2026.11.3 record their agent's model account first, every agent's alike.
    */
   reconcile() {
     return this.assistants.admit(async () => {
+      await this.adoptAccounts().catch(() => {});
       for (const agent of this.assistants.store.listAssistants()) {
         if (agent.archivedAt || !hostReady(this.assistants.runtime, agent)) continue;
         if (!this.bindings.list(agent.id).some((b) => b.kind === "routine")) continue;

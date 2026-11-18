@@ -157,7 +157,7 @@ test("a held login reaches OpenClaw access-only and works without the Gateway", 
   await accounts.signedIn(profileId);
   const profile = read().profiles[profileId];
   assert.equal(profile.access, "held-access");
-  assert.equal(profile.refresh, undefined);
+  assert.equal(profile.refresh, "");
   assert.deepEqual(calls.find((c) => c.method === "models.authRefresh").params, {
     operation: "update",
     agentId: "main",

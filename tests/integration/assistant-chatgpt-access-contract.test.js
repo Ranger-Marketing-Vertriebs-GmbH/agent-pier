@@ -136,7 +136,7 @@ test(
       reloaded: true,
     });
     const stored = storedProfile(runtime.paths);
-    assert.equal(stored.refresh, undefined);
+    assert.equal(stored.refresh, "");
     assert.equal(stored.authFlow, undefined);
     assert.equal(stored.access, first.access);
     const accepted = await statusOf(runtime.client);
@@ -170,7 +170,7 @@ test(
     );
     const after = storedProfile(runtime.paths);
     assert.equal(after.access, near.access, "no refresh fence replaced the token");
-    assert.equal(after.refresh, undefined);
+    assert.equal(after.refresh, "");
 
     // 3. A renewed token reaches the running Gateway at once.
     const renewed = credential(Date.now() + 3 * 3600_000);
@@ -250,7 +250,7 @@ test(
 
     await accounts.move(account.id);
     const stored = storedProfile(runtime.paths);
-    assert.equal(stored.refresh, undefined, "OpenClaw keeps no refresh token");
+    assert.equal(stored.refresh, "", "OpenClaw keeps no refresh token");
     assert.equal(stored.access, access);
     assert.equal(vault.records.get(profileId).refresh, "SYNTHETIC_REFRESH");
     const [moved] = await accounts.list();
@@ -265,7 +265,7 @@ test(
     await runtime.stop();
     const restored = await restoreUpdateSnapshot(runtime.paths, snapshotDir);
     assert.equal(restored.credentialsWithheld, false);
-    assert.equal(storedProfile(runtime.paths).refresh, undefined);
+    assert.equal(storedProfile(runtime.paths).refresh, "");
     assert.equal(storedProfile(runtime.paths).access, access);
     await runtime.start();
     assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));

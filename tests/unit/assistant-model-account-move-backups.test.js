@@ -77,14 +77,14 @@ test("a pre-move snapshot restores without OpenClaw's refresh token and keeps it
   const { paths, read, snapshot, accounts, vault } = await fixture(t);
   const before = await snapshot();
   await accounts.move(accounts.records[0].id);
-  assert.equal(read().profiles[profileId].refresh, undefined);
+  assert.equal(read().profiles[profileId].refresh, "");
   assert.equal(vault.records.get(profileId).refresh, "refresh-old");
   // The key stays: the next runtime update can still roll back.
   assert.ok(readBackupKey(paths.root, before.id));
   const restored = await restoreUpdateSnapshot(paths, before.directory);
   assert.equal(restored.credentialsWithheld, false);
   const store = read();
-  assert.equal(store.profiles[profileId].refresh, undefined, "no second refresher");
+  assert.equal(store.profiles[profileId].refresh, "", "no second refresher");
   assert.equal(store.profiles[profileId].access, "access-old");
   assert.deepEqual(store.profiles["anthropic:x"], other, "other credentials restored");
 });

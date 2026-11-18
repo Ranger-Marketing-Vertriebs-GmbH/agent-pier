@@ -87,7 +87,11 @@ export class AssistantService {
     this.sessionCreate = sessionCreate;
     this.shellChanges = new ShellChanges(this, { now });
     config.onApplied = (id) => this.shellChanges.applied(id);
-    config.onReapplied = (id) => followLead(this, id);
+    // Its routines record a changed model account too (native-routines.js).
+    config.onReapplied = (id) => {
+      followLead(this, id);
+      this.routines?.adoptAccounts(store.getAssistant(id)).catch(() => {});
+    };
     this.allowlist = new ExecAllowlist(this);
     this.skills = new AgentSkills({ store, runtime });
     this.sessionFailures = new Map();

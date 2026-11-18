@@ -62,6 +62,8 @@ export const routineCopy = {
     "gateway-restart": "The Gateway restarted during the run.",
     "gateway-stopped": "The Gateway stopped during the run.",
     "agent-unavailable": "The agent was unavailable.",
+    account:
+      "No usable AI account is recorded for this routine. AgentPier records the agent’s account when the agent service starts; if this stays, sign in again under Connections › Model access.",
     timeout: "The run took too long and was stopped.",
     model: "The model provider returned an error.",
     delivery: "The result could not be delivered.",

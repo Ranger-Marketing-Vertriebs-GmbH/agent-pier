@@ -12,6 +12,7 @@ export const failureReasons = [
   "gateway-restart",
   "gateway-stopped",
   "agent-unavailable",
+  "account",
   "timeout",
   "model",
   "delivery",
@@ -47,6 +48,12 @@ const outside = [
   [
     "agent-unavailable",
     /unknown agent ?id|no longer exists in configuration|agent\b[^\n]{0,40}\b(?:unavailable|degraded|not found|disabled)/i,
+  ],
+  // 2026.11.3's automation account checks: no recorded inference account, or one
+  // replaced, revoked or of another provider (openclaw-routine-accounts.js adopts it).
+  [
+    "account",
+    /automation has no recorded inference account|automation inference account (?:was replaced|changed)|incompatible with its recorded inference account|selected automation account is unavailable/i,
   ],
   // OpenClaw's own run deadlines (execution-error-constants).
   [
@@ -161,6 +168,7 @@ const summaries = {
   "gateway-restart": "The Gateway restarted during the run.",
   "gateway-stopped": "The Gateway stopped during the run.",
   "agent-unavailable": "The agent was unavailable.",
+  account: "No usable AI account is recorded for this routine.",
   timeout: "The run took too long and was stopped.",
   model: "The model provider returned an error.",
   delivery: "The result could not be delivered.",

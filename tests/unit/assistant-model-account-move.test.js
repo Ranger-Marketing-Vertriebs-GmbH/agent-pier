@@ -97,7 +97,7 @@ test("moving a login OpenClaw holds hands its refresh token to AgentPier once", 
   // assistant-model-account-move-backups.test.js).
   assert.ok(readBackupKey(root, snapshot));
   const stored = read().profiles[profileId];
-  assert.equal(stored.refresh, undefined);
+  assert.equal(stored.refresh, "");
   assert.equal(stored.access, pair.access_token);
   assert.equal(vault.records.get(profileId).refresh, pair.refresh_token);
   assert.equal(vault.view(profileId).name, "Personal");
@@ -118,6 +118,6 @@ test("a login is not moved while a run uses it, and works while the Gateway is s
   lease.release();
   runtime.client.ready = false;
   await accounts.move(account.id);
-  assert.equal(read().profiles[profileId].refresh, undefined);
+  assert.equal(read().profiles[profileId].refresh, "");
   assert.equal(accounts.holderOf(account.id), "agentpier");
 });

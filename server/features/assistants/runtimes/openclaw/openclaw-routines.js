@@ -7,6 +7,7 @@ import {
   routineOfJob,
   routineRun,
 } from "./openclaw-routine-jobs.js";
+import { adoptRoutineAccounts } from "./openclaw-routine-accounts.js";
 
 // cron.list pages: 200 jobs each, at most 10000 jobs in all.
 const pageSize = 200;
@@ -22,7 +23,12 @@ const maxJobs = 10000;
  */
 export const openClawRoutines = (supervisor, clientOf) =>
   boundPort(
-    (current) => routinesOver(current, () => supervisor.status?.()?.version),
+    (current) =>
+      routinesOver(
+        current,
+        () => supervisor.status?.()?.version,
+        () => supervisor.paths?.state,
+      ),
     supervisor,
     clientOf,
   );
@@ -31,9 +37,9 @@ export const openClawRoutines = (supervisor, clientOf) =>
 // it is created and commits into no later one (../../chat-rebind.js).
 export const chatPinRuntime = "2026.11.2";
 
-function routinesOver(current, version) {
+function routinesOver(current, version, stateDir) {
   const call = async (...args) => current().call(...args);
-  return {
+  const port = {
     // Whether a chat target keeps the chat as it was when the job was created.
     pinsChat: () => atLeast(version(), chatPinRuntime),
     // Every routine of `agentId` (every agent's without one), disabled ones included.
@@ -78,5 +84,10 @@ function routinesOver(current, version) {
     status: () => call("cron.status", {}),
     // Synchronously, the routine run a session key names (`agent:<id>:cron:<job>`).
     runOf: (sessionKey) => cronRunOf(sessionKey),
+    // `{ adopted, failed }`: every agent-turn job (of `agentId` alone when given)
+    // records its agent's inference account (openclaw-routine-accounts.js).
+    adoptAccounts: ({ agentId } = {}) =>
+      adoptRoutineAccounts({ call, list: port.list, stateDir: stateDir(), agentId }),
   };
+  return port;
 }
