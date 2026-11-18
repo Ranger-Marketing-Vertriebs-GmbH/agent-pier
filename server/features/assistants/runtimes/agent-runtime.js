@@ -288,6 +288,8 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *   - status({ timeoutMs }): `{ providers: [{ provider, profiles }] }`.
  *   - probe({ provider, profileId, probeTimeoutMs, timeoutMs }): `{ status }`.
  *   - logout({ provider, profileIds, timeoutMs }).
+ *   - reload({ timeoutMs }): reloads the runtime's snapshot of its stored profiles,
+ *     which `status` reads (OpenClaw keeps it stale after a refused logout).
  *   - login({ sessionId, authChoice, timeoutMs }) starts a sign-in wizard;
  *     loginStep({ sessionId, answer, timeoutMs }) answers its step and resolves the
  *     next (`{ done, status, step }`); cancelLogin({ sessionId, timeoutMs }).

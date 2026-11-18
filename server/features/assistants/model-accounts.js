@@ -1,4 +1,5 @@
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { createHash } from "node:crypto";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { runtimePaths } from "./runtime-paths.js";
@@ -15,6 +16,10 @@ export const accountIdOf = (profileId) =>
 const signedIn = (status) => ["ok", "expiring"].includes(status);
 // Store refusals that only mean OpenClaw has not been set up (yet): nothing to write.
 const absent = new Set(["STORE_MISSING"]);
+// A native logout refused before its removal is sent again this often, each after
+// `logoutRetryMs`: the refusal lasts while another task creates an agent database.
+const logoutRetries = 5;
+const logoutRetryMs = 1000;
 
 /**
  * The owner's ChatGPT accounts, one login per account, host-wide. Two holders:
@@ -33,8 +38,9 @@ export class AssistantModelAccounts {
     catalog = new ModelAccountCatalog({ runtime }),
     codex = vault && new CodexCatalog({ vault, onChange: () => this.catalog.onChange() }),
     warn = console.warn,
+    sleep = delay,
   }) {
-    Object.assign(this, { runtime, vault, warn });
+    Object.assign(this, { runtime, vault, warn, sleep });
     // Model lists live in memory only; the Gateway is the source of truth. Without a
     // running Gateway, AgentPier reads a held login's list from Codex (`codex`).
     this.catalog = catalog;
@@ -290,36 +296,49 @@ export class AssistantModelAccounts {
     this.requireReady();
     // Before revocation: an update backup must never resurrect this profile.
     destroyBackupKeys(path.dirname(this.file));
-    await this.port()
-      .logout({
-        provider: "openai",
-        profileIds: [record.profileId],
-        timeoutMs: 60000,
-      })
-      .catch(async (error) => {
-        if (!(await this.#loggedOutDespite(error, record.profileId))) throw error;
-      });
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.port().logout({
+          provider: "openai",
+          profileIds: [record.profileId],
+          timeoutMs: 60000,
+        });
+        break;
+      } catch (error) {
+        const outcome = await this.#refusedLogout(error, record.profileId);
+        if (outcome === "removed") break;
+        if (outcome !== "kept" || attempt >= logoutRetries) throw error;
+        await this.sleep(logoutRetryMs);
+      }
+    }
     return this.list();
   }
   /**
-   * Whether a refused native logout still took effect. OpenClaw 2026.11.3 removes
-   * the profile first and then clears the sessions that name it; that second step
-   * reads every agent's session database and is refused (UNAVAILABLE, "Originally
-   * observed agent target requires its captured creating reference") while another
-   * task still creates one, as a fresh Gateway does for its own `main` agent. The
-   * profile is gone then, which OpenClaw's own status shows; any other refusal, or a
-   * profile it still lists, keeps the logout failed.
+   * What a refused native logout did: "removed", "kept" or "unknown". OpenClaw
+   * 2026.11.3 refuses a logout (UNAVAILABLE, "Originally observed agent target
+   * requires its captured creating reference") while another task still creates an
+   * agent's database, as a fresh Gateway does for its own `main` agent and
+   * config.apply for a new one. It removes the profile and then clears the sessions
+   * that name it, reading every agent's session database; a refusal there comes
+   * after the removal, but skips reloading the Gateway's auth snapshot, so
+   * models.authStatus lists the profile until models.authRefresh reloads it. Read
+   * after that reload, a profile still listed was kept: the refusal came before the
+   * removal and the logout may go again. Any other refusal, or a failed reload or
+   * status read, is "unknown" and keeps the logout failed.
    */
-  async #loggedOutDespite(error, profileId) {
-    if (error?.answered !== true || error.code !== "UNAVAILABLE") return false;
-    const status = await this.port()
-      .status({ timeoutMs: 60000 })
+  async #refusedLogout(error, profileId) {
+    if (error?.answered !== true || error.code !== "UNAVAILABLE") return "unknown";
+    const port = this.port();
+    const status = await port
+      .reload({ timeoutMs: 30000 })
+      .then(() => port.status({ timeoutMs: 60000 }))
       .catch(() => null);
     const providers = status?.providers;
-    if (!Array.isArray(providers)) return false;
+    if (!Array.isArray(providers)) return "unknown";
     // No `openai` entry: its last profile is gone.
     const profiles = providers.find((p) => p?.provider === "openai")?.profiles ?? [];
-    return Array.isArray(profiles) && !profiles.some((p) => p?.profileId === profileId);
+    if (!Array.isArray(profiles)) return "unknown";
+    return profiles.some((p) => p?.profileId === profileId) ? "kept" : "removed";
   }
   /** Moves a login OpenClaw holds to AgentPier, on the owner's request. */
   move(id) {

@@ -19,6 +19,8 @@ const agentId = "main";
  * AgentPier-held ChatGPT logins (model-logins/chatgpt-vault.js) reach OpenClaw as
  * access-only profiles (openclaw-access-profiles.js), written into its store whether
  * or not the Gateway runs:
+ * - reload(): reloads the Gateway's snapshot of the stored profiles
+ *   (`models.authRefresh`), which `status` reads.
  * - writeAccess({ profileId, credential }): writes the profile, then reloads a
  *   running Gateway (`models.authRefresh`). Resolves `{ reloaded }`.
  * - removeAccess({ profileId }): removes it, then reloads a running Gateway.
@@ -47,6 +49,8 @@ function modelsOver(current, supervisor) {
         { timeoutMs },
       ),
     status: ({ timeoutMs }) => call("models.authStatus", { agentId }, { timeoutMs }),
+    reload: ({ timeoutMs = 30000 } = {}) =>
+      call("models.authRefresh", { operation: "logout", agentId }, { timeoutMs }),
     probe: ({ provider, profileId, probeTimeoutMs, timeoutMs }) =>
       call(
         "models.probe",

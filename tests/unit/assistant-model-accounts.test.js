@@ -40,7 +40,7 @@ function fixture(t) {
     },
   };
   return {
-    accounts: new AssistantModelAccounts({ dataDir, runtime }),
+    accounts: new AssistantModelAccounts({ dataDir, runtime, sleep: async () => {} }),
     runtime,
     profiles,
     calls,
@@ -224,37 +224,68 @@ test("during maintenance a renewal waits for the next Gateway spawn", async (t) 
 });
 
 // OpenClaw 2026.11.3 removes the profile, then clears the sessions naming it; that
-// step is refused while a fresh Gateway still creates its main agent's database. The
-// logout took effect when OpenClaw no longer lists the profile.
+// step is refused while another task still creates an agent's database (a fresh
+// Gateway its main agent's, config.apply a new agent's). A refused logout also skips
+// reloading the Gateway's auth snapshot, which models.authStatus reads, so the profile
+// stays listed there until models.authRefresh (v2.20.0-rc.4). The refusal may come
+// before the removal too, while OpenClaw reads each agent's auth store.
 const sessionRaceRefusal = () =>
   Object.assign(Error("Assistant Gateway unavailable (UNAVAILABLE)."), {
     code: "UNAVAILABLE",
     status: 503,
     answered: true,
   });
-const refusingLogout = (runtime, profiles, { removes, error = sessionRaceRefusal() }) => {
+// `profiles` is the Gateway's snapshot that models.authStatus reads; `stored` what
+// OpenClaw persisted. The first `times` logouts are refused, after the removal
+// (`removes`) or before it.
+const refusingLogout = (
+  runtime,
+  profiles,
+  { removes, error = sessionRaceRefusal(), times = Infinity },
+) => {
   const call = runtime.client.call;
+  const stored = [...profiles];
+  const methods = [];
   runtime.client.call = async (method, params) => {
-    if (method !== "models.authLogout") return call(method, params);
-    if (removes) profiles.splice(0);
+    methods.push(method);
+    if (method === "models.authRefresh") {
+      profiles.splice(0, profiles.length, ...stored);
+      return { refreshed: true };
+    }
+    if (method !== "models.authLogout" || times-- <= 0) return call(method, params);
+    if (removes) stored.splice(0);
     throw error;
   };
+  return methods;
 };
+const count = (methods, name) => methods.filter((m) => m === name).length;
 
 test("a logout refused after OpenClaw removed the profile took effect", async (t) => {
   const { accounts, runtime, profiles } = fixture(t);
   const [account] = await accounts.list();
-  refusingLogout(runtime, profiles, { removes: true });
+  const methods = refusingLogout(runtime, profiles, { removes: true });
   assert.deepEqual(await accounts.logout(account.id), []);
+  assert.equal(count(methods, "models.authLogout"), 1, "a removal is never repeated");
 });
 
-test("a refused logout whose profile OpenClaw still lists stays failed", async (t) => {
+test("a logout refused before OpenClaw removed the profile is repeated", async (t) => {
   const { accounts, runtime, profiles } = fixture(t);
   const [account] = await accounts.list();
-  refusingLogout(runtime, profiles, { removes: false });
+  const methods = refusingLogout(runtime, profiles, { removes: false, times: 2 });
+  assert.deepEqual(await accounts.logout(account.id), []);
+  assert.equal(count(methods, "models.authLogout"), 3);
+});
+
+test("a refused logout whose profile OpenClaw still holds stays failed", async (t) => {
+  const { accounts, runtime, profiles } = fixture(t);
+  const [account] = await accounts.list();
+  const methods = refusingLogout(runtime, profiles, { removes: false });
   await assert.rejects(accounts.logout(account.id), { code: "UNAVAILABLE" });
+  assert.ok(count(methods, "models.authLogout") > 1);
+  assert.ok(count(methods, "models.authLogout") <= 6, "a bounded number of repeats");
   // Only an answered UNAVAILABLE is looked into: a timeout leaves it unknown.
   const timeout = Object.assign(Error("timeout"), { code: "TIMEOUT", status: 503 });
-  refusingLogout(runtime, profiles, { removes: true, error: timeout });
+  const timedOut = refusingLogout(runtime, profiles, { removes: true, error: timeout });
   await assert.rejects(accounts.logout(account.id), { code: "TIMEOUT" });
+  assert.equal(count(timedOut, "models.authLogout"), 1);
 });
