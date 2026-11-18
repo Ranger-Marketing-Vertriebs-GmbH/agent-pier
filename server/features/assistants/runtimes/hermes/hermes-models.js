@@ -10,7 +10,7 @@ import { boundPort, reachable, unsupported } from "./hermes-connection.js";
  *   model_options) as Hermes gives it.
  * - status(): `{ providers: [] }`. AgentPier signs no model account into a Hermes
  *   home and Hermes adopts none from the host (`auth.adopt_external_logins: false`).
- * - probe, login, loginStep, cancelLogin, logout, writeAccess, removeAccess,
+ * - probe, login, loginStep, cancelLogin, logout, reload, writeAccess, removeAccess,
  *   readStored, takeStored: refused (UNSUPPORTED). Account sign-ins are host-wide and
  *   AgentPier's (model-accounts.js); a Hermes agent reaches a ChatGPT account through
  *   AgentPier's model proxy and never holds its tokens (hermes-config/model.js).
@@ -40,6 +40,7 @@ function modelsOver(current) {
     loginStep: refuse("models.loginStep"),
     cancelLogin: refuse("models.cancelLogin"),
     logout: refuse("models.logout"),
+    reload: refuse("models.reload"),
     // AgentPier's ChatGPT logins reach Hermes through the model proxy instead
     // (hermes-config/model.js), never as a profile in its home.
     writeAccess: refuse("models.writeAccess"),
