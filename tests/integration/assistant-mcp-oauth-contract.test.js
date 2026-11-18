@@ -24,31 +24,48 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  // The CLI steps run in maintenance windows since 2026.10.10: the first test took
-  // up to 290 s on CI runners.
+  // The CLI steps run in maintenance windows since 2026.10.10, each a Gateway restart
+  // (5 s locally, up to about 25 s on a macOS runner) plus CLI runs of 1 to 6 s. The
+  // sign-in flow was split in two tests (four and three windows) once the single
+  // test of seven reached 456 s of its 480 s on macOS (2.20.0-rc.5).
   timeout: contractTimeout(480000),
 };
 const harness = (t) => cliHarness(t, { installed, contractDir });
+
+// One sign-in in a window of its own: login, the browser's approval, --code.
+const signIn = (h, oauth, redirectUrl, name = "docs") =>
+  h.offline(async () => {
+    const started = await h.login(name);
+    const callback = await authorize(oauth, started.url, redirectUrl);
+    return h.cli(["mcp", "login", name, "--code", callback.searchParams.get("code")]);
+  });
+
+// The OAuth server with the agent's loopback redirect port held, as AgentPier's
+// listener holds it, and the `docs` server that redirects there.
+async function oauthSetup(t) {
+  const oauth = await oauthMcpServer();
+  t.after(() => oauth.close());
+  const held = await holdPort();
+  t.after(() => held.close());
+  const redirectUrl = `http://127.0.0.1:${held.port}/api/mcp-servers/oauth/callback`;
+  const docs = {
+    url: oauth.url,
+    transport: "streamable-http",
+    auth: "oauth",
+    oauth: { redirectUrl },
+  };
+  return { oauth, held, redirectUrl, docs };
+}
 
 test(
   "OpenClaw MCP OAuth: login prints the URL, --code completes, tokens refresh",
   options,
   async (t) => {
-    const oauth = await oauthMcpServer();
-    t.after(() => oauth.close());
-    const held = await holdPort();
-    t.after(() => held.close());
+    const { oauth, held, redirectUrl, docs } = await oauthSetup(t);
     const h = await harness(t);
     const { runtime, turn, cli, login, status, allow, servers, gatewayEnv } = h;
     const client = runtime.client;
     const generation = runtime.generation;
-    const redirectUrl = `http://127.0.0.1:${held.port}/api/mcp-servers/oauth/callback`;
-    const docs = {
-      url: oauth.url,
-      transport: "streamable-http",
-      auth: "oauth",
-      oauth: { redirectUrl },
-    };
     const grants = () => oauth.log.filter((e) => e.grant).map((e) => e.grant);
     const state = async (name, env) => (await status(name, env)).server.authStatus;
     const gatewayLog = () =>
@@ -228,11 +245,7 @@ test(
     // next turn until an `mcp` config change resets the backoff.
     // Since 2026.10.10 the login's window restarts the Gateway, which lifts it too.
     oauth.state.refreshRevoked = false;
-    const redone = await h.offline(async () => {
-      const relogin = await login("docs");
-      const recallback = await authorize(oauth, relogin.url, redirectUrl);
-      return cli(["mcp", "login", "docs", "--code", recallback.searchParams.get("code")]);
-    });
+    const redone = await signIn(h, oauth, redirectUrl);
     assert.equal(redone.code, 0, redone.stderr);
     exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
@@ -288,20 +301,29 @@ test(
       ...noFlags,
       state: "pending-authorization",
     });
+    // Before 2026.10.10 nothing restarts; since then one window per sign-in step.
+    if (!h.windows.windowed) assert.equal(runtime.generation, generation, "no restart");
+    else t.diagnostic(`maintenance windows: ${h.windows.count}`);
+  },
+);
 
-    // (e) Log in again, then rename and change the URL: both orphan the login.
-    const thirdDone = await h.offline(async () => {
-      const third = await login("docs");
-      const thirdCallback = await authorize(oauth, third.url, redirectUrl);
-      return cli([
-        "mcp",
-        "login",
-        "docs",
-        "--code",
-        thirdCallback.searchParams.get("code"),
-      ]);
-    });
-    assert.equal(thirdDone.code, 0, thirdDone.stderr);
+test(
+  "OpenClaw MCP OAuth: a rename or a new URL orphans a login; the CLI needs only its state",
+  options,
+  async (t) => {
+    const { oauth, redirectUrl, docs } = await oauthSetup(t);
+    const h = await harness(t);
+    const { runtime, cli, status, servers, gatewayEnv } = h;
+    const generation = runtime.generation;
+    const grants = () => oauth.log.filter((e) => e.grant).map((e) => e.grant);
+    const state = async (name, env) => (await status(name, env)).server.authStatus;
+    await servers({ docs });
+    const never = await state("docs");
+    assert.equal(never.state, "unauthenticated");
+
+    // (e) Log in, then rename and change the URL: both orphan the login.
+    const signedIn = await signIn(h, oauth, redirectUrl);
+    assert.equal(signedIn.code, 0, signedIn.stderr);
     exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
     await servers({ docs: null, renamed: docs }, ["mcp.servers.docs"]);
@@ -322,18 +344,8 @@ test(
     else await own.logout("docs", { server: docs });
     await servers({ renamed: null, docs }, ["mcp.servers.renamed"]);
     assert.equal((await state("docs")).state, "unauthenticated", "orphan cleared");
-    const fourthDone = await h.offline(async () => {
-      const fourth = await login("docs");
-      const fourthCallback = await authorize(oauth, fourth.url, redirectUrl);
-      return cli([
-        "mcp",
-        "login",
-        "docs",
-        "--code",
-        fourthCallback.searchParams.get("code"),
-      ]);
-    });
-    assert.equal(fourthDone.code, 0, fourthDone.stderr);
+    const again = await signIn(h, oauth, redirectUrl);
+    assert.equal(again.code, 0, again.stderr);
     exchanged(oauth);
 
     // (f) The CLI needs only HOME, OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH
@@ -355,7 +367,6 @@ test(
       path: path.join(gatewayEnv.HOME, ".openclaw", "openclaw.json"),
       servers: [],
     });
-    // Before 2026.10.10 nothing restarts; since then one window per sign-in step.
     if (!h.windows.windowed) assert.equal(runtime.generation, generation, "no restart");
     else t.diagnostic(`maintenance windows: ${h.windows.count}`);
     await runtime.close();
@@ -368,7 +379,7 @@ test(
     assert.deepEqual(grants().slice(refreshFrom), ["refresh_token"]);
     const stoppedLogout = await cli(["mcp", "logout", "docs"], minimal);
     assert.equal(stoppedLogout.code, 0, stoppedLogout.stderr);
-    assert.deepEqual(await state("docs", minimal), first.server.authStatus);
+    assert.deepEqual(await state("docs", minimal), never);
   },
 );
 
