@@ -280,7 +280,7 @@ export class LeadRequests {
           }
         if (requestTerminal.has(r.phase)) return finish(r);
       };
-      const unsubscribe = this.assistants.events.subscribe(() => check());
+      const unsubscribe = this.assistants.events.watch(() => check());
       // Changes are published, but a missed one must not hold the turn to the end.
       const tick = setInterval(check, 1000);
       const timer = setTimeout(check, Math.max(0, deadline - Date.now()));

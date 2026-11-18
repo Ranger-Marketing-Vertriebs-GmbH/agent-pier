@@ -76,7 +76,7 @@ export function followAgentEvents(
   let unbind = null;
   const bind = () => {
     unbind?.();
-    unbind = services.assistants?.events?.subscribe(() => listener()) || null;
+    unbind = services.assistants?.events?.watch(() => listener()) || null;
   };
   bind();
   const unswitch = onSwitch(() => {

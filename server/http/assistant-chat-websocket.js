@@ -83,7 +83,7 @@ export function attachAssistantChatWebSocket(
       };
       const cleanupLogin = login.watch(auth, () => ws.close(1008));
       // Every agent change (an assignment among them) checks the viewer's access again.
-      const unwatch = events.subscribe(() => {
+      const unwatch = events.watch(() => {
         if (!admitted()) ws.close(1008);
       });
       const ping = setInterval(() => {

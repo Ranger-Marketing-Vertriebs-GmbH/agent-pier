@@ -64,7 +64,12 @@ import http from "node:http";
 import { createServices } from "./application/services.js";
 import { startRuntimes } from "./features/assistants/runtimes/runtime-wiring.js";
 import { confineRepositoryPrograms } from "./features/nono/sandboxed-repositories.js";
-import { attachLive, liveWriteSignals } from "./application/live-wiring.js";
+import {
+  agentAndPrivacyChanges,
+  attachLive,
+  liveWriteSignals,
+} from "./application/live-wiring.js";
+import { sharedSource } from "./features/live/shared-source.js";
 import { readStampHeader } from "./lib/read-stamp.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
@@ -559,16 +564,9 @@ export async function createApplication(config) {
     login: services.identity,
     admit,
     effective,
-    // Assignments and opt-ins change who may watch (socket-access.js).
-    changes: (listener) => {
-      const events = services.assistants?.events;
-      const off = events?.subscribe(listener);
-      services.ownerPrivacy.on("changed", listener);
-      return () => {
-        off?.();
-        services.ownerPrivacy.off("changed", listener);
-      };
-    },
+    // Assignments and opt-ins change who may watch (socket-access.js); every open
+    // view follows them through one listener per source.
+    changes: sharedSource((fanout) => agentAndPrivacyChanges(services, fanout)),
   });
   services.dictationWss = attachDictationWebSocket(server, {
     dictation: () => services.dictation,
