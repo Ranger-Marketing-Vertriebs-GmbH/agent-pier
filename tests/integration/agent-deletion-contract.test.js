@@ -10,6 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
+import { convergingApply } from "../helpers/converging-apply.js";
 import { removeFromGateway } from "../../server/features/assistants/agent-deletion.js";
 
 // AGENTPIER-260 on the pinned runtime: a permanent delete removes the agent from the
@@ -68,22 +69,10 @@ test(
         ],
       },
     });
-    // The first config.patch of a fresh Gateway (the model provider) is answered only
-    // once OpenClaw applied it, while it still loads and prewarms its handlers: about
-    // 0.8 s on a fast host, 5 s under load and more than its 10 s budget on a slow
-    // runner. AgentPier converges a timed-out configuration write with the next apply,
-    // and so does this setup; the deletion below is what the contract checks. The next
-    // apply's writes wait for the timed-out patch's late answer (live-patch.js
-    // configWrite): sent during its reload, the agents.create hung on a lease.
-    const apply = async (id) => {
-      for (let n = 0; ; n++)
-        try {
-          return await config.apply(id);
-        } catch (error) {
-          if (error.code !== "TIMEOUT" || error.method !== "config.patch" || n >= 2)
-            throw error;
-        }
-    };
+    // The first config.patch of a fresh Gateway can time out on a slow runner; the
+    // app converges it with the next apply (converging-apply.js). The deletion below
+    // is what the contract checks.
+    const apply = (id) => convergingApply(config, id);
     const agents = [];
     for (const name of ["Kept", "Deleted"]) {
       const a = store.createAssistant({

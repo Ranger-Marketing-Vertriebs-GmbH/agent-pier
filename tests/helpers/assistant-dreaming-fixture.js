@@ -15,6 +15,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { proactivityModel } from "./assistant-proactivity-model.js";
 import { stepPolicyBridge } from "./assistant-step-policy-bridge.js";
+import { convergingApply } from "./converging-apply.js";
 
 export const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
 export const dreamingKey = "memory-core:memory-dreaming-promotion";
@@ -78,6 +79,18 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
   const model = await proactivityModel();
   const bridge = await stepPolicyBridge("dreaming-fixture");
   t.after(async () => {
+    // CI keeps only the failing call: the Gateway's own lease and lock lines tell a
+    // wedged configuration reload from a slow runner (live-patch.js).
+    try {
+      const wedge = fs
+        .readFileSync(path.join(runtime.paths.logs, "gateway-console.log"), "utf8")
+        .split("\n")
+        .filter((line) => /lease|database is locked|config reload failed/i.test(line));
+      if (wedge.length)
+        console.log(`DREAMING_GATEWAY_EVIDENCE ${JSON.stringify(wedge.slice(-20))}`);
+    } catch {
+      /* No Gateway log. */
+    }
     try {
       await runtime.close();
       store.close();
@@ -133,7 +146,7 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
       model: { connectionId: "fixture", modelId },
     });
     store.updateAssistant(agent.id, { capabilities }, agent.revision);
-    await config.apply(agent.id);
+    await convergingApply(config, agent.id);
     return store.getAssistant(agent.id);
   }
   // A conversation as AgentPier opens one; labels are unique per Gateway. The first
@@ -254,7 +267,7 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
   // settings, dreaming), applied again after a restart such as a maintenance window.
   async function restore(section) {
     config.reset();
-    for (const agent of store.listAssistants()) await config.apply(agent.id);
+    for (const agent of store.listAssistants()) await convergingApply(config, agent.id);
     if (section) await dreaming(section);
   }
   // OpenClaw 2026.10.10 and later run `memory forget` only while no Gateway owns the
