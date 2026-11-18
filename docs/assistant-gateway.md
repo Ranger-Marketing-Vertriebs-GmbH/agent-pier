@@ -4368,8 +4368,16 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   once per Gateway connection (`sessions.describe`, then `sessions.patch {pinned:
 true}`), and reopens one OpenClaw archived anyway in the same call (`{archived: false, pinned: true,
 expectedSessionId}`): the session keeps its key, id and transcript. A keep that fails
-  (a Gateway error, or a concurrent reset that changed the session id) is logged once
-  per connection and tried again by the next pass. A turn the Gateway refuses with
+  (a Gateway error, or a concurrent reset that changed the session id) waits before it
+  goes again: one minute, doubling with each further failure up to 30 minutes, also
+  for full passes, so a session the Gateway does not answer for never costs every
+  pass (the 2-second poll included) a whole call timeout. Right after a Gateway start,
+  OpenClaw still prepares large agents' sessions, and `sessions.describe` answers
+  `UNAVAILABLE` or times out; once the agents' admission ends, every failed keep is due
+  at once, and the first failure on a connection is not logged. A further failure is
+  logged once per connection (`Agent chat … could not be kept open natively (CODE);
+retrying in N min.`), and a new connection starts over
+  (`tests/integration/native-chat-keep-open.test.js`). A turn the Gateway refuses with
   `INVALID_REQUEST` because its session is archived (web, Telegram, queued) reopens
   the session the same way and is sent once more with the same idempotency key, also
   when a reconcile pass reopened it meanwhile (the refusal reads `Session "<key>" is

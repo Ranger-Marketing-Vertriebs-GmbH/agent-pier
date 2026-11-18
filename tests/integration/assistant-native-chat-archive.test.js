@@ -113,9 +113,11 @@ test("a chat kept in AgentPier's archive is not reopened or pinned once deleted"
   assert.equal(f.native.get("deleted").archived, true);
 });
 
-test("a failed keep is logged once and retried by the next pass", async (t) => {
+test("a failed keep backs off, is logged once and goes again", async (t) => {
   const f = nativeChats(t);
   f.chat("reset");
+  let now = 1_000_000;
+  f.assistants.now = () => now;
   const warn = t.mock.method(console, "warn", () => {});
   // A concurrent reset gives the session a new id between describe and patch.
   const call = f.client.call;
@@ -129,21 +131,24 @@ test("a failed keep is logged once and retried by the next pass", async (t) => {
       });
     return call(method, input);
   };
+  const describes = () => f.log.filter(([method]) => method === "sessions.describe");
   await f.assistants.reconcile();
   assert.equal(f.native.get("reset").pinned, false);
+  // The first failure may only have raced the Gateway start: quiet, and a minute off.
+  assert.equal(warn.mock.callCount(), 0);
+  await f.assistants.reconcile({ full: false });
+  assert.equal(describes().length, 1);
+  now += 61_000;
   await f.assistants.reconcile({ full: false });
   assert.equal(f.native.get("reset").pinned, false);
   assert.equal(warn.mock.callCount(), 1);
   const [line] = warn.mock.calls[0].arguments;
   assert.match(line, /INVALID_REQUEST/);
   assert.doesNotMatch(line, /changed while starting work|reset/);
+  now += 121_000;
   await f.assistants.reconcile({ full: false });
   assert.equal(f.native.get("reset").pinned, true);
-  assert.equal(
-    f.log.filter(([method]) => method === "sessions.describe").length,
-    3,
-    "each pass tried again until the keep held",
-  );
+  assert.equal(describes().length, 3, "each due pass tried again until the keep held");
 });
 
 test("a turn refused for a natively archived session reopens it and goes through once", async (t) => {
