@@ -192,3 +192,51 @@ test("an agent list refused while the agents restart arrives once they answer", 
   await expect(row(page, "Home assistant")).toBeVisible();
   await expect(sidebar(page).getByText(sidebarNote)).toHaveCount(0);
 });
+
+// The installed app on a phone or a desktop browser opens again while AgentPier (or
+// its agents) cannot be reached: the agents this login last saw are listed from the
+// device, marked as last known, and a logout forgets them.
+const cacheKey = "agentpier.agent-list.v1";
+for (const [view, use] of [
+  ["desktop", {}],
+  ["phone", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }],
+])
+  test.describe(view, () => {
+    test.use(use);
+    const phone = view === "phone";
+    const openNavigation = async (page) => {
+      if (phone) await page.locator(".mobile-header > button").first().click();
+    };
+
+    test("agents last seen on this device show after reopening without a connection", async ({
+      page,
+      liveStub,
+    }) => {
+      const { network } = await offlineFixture(page);
+      await page.goto(baseURL + "/");
+      await openNavigation(page);
+      await expect(row(page, "Chief of Staff")).toBeVisible();
+      await expect
+        .poll(() => page.evaluate((key) => localStorage.getItem(key) !== null, cacheKey))
+        .toBe(true);
+
+      network.offline = true;
+      liveStub.refuse();
+      await page.reload();
+      await openNavigation(page);
+      await expect(row(page, "Home assistant")).toBeVisible();
+      await expect(row(page, "Chief of Staff")).toBeVisible();
+      await expect(sidebar(page).getByText(sidebarNote)).toBeVisible();
+
+      network.authenticated = false;
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("agentpier-login-required")),
+      );
+      await expect(
+        page.getByRole("heading", { name: "Sign in", exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate((key) => localStorage.getItem(key), cacheKey),
+      ).toBeNull();
+    });
+  });

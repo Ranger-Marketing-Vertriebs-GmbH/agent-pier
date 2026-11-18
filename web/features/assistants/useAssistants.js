@@ -13,6 +13,8 @@ export const idleAssistants = {
   error: "",
   connected: true,
   offline: false,
+  // True while the agent list shown was kept on this device, not yet read again.
+  restored: false,
   histories: null,
   drafts: sharedDrafts,
   refresh: async () => {},

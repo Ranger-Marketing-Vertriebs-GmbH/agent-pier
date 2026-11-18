@@ -1962,9 +1962,19 @@ chat you opened before shows its last loaded messages with "Connection interrupt
 Your draft is preserved; history will refresh when connected." Sending stays off until
 the connection is back; the typed text stays in the composer. When AgentPier answers
 again, the list and the open chat refresh by themselves, also after a restart that
-first refused the agent list. All of this lives only in the open page: a reload or a
-logout starts empty, and nothing is stored on the device. A logout, or another user
-signing in, also forgets unsent agent drafts.
+first refused the agent list.
+
+The agent list is also kept on the device: each list AgentPier sends is written to the
+browser's `localStorage` (`agentpier.agent-list.v1`, at most 1.5 million characters)
+for the login that received it. When the app opens again (the installed app on a
+phone included) and AgentPier or its agents do not answer, the sidebar, the agents
+page and the start page list these agents dimmed, with the note above once a read
+failed, and the first answer replaces them. The entry holds what the browser already
+showed, never credentials, and leaves out the chats of users' own agents. Another
+login, a logout, an expired session, another AgentPier build or agents switched off
+drop it. Chats, their messages and drafts are not stored for offline use: an agent
+chat shows only what this open page loaded. A logout, or another user signing in,
+also forgets unsent agent drafts.
 
 ## Attachments
 
