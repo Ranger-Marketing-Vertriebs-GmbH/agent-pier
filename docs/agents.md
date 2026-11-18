@@ -1872,6 +1872,13 @@ team (**Allow a team for this message**), the whole queued message does. **Edit*
 it back into the composer, before any text typed since, with its files. An archived
 agent takes no queued messages.
 
+The composer never refuses a message in silence. A message sent while the agent cannot
+take it directly, because the agent service is not ready (for example while it
+reconnects to a busy Gateway) or the agent still works on a team task, is queued the
+same way and goes out once the agent can take it. Pressing **Send** again while your
+previous message is still on its way says so and keeps the text in the field; it is
+never sent twice. While AgentPier cannot be reached, the chat says that it is offline.
+
 AgentPier keeps the queued message on the server, so a reload, another tab or device
 and a restart still show it. Once the turn ends, also when it failed or you stopped it,
 the server sends the queued message once, with its files and team permission, through

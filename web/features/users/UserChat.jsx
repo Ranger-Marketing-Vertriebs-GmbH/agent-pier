@@ -92,12 +92,9 @@ export default function UserChat({
     element.scrollTop = element.scrollHeight;
     scroll.current = element.scrollTop;
   }, [history.messages, history.requests, delta, chat.busy]);
+  // Pressable during her own delivery too: a second press says it is under way.
   const canSend = Boolean(
-    (chat.text.trim() || files) &&
-    !chat.busy &&
-    !active &&
-    !chat.queued &&
-    chat.available,
+    (chat.text.trim() || files) && !active && !chat.queued && chat.available,
   );
   const send = (event, ids) => {
     stick.current = true;

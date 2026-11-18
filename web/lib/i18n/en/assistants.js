@@ -392,6 +392,9 @@ export const assistantCopy = {
   send: "Send",
   stop: "Stop response",
   stopShort: "Stop",
+  // A second press while the message is still on its way: nothing is lost or sent twice.
+  sendUnderway:
+    "Your message is still on its way; it stays in the field until AgentPier confirms it.",
   // A message written while the agent works waits above the composer until it is done.
   queued: {
     send: "Send when done",
