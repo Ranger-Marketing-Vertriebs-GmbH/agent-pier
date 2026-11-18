@@ -34,7 +34,14 @@ async function freeBlock() {
 
 test("npm run dev on a leased block serves on its second port and reaches the backend on its first", async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "vite-dev-ports-"));
-  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  let application, vite, base;
+  // node:test runs after hooks in the order they were added: one hook stops Vite and
+  // the backend before their data directory goes, so no poll lists a removed folder.
+  t.after(async () => {
+    await vite?.close();
+    await application?.close();
+    await fs.rm(dir, { recursive: true, force: true });
+  });
   const home = path.join(dir, "home");
   await fs.mkdir(home, { mode: 0o700 });
   const saved = { ...process.env };
@@ -44,7 +51,6 @@ test("npm run dev on a leased block serves on its second port and reaches the ba
       else process.env[key] = saved[key];
   });
 
-  let application, vite, base;
   for (let attempt = 0; !vite && attempt < 5; attempt++) {
     base = await freeBlock();
     Object.assign(process.env, {
@@ -73,14 +79,13 @@ test("npm run dev on a leased block serves on its second port and reaches the ba
       await vite?.close();
       vite = undefined;
       await application.close();
+      application = undefined;
       // Vite reports a busy strictPort only by message.
       if (error.code !== "EADDRINUSE" && !/already in use/.test(error.message))
         throw error;
     }
   }
   assert.ok(vite, "a free two-port block");
-  t.after(() => application.close());
-  t.after(() => vite.close());
 
   const address = vite.httpServer.address();
   assert.equal(address.port, base + 1, "Vite listens on the block's second port");
