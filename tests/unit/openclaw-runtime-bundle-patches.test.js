@@ -134,9 +134,12 @@ test("the pinned version's patches", () => {
       "lease-release-retry",
       "codex-catalog-client-version",
       "codex-catalog-client-version-setup",
+      "no-restart-resume",
     ],
   );
-  const [lease, ...codex] = list;
+  const [lease, ...rest] = list;
+  const codex = rest.slice(0, 2);
+  const [noResume] = rest.slice(2);
   // The lease release retry window goes from 2 s to 30 s.
   assert.equal(lease.before, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;");
   assert.equal(lease.after, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;");
@@ -152,9 +155,95 @@ test("the pinned version's patches", () => {
     assert.equal(patch.before, 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";');
     assert.equal(patch.after, 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";');
   }
+  // The main-session restart recovery settles an interrupted turn instead of asking
+  // the model to resume it; every step before the resume stays as it was.
+  assert.equal(noResume.file, "dist/main-session-restart-recovery-DekokRXp.mjs");
+  assert.equal(noResume.before, "const resumeResult = await resumeMainSession({");
+  assert.ok(!noResume.after.includes("resumeMainSession"));
+  assert.match(noResume.after, /^const resumeResult = await \(async \(resume\) => \{/);
+  assert.match(
+    noResume.after,
+    /settleInterruptedRestartRecovery\(\{ \.\.\.resume, reason: /,
+  );
+  assert.match(noResume.after, /\}\)\(\{$/);
   // No rollback target carries a patch: they install unchanged.
   for (const version of runtimeManifest.rollbackTargets)
     assert.equal(bundlePatchId(version), undefined);
+});
+
+// The call site of OpenClaw 2026.11.3's recoverStore (main-session-restart-recovery-
+// DekokRXp.mjs) as shipped, with its two callees stubbed: the patched text must still
+// parse, never resume, and settle the turn with the arguments the resume would get.
+const recoverySite = (call) => `
+let calls = [];
+async function resumeMainSession(params) { calls.push(["resume", params]); return "started"; }
+async function settleInterruptedRestartRecovery(params) {
+\tcalls.push(["settle", params]);
+\treturn globalThis.settleOutcome;
+}
+export async function recover(params, target, entry, recoveryView, resumeOptions) {
+\tcalls = [];
+\tconst dispatchSessionKey = target.sessionKey, completionSource = undefined;
+\t${call}
+\t\t...target,
+\t\tcanonicalSessionKey: dispatchSessionKey,
+\t\tcfg: params.cfg,
+\t\tentry,
+\t\tobservation: recoveryView.observation,
+\t\tcompletionSource,
+\t\trecoveryAttempt: recoveryView.nextAttempt,
+\t\trecoveryAdmission: params.recoveryAdmission,
+\t\tsignal: params.signal,
+\t\tgatewayRuntime: params.gatewayRuntime,
+\t\t...resumeOptions,
+\t\tlifecycleGeneration: params.lifecycleGeneration,
+\t\tshouldContinue: params.shouldContinue
+\t});
+\treturn { resumeResult, calls };
+}
+`;
+
+test("the restart recovery patch settles an interrupted turn instead of resuming it", async () => {
+  const patch = runtimeBundlePatches["2026.11.3"].find(
+    (p) => p.id === "no-restart-resume",
+  );
+  const original = recoverySite(patch.before);
+  const patched = original.replace(patch.before, patch.after);
+  const load = (text) =>
+    import(`data:text/javascript;base64,${Buffer.from(text).toString("base64")}`);
+  const target = { agentId: "main", sessionKey: "agent:main:main", storePath: "/s" };
+  const entry = { sessionId: "s1", abortedLastRun: true };
+  const recoveryView = { observation: { sessionId: "s1", cycleId: "c", revision: 2 } };
+  const run = (module) =>
+    module.recover({ cfg: {} }, target, entry, recoveryView, {
+      forceRestartSafeTools: true,
+    });
+  // Unpatched, the turn is resumed.
+  assert.equal((await run(await load(original))).resumeResult, "started");
+  const module = await load(patched);
+  for (const [outcome, expected] of [
+    ["settled", "settled"],
+    ["skipped", "skipped"],
+    // A notice that could not be written is retried like a failed resume.
+    ["notice_failed", "failed"],
+  ]) {
+    globalThis.settleOutcome = outcome;
+    const { resumeResult, calls } = await run(module);
+    assert.equal(resumeResult, expected);
+    assert.deepEqual(
+      calls.map(([name]) => name),
+      ["settle"],
+    );
+    const [, params] = calls[0];
+    assert.equal(params.entry, entry);
+    assert.equal(params.observation, recoveryView.observation);
+    assert.deepEqual(
+      [params.agentId, params.sessionKey, params.storePath],
+      ["main", "agent:main:main", "/s"],
+    );
+    assert.match(params.reason, /AgentPier/);
+  }
+  delete globalThis.settleOutcome;
 });
 
 test("an installation made before the patch is not the shipped runtime", () => {

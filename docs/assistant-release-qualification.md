@@ -846,20 +846,32 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   (`tests/helpers/converging-apply.js`, at most three tries), and its teardown
   prints the Gateway's lease and lock lines (`DREAMING_GATEWAY_EVIDENCE`) when there
   are any.
-- **Main-session restart recovery (open).** OpenClaw 2026.11.3 resumes a main
-  session whose turn a restart interrupted, on its own: after a later start it
-  appends "[System] Your previous turn was interrupted while OpenClaw was waiting on
-  tool/model work. … finish the task without asking the user to repeat the request"
-  (or "[Earlier unanswered user message …]") and asks the model
+- **Main-session restart recovery.** OpenClaw 2026.11.3 resumes a main session whose
+  turn a restart interrupted, on its own: after a later start it appends "[System]
+  Your previous turn was interrupted while OpenClaw was waiting on tool/model work. …
+  finish the task without asking the user to repeat the request" and asks the model
   (`main-session-restart-recovery-*.mjs`, scheduled by the Gateway's post-attach
-  startup; no configuration switch was found). The runtime contract's crash step
-  (`HOLD_FOR_CRASH`) hits it: in the v2.20.0-rc.4 release run the model got one more
-  request after `recover()`, and locally the same failure came in 1 of 13 runs, while
-  other runs showed the resumed turn only at a later Gateway start. This contradicts
-  AgentPier's rule that crashed or uncertain work is never replayed
-  (`assistant-gateway.md`); suppressing it (a bundle patch) or adopting the resumed
-  run into the ledger is still to be decided. The contract's evidence lists each
-  model request with its time and last user text (`asked`).
+  startup and run again before the next visible turn of that session and for a
+  retried `chat.send`; no configuration switch exists). The runtime contract's crash
+  step (`HOLD_FOR_CRASH`) hit it: in the v2.20.0-rc.4 release run the model got one
+  more request after `recover()`, and locally the same failure came in 1 of 13 runs.
+  This contradicts AgentPier's rule that crashed or uncertain work is never replayed
+  (`assistant-gateway.md`, "Interrupted turns after a restart"). The installer now
+  replaces the one resume call with upstream's own settlement of the turn
+  (`no-restart-resume`, `assistant-runtime-updates.md` "Package patches"): the
+  session ends `interrupted` with OpenClaw's local notice in the transcript, and
+  everything else the recovery does (orphan marking, settling delivered replies and
+  owed delivery notices, tombstones) stays. The crash step now waits after the
+  restart until that notice is in the transcript (under 1 s locally) and requires
+  that no model request followed, before AgentPier's own reconcile and recovery; the
+  ledger still records the turn as interrupted or uncertain. When OpenClaw's
+  restart-loop breaker (three unclean boots of the data directory within 5 minutes,
+  as when the contract runs again at once in the same directory) pauses the recovery,
+  the step checks only that no request followed. The patch contract and
+  `verify-assistant-installation.mjs` fail when the installed package calls
+  `resumeMainSession` anywhere (`tests/helpers/restart-resume-guard.js`), so a pin
+  bump cannot drop the patch unnoticed. The contract's evidence lists each model
+  request with its time and last user text (`asked`).
 - **Codex catalog client version.** ChatGPT-account model discovery sends the bundled
   `OPENAI_CODEX_CLIENT_VERSION` (2026.11.3: `0.164.0`) as `client_version`, because
   the Codex plugin that would report another version is not in the npm package and

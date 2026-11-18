@@ -445,6 +445,22 @@ running as installed. Starting a patched installation verifies its patches again
   npm package leaves that plugin out and AgentPier does not install it, so the
   bundled constant is what is sent (see `assistant-gateway.md`, "ChatGPT assistant
   accounts").
+- `no-restart-resume`: OpenClaw's main-session restart recovery
+  (`dist/main-session-restart-recovery-*.mjs`) no longer asks the model to continue
+  a turn that a Gateway restart interrupted. Its one resume call
+  (`resumeMainSession` in `recoverStore`) settles the turn instead, through
+  upstream's own no-replay path (`settleInterruptedRestartRecovery`): the session's
+  status becomes `interrupted`, the recovery claim and markers are cleared, and the
+  transcript gets OpenClaw's local notice "This interrupted turn could not resume
+  after the Gateway restarted: AgentPier never resumes an interrupted turn on its
+  own. …". No model request and no channel delivery follow. Every step before the
+  resume stays: marking orphaned sessions, settling turns whose reply was already
+  delivered, owed delivery notices and tombstones of exhausted recoveries. The
+  recovery runs at Gateway start, before the next visible turn of an interrupted
+  session and for a retried `chat.send`; all three now settle. AgentPier's ledger
+  keeps the turn interrupted or uncertain for the owner to review (see
+  `assistant-gateway.md`, "Interrupted turns after a restart"). OpenClaw has no
+  setting for this.
 
 Remove an entry, and with it its part of the patch identity, once the pinned OpenClaw
 fixes the problem itself.
@@ -458,6 +474,14 @@ literal `client_version=` in `dist` is older than 0.169.0, or when the constant 
 not found at all (`tests/helpers/codex-client-version-floor.js`). When bumping the
 pin, carry both Codex entries forward to the new version (with its file names)
 unless the new version already ships 0.169.0 or newer; then drop them.
+
+The restart resume is guarded the same way: both checks fail when the installed
+package defines `resumeMainSession` and calls it anywhere in `dist`, when it no longer
+settles the turn in place of that call, or when the function is not found at all
+(`tests/helpers/restart-resume-guard.js`). Carry `no-restart-resume` forward to every
+new version (with its file name and, if the call changed, its text) until upstream
+offers a switch that turns automatic resumption off; then configure that switch and
+drop the patch.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with

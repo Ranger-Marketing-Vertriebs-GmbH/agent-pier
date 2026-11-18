@@ -296,6 +296,9 @@ test(
     assert.ok(model.requests.some((r) => JSON.stringify(r).includes("HOLD_FOR_CRASH")));
     step("crash-held");
     const countBeforeCrash = model.requests.length;
+    // The console log from here on: what the restarted Gateway says about recovery.
+    const consoleLog = path.join(runtime.paths.logs, "gateway-console.log");
+    const consoleFrom = fs.existsSync(consoleLog) ? fs.statSync(consoleLog).size : 0;
     const oldPid = runtime.child.pid;
     runtime.child.kill("SIGKILL");
     // The supervisor's own readiness budget bounds the crash restart.
@@ -314,6 +317,36 @@ test(
     // the next call arrives, so each restart below waits for the admission first.
     await admissionDone(runtime.client);
     step("crash-admitted");
+    // OpenClaw's restart recovery settles the interrupted turn without asking the
+    // model again (the no-restart-resume patch, runtime-bundle-patches.js): its notice
+    // reaches the transcript and no model request follows. Unpatched, it resumes here.
+    // OpenClaw's restart-loop breaker (three unclean boots of the data directory within
+    // 5 min, e.g. other contracts of the shard) pauses the recovery: then nothing runs.
+    const notice = "could not resume after the Gateway restarted";
+    const paused = () => {
+      try {
+        return fs
+          .readFileSync(consoleLog)
+          .subarray(consoleFrom)
+          .toString("utf8")
+          .includes("restart-loop breaker tripped");
+      } catch {
+        return false;
+      }
+    };
+    const settleDeadline = Date.now() + 60000;
+    let settled = false;
+    while (!settled && !paused() && Date.now() < settleDeadline) {
+      const page = await runtime.client
+        .call("chat.history", { sessionKey: conversation.runtimeSessionKey, limit: 20 })
+        .catch(() => null);
+      settled = JSON.stringify(page ?? "").includes(notice);
+      if (!settled) await delay(250);
+    }
+    if (!paused())
+      assert.ok(settled, "the interrupted turn is settled with OpenClaw's notice");
+    assert.equal(model.requests.length, countBeforeCrash, "the turn is not resumed");
+    step("crash-settled");
     await service.reconcile();
     assert.ok(
       ["interrupted", "uncertain"].includes(
