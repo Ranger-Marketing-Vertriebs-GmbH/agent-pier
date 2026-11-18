@@ -180,7 +180,9 @@ photos of the original as paths inside the session's working folder; with no tar
 the rebuild starts from them alone, see [Screenshots](craft.md#screenshots)), plus a
 `requestId` that makes a retry from the same session return the same rebuild; it creates the rebuild's project and returns its
 id and link. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
-step, note, folder and how many questions wait for you, never the questions. You answer
+step, note, folder, how many questions wait for you (never the questions) and
+`notAnsweringSince`, the time since which Craft Anything has not answered (null while it
+answers; the status is then the last one it reported). You answer
 them in AgentPier ([Craft Anything](craft.md)).
 
 ### Publishing private artifacts

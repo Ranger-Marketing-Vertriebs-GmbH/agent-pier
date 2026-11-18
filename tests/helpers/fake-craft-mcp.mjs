@@ -40,7 +40,9 @@
  *     "stopLagMs": 500,                 // rebuild_status still reports the build
  *                                       // running this long after rebuild_stop
  *                                       // (0.5.0, 0.6.0)
- *     "ignoreStdinClose": true          // keep running when stdin closes
+ *     "ignoreStdinClose": true,         // keep running when stdin closes
+ *     "busyFile": "/abs/busy",          // busy while it exists (fake-craft-busy.mjs)
+ *     "callLog": "/abs/calls.log"       // `call <tool>` and `cancel <id>` lines
  *   }
  * `pictures` go to `reference/picture-N.<ext>` as in 0.6.0 (other names skipped, over
  * 20 MB refused first); craft.json's `pictures` records every path received.
@@ -65,6 +67,7 @@ import {
   appendFileSync,
 } from "node:fs";
 import path from "node:path";
+import { busyGate } from "./fake-craft-busy.mjs";
 import { addPictures, checkPictures } from "./fake-craft-pictures.mjs";
 
 const script = process.env.FAKE_CRAFT_SCRIPT
@@ -543,8 +546,10 @@ function callTool(id, { name, arguments: args = {} } = {}) {
   }
 }
 
+const gate = busyGate(script, (id, params) => send(callTool(id, params)));
 function handle(message) {
   const { id, method, params } = message;
+  if (method === "notifications/cancelled") return gate.cancel(params?.requestId);
   if (id === undefined || id === null) return; // Notifications need no answer.
   if (method === "initialize" && script.silentInit) return;
   if (method === "initialize")
@@ -560,6 +565,7 @@ function handle(message) {
   if (method === "tools/list")
     return send({ jsonrpc: "2.0", id, result: { tools: toolList } });
   if (method === "tools/call") {
+    if (gate.hold(id, params)) return;
     const delay = script.slowTools?.[params?.name];
     if (delay) return setTimeout(() => send(callTool(id, params)), delay);
     return send(callTool(id, params));

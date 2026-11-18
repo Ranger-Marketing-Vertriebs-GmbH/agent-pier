@@ -134,6 +134,16 @@ starts one Craft Anything MCP process per Claude account and mode, on demand, an
 it 60 seconds after its last running rebuild ends. While a rebuild runs, AgentPier reads
 its state every 2 seconds; nothing is read while none runs.
 
+Craft Anything can stop answering calls while heavy work holds it, for example a
+check's screenshots and pixel comparisons. A read that gets no answer within 30 seconds is
+cancelled, so it does not wait in Craft Anything behind that work, and the rebuild's
+page says **Craft Anything has not answered since** a time, above the last state it
+reported. Until Craft Anything answers again, AgentPier sends no further read while one
+still waits, logs the stall once (`CRAFT_MCP_TIMEOUT`) instead of once per read, and the page keeps
+the activity lines it read before. The first answer clears the note; a lost child
+pauses the rebuild as usual. Sessions and agents read the same time as
+`notAnsweringSince` (`craft_rebuild_status`, `agentpier_craft`).
+
 AgentPier gives the rebuilds their own Craft Anything config under
 `<data dir>/craft-anything/rebuilds` (separate from the sessions' one) and names Claude
 Code there as the backend that builds (an `[[ai.backends]]` entry in its `config.toml`,
@@ -167,8 +177,8 @@ Craft Anything only its own copy. The request text still steers the builder, whi
 runs with your account on your machine (and in auto mode with its approvals allowed),
 so grant `agentpier_craft` only
 to agents you trust with that. A session's `requestId` counts within that session only.
-They see a rebuild's status, folder and how many questions wait, not
-the questions themselves: you answer those in AgentPier. The rebuild shows **Started by
+They see a rebuild's status, folder, how many questions wait and since when Craft
+Anything has not answered (`notAnsweringSince`), not the questions themselves: you answer those in AgentPier. The rebuild shows **Started by
 a session** or **Started by an agent**.
 
 ## Shutdown and Continue

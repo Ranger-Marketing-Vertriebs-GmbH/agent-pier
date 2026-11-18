@@ -56,6 +56,8 @@ export const craft = Object.freeze({
     "Dieses Bild liegt außerhalb der Ordner, die hier gelesen werden dürfen. Nenne ein Bild aus deinen eigenen Ordnern.",
   rebuildPictureNotFound: "Dieses Bild wurde nicht gefunden.",
   rebuildNotFound: "Diesen Nachbau gibt es nicht.",
+  rebuildNotAnswering:
+    "Craft Anything antwortet gerade nicht. Die Aktivität wird gelesen, sobald es wieder antwortet.",
   rebuildRunning: "Dieser Nachbau läuft gerade. Pausiere ihn zuerst.",
   rebuildNeverStarted:
     "Dieser Nachbau wurde nie gestartet und kann nicht fortgesetzt werden.",

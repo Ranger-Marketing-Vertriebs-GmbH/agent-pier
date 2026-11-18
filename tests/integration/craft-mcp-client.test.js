@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -309,4 +309,31 @@ test("a member that outlived its group's kill is killed when the group settles",
   assert.equal(exists(member), true, "the forked child outlived its parent");
   await settleKilledGroups([shell.pid]);
   assert.ok(await until(() => !exists(member), 2000));
+});
+
+test("a timed-out call is cancelled and the client reads not answering until an answer", async (t) => {
+  const scratch = mkdtempSync(path.join(tmpdir(), "agentpier-craft-busy-"));
+  t.after(() => rmSync(scratch, { recursive: true, force: true }));
+  const busyFile = path.join(scratch, "busy");
+  const callLog = path.join(scratch, "calls.log");
+  const { start } = setup(t, { script: { busyFile, callLog } });
+  const client = await start();
+  assert.equal(client.notAnsweringSince, null);
+  writeFileSync(busyFile, "");
+  const before = Date.now();
+  await assert.rejects(
+    client.call("rebuild_status", { project: "x" }, { timeoutMs: 100 }),
+    (error) => error.code === "CRAFT_MCP_TIMEOUT",
+  );
+  assert.ok(client.notAnsweringSince >= before, "the stall is dated");
+  assert.ok(
+    await until(() => readFileSync(callLog, "utf8").includes("cancel ")),
+    "Craft Anything hears the cancellation",
+  );
+  rmSync(busyFile);
+  // Cancelled, the call is never answered; the next answer ends the stall.
+  await assert.rejects(client.call("rebuild_status", { project: "x" }), {
+    code: "project_not_found",
+  });
+  assert.equal(client.notAnsweringSince, null);
 });

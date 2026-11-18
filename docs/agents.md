@@ -1568,8 +1568,9 @@ Only your own chat can start one, never a routine, a hook, forwarded or members'
 content. The target is a web address or nothing, never a local path, and the account,
 mode and auto mode follow your defaults. The request text still steers the builder,
 which runs with your account on your machine, so grant `agentpier_craft` only to agents
-you trust with that. The agent sees the status and how many
-questions wait, never the questions: you answer them in the [inbox](inbox.md). A retried
+you trust with that. The agent sees the status, how many
+questions wait and since when Craft Anything has not answered (`notAnsweringSince`),
+never the questions: you answer them in the [inbox](inbox.md). A retried
 call returns the rebuild its first call started.
 
 ## Work until done

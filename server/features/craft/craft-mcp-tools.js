@@ -54,6 +54,7 @@ export const statusView = (rebuild) => ({
   projectId: rebuild.projectId,
   folder: rebuild.folder,
   openQuestions: rebuild.questions.length,
+  notAnsweringSince: rebuild.notAnsweringSince ?? null,
   link: `/craft/${rebuild.id}`,
 });
 

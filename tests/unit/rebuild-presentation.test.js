@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   byRecent,
+  clockTime,
   latestCheck,
   similarityPercent,
   statusTone,
@@ -39,5 +40,13 @@ test("the latest check, status tones and the order of the list", () => {
   assert.deepEqual(
     items.sort(byRecent).map((item) => item.id),
     ["new", "old"],
+  );
+});
+
+test("a stall reads as the clock time it began", () => {
+  const at = "2026-11-17T21:30:00.000Z";
+  assert.equal(
+    clockTime(at, "en-GB"),
+    new Intl.DateTimeFormat("en-GB", { timeStyle: "short" }).format(new Date(at)),
   );
 });
