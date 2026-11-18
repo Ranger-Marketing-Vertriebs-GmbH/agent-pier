@@ -11,13 +11,14 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
 import { assertCodexClientVersionFloor } from "../helpers/codex-client-version-floor.js";
 import { assertNoRestartResume } from "../helpers/restart-resume-guard.js";
+import { assertSupersededPublicationRetried } from "../helpers/superseded-publication-guard.js";
 
 // The pinned runtime as the installer provisioned it carries AgentPier's patches of
 // its version (runtime-bundle-patches.js): the patched text, the receipt that records
 // them, and OpenClaw's content inventory naming the patched file's digest and size.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "the provisioned pinned runtime carries the lease release, Codex catalog and restart resume patches",
+  "the provisioned pinned runtime carries the lease release, Codex catalog, restart resume and superseded publication patches",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
@@ -68,5 +69,19 @@ test(
       found.filter((site) => site.defines).map((site) => site.calls),
       [0],
     );
+  },
+);
+
+// Independent of any patch: the agent database startup after a Doctor migration
+// publishes an agent again when a concurrent model runtime refresh (models.authRefresh)
+// superseded its publication, instead of leaving it degraded until the next restart,
+// so a pin bump cannot drop the patch unnoticed.
+test(
+  "the provisioned pinned runtime retries a superseded startup publication",
+  { skip: !installed },
+  () => {
+    const app = path.join(installed, "app", "node_modules", "openclaw");
+    const found = assertSupersededPublicationRetried(app);
+    assert.ok(found.length >= 1, JSON.stringify(found));
   },
 );

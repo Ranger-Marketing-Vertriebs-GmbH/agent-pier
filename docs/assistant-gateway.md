@@ -657,6 +657,22 @@ another full wait, until a read shows it applied again. A patch builds on the
 unchanged one too, so the provider of an agent's model connection is written only when
 the configuration as written (`config.get`'s `sourceConfig`) does not already hold it.
 
+The same happens after a Doctor migration (a runtime update): OpenClaw 2026.11.3
+then opens, migrates and publishes every agent one by one once the first Gateway
+start listens, each agent pending until it is published. A model runtime refresh
+meanwhile, such as the `models.authRefresh` that reloads OpenClaw's auth profiles,
+supersedes the publication in progress, and that agent stays refused
+(`agent-database-inspection-failed`, reason "prepared model runtime publication was
+superseded") until the next restart. Every `models.authRefresh` AgentPier sends
+(`runtimes/openclaw/openclaw-models.js`: a ChatGPT login written, renewed, moved or
+removed, and the status reload after a refused logout) therefore waits for the same
+admission first, and a ready Gateway no longer reloads every login:
+`beforeSpawn` writes them all into the store the new Gateway reads, and `afterReady`
+only reloads, without holding readiness, the ones renewed while it started
+(`model-accounts.js` `syncUnloaded`). The installer also patches 2026.11.3 to
+publish such an agent again (`superseded-publication-retry`, see
+`assistant-runtime-updates.md` "Package patches").
+
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
 refreshed and every chat subscribes again at once, so a healthy agent's chat that
@@ -676,7 +692,10 @@ to a degraded agent stays queued, as during any agent-service outage, and is
 delivered after the restart; its bot sends no notice meanwhile, and the owner sees
 the agent's state in AgentPier.
 AgentPier does not restart the Gateway on its own: the owner decides when to
-interrupt the other agents. A clean restart admits the agent again; the
+interrupt the other agents. The one exception is a runtime update's validation,
+which runs in maintenance with no agent working: when a check fails while an agent
+was refused for a superseded publication, it restarts the Gateway once and checks
+again (`assistant-runtime-updates.md`, "Validation and diagnostics"). A clean restart admits the agent again; the
 [native contract](../tests/integration/assistant-agent-admission-contract.test.js)
 checks both paths on the pinned runtime.
 

@@ -576,8 +576,9 @@ export function connectAssistantServices(graph) {
       return synchronization.prepare();
     },
     afterReady: async () => {
-      // Before the first run: OpenClaw's profiles of AgentPier's ChatGPT logins.
-      await graph.assistantModelAccounts.syncAll();
+      // beforeSpawn wrote every login; only a renewal since then is reloaded, after
+      // admission (a reload meanwhile degrades an agent, openclaw-models.js).
+      graph.assistantModelAccounts.syncUnloaded().catch(() => {});
       await synchronization.pauseBlocked();
       // Changes since this start converge; not awaited (a start may run admitted).
       mcpChanges.ready();

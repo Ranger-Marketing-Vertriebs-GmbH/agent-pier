@@ -137,7 +137,9 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *   - degraded(): synchronously, the runtime agent ids this connection refused;
  *     noteRefusal({ error }): records the admission refusal a call reported and
  *     returns it, or null; admitting(refusal): synchronously, whether such a refusal
- *     only says the runtime still admits that agent (it may run once admitted).
+ *     only says the runtime still admits that agent (it may run once admitted);
+ *     restartable(agent): synchronously, whether the runtime refused the roster
+ *     entry `agent` (from list()) for a reason its restart clears.
  *   - on(connection): these methods bound to a connection, as sessions.on.
  * - agentFiles: instructions, memory and workspace files
  *   - get({ agentId, name }): `{ file: { content, hash, missing } }`.

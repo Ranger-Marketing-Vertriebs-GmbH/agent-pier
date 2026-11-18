@@ -138,6 +138,46 @@ test("failed candidate restores matching history/runtime and preserves recorded 
   assert.equal(JSON.stringify(f.updates.status()).includes("private upstream"), false);
 });
 
+test("a rolled-back update records the step and check that failed, never a message", async (t) => {
+  const f = fixture(t);
+  await f.updates.stage();
+  f.maintenance.validate = async () => {
+    if (readJSON(f.selected).version === "target")
+      throw Object.assign(Error("private /Users/owner path"), {
+        check: "session:c1",
+        errorCode: "agent-database-inspection-failed",
+      });
+  };
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  const status = f.updates.status();
+  assert.equal(status.phase, "rolled_back");
+  assert.deepEqual(
+    [status.diagnosticStep, status.diagnosticCheck, status.diagnosticErrorCode],
+    ["validate", "session:c1", "agent-database-inspection-failed"],
+  );
+  const journal = readJSON(f.journal);
+  assert.equal(journal.diagnosticStep, "validate");
+  assert.equal(JSON.stringify(journal).includes("private"), false);
+  // A failed start names its step; an untrusted check or code is dropped.
+  const g = fixture(t);
+  await g.updates.stage();
+  g.runtime.start = async function () {
+    if (readJSON(g.selected).version === "target")
+      throw Object.assign(Error("spawn failed"), { check: "x\ny", code: "has space" });
+    this.running = true;
+  };
+  await assert.rejects(g.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  const failed = g.updates.status();
+  assert.deepEqual(
+    [failed.diagnosticStep, failed.diagnosticCheck, failed.diagnosticErrorCode],
+    ["start", null, null],
+  );
+  // Staging again clears them.
+  await g.updates.stage();
+  assert.equal(readJSON(g.journal).diagnosticStep, null);
+  assert.equal(g.updates.status().diagnosticStep, null);
+});
+
 test("a rollback reports its snapshot time before the old runtime starts", async (t) => {
   const f = fixture(t);
   const before = Date.now();

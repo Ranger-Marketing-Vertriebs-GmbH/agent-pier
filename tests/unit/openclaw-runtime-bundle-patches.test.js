@@ -17,6 +17,7 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantInstallFixture } from "../helpers/assistant-install-fixture.js";
+import { assertSupersededPublicationRetried } from "../helpers/superseded-publication-guard.js";
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const file = "dist/lease-shared.mjs";
@@ -135,11 +136,12 @@ test("the pinned version's patches", () => {
       "codex-catalog-client-version",
       "codex-catalog-client-version-setup",
       "no-restart-resume",
+      "superseded-publication-retry",
     ],
   );
   const [lease, ...rest] = list;
   const codex = rest.slice(0, 2);
-  const [noResume] = rest.slice(2);
+  const [noResume, superseded] = rest.slice(2);
   // The lease release retry window goes from 2 s to 30 s.
   assert.equal(lease.before, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;");
   assert.equal(lease.after, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;");
@@ -166,6 +168,13 @@ test("the pinned version's patches", () => {
     /settleInterruptedRestartRecovery\(\{ \.\.\.resume, reason: /,
   );
   assert.match(noResume.after, /\}\)\(\{$/);
+  // The agent database startup loop retries a superseded model runtime publication.
+  assert.equal(superseded.file, "dist/agent-database-startup-DQZqWc4z.mjs");
+  assert.equal(
+    superseded.before,
+    "!(error instanceof AgentDatabaseStartupSupersededError)",
+  );
+  assert.match(superseded.after, /PreparedModelRuntimePublicationSupersededError/);
   // No rollback target carries a patch: they install unchanged.
   for (const version of runtimeManifest.rollbackTargets)
     assert.equal(bundlePatchId(version), undefined);
@@ -244,6 +253,90 @@ test("the restart recovery patch settles an interrupted turn instead of resuming
     assert.match(params.reason, /AgentPier/);
   }
   delete globalThis.settleOutcome;
+});
+
+// The publication loop of OpenClaw 2026.11.3's agent database startup (agent-database-
+// startup-DQZqWc4z.mjs) as shipped, with publishAgent stubbed: the patched text must
+// still parse, retry a superseded model runtime publication within the same bound and
+// still give up on any other failure at once.
+const startupSite = `
+const STARTUP_PUBLICATION_ATTEMPTS = 4;
+var AgentDatabaseStartupSupersededError = class extends Error {
+\tconstructor(agentId, subject) {
+\t\tsuper(\`Agent \${agentId} \${subject} preparation was superseded\`);
+\t\tthis.name = "AgentDatabaseStartupSupersededError";
+\t}
+};
+var PreparedModelRuntimeOwnerNotPublishedError = class extends Error {};
+var PreparedModelRuntimePublicationSupersededError = class extends PreparedModelRuntimeOwnerNotPublishedError {};
+export const errors = { PreparedModelRuntimePublicationSupersededError, PreparedModelRuntimeOwnerNotPublishedError };
+export async function publish(failures) {
+\tlet calls = 0;
+\tconst activation = { publishAgent: async () => { const failure = failures[calls++]; if (failure) throw failure; } };
+\tconst assertNotDeleted = async () => {};
+\tfor (let attempt = 1;; attempt++) try {
+\t\tawait activation.publishAgent({});
+\t\tbreak;
+\t} catch (error) {
+\t\tif (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= STARTUP_PUBLICATION_ATTEMPTS) throw error;
+\t\tawait assertNotDeleted();
+\t}
+\treturn calls;
+}
+`;
+
+test("the startup publication patch retries a superseded model runtime publication", async () => {
+  const patch = runtimeBundlePatches["2026.11.3"].find(
+    (p) => p.id === "superseded-publication-retry",
+  );
+  assert.equal(startupSite.split(patch.before).length - 1, 1);
+  const load = (text) =>
+    import(`data:text/javascript;base64,${Buffer.from(text).toString("base64")}`);
+  const original = await load(startupSite);
+  const patched = await load(startupSite.replace(patch.before, patch.after));
+  const superseded = (module) =>
+    new module.errors.PreparedModelRuntimePublicationSupersededError(
+      "prepared model runtime publication was superseded for /agent",
+    );
+  // Unpatched, one superseded publication leaves the agent degraded.
+  await assert.rejects(original.publish([superseded(original)]), /superseded for/);
+  // Patched, it is published again.
+  assert.equal(await patched.publish([superseded(patched)]), 2);
+  // Within the loop's own bound of four attempts.
+  await assert.rejects(
+    patched.publish(Array.from({ length: 4 }, () => superseded(patched))),
+    /superseded for/,
+  );
+  assert.equal(
+    await patched.publish(Array.from({ length: 3 }, () => superseded(patched))),
+    4,
+  );
+  // Another failure, its base class included, still fails at once.
+  await assert.rejects(patched.publish([Error("locked")]), /locked/);
+  await assert.rejects(
+    patched.publish([new patched.errors.PreparedModelRuntimeOwnerNotPublishedError("x")]),
+    /x/,
+  );
+});
+
+test("the superseded publication guard fails a package that does not retry", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "superseded-guard-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, "dist"));
+  const site = path.join(dir, "dist/agent-database-startup-DQZqWc4z.mjs");
+  assert.throws(() => assertSupersededPublicationRetried(dir), /No agent database/);
+  fs.writeFileSync(site, startupSite);
+  assert.throws(
+    () => assertSupersededPublicationRetried(dir),
+    /DQZqWc4z\.mjs.*superseded-publication-retry/,
+  );
+  const patch = runtimeBundlePatches["2026.11.3"].find(
+    (p) => p.id === "superseded-publication-retry",
+  );
+  fs.writeFileSync(site, startupSite.replace(patch.before, patch.after));
+  assert.deepEqual(assertSupersededPublicationRetried(dir), [
+    { file: "dist/agent-database-startup-DQZqWc4z.mjs", retried: true },
+  ]);
 });
 
 test("an installation made before the patch is not the shipped runtime", () => {

@@ -73,6 +73,15 @@ export const assistantCopy = {
       recovery_required: "Recovery required",
     },
     cause: (detail) => `Cause: ${detail}`,
+    failedAt: (step, detail) => `Failed step: ${step}${detail ? ` (${detail})` : ""}`,
+    steps: {
+      stop: "Stopping",
+      snapshot: "Backup",
+      migrate: "Data migration",
+      start: "Start",
+      validate: "Check",
+      verify: "Backup check",
+    },
     diagnostics: {
       UPDATE_STAGE_FAILED: "Staging failed. The active version is preserved.",
       UPDATE_STAGE_INTERRUPTED: "Staging was interrupted. Stage again.",

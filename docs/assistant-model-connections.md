@@ -144,8 +144,11 @@ The runtimes get access only:
   OpenClaw's own auth profile store (the state database's machine state, or the
   main agent's database on older layouts) in one `BEGIN IMMEDIATE` transaction that
   changes only that profile, refuses unknown layouts and shapes, and then calls
-  `models.authRefresh { operation: "update", agentId: "main" }`; it writes again on
-  every renewal and every Gateway start. With a usable token OpenClaw never
+  `models.authRefresh { operation: "update", agentId: "main" }` once the Gateway
+  admitted its agents (a refresh while OpenClaw still publishes an agent leaves that
+  agent degraded, see [degraded agents](assistant-gateway.md#degraded-agents-agentpier-238)).
+  It writes again on every renewal and before every Gateway start; once that
+  Gateway is ready it reloads only the profiles renewed while it started. With a usable token OpenClaw never
   refreshes, and without a refresh token its refresh claim gives up quietly, so all
   of OpenClaw's ChatGPT features (chat, `image_generate`, transcription, realtime,
   usage, embeddings) stay on the profile. Without a refresh token OpenClaw reports

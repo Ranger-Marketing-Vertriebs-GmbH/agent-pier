@@ -5,7 +5,7 @@ import { locale } from "../../lib/i18n/index.js";
 import { formatBytes } from "../../lib/format-bytes.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
-import { updateCauseDetail } from "./update-cause.js";
+import { updateCauseDetail, updateFailure } from "./update-cause.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import {
   BlockerList,
@@ -112,6 +112,8 @@ export default function AssistantRuntimeUpdates({ onChange, navigate }) {
   const activatable =
     !!status?.candidateReady && !!status.currentVersion && !status.recoveryRequired;
   const upToDate = status?.updateAvailable === false && !status.candidateReady;
+  // Where a rolled-back activation failed: its step, check and code.
+  const failure = updateFailure(status);
   return (
     <section className="assistant-runtime-card">
       <h2>{copy.updates.title}</h2>
@@ -162,6 +164,11 @@ export default function AssistantRuntimeUpdates({ onChange, navigate }) {
           {updateCauseDetail(status.diagnosticCause) && (
             <p className="assistant-note">
               {copy.updates.cause(updateCauseDetail(status.diagnosticCause))}
+            </p>
+          )}
+          {failure && (
+            <p className="assistant-note">
+              {copy.updates.failedAt(copy.updates.steps[failure.step], failure.detail)}
             </p>
           )}
           {status.diagnosticPath && (

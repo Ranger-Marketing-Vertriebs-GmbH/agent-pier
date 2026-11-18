@@ -41,6 +41,8 @@ export class AssistantModelAccounts {
     sleep = delay,
   }) {
     Object.assign(this, { runtime, vault, warn, sleep });
+    // Profiles written while no running Gateway reloaded them (syncUnloaded).
+    this.unloaded = new Set();
     // Model lists live in memory only; the Gateway is the source of truth. Without a
     // running Gateway, AgentPier reads a held login's list from Codex (`codex`).
     this.catalog = catalog;
@@ -368,9 +370,12 @@ export class AssistantModelAccounts {
       const known = this.vault.has(profileId);
       if (known && !access) return; // A rejected renewal: OpenClaw's token runs out.
       const port = this.port();
+      this.unloaded.add(profileId);
       try {
-        if (access) await port.writeAccess({ profileId, credential: access });
-        else await port.removeAccess({ profileId });
+        const { reloaded } = access
+          ? await port.writeAccess({ profileId, credential: access })
+          : await port.removeAccess({ profileId });
+        if (reloaded) this.unloaded.delete(profileId);
       } catch (error) {
         if (!absent.has(error?.code))
           this.warn(
@@ -384,10 +389,26 @@ export class AssistantModelAccounts {
     this.syncing = task.catch(() => {});
     return task;
   }
-  /** Writes every held login into OpenClaw's store (Gateway start, runtime update). */
+  /**
+   * Writes every held login into OpenClaw's store before a Gateway spawn (its
+   * beforeSpawn, also during a runtime update): the Gateway about to start reads
+   * them, so none is left to reload.
+   */
   async syncAll() {
     for (const login of this.vault?.list() || [])
       await this.sync(login.profileId, { force: true });
+    this.unloaded.clear();
+  }
+  /**
+   * Once a Gateway is ready (its afterReady): writes again and reloads only the
+   * profiles changed since the spawn read the store, a renewal while it started.
+   * Never every login: each reload (`models.authRefresh`) waits until the Gateway
+   * admitted its agents (openclaw-models.js), and nothing needs one after a start
+   * without changes.
+   */
+  async syncUnloaded() {
+    for (const profileId of [...this.unloaded])
+      await this.sync(profileId, { force: true });
   }
   close() {
     this.unsubscribe?.();

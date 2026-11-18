@@ -16,6 +16,7 @@ import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { assistantRoutineModel } from "../helpers/assistant-routine-model.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { testPhases } from "../helpers/test-phases.js";
+import { runtimeFor } from "../../server/features/assistants/runtimes/runtime-for.js";
 
 const previousRoot = process.env.AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME;
 const candidateRoot = process.env.AGENTPIER_ASSISTANT_UPDATE_RUNTIME;
@@ -64,6 +65,7 @@ const variants = {
   upgrade: "activation retains memory, schedules, history and receipts",
   reject: "validation failure restores previous runtime and state",
   legacyRoster: "activation canonicalizes a legacy agents.list roster",
+  authRefresh: "activation admits every agent despite a login reload once ready",
 };
 for (const [variant, title] of Object.entries(variants))
   test(
@@ -265,6 +267,16 @@ for (const [variant, title] of Object.entries(variants))
         maintenance,
         stage: async () => candidate,
       });
+      // AgentPier reloads OpenClaw's logins once a Gateway is ready (assistant-graph.js
+      // afterReady). After the Doctor migration 2026.11.3 publishes each agent once it
+      // listens, and a models.authRefresh meanwhile left the agent being published
+      // degraded: the reload waits for admission (openclaw-models.js), and the
+      // superseded-publication-retry patch publishes such an agent again.
+      const reloads = [];
+      if (variant === "authRefresh")
+        runtime.afterReady = async () => {
+          reloads.push(runtimeFor(null, runtime).models.reload());
+        };
       phase("stage");
       await updates.stage();
       assert.equal(runtime.status().version, previous.version);
@@ -352,6 +364,15 @@ for (const [variant, title] of Object.entries(variants))
         callsBefore,
         "upgrade, rollback and restart must not replay model turns",
       );
+      if (variant === "authRefresh") {
+        assert.ok(reloads.length >= 2, "the candidate and the restart reloaded");
+        await Promise.all(reloads);
+        const listed = await runtime.client.call("agents.list", {});
+        assert.deepEqual(
+          (listed.agents || []).filter((agent) => agent.admissionRefusal),
+          [],
+        );
+      }
       if (variant === "legacyRoster") {
         const config = readJSON(runtime.paths.config);
         assert.equal(config.agents.list, undefined);

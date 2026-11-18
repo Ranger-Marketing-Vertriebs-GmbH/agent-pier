@@ -26,6 +26,20 @@ export const admissionDoneOn = (runtime) =>
   agentsOf(runtime)?.admitted() ?? Promise.resolve();
 
 /**
+ * Resolves once the runtime admitted the agents it prepares in the background, or
+ * after its wait ended without progress (agents.settled); never rejects.
+ */
+export const admissionSettledOn = (runtime) =>
+  agentsOf(runtime)?.settled() ?? Promise.resolve();
+
+/**
+ * Whether the runtime refused the roster entry `agent` (agents.list) for a reason its
+ * restart clears (agents.restartable).
+ */
+export const restartableOn = (runtime, agent) =>
+  !!agentsOf(runtime)?.restartable?.(agent);
+
+/**
  * The owner's list (assistant-service.js list): an agent the running Gateway refused
  * is `degraded`, and its chats show AGENT_DEGRADED before any session fault
  * (chat-reconcile.js `sessionFailures`).
