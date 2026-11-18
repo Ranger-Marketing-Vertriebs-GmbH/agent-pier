@@ -574,13 +574,21 @@ test.describe("team member composer", () => {
     await expect(page.locator(".assistant-options-hint")).toHaveCount(0);
   });
 
-  test("send stays disabled while the member is busy", async ({ page }) => {
+  test("send queues the message while the member is busy", async ({ page }) => {
     await chatFixture(page, {
       ...member,
       members: [{ id: "m1", assistantId: "worker", phase: "running" }],
     });
     await page.goto(memberChat);
     await page.getByLabel("Message", { exact: true }).fill("Hello");
-    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+    // The composer never refuses in silence (send-route.js): a busy member's chat
+    // takes the message into the server-side queue instead of disabling Send.
+    const send = page.getByRole("button", { name: "Send", exact: true });
+    await expect(send).toBeEnabled();
+    const queued = page.waitForRequest(
+      (request) => request.method() === "POST" && /\/queued$/.test(request.url()),
+    );
+    await send.click();
+    await queued;
   });
 });
