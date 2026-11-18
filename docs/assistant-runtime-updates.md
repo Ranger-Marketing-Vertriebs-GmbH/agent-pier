@@ -167,6 +167,45 @@ group it cannot attribute while it still exists keeps the update in
 running migration. A same-version runtime change (a new Node or lock) runs no
 migration.
 
+### Validation and diagnostics
+
+After the candidate's first start, validation (`runtime-update-validation.js`,
+also run by a rollback's start) first waits until the Gateway admitted the agents it
+prepares in the background: after a Doctor migration OpenClaw 2026.11.3 opens,
+migrates and publishes each agent one by one once it listens, and the roster reports
+an agent `agent-database-inspection-pending` until then. The wait is the one
+configuration writes use (`runtimes/openclaw/agent-admission.js`): it ends once no
+agent is pending, or after 2 minutes without one being admitted; the checks then
+run and fail on the agents still pending. The checks, each named in a failure:
+
+- `host`: the Gateway is connected;
+- `routines`: its scheduler is paused while maintenance holds it;
+- `roster` and `roster:<runtimeAgentId>`: the roster lists every OpenClaw agent
+  with an effective revision, and none of them carries an admission refusal;
+- `session:<conversationId>`: every chat's native session can be described;
+- `blockers`: no work blocks the update.
+
+OpenClaw 2026.11.3 refuses an agent for the Gateway's lifetime when a concurrent
+model runtime refresh superseded its publication (refusal
+`agent-database-inspection-failed`, reason "prepared model runtime publication was
+superseded"); a restart publishes it again. When a check fails while the roster
+names such an agent, validation restarts the Gateway once (stop, start, wait for
+admission) and runs the checks again; a second failure stands. AgentPier no longer
+causes that refresh itself (`assistant-gateway.md`, "ChatGPT assistant accounts"),
+and the `superseded-publication-retry` patch below retries the publication inside
+OpenClaw.
+
+When an activation fails after the Gateway stop, the journal records where before
+the rollback starts: `diagnosticStep` (`stop`, `snapshot`, `migrate`, `start`,
+`validate` or `verify`, the snapshot check after validation), `diagnosticCheck`
+(the validation check above) and `diagnosticErrorCode` (the most specific stable
+code: an admission refusal's code, the Gateway's error code such as `UNAVAILABLE`,
+or AgentPier's problem key). Only names matching fixed patterns are kept, never a
+message, a path or a secret, and the server log names the same three. The status
+reports them while the update rolls back, is restored or needs recovery, and the
+update panel shows them under the diagnostic as "Failed step: Check
+(session:c1 · agent-database-inspection-failed)". Staging again clears them.
+
 The snapshot covers Gateway home, state and workspaces, plus all AgentPier SQLite
 ledgers under the assistant root. The workspace root is shared with Hermes agents
 (`<data>/assistants/workspaces/<id>`): the snapshot leaves their folders out, and a
@@ -334,6 +373,7 @@ Run the installer, activation, lifecycle and HTTP regression tests:
 ```sh
 node --test tests/unit/assistant-runtime-install.test.js \
   tests/unit/openclaw-runtime-lifecycle.test.js \
+  tests/unit/runtime-update-validation.test.js \
   tests/integration/assistant-runtime-activation.test.js \
   tests/integration/assistant-runtime-update.test.js \
   tests/integration/assistant-runtime-lifecycle.test.js \
@@ -461,6 +501,20 @@ running as installed. Starting a patched installation verifies its patches again
   keeps the turn interrupted or uncertain for the owner to review (see
   `assistant-gateway.md`, "Interrupted turns after a restart"). OpenClaw has no
   setting for this.
+- `superseded-publication-retry`: the agent database startup
+  (`dist/agent-database-startup-*.mjs`) publishes an agent again when a concurrent
+  model runtime refresh superseded its publication. After a Doctor migration the
+  first Gateway start prepares every agent once it listens, one after the other;
+  `publishAgent` refreshes the agent's prepared model runtime without joining a
+  superseding publication, so any concurrent refresh (a secrets snapshot activation
+  from `models.authRefresh`, for example) makes it throw
+  `PreparedModelRuntimePublicationSupersededError`. The startup loop retried only
+  its own `AgentDatabaseStartupSupersededError`, so the agent "remained degraded"
+  and its sessions answered `UNAVAILABLE` until the next restart (`doctor --fix`
+  does not help); an update from 2026.10.9 then failed its validation and rolled
+  back. The loop now retries this refusal too, within its own bound of four
+  attempts. The class is not imported in that module and sets no `name`, so it is
+  matched by its constructor's name.
 
 Remove an entry, and with it its part of the patch identity, once the pinned OpenClaw
 fixes the problem itself.
@@ -482,6 +536,14 @@ settles the turn in place of that call, or when the function is not found at all
 new version (with its file name and, if the call changed, its text) until upstream
 offers a switch that turns automatic resumption off; then configure that switch and
 drop the patch.
+
+The superseded publication retry is guarded too: both checks fail when a startup
+publication retry in `dist` (`… || attempt >= STARTUP_PUBLICATION_ATTEMPTS) throw
+error;`) does not retry `PreparedModelRuntimePublicationSupersededError`, or when no
+such loop is found (`tests/helpers/superseded-publication-guard.js`). Carry
+`superseded-publication-retry` forward to every new version (with its file name)
+until upstream retries or joins superseded publications in its agent database
+startup; then update the guard and drop the patch.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with

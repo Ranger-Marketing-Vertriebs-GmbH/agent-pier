@@ -42,6 +42,8 @@ const others = {
   "dist/base-url-Baro1bPi.mjs": 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";\n',
   "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs":
     'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";\n',
+  "dist/agent-database-startup-DQZqWc4z.mjs":
+    "if (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= 4) throw error;\n",
 };
 
 test("the shipped recovery module resumes and fails the guard", (t) => {

@@ -289,3 +289,71 @@ test("a refused logout whose profile OpenClaw still holds stays failed", async (
   await assert.rejects(accounts.logout(account.id), { code: "TIMEOUT" });
   assert.equal(count(timedOut, "models.authLogout"), 1);
 });
+
+// After a Doctor migration OpenClaw 2026.11.3 prepares its agents one by one once it
+// listens; a models.authRefresh meanwhile supersedes the agent being published and
+// leaves it degraded until the next restart. A reload waits until no agent is pending.
+test("a profile reload waits until the Gateway admitted its agents", async (t) => {
+  const { accounts, vault, runtime, calls } = await heldFixture(t);
+  let pending = 2;
+  const call = runtime.client.call;
+  runtime.client.call = async (method, params) => {
+    if (method === "agents.list") {
+      calls.push({ method, params });
+      const refusal = { agentId: "ap-a", code: "agent-database-inspection-pending" };
+      return {
+        agents: [{ id: "ap-a", ...(pending-- > 0 ? { admissionRefusal: refusal } : {}) }],
+      };
+    }
+    return call(method, params);
+  };
+  const profileId = vault.save({
+    access: "held-access",
+    refresh: "held-refresh",
+    expires: Date.now() + 3600_000,
+    email: "owner@example.invalid",
+  });
+  await accounts.sync(profileId);
+  const methods = calls.map((c) => c.method);
+  assert.deepEqual(methods, [
+    "agents.list",
+    "agents.list",
+    "agents.list",
+    "models.authRefresh",
+  ]);
+});
+
+// beforeSpawn writes every held login before the Gateway reads its store; afterReady
+// reloads only what changed while the Gateway started, never all of them.
+test("after a start only logins written since the spawn are reloaded", async (t) => {
+  const { accounts, vault, runtime, calls, read } = await heldFixture(t, {
+    ready: false,
+  });
+  const save = (access, profileId) =>
+    vault.save(
+      {
+        access,
+        refresh: "held-refresh",
+        expires: Date.now() + 3600_000,
+        email: `${access}@example.invalid`,
+      },
+      profileId ? { profileId } : undefined,
+    );
+  const first = save("first-access");
+  const second = save("second-access");
+  await accounts.syncAll();
+  assert.equal(read().profiles[first].access, "first-access");
+  // Renewed while the Gateway starts (the vault's change sync): written, not loaded.
+  save("renewed-access", second);
+  await new Promise((resolve) => setImmediate(resolve));
+  await accounts.syncing;
+  assert.equal(read().profiles[second].access, "renewed-access");
+  runtime.client.ready = true;
+  await accounts.syncUnloaded();
+  const reloads = calls.filter((c) => c.method === "models.authRefresh");
+  assert.equal(reloads.length, 1);
+  assert.equal(read().profiles[second].access, "renewed-access");
+  // Nothing is left to reload.
+  await accounts.syncUnloaded();
+  assert.equal(calls.filter((c) => c.method === "models.authRefresh").length, 1);
+});

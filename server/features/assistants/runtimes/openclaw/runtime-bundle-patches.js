@@ -43,6 +43,24 @@ import { createHash } from "node:crypto";
  * appended to the transcript, without a model request or channel delivery. Every
  * step before it stays: orphan marking, settling turns whose reply was delivered,
  * owed delivery notices, tombstones of exhausted recoveries.
+ *
+ * 2026.11.3, "superseded-publication-retry": after a Doctor migration the first
+ * Gateway start prepares every agent once it listens, one after the other (open,
+ * migrate, publish its prepared model runtime). `publishAgent` (gateway-prewarm.js)
+ * refreshes the agent's model runtime with an `isPublicationCurrent` check and
+ * without `joinSupersedingPublication`, so any concurrent refresh (a secrets snapshot
+ * activation from `models.authRefresh`, say) makes it throw
+ * `PreparedModelRuntimePublicationSupersededError`. The startup loop
+ * (src/state/agent-database-startup.ts) retries only its own
+ * `AgentDatabaseStartupSupersededError`, so that agent "remains degraded" and its
+ * sessions answer UNAVAILABLE until the Gateway restarts; a runtime update then fails
+ * its validation and rolls back. The loop retries this refusal too, within its own
+ * bound (STARTUP_PUBLICATION_ATTEMPTS, 4). The class is not imported there and sets
+ * no `name`, so it is told by its constructor's name, which the bundle keeps
+ * (`var PreparedModelRuntimePublicationSupersededError = class …`). AgentPier also
+ * no longer causes the refresh while agents are admitted (openclaw-models.js), and a
+ * validation that still meets such an agent restarts the Gateway once
+ * (runtime-update-validation.js).
  */
 export const runtimeBundlePatches = Object.freeze({
   "2026.11.3": Object.freeze([
@@ -83,6 +101,18 @@ export const runtimeBundlePatches = Object.freeze({
         "settleInterruptedRestartRecovery({ ...resume, reason: " +
         '"AgentPier never resumes an interrupted turn on its own" }); ' +
         'return settled === "notice_failed" ? "failed" : settled; })({',
+    }),
+    // Carry this entry forward on every pin bump until upstream retries or joins
+    // superseded publications in its agent database startup; the patch contract and
+    // verify-assistant-installation.mjs fail otherwise
+    // (tests/helpers/superseded-publication-guard.js).
+    Object.freeze({
+      id: "superseded-publication-retry",
+      file: "dist/agent-database-startup-DQZqWc4z.mjs",
+      before: "!(error instanceof AgentDatabaseStartupSupersededError)",
+      after:
+        "!(error instanceof AgentDatabaseStartupSupersededError || " +
+        'error?.constructor?.name === "PreparedModelRuntimePublicationSupersededError")',
     }),
   ]),
 });

@@ -227,6 +227,7 @@ export function createHermesRuntime({
     degraded: () => [],
     noteRefusal: () => null,
     admitting: () => false,
+    restartable: () => false,
   };
   const runtime = defineAgentRuntime({
     id: hermesDescriptor.id,

@@ -1,4 +1,5 @@
 import { boundPort } from "./openclaw-agents.js";
+import { settledAdmission } from "./agent-admission.js";
 import {
   readStoredProfile,
   removeAccessProfile,
@@ -29,16 +30,29 @@ const agentId = "main";
  * - takeStored({ profileId }): the same, and in the same transaction the profile
  *   loses its refresh token (the one move of a login to AgentPier); reloads a
  *   running Gateway. Resolves `{ credential, reloaded }`.
+ *
+ * Every `models.authRefresh` first waits until the Gateway admitted the agents it
+ * prepares in the background (agent-admission.js, the wait configuration writes
+ * use): after a Doctor migration OpenClaw 2026.11.3 publishes each agent's model
+ * runtime one by one once it listens, and a refresh meanwhile supersedes that
+ * publication and leaves the agent degraded until the next restart. The wait ends
+ * after 2 minutes without progress; the refresh then goes out anyway (the
+ * superseded-publication-retry patch, runtime-bundle-patches.js, retries the
+ * publication it may still supersede).
  */
 export const openClawModels = (supervisor, clientOf) =>
   boundPort((current) => modelsOver(current, supervisor), supervisor, clientOf);
 
 function modelsOver(current, supervisor) {
   const call = async (...args) => current().call(...args);
+  const refresh = async (client, operation, timeoutMs) => {
+    await settledAdmission(client);
+    return client.call("models.authRefresh", { operation, agentId }, { timeoutMs });
+  };
   const reload = async (operation) => {
     const client = current();
     if (!client?.ready) return false;
-    await client.call("models.authRefresh", { operation, agentId }, { timeoutMs: 30000 });
+    await refresh(client, operation, 30000);
     return true;
   };
   return {
@@ -49,8 +63,7 @@ function modelsOver(current, supervisor) {
         { timeoutMs },
       ),
     status: ({ timeoutMs }) => call("models.authStatus", { agentId }, { timeoutMs }),
-    reload: ({ timeoutMs = 30000 } = {}) =>
-      call("models.authRefresh", { operation: "logout", agentId }, { timeoutMs }),
+    reload: async ({ timeoutMs = 30000 } = {}) => refresh(current(), "logout", timeoutMs),
     probe: ({ provider, profileId, probeTimeoutMs, timeoutMs }) =>
       call(
         "models.probe",

@@ -43,6 +43,45 @@ export function stageCause(error) {
     Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
   return code || upstreamStatus ? { code, upstreamStatus } : null;
 }
+// The steps of an activation after the stop, as the journal names the one that failed.
+const activationSteps = new Set([
+  "stop",
+  "snapshot",
+  "migrate",
+  "start",
+  "validate",
+  "verify",
+]);
+// A validation check (runtime-update-validation.js): "host", "routines", "roster",
+// "roster:<runtimeAgentId>", "session:<conversationId>" or "blockers".
+const checkTag = /^(host|routines|roster|blockers|(roster|session):[A-Za-z0-9_-]{1,64})$/;
+const errorTag = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+/**
+ * Where an activation failed, for the journal of the rollback that follows: its step,
+ * and for a validation the check that failed and the runtime's code. Only names that
+ * pass these patterns: never a message, a path or a secret.
+ */
+export function activationFailure(step, error) {
+  const tag = (value, pattern) =>
+    typeof value === "string" && pattern.test(value) ? value : null;
+  return {
+    diagnosticStep: activationSteps.has(step) ? step : null,
+    diagnosticCheck: tag(error?.check, checkTag),
+    diagnosticErrorCode: tag(error?.errorCode, errorTag) || tag(error?.code, errorTag),
+  };
+}
+const clearedFailure = {
+  diagnosticStep: null,
+  diagnosticCheck: null,
+  diagnosticErrorCode: null,
+};
+// The phases that show where the activation failed: its rollback and after.
+const failurePhases = new Set([
+  "rolling_back",
+  "rollback_committed",
+  "rolled_back",
+  "recovery_required",
+]);
 async function availableBytes(directory) {
   const stat = await fsp.statfs(directory);
   return stat.bavail * stat.bsize;
@@ -148,6 +187,13 @@ export class RuntimeUpdates {
           this.journal.diagnosticCause) ||
         null,
       diagnosticPath: this.journal.diagnosticPath || null,
+      // Where a rolled-back activation failed (activationFailure).
+      ...Object.fromEntries(
+        Object.keys(clearedFailure).map((key) => [
+          key,
+          (failurePhases.has(this.journal.phase) && this.journal[key]) || null,
+        ]),
+      ),
       // Bytes copied so far against the pre-check's estimate, while this process copies.
       snapshotProgress:
         this.journal.phase === "snapshotting" && this.progress
@@ -188,6 +234,7 @@ export class RuntimeUpdates {
         diagnostic: null,
         diagnosticCause: null,
         diagnosticPath: null,
+        ...clearedFailure,
         blockers: [],
         blockerItems: [],
       });
@@ -256,6 +303,8 @@ export class RuntimeUpdates {
       };
       this.persist("draining");
       let stopped = false;
+      // The step under way, recorded when the activation fails after the stop.
+      let step = "stop";
       try {
         await this.maintenance.enter();
         // A maintenance without items (a test double) reports its codes only.
@@ -281,6 +330,7 @@ export class RuntimeUpdates {
         const remaining = await this.maintenance.blockers();
         if (remaining.length) throw failure("UPDATE_BLOCKED", 409);
         this.fence.close();
+        step = "snapshot";
         this.persist("snapshotting");
         const backup = path.join(
           privateFolder(path.join(this.paths.root, "backups")),
@@ -308,6 +358,7 @@ export class RuntimeUpdates {
         // A new version migrates its stopped state (host.migrate: OpenClaw's Doctor);
         // a crash meanwhile restores the snapshot like any unfinished activation.
         if (candidate.version !== previous.version) {
+          step = "migrate";
           this.persist("migrating");
           // Its identity is durable before it is awaited: a rollback after a crash
           // stops a migration that outlived this process (host.stopMigration).
@@ -317,10 +368,13 @@ export class RuntimeUpdates {
           this.persist("migrating", { doctor: null });
         }
         await this.fence.validation(async () => {
+          step = "start";
           await this.host.start();
+          step = "validate";
           this.persist("validating");
           await this.maintenance.validate();
         });
+        step = "verify";
         // Rows the validation itself inserted are recorded so rollback excludes them too.
         this.persist("validating", { validationWrites: this.fence.writes() });
         await verifyUpdateSnapshot(this.paths, backup, this.journal.validationWrites);
@@ -351,6 +405,16 @@ export class RuntimeUpdates {
           await this.maintenance.leave();
           throw failure(diagnostic);
         }
+        // Where it failed, durable before the rollback that may not finish.
+        const failed = activationFailure(step, error);
+        this.persist(this.journal.phase, failed);
+        console.error(
+          `AgentPier rolls back the agent runtime update (step ${
+            failed.diagnosticStep || "unknown"
+          }, check ${failed.diagnosticCheck || "none"}, code ${
+            failed.diagnosticErrorCode || "none"
+          }).`,
+        );
         await this.rollback();
         if (error.code === "SNAPSHOT_FAILED")
           this.persist("rolled_back", {

@@ -883,6 +883,26 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   observed offline, so the contracts check the installed text: every Codex client
   version in the package must be at least 0.169.0, patched or not, so a pin bump
   fails until the patch is carried forward or upstream catches up.
+- **Superseded startup publication.** A live update from 2026.10.9 failed its
+  validation and rolled back with only `UPDATE_ROLLED_BACK`. After the Doctor
+  migration, the first 2026.11.3 start publishes each agent once it listens;
+  AgentPier's post-ready login sync sent `models.authRefresh` meanwhile, which made
+  `publishAgent` throw `PreparedModelRuntimePublicationSupersededError`. The startup
+  loop retries only `AgentDatabaseStartupSupersededError`, so that agent stayed
+  degraded and `sessions.describe` of its chat answered `UNAVAILABLE`. A plain restart
+  recovered it; `doctor --fix` did not. Since then every `models.authRefresh` waits
+  for admission, a ready Gateway reloads only the logins renewed while it started,
+  validation restarts the Gateway once for such a refusal, the journal names the
+  failing step and check, and the installer patches the loop to retry the refusal
+  (`superseded-publication-retry`, `assistant-runtime-updates.md` "Package patches"
+  and "Validation and diagnostics"). The patch contract passed on a provisioned
+  2026.11.3 install (patch `5621321a947d`). The cross-version contract's
+  `authRefresh` variant (2026.10.9 → 2026.11.3, a reload from `afterReady`) passed
+  locally. A burst of 40 raw `models.authRefresh` calls from `afterReady` did hit the
+  startup publication, but in this one-agent fixture only upstream's own retried
+  refusal (`AgentDatabaseStartupSupersededError`), also with the patch reverted. So
+  the exact refusal is not reproduced in CI; the patch is covered by a behavioural
+  test of the shipped loop and by `tests/helpers/superseded-publication-guard.js`.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled

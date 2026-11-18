@@ -279,3 +279,25 @@ test("the Gateway starts after the agents' first SSH refresh, if it still may", 
   ])
     assert.deepEqual(await run(during), [], String(during));
 });
+
+// After a Doctor migration OpenClaw prepares its agents once it listens; a
+// models.authRefresh meanwhile leaves the agent being published degraded. A ready
+// Gateway reloads only the logins changed since its spawn, and readiness never waits
+// for that reload (it waits for admission itself, openclaw-models.js).
+test("a ready Gateway reloads only logins changed since its spawn, without waiting", async (t) => {
+  const services = createAssistantServices(options(t));
+  t.after(() => release(services));
+  const { assistantRuntime, assistantModelAccounts, assistants } = services;
+  const calls = [];
+  assistantModelAccounts.syncAll = async () => calls.push("syncAll");
+  assistantModelAccounts.syncUnloaded = () => {
+    calls.push("syncUnloaded");
+    return new Promise(() => {});
+  };
+  services.assistantProviderSynchronization.pauseBlocked = async () => {};
+  assistants.maintenance = true;
+  await assistantRuntime.afterReady();
+  assert.deepEqual(calls, ["syncUnloaded"]);
+  await assistantRuntime.beforeSpawn().catch(() => {});
+  assert.deepEqual(calls, ["syncUnloaded", "syncAll"]);
+});

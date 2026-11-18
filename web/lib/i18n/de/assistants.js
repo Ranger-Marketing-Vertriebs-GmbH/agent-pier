@@ -74,6 +74,16 @@ export const assistantCopy = {
       recovery_required: "Wiederherstellung erforderlich",
     },
     cause: (detail) => `Ursache: ${detail}`,
+    failedAt: (step, detail) =>
+      `Fehlgeschlagener Schritt: ${step}${detail ? ` (${detail})` : ""}`,
+    steps: {
+      stop: "Anhalten",
+      snapshot: "Sicherung",
+      migrate: "Datenmigration",
+      start: "Start",
+      validate: "Prüfung",
+      verify: "Prüfung der Sicherung",
+    },
     diagnostics: {
       UPDATE_STAGE_FAILED:
         "Vorbereitung fehlgeschlagen. Die aktive Version bleibt erhalten.",

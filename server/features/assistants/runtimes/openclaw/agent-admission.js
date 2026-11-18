@@ -143,6 +143,19 @@ function begin(
   state.done = done;
 }
 
+// OpenClaw 2026.11.3 refuses an agent whose startup publication a concurrent model
+// runtime refresh superseded (`PreparedModelRuntimePublicationSupersededError`, its
+// reason "prepared model runtime publication was superseded for <agentDir>") until
+// the Gateway restarts; the next start publishes it again
+// (runtime-bundle-patches.js "superseded-publication-retry").
+const supersededPublication = /\bprepared model runtime publication was superseded\b/;
+
+/** Whether a roster entry's `refusal` is one a Gateway restart clears. */
+export const restartableRefusal = (refusal) =>
+  refusal?.code === "agent-database-inspection-failed" &&
+  typeof refusal.reason === "string" &&
+  supersededPublication.test(refusal.reason);
+
 /** The runtime agent ids the Gateway behind `client` refused to admit. */
 export function degradedAgents(client) {
   return (client && admissions.get(client)?.degraded) || new Set();

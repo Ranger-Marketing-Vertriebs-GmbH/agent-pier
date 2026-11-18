@@ -6,6 +6,7 @@ import {
   degradedAgents,
   noteRefusal,
   pendingAdmission,
+  restartableRefusal,
   settledAdmission,
 } from "./agent-admission.js";
 import { openClawMemory } from "./openclaw-memory.js";
@@ -73,6 +74,8 @@ function agentsOver(current) {
     noteRefusal: ({ error }) => noteRefusal(current(), error),
     // The refusal only says the Gateway still inspects the agent's database.
     admitting: (refusal) => refusal?.code === pendingAdmission,
+    // The roster entry was refused for a reason a Gateway restart clears.
+    restartable: (agent) => restartableRefusal(agent?.admissionRefusal),
   };
 }
 

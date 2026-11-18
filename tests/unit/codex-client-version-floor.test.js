@@ -71,6 +71,8 @@ test("the pinned version's patches lift 2026.11.3's constants over the floor", (
     "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs": constant("0.164.0"),
     "dist/main-session-restart-recovery-DekokRXp.mjs":
       "const resumeResult = await resumeMainSession({ entry });\n",
+    "dist/agent-database-startup-DQZqWc4z.mjs":
+      "if (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= 4) throw error;\n",
   };
   const dir = packageDir(t, files);
   assert.throws(() => assertCodexClientVersionFloor(dir));
