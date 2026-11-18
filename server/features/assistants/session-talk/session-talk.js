@@ -214,7 +214,7 @@ export class SessionTalk {
           finish({ id });
         }
       };
-      const unsubscribe = this.w.a.events?.subscribe?.(() => check()) ?? (() => {});
+      const unsubscribe = this.w.a.events?.watch?.(() => check()) ?? (() => {});
       // Changes are published, but a missed one must not hold the call to the end.
       const tick = setInterval(check, 1000);
       const timer = setTimeout(check, Math.max(0, deadline - this.now()));

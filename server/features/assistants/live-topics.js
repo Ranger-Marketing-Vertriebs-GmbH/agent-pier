@@ -42,7 +42,7 @@ export function followAgentList(services, listener) {
   const bind = () => {
     unbind?.();
     unbind =
-      services.assistants?.events?.subscribe((event) => {
+      services.assistants?.events?.watch((event) => {
         if (event?.type === "change" || event?.type === "runtime") listener();
       }) || null;
   };

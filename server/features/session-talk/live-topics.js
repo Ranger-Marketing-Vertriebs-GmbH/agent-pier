@@ -8,6 +8,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { SESSION_PARAM } from "../requests/live-topics.js";
 import { followAgentList } from "../assistants/live-topics.js";
+import { sharedSource } from "../live/shared-source.js";
 import { talkAgent, talkVia } from "../assistants/session-talk/talk-reach.js";
 
 const workflows = (services) => services.assistants?.workflows ?? null;
@@ -75,6 +76,8 @@ export function sessionAgentAccessTopic(services) {
   if (services.sessionAgentGrants)
     services.sessionAgentGrants.onChange = (sessionId) =>
       sessionAgentAccessChanged(services.live, sessionId);
+  // One listener per source for every watched session together.
+  const listed = sharedSource((fanout) => followAgentList(services, fanout));
   return {
     name: "session.agent-access",
     mode: "state",
@@ -83,6 +86,6 @@ export function sessionAgentAccessTopic(services) {
     scopeKey: () => "owner",
     read: async (_principal, id) =>
       sessionAgentAccess(services, await services.sessions.get(id)),
-    watch: ({ invalidate }) => followAgentList(services, () => invalidate()),
+    watch: ({ invalidate }) => listed(() => invalidate()),
   };
 }
