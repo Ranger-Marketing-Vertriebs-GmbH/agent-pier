@@ -31,13 +31,17 @@ a temporary data directory. No external server, account or credential is involve
   access token lifetime, refresh token revocation and a mode that refuses every
   token.
 
-`tests/integration/assistant-mcp-oauth-contract.test.js` has two tests:
+`tests/integration/assistant-mcp-oauth-contract.test.js` has three tests:
 
-1. **Login, refresh, revocation, logout, orphaning, environment.** One server
-   `docs` with `auth: "oauth"` and `oauth.redirectUrl` on a loopback port the test
-   holds open (as AgentPier's own listener holds its port), bound to one agent on
-   the deterministic model.
-2. **HTTPS redirect URL.** `oauth.redirectUrl` on an HTTPS origin that does not
+1. **Login, refresh, revocation, logout.** One server `docs` with `auth: "oauth"`
+   and `oauth.redirectUrl` on a loopback port the test holds open (as AgentPier's
+   own listener holds its port), bound to one agent on the deterministic model.
+2. **Orphaning and environment.** The same server on a Gateway of its own: a
+   rename or a new URL orphans the login, a one-server logout clears the orphan,
+   and the CLI needs only its state. Split from the first test because each sign-in
+   step restarts the Gateway in a maintenance window (since 2026.10.10), and the
+   single test came close to its budget on macOS runners.
+3. **HTTPS redirect URL.** `oauth.redirectUrl` on an HTTPS origin that does not
    resolve locally.
 
 `tests/integration/assistant-mcp-oauth-compiled-contract.test.js` drives AgentPier's

@@ -108,6 +108,7 @@ export async function harness(t, { installed, contractDir }) {
   await config.apply(agent.id);
   // One turn on a new session; returns the tools offered and the last tool result.
   async function turn(call, label) {
+    const began = Date.now();
     Object.assign(tool, call ?? { name: "none", arguments: {} });
     const from = model.requests.length;
     const session = await createGatewaySession(runtime.client, {
@@ -132,7 +133,9 @@ export async function harness(t, { installed, contractDir }) {
       .map((m) => String(m.content))
       .at(-1);
     const offered = mcpTools((requests[0]?.tools ?? []).map((d) => d.function.name));
-    t.diagnostic(`${label} offered=${JSON.stringify(offered)} result=${result}`);
+    t.diagnostic(
+      `${label} offered=${JSON.stringify(offered)} result=${result} ms=${Date.now() - began}`,
+    );
     return { offered, result };
   }
 
@@ -235,14 +238,18 @@ export async function harness(t, { installed, contractDir }) {
    * the servers nor the agent's tools (live patches here), so they are patched back.
    */
   async function offline(work) {
+    const began = Date.now();
     const before = (await runtime.client.call("config.get", {})).config;
     const id = agent.runtimeAgentId;
     const own = before.agents.entries[id].tools.allow;
     await runtime.stop();
     windows.count++;
+    const stopped = Date.now();
+    let worked;
     try {
       return await work();
     } finally {
+      worked = Date.now();
       await runtime.start();
       config.reset();
       await config.apply(agent.id);
@@ -254,6 +261,10 @@ export async function harness(t, { installed, contractDir }) {
         },
         replacePaths: ["mcp", "tools.allow", `agents.entries.${id}.tools.allow`],
       }));
+      // Where a slow runner's time goes: stopping, the work, starting again.
+      t.diagnostic(
+        `window ${windows.count}: stop ${stopped - began} ms, work ${worked - stopped} ms, restart ${Date.now() - worked} ms`,
+      );
     }
   }
   const windows = { count: 0, windowed };
