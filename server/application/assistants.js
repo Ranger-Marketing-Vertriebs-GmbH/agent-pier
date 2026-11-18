@@ -237,7 +237,8 @@ export function createAssistantFeature(services) {
     assistantModelAccounts?.close();
     assistantModelAccounts?.vault?.close();
     await assistantRuntimeProxy?.close().catch(() => {});
-    assistantAgentSecrets?.close();
+    // Its queued syncs stop and a running one settles before the stores close.
+    await assistantAgentSecrets?.close();
     // Sockets close; folders and tokens stay for the next start (disable removes them).
     await assistantAgentSsh?.close().catch(() => {});
     for (const name of assistantServiceNames) services[name] = null;

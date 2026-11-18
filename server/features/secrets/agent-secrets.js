@@ -16,7 +16,9 @@ const safeId = (id) =>
  * archiving, a user agent switch, a bot for other people) and at start; an agent
  * also syncs before each of its turns, so a file it deleted or edited with its
  * shell is back by its next turn. Syncs run one at a time, so an older state never
- * overwrites a newer one.
+ * overwrites a newer one. Once closed, no sync starts any more: the assistant services
+ * release closes the stores right after (assistants.js), and a pass still queued
+ * would otherwise read them closed (ERR_INVALID_STATE) once per agent.
  */
 export class AgentSecrets {
   constructor({ store, access, assistants, workspaces }) {
@@ -61,7 +63,7 @@ export class AgentSecrets {
     return this.syncs.idle();
   }
   async syncOnce(agentId) {
-    if (!safeId(agentId)) return "unchanged";
+    if (this.closed || !safeId(agentId)) return "unchanged";
     const entries = this.entries(agentId);
     // A workspace the Gateway has not created yet is left alone; its first turn
     // syncs again. A linked workspace is never written through.
@@ -81,15 +83,18 @@ export class AgentSecrets {
   /** Every agent's file; one failing agent never stops the others. */
   async syncAll() {
     let agents = [];
+    if (this.closed) return;
     try {
       agents = this.assistants.store.listAssistants();
     } catch {
       return;
     }
-    for (const agent of agents)
+    for (const agent of agents) {
+      if (this.closed) return;
       await this.sync(agent.id).catch((error) =>
         console.error("Agent secrets file could not be written:", error?.code || "error"),
       );
+    }
   }
 }
 
@@ -98,7 +103,8 @@ export class AgentSecrets {
  * changes (AssistantService.changed) refresh every file at once, and each turn
  * syncs first and names the file in the bootstrap while it has entries
  * (assistant-config.js). Returns the instance, or null without a
- * secret store; `close()` stops listening.
+ * secret store; `close()` stops listening and syncing and resolves once the sync
+ * that runs then has settled.
  */
 export function connectAgentSecrets(store, graph) {
   const { assistants, assistantWorkflows, assistantRuntime } = graph;
@@ -123,9 +129,11 @@ export function connectAgentSecrets(store, graph) {
     }
   };
   agentSecrets.close = () => {
+    agentSecrets.closed = true;
     for (const stop of unsubscribe) stop();
     delete assistants.config.syncSecrets;
     delete assistants.config.secretsGranted;
+    return agentSecrets.idle();
   };
   return agentSecrets;
 }
