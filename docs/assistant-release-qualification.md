@@ -837,6 +837,29 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   0 of 11 against 6 of 16). A forced Gateway restart also ended the wedge (urgent
   stop: writes again after about 74 s); it is not used. Remove the patch once the
   pinned OpenClaw retries the release itself.
+- **Dreaming contract setup.** In the v2.20.0-rc.4 release run the dreaming contract
+  failed on macos-latest after 42 s with one `config.patch` `TIMEOUT` at 10 s from
+  its setup's `config.apply`. No "did not apply its configuration" warning came
+  first, so no earlier write had timed out or been left unapplied; the fixture kept
+  no Gateway log to tell a slow first patch from a lease wedge. Its setup now
+  converges a timed-out apply like the deletion contract's
+  (`tests/helpers/converging-apply.js`, at most three tries), and its teardown
+  prints the Gateway's lease and lock lines (`DREAMING_GATEWAY_EVIDENCE`) when there
+  are any.
+- **Main-session restart recovery (open).** OpenClaw 2026.11.3 resumes a main
+  session whose turn a restart interrupted, on its own: after a later start it
+  appends "[System] Your previous turn was interrupted while OpenClaw was waiting on
+  tool/model work. … finish the task without asking the user to repeat the request"
+  (or "[Earlier unanswered user message …]") and asks the model
+  (`main-session-restart-recovery-*.mjs`, scheduled by the Gateway's post-attach
+  startup; no configuration switch was found). The runtime contract's crash step
+  (`HOLD_FOR_CRASH`) hits it: in the v2.20.0-rc.4 release run the model got one more
+  request after `recover()`, and locally the same failure came in 1 of 13 runs, while
+  other runs showed the resumed turn only at a later Gateway start. This contradicts
+  AgentPier's rule that crashed or uncertain work is never replayed
+  (`assistant-gateway.md`); suppressing it (a bundle patch) or adopting the resumed
+  run into the ledger is still to be decided. The contract's evidence lists each
+  model request with its time and last user text (`asked`).
 - **Codex catalog client version.** ChatGPT-account model discovery sends the bundled
   `OPENAI_CODEX_CLIENT_VERSION` (2026.11.3: `0.164.0`) as `client_version`, because
   the Codex plugin that would report another version is not in the npm package and
