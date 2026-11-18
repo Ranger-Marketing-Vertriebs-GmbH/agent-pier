@@ -262,6 +262,39 @@ test("archiving an agent or making it a user agent removes its file at once", as
   await waitFor(() => !f.exists());
 });
 
+test("a pass still queued when the delivery closes never reads the closed stores", async (t) => {
+  const f = await fixture(t);
+  f.workspace(f.member({ name: "Scout" }).id);
+  f.workspace(f.member({ name: "Rover" }).id);
+  const { agentSecrets } = connected(f);
+  const errors = t.mock.method(console, "error", () => {});
+  // A sync in flight (a turn's) holds the queue while a pass lists the agents, so
+  // their syncs wait behind it; AgentPier shuts down meanwhile.
+  let settle;
+  const list = f.store.listAssistants.bind(f.store);
+  f.store.listAssistants = () => {
+    const agents = list();
+    agentSecrets.syncs.run(() => new Promise((resolve) => (settle = resolve)));
+    return agents;
+  };
+  const pass = agentSecrets.refresh();
+  await waitFor(() => settle);
+  const closed = agentSecrets.close();
+  settle();
+  await closed;
+  // The assistant services release closes the stores after the delivery; the
+  // fixture's own teardown then finds it closed.
+  f.store.close();
+  f.store.close = () => {};
+  await pass;
+  await agentSecrets.idle();
+  assert.deepEqual(
+    errors.mock.calls.map((call) => call.arguments.join(" ")),
+    [],
+    "no agent's sync reads a closed database",
+  );
+});
+
 test("a burst of changes shares one pass", async (t) => {
   const f = await fixture(t);
   const passes = [];
