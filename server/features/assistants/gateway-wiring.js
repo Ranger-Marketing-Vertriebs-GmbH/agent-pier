@@ -3,6 +3,7 @@
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
 import { confirmFromEvent } from "./run-confirmation.js";
 import { admissionDoneOn } from "./agent-admission.js";
+import { keepOpenDue } from "./chat-reconcile.js";
 import { compilerFor, hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
@@ -38,13 +39,15 @@ export function runtimeStatusHandler(service) {
       service.sessionFailures.clear();
       // Once the Gateway admitted or refused its agents (agent-admission.js), the
       // list shows the refused ones and every chat subscribes again at once: one
-      // refused while its agent was still being admitted is no session fault.
+      // refused while its agent was still being admitted is no session fault, and a
+      // native keep that failed meanwhile goes again (chat-reconcile.js).
       const connection = hostConnection(service.runtime);
       admissionDoneOn(service.runtime).then((waited) => {
         if (connection !== hostConnection(service.runtime) || service.maintenance) return;
         service.changed();
         if (!waited) return;
         service.sessionFailures.clear();
+        keepOpenDue(service);
         (service.reconciling || Promise.resolve())
           .catch(() => {})
           .then(() => service.reconcile())

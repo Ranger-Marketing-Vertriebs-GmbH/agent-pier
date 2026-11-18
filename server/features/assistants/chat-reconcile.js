@@ -17,6 +17,10 @@ import {
 } from "./runtimes/runtime-for.js";
 
 const sessionRetryMs = 60000;
+// A failed keep waits a minute, twice as long after each further failure, at most
+// 30 minutes (keepOpen).
+const keepRetryMs = 60000;
+const keepRetryMaxMs = 30 * 60000;
 
 // The agent of chat `c`, or null once it is gone.
 function agentOf(service, c) {
@@ -67,9 +71,23 @@ export function reconcileChats(service, { full = true, chats = [] } = {}) {
 }
 
 /**
- * Keeps one chat's native session open; true once it is (or the Gateway has no such
- * session). A failure, a concurrent reset that changed the session id among them,
- * leaves the chat for the next pass and is logged once per connection.
+ * Makes every chat whose keep failed on this connection due at once: the Gateway
+ * admitted its agents (gateway-wiring.js), so a keep that raced their preparation
+ * goes again with the next pass.
+ */
+export function keepOpenDue(service) {
+  for (const failure of service.keepOpenFailures?.values() || []) failure.retryAt = 0;
+}
+
+/**
+ * Keeps one chat's native session open; false only when the connection dropped. A
+ * failure, a concurrent reset that changed the session id among them, leaves the
+ * chat for a later pass with a growing wait (keepRetryMs): while OpenClaw
+ * still prepares an agent's sessions after a start, `sessions.describe` answers
+ * UNAVAILABLE or not at all (TIMEOUT), and every pass, the 2-second poll included,
+ * would otherwise wait the whole call timeout for that chat. The first failure on a
+ * connection may only have raced that start and stays quiet; a further one is logged
+ * once per connection.
  */
 async function keepOpen(service, connection, c) {
   let current;
@@ -80,26 +98,33 @@ async function keepOpen(service, connection, c) {
   }
   // A chat deleted or released while the pass ran is left to its native delete.
   if (current.deletedAt || current.userReleased) return true;
+  const failure = service.keepOpenFailures.get(c.id);
+  if (service.now() < (failure?.retryAt ?? -Infinity)) return true;
   try {
     await runtimeFor(null, service.runtime)
       .sessions.on(connection)
       .keepOpen({ key: c.runtimeSessionKey });
     service.keptOpen.add(c.id);
-    service.keepOpenFailures?.delete(c.id);
+    service.keepOpenFailures.delete(c.id);
     return true;
   } catch (error) {
-    if (stillOn(service, connection)) {
-      service.keepOpenFailures ??= new Set();
-      if (!service.keepOpenFailures.has(c.id)) {
-        service.keepOpenFailures.add(c.id);
-        console.warn(
-          `Agent chat ${c.id} could not be kept open natively (${
-            error?.code || "RPC_FAILED"
-          }); retrying on the next pass.`,
-        );
-      }
+    if (!stillOn(service, connection)) return false;
+    const attempts = (failure?.attempts || 0) + 1;
+    const waitMs = Math.min(keepRetryMaxMs, keepRetryMs * 2 ** (attempts - 1));
+    service.keepOpenFailures.set(c.id, {
+      attempts,
+      retryAt: service.now() + waitMs,
+      logged: failure?.logged,
+    });
+    if (attempts > 1 && !failure?.logged) {
+      service.keepOpenFailures.get(c.id).logged = true;
+      console.warn(
+        `Agent chat ${c.id} could not be kept open natively (${
+          error?.code || "RPC_FAILED"
+        }); retrying in ${Math.round(waitMs / 60000)} min.`,
+      );
     }
-    return false;
+    return true;
   }
 }
 
@@ -152,9 +177,10 @@ async function pass(service) {
     service.subscribedOn = connection;
     service.subscribed = new Set();
     service.keptOpen = new Set();
-    service.keepOpenFailures = new Set();
+    service.keepOpenFailures = new Map();
   }
   service.keptOpen ??= new Set();
+  service.keepOpenFailures ??= new Map();
   // The chats whose history came from the cache: a full pass finds them anew, a
   // partial one reads them again with the chats it needs, so the flag covers every
   // chat and clears once the last one reads, and a chat that takes no live read
