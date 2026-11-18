@@ -25,6 +25,17 @@ const long = { timeoutMs: 60000 };
 const text = (request) => JSON.stringify(request.messages);
 const isCheckIn = (request) =>
   text(request).includes("scheduled check-in from AgentPier");
+// Every run here is forced. One daily check-in, twelve hours from now, so the schedule
+// never fires during the test: an hourly one fired at the top of the hour beside a
+// forced run and committed a second check-in (v2.20.0-rc.6 release run).
+const scheduledHour = (new Date().getUTCHours() + 12) % 24;
+const heartbeat = {
+  enabled: true,
+  interval: "daily",
+  start: scheduledHour,
+  end: scheduledHour + 1,
+  timeZone: "UTC",
+};
 
 test(
   "pinned native check-ins run in the agent's conversation and reach only the paired chat",
@@ -45,8 +56,7 @@ test(
       {
         instructions: "INSTRUCTIONTOKEN Keep replies short.",
         capabilities: { memory: true, reminders: false },
-        // Every hour of the day, so the job is always due within its active hours.
-        heartbeat: { enabled: true, interval: "1h", start: 0, end: 24, timeZone: "UTC" },
+        heartbeat,
       },
       1,
     );
@@ -164,7 +174,12 @@ test(
     );
     assert.equal(job.sessionTarget, "current");
     assert.equal(job.sessionKey, session.key);
-    assert.ok(job.state.nextRunAtMs > Date.now(), "the hourly schedule is armed");
+    assert.equal(job.schedule.expr, `0 ${scheduledHour} * * *`);
+    // Armed, but not due before the test ends: only forced runs commit here.
+    assert.ok(
+      job.state.nextRunAtMs > Date.now() + contractTimeout(300000),
+      "the daily schedule is armed outside the test",
+    );
     // AgentPier reads the same job as its routine model (routine-definition.js).
     const read = (await reminders.jobs(agent)).find((r) => r.id === job.id);
     assert.deepEqual(read.target, { kind: "chat", sessionKey: session.key });
