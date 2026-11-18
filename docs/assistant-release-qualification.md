@@ -970,7 +970,10 @@ Resolved on 2026.11.3 (2026-11-15, local macOS arm64 runs):
 - **Shadowed skills.** 2026.11.3 rescans skill folders about once a minute instead
   of watching them (openclaw#170341). `verifySkills` asks `skills.status` with
   `refresh: true`, sent only to 2026.11.3 and later (2026.10.9 refuses unknown
-  parameters). `assistant-skills-contract` passes (9.1 s).
+  parameters). `assistant-skills-contract` passes (9.1 s). Each such rescan ends in a
+  `skills.changed` broadcast, so the re-apply that answers the event asks without
+  `refresh`; otherwise the two feed each other and the discovery worker rebuilds the
+  plugin metadata of every agent without pause (one core, turns waiting behind it).
 
 Fixed in 2026.11.3: `chat.history`'s `sessionInfo` carries `totalTokens` after a turn
 again (2026.11.2 reported `totalTokensFresh: false` without it, so the long-chat hint

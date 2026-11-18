@@ -320,3 +320,43 @@ test("a ready Gateway re-applies agents whose skills changed, and only those", a
   assert.ok(written.every((patch) => !patch.agents?.entries?.[other.runtimeAgentId]));
   assert.deepEqual(f.live(other).skills, ["weather"]);
 });
+
+// OpenClaw announces skills.changed after every rescan it is asked for (a
+// skills.status refresh ends in refreshSkillsDiscovery's version bump). The re-apply
+// that follows the event must read the Gateway's view without asking for another
+// rescan, or each answer announces the next one: the 2026.11.3 Gateway then rescans
+// all agents' skills and plugins without pause and its turns wait behind it.
+test("a skills.changed re-apply asks for no rescan, so it cannot feed itself", async (t) => {
+  const f = shellService(t, ["Home", "Other"]);
+  const [home, other] = f.agents;
+  const version = () => ({ availability: "ready", version: "2026.11.3" });
+  f.runtime.status = version;
+  f.config.runtime.status = version;
+  skillGateway(f, () => [bundled("github"), bundled("weather")]);
+  await save(f, home, ["github"]);
+  await save(f, other, ["weather"]);
+  const answer = f.client.answers["skills.status"];
+  const calls = [];
+  f.client.answers["skills.status"] = (params) => {
+    calls.push(params);
+    // Like the Gateway: a rescan is announced to every client.
+    if (params.refresh)
+      setImmediate(() => {
+        for (const handler of f.service.gatewayEvents.handlers.get("skills.changed"))
+          handler({ reason: "manual" });
+      });
+    return answer(params);
+  };
+  for (const handler of f.service.gatewayEvents.handlers.get("skills.changed"))
+    handler({ reason: "watch" });
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  assert.deepEqual(
+    calls.filter((params) => params.refresh),
+    [],
+    "the re-apply asked for a rescan",
+  );
+  // One look per agent with skills for the one event, then quiet.
+  assert.equal(calls.length, 2);
+  assert.deepEqual(f.live(home).skills, ["github"]);
+  assert.deepEqual(f.live(other).skills, ["weather"]);
+});

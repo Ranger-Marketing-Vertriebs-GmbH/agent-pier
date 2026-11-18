@@ -158,6 +158,12 @@ test(
     // Gone again, the stored choice applies again through the re-apply that
     // skills.changed and every ready run (the turn's apply keeps its cached list).
     fs.rmSync(shadow, { recursive: true });
+    // The re-apply asks for no rescan (it would announce skills.changed again): the
+    // Gateway's own, about once a minute, or an apply's sees the folder gone.
+    await h.runtime.client.call("skills.status", {
+      agentId: agent.runtimeAgentId,
+      refresh: true,
+    });
     let restored;
     for (let attempt = 0; attempt < 100 && !restored; attempt++) {
       await h.assistants.skills.reapply(h.config);
