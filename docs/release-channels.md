@@ -22,7 +22,8 @@ rate limit. Stable checks do not require the release-list API.
    complete the required checks and review.
 2. After merging, tag the corresponding commit `v1.29.0-rc.1` and push the tag.
    The existing release workflow builds all four platform packages and installer
-   assets, verifies their checksums, then publishes a GitHub prerelease. It does
+   assets, verifies their checksums, then publishes a GitHub prerelease titled
+   `AgentPier 1.29.0-rc.1` (every release is titled `AgentPier <version>`). It does
    not replace the latest stable release or update the stable Homebrew formula.
 3. Select Preview in Settings → Operations → Updates on a test installation, check for updates,
    stage the candidate and activate it. Publish a new numbered RC for each revision;
