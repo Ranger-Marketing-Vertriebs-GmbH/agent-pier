@@ -47,13 +47,26 @@ test("close does not wait for a child that never finishes initialize", async (t)
 
 test("only a running rebuild keeps Craft Anything in use; idle children close", async (t) => {
   const timers = fakeTimers();
+  // The build holds at its question until the test answers it: a timed step could
+  // end before start() returns (git init and the first sample take a while under
+  // load), and a finished build rightly no longer counts.
+  const question = { ask: "question", title: "Which colour?", choices: ["Red", "Blue"] };
   const f = rebuildsFixture(t, {
     timers,
-    script: { steps: [{ wait: 300 }, { finish: "ready" }] },
+    script: { steps: [question, { finish: "ready" }] },
   });
   assert.equal(f.rebuilds.inUse(), false);
   const view = await f.rebuilds.start({ request: "Busy" });
   assert.equal(f.rebuilds.inUse(), true);
+  assert.ok(
+    await until(() => {
+      timers.advance(2000);
+      return f.rebuilds.get(view.id).questions.length === 1;
+    }),
+  );
+  assert.equal(f.rebuilds.inUse(), true, "a build waiting for the owner still runs");
+  const [open] = f.rebuilds.get(view.id).questions;
+  await f.rebuilds.answer(view.id, open.id, { choice: "Red" });
   assert.ok(
     await until(() => {
       timers.advance(2000);
@@ -74,8 +87,8 @@ test("only a running rebuild keeps Craft Anything in use; idle children close", 
   await f.rebuilds.closeIdle();
   assert.equal(viewed.alive, false);
   assert.equal(f.rebuilds.inUse(), true);
-  // Its build may have finished meanwhile (300 ms under load): either way it stops.
-  assert.notEqual((await f.rebuilds.pause(running.id)).status, "building");
+  // Its build holds at the question until paused.
+  assert.equal((await f.rebuilds.pause(running.id)).status, "paused");
 });
 
 test("a rebuild keeps the project its folder has after git init", async (t) => {
