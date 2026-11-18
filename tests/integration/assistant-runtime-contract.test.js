@@ -36,6 +36,31 @@ test(
     const evidence = { phases: [], statuses: [], events: [] };
     const step = (name) => evidence.phases.push([name, Date.now() - started]);
     const keep = (list, entry) => list.push(entry) > 30 && list.shift();
+    // When each model request came and what its last user turn said (without
+    // OpenClaw's runtime context): a request after the crash shows whether the
+    // Gateway resumed the interrupted turn on its own ("[System] Your previous turn
+    // was interrupted", OpenClaw's main-session restart recovery).
+    const asked = [];
+    const record = model.requests.push.bind(model.requests);
+    const textOf = (content) =>
+      (Array.isArray(content)
+        ? content.map((part) => part?.text ?? "").join(" ")
+        : String(content ?? "")
+      )
+        .replace(/OpenClaw runtime context:[\s\S]*?End OpenClaw runtime context\./g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 100);
+    model.requests.push = (request) => {
+      const messages = Array.isArray(request?.messages) ? request.messages : [];
+      // OpenClaw sends its runtime context as a user message of its own.
+      const said = messages
+        .filter((m) => m?.role === "user")
+        .map((m) => textOf(m.content))
+        .findLast(Boolean);
+      asked.push([Date.now() - started, messages.length, said ?? ""]);
+      return record(request);
+    };
     let finished = false;
     runtime.on("status", (s) =>
       keep(evidence.statuses, [s.availability, s.diagnostic, Date.now() - started]),
@@ -72,6 +97,7 @@ test(
           ...evidence,
           elapsedMs: Date.now() - started,
           modelRequests: model.requests.length,
+          asked,
           attempts: service?.ledger.pending().map((a) => [a.id, a.state]),
           console: tail("gateway-console.log"),
         })}`,
