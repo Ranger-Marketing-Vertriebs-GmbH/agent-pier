@@ -4732,7 +4732,10 @@ without any.
   another source. The owner's choice stays stored: the page shows the skill as
   **shadowed** and off for this agent, adding such a skill is refused, and it applies
   again once the other skill is gone. Owner turns apply the agent before they start,
-  and the Gateway's `skills.changed` event re-applies every agent with skills.
+  and the Gateway's `skills.changed` event re-applies every agent with skills. That
+  re-apply reads `skills.status` without `refresh`: OpenClaw 2026.11.3 announces every
+  rescan with another `skills.changed`, so asking for one there would feed itself and
+  keep the Gateway's skills discovery worker busy without pause.
 - **Built-in skills.** AgentPier ships its own skills inside the team plugin: the plugin
   manifest's `"skills": ["skills"]` names the folder, and the plugin installer
   provisions it with the plugin (`team-plugin-install.js`). Today that is

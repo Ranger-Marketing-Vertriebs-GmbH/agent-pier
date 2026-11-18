@@ -82,11 +82,11 @@ export class AssistantConfig {
    * cached. A name resolved elsewhere is dropped and the apply cached (skills.changed
    * and the ready re-apply bring it back).
    */
-  async verifySkills(assistant, names) {
+  async verifySkills(assistant, names, refresh = true) {
     if (!names.length) return { skills: [], complete: true };
     const report = await runtimeFor(assistant, this.runtime)
       // A rescan first: a deleted custom skill no longer shadows the bundled one.
-      .skills.status({ agentId: assistant.runtimeAgentId, refresh: true })
+      .skills.status({ agentId: assistant.runtimeAgentId, refresh })
       .catch(() => null);
     if (!Array.isArray(report?.skills)) return { skills: [], complete: false };
     // A catalog that cannot be read names no skill: none of its copies compiles.
@@ -137,7 +137,10 @@ export class AssistantConfig {
       return { dropped: [], unreadable: true };
     }
   }
-  /** The list an apply would compile now (disk scan, then the Gateway's view). */
+  /**
+   * The list an apply would compile now (disk scan, then the Gateway's view), without a
+   * rescan: it answers skills.changed, and OpenClaw announces each rescan with another.
+   */
   async expectedSkills(assistant) {
     const assigned = this.skillNames(assistant);
     const shadowed = [
@@ -145,7 +148,7 @@ export class AssistantConfig {
       ...this.catalogCheck(assigned).dropped,
     ];
     const kept = assigned.filter((name) => !shadowed.includes(name));
-    return (await this.verifySkills(assistant, kept)).skills;
+    return (await this.verifySkills(assistant, kept, false)).skills;
   }
   // Runs before every turn admission, the configuration unchanged too, so instructions
   // planted between turns never reach the next prompt. `bootstrap`: the managed AGENTS.md.
