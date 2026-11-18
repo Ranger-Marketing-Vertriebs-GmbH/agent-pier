@@ -24,6 +24,8 @@ const messages = serverMessages.craft;
 const refuse = (message) => problem(message, 409);
 const STOP_WAIT_MS = 3000;
 const STOP_POLL_MS = 250;
+// The budget of one read (a sample's call, the page's activity).
+const READ_TIMEOUT_MS = 30000;
 
 /**
  * The rebuild supervisor: the only caller of Craft Anything's rebuild_start. It
@@ -47,9 +49,11 @@ export class CraftRebuilds {
     now = () => new Date(),
     timers = { setTimeout, clearTimeout },
     sampleMs = 2000,
+    readTimeoutMs = READ_TIMEOUT_MS,
     idleMs = 60000,
   }) {
     Object.assign(this, { craft, accounts, preferences, memory, now, timers, sampleMs });
+    this.readTimeoutMs = readTimeoutMs;
     this.barrier = barrier;
     this.store = new RebuildStore(dataDir);
     // Pictures waiting for a start or follow-up; an earlier process's leftovers go.
@@ -157,7 +161,15 @@ export class CraftRebuilds {
     const record = this.require(id);
     if (!record.craftProject) return { lines: [] };
     const count = Number.isInteger(limit) ? Math.min(500, Math.max(1, limit)) : 200;
-    const result = await this.call(record, "rebuild_activity_show", { limit: count });
+    // A child that does not answer would only queue the read: the page keeps its lines.
+    if (this.children.peek(record.accountId, record.mode)?.notAnsweringSince)
+      throw refuse(messages.rebuildNotAnswering);
+    const result = await this.call(
+      record,
+      "rebuild_activity_show",
+      { limit: count },
+      { timeoutMs: this.readTimeoutMs },
+    );
     return {
       lines: Array.isArray(result?.lines)
         ? result.lines.filter((line) => typeof line === "string")

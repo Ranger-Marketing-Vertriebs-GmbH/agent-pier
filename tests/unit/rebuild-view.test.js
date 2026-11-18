@@ -145,6 +145,7 @@ test("a rebuild paused without a sample lists no questions", () => {
   assert.deepEqual(fields, {
     running: false,
     status: "paused",
+    notAnsweringSince: null,
     questions: [],
     staleQuestions: ["a", "b"],
   });

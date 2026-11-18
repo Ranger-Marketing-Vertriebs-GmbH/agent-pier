@@ -97,6 +97,8 @@ export const craftCopy = {
     activity: "Aktivität",
     activityEmpty: "Noch keine Aktivität.",
     activityLoading: "Aktivität wird geladen …",
+    notAnswering: (time) =>
+      `Craft Anything antwortet seit ${time} nicht. Hier steht der letzte Stand, den es gemeldet hat.`,
     usage: "Verbrauch",
     tokens: (input, output) => `${input} Tokens rein · ${output} Tokens raus`,
     cost: (amount) => `Etwa ${amount}`,

@@ -53,6 +53,8 @@ export const craft = Object.freeze({
     "This picture is outside the folders that may be read here. Name a picture in your own folders.",
   rebuildPictureNotFound: "This picture was not found.",
   rebuildNotFound: "This rebuild does not exist.",
+  rebuildNotAnswering:
+    "Craft Anything is not answering right now. The activity is read again once it answers.",
   rebuildRunning: "This rebuild is running. Pause it first.",
   rebuildNeverStarted: "This rebuild never started and cannot be continued.",
   rebuildAnswerInvalid:

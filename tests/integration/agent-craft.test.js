@@ -31,6 +31,7 @@ const statusKeys = [
   "id",
   "link",
   "name",
+  "notAnsweringSince",
   "note",
   "openQuestions",
   "projectId",

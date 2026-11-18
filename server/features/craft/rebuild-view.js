@@ -134,6 +134,7 @@ export function freshQuestions(questions, running, stale = []) {
 export const pausedFields = (record) => ({
   running: false,
   status: "paused",
+  notAnsweringSince: null,
   questions: [],
   staleQuestions: [
     ...new Set([
@@ -172,6 +173,7 @@ export const initialFields = () => ({
   lastReply: null,
   questions: [],
   activityRevision: null,
+  notAnsweringSince: null,
 });
 
 const viewKeys = [
@@ -199,6 +201,7 @@ const viewKeys = [
   "lastReply",
   "questions",
   "activityRevision",
+  "notAnsweringSince",
 ];
 
 /**

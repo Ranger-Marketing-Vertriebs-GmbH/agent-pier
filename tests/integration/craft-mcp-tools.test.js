@@ -120,6 +120,7 @@ test("a session starts a rebuild, repeats it by requestId and reads its status",
       projectId: "p1",
       folder: "/projects/clone",
       openQuestions: 1,
+      notAnsweringSince: null,
       link: "/craft/r1",
     });
   });

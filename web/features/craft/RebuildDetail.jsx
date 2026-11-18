@@ -17,6 +17,7 @@ import CraftPictures from "./CraftPictures.jsx";
 import CraftQuestion from "./CraftQuestion.jsx";
 import useCraftPictures from "./useCraftPictures.js";
 import {
+  clockTime,
   latestCheck,
   similarityPercent,
   stepStates,
@@ -132,6 +133,11 @@ function RebuildBody({
         {rebuild.note && (
           <p className="craft-text" dir="auto">
             {rebuild.note}
+          </p>
+        )}
+        {rebuild.notAnsweringSince && (
+          <p className="craft-note" role="status">
+            {copy.detail.notAnswering(clockTime(rebuild.notAnsweringSince, locale))}
           </p>
         )}
         <div className="craft-actions">

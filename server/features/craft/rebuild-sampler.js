@@ -70,11 +70,16 @@ export class RebuildSampler {
       if (record.running) r.update(record, pausedFields(record));
       return;
     }
+    // Craft Anything does not answer and a call still waits for it: another read
+    // would only queue behind it. The rebuild keeps its last known state meanwhile.
+    if (client.notAnsweringSince !== null && client.inFlight > 0) return;
     const project = record.craftProject;
+    const read = (name, args = {}) =>
+      client.call(name, { project, ...args }, { timeoutMs: r.readTimeoutMs });
     try {
-      const status = await client.call("rebuild_status", { project });
-      const show = await client.call("project_show", { project });
-      const activity = await this.activity(client, record);
+      const status = await read("rebuild_status");
+      const show = await read("project_show");
+      const activity = await this.activity(read, record);
       const asked = [record.step, record.questions, r.now().toISOString()];
       const fields = sampledFields(status, show, ...asked);
       const { questions, running } = fields;
@@ -86,6 +91,7 @@ export class RebuildSampler {
           ...fresh,
           questions: this.marked(record, fresh),
           activityRevision: activity,
+          notAnsweringSince: this.notAnswering(client, record),
         }),
       );
       this.forgetApprovals(record);
@@ -98,7 +104,11 @@ export class RebuildSampler {
           this.waiting(record, { questions: this.marked(record, record) }),
         );
     } catch (error) {
-      if (!goneCodes.has(error.code)) throw error;
+      if (goneCodes.has(error.code)) return;
+      if (error.code !== "CRAFT_MCP_TIMEOUT") throw error;
+      // Logged once per stall, not once per sample: the view says it meanwhile.
+      if (!record.notAnsweringSince) logCraftFailure("read a rebuild", error);
+      r.update(record, { notAnsweringSince: this.notAnswering(client, record) });
     } finally {
       r.children.settle(record.accountId, record.mode);
     }
@@ -120,18 +130,23 @@ export class RebuildSampler {
    * The activity's revision (rebuild-view.js), so the page reads the activity again
    * when it changed; the previous one when it cannot be read.
    */
-  async activity(client, record) {
+  async activity(read, record) {
     try {
-      const last = await client.call("rebuild_activity_show", {
-        project: record.craftProject,
-        limit: 1,
-      });
-      return activityRevision(last);
+      return activityRevision(await read("rebuild_activity_show", { limit: 1 }));
     } catch (error) {
       if (goneCodes.has(error.code)) throw error;
-      logCraftFailure("read a rebuild's activity", error);
+      if (!record.notAnsweringSince) logCraftFailure("read a rebuild's activity", error);
       return record.activityRevision ?? null;
     }
+  }
+
+  /**
+   * Since when (ISO) the rebuild's child has not answered, kept from the record while
+   * the stall lasts; null once Craft Anything answers again.
+   */
+  notAnswering(client, record) {
+    if (client.notAnsweringSince === null) return null;
+    return record.notAnsweringSince ?? new Date(client.notAnsweringSince).toISOString();
   }
 
   key(record, question) {

@@ -50,3 +50,7 @@ export const byRecent = (a, b) =>
 /** US dollars in the page's locale ("$0.42"). */
 export const usd = (amount, locale) =>
   new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(amount);
+
+/** The clock time of an ISO timestamp in the page's locale ("14:05"). */
+export const clockTime = (iso, locale) =>
+  new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(new Date(iso));

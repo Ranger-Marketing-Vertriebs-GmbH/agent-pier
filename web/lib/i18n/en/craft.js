@@ -96,6 +96,8 @@ export const craftCopy = {
     activity: "Activity",
     activityEmpty: "No activity yet.",
     activityLoading: "Loading activity …",
+    notAnswering: (time) =>
+      `Craft Anything has not answered since ${time}. This is the last state it reported.`,
     usage: "Usage",
     tokens: (input, output) => `${input} tokens in · ${output} tokens out`,
     cost: (amount) => `About ${amount}`,

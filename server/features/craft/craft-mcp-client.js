@@ -151,6 +151,9 @@ export class CraftMcpClient {
     this.stderrText = "";
     this.closing = false;
     this.exited = false;
+    // When a call first went unanswered past its budget (Date.now()); null once any
+    // answer arrives. Craft Anything 0.6.0 answers no call while heavy work holds it.
+    this.notAnsweringSince = null;
     // pgid → pids seen in that group below the child; only these are ever killed.
     this.groups = new Map();
     // pid → its command line when last seen, for a later server's check (restore).
@@ -185,6 +188,11 @@ export class CraftMcpClient {
   /** The newest part of the server's stderr, for diagnostics. */
   get stderr() {
     return this.stderrText;
+  }
+
+  /** How many calls wait for an answer. */
+  get inFlight() {
+    return this.pending.size;
   }
 
   get alive() {
@@ -374,6 +382,10 @@ export class CraftMcpClient {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.notAnsweringSince ??= Date.now();
+        // Craft Anything 0.6.0 drops a cancelled call (never answers it), so abandoned
+        // calls do not pile up behind the work that holds it.
+        this.notify("notifications/cancelled", { requestId: id, reason: "timeout" });
         reject(failure("CRAFT_MCP_TIMEOUT", `Craft Anything did not answer ${method}.`));
       }, timeoutMs);
       this.pending.set(id, {
@@ -432,6 +444,7 @@ export class CraftMcpClient {
     const pending = this.pending.get(message.id);
     if (!pending) return;
     this.pending.delete(message.id);
+    this.notAnsweringSince = null;
     if (message.error)
       pending.reject(
         failure(
