@@ -42,13 +42,14 @@ function scrubStore(text, profileId, remove) {
     const { [profileId]: _gone, ...profiles } = store.profiles;
     return { text: JSON.stringify({ ...store, profiles }), changed: true };
   }
-  if (profile.refresh === undefined && profile.authFlow === undefined)
+  if (profile.refresh === "" && profile.authFlow === undefined)
     return { text, changed: false };
+  // Access-only as AgentPier writes it (openclaw-access-profiles.js): empty refresh.
   const { refresh: _refresh, authFlow: _flow, ...rest } = profile;
   return {
     text: JSON.stringify({
       ...store,
-      profiles: { ...store.profiles, [profileId]: rest },
+      profiles: { ...store.profiles, [profileId]: { ...rest, refresh: "" } },
     }),
     changed: true,
   };

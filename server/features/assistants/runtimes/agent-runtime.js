@@ -265,6 +265,10 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *   - pinsChat(): optional, synchronously, whether a chat target keeps the chat as
  *     it was when the routine was created, so a reset needs a new routine
  *     (../chat-rebind.js; OpenClaw 2026.11.2 and later). Absent means no.
+ *   - adoptAccounts({ agentId }): optional, `{ adopted, failed }`: each agent-turn
+ *     routine (of `agentId` alone when given) records its agent's stored model
+ *     account, which OpenClaw 2026.11.3 requires before it runs one
+ *     (openclaw/openclaw-routine-accounts.js). Absent: the runtime needs none.
  *   - on(connection), as sessions.on.
  * - skills: per-agent skill status and eligibility
  *   - status({ agentId, refresh }): `{ skills: [{ name, source, eligible, … }] }`

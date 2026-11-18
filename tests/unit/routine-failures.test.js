@@ -43,6 +43,15 @@ test("OpenClaw's run errors map to a readable cause", () => {
     "agent-unavailable",
   );
   assert.equal(reason('unknown agentId "ops"'), "agent-unavailable");
+  // 2026.11.3: a job without (or with a lost) recorded inference account, whatever
+  // failover reason OpenClaw adds (openclaw-routine-accounts.js adopts one).
+  for (const text of [
+    "Automation has no recorded inference account. Explicitly select its account with a model@profile update before running it.",
+    "Automation inference account was replaced. Explicitly select an authorized account again.",
+    "Automation candidate is incompatible with its recorded inference account and route. The selected model uses a different provider from this job's stored account.",
+    "Automation inference account changed during execution.",
+  ])
+    assert.equal(reason(text, "auth"), "account");
   assert.equal(reason("cron: job execution timed out"), "timeout");
   assert.equal(
     reason("cron: isolated agent run stalled before execution start"),

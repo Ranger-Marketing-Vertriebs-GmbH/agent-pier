@@ -66,6 +66,8 @@ export const routineCopy = {
     "gateway-restart": "Das Gateway wurde während des Laufs neu gestartet.",
     "gateway-stopped": "Das Gateway wurde während des Laufs beendet.",
     "agent-unavailable": "Der Agent war nicht verfügbar.",
+    account:
+      "Für diese Routine ist kein nutzbares KI-Konto hinterlegt. AgentPier hinterlegt das Konto des Agenten, wenn der Agentendienst startet; bleibt der Fehler, melde dich unter Zugänge › Modell-Zugänge neu an.",
     timeout: "Der Lauf hat zu lange gedauert und wurde abgebrochen.",
     model: "Der Modellanbieter hat einen Fehler gemeldet.",
     delivery: "Das Ergebnis konnte nicht zugestellt werden.",

@@ -94,7 +94,7 @@ test("an OpenClaw snapshot stays runtime-scoped after a login move scrubs it", a
     scope: sharedHostUpdateScope(store),
   });
   assert.equal(restored.credentialsWithheld, false);
-  assert.equal(profiles().profiles[profileId].refresh, undefined, "no second refresher");
+  assert.equal(profiles().profiles[profileId].refresh, "", "no second refresher");
   assert.equal(profiles().profiles[profileId].access, "access-old");
   assert.deepEqual(profiles().profiles["anthropic:x"], other);
   assert.equal(read(work("claw", "notes.md")), "claw before");

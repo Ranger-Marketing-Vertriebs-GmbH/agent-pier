@@ -167,6 +167,37 @@ group it cannot attribute while it still exists keeps the update in
 running migration. A same-version runtime change (a new Node or lock) runs no
 migration.
 
+#### Routine inference accounts (OpenClaw 2026.11.3)
+
+From 2026.11.3 OpenClaw runs an agent-turn cron job (an AgentPier routine, reminder
+run or a job an agent scheduled itself) on a stored account only when the job
+carries that account as its recorded inference account; otherwise each run fails at
+once with "Automation has no recorded inference account". OpenClaw records it when
+a job is created and on a `cron.update` that selects `model@profile`. Doctor is
+meant to adopt it for older jobs, but not for AgentPier's: AgentPier's access-only
+ChatGPT profiles had no `refresh` field, which 2026.11.3 reads as a retired
+authorization ("MCP authorization was disconnected or replaced"), and Doctor runs
+with the provider keys withheld. Configured provider keys need no recorded account.
+
+AgentPier therefore:
+
+- writes its access-only profiles with an empty `refresh`
+  ([model connections](assistant-model-connections.md)), before every Gateway start;
+- once the Gateway is ready, and after an agent's model or account changes, adopts
+  the agent's account for every agent-turn job of the agent that has none or another
+  one (`openclaw-routine-accounts.js`): one `cron.update` selecting
+  `<model>@<profile>`, then one giving the job its own model choice back (the
+  recorded account stays), so it keeps following the agent's model. It reads the
+  recorded accounts read-only from OpenClaw's cron store, so the repair is idempotent;
+- reports a job OpenClaw refuses (signed-out or expired login, another provider) in
+  the server log, and the routine's failed runs show the account cause in its
+  details until the account is usable again.
+
+The native contract `assistant-routine-account-contract.test.js` pins this on the
+pinned runtime: a job stored without an account is refused, runs after the repair,
+and a routine created by AgentPier records the account itself. The fixture-provider
+routine contracts could not see it, since a configured key needs no account.
+
 ### Validation and diagnostics
 
 After the candidate's first start, validation (`runtime-update-validation.js`,

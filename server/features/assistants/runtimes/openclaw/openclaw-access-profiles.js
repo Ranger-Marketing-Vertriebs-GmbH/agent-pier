@@ -4,11 +4,15 @@ import { DatabaseSync } from "node:sqlite";
 
 // AgentPier-held ChatGPT logins as OpenClaw sees them: an access-only `openai` OAuth
 // profile in OpenClaw's own auth profile store, the same shape OpenClaw writes
-// (openai-chatgpt-provider buildOpenAICodexAuthResult) without `refresh` and
-// `authFlow`. Verified against OpenClaw 2026.10.9 (docs/assistant-model-connections.md):
+// (openai-chatgpt-provider buildOpenAICodexAuthResult) with an empty `refresh` and
+// without `authFlow`. Verified against OpenClaw 2026.11.3 (docs/assistant-model-connections.md):
 // - With a usable access token (more than 5 minutes left) OpenClaw never refreshes;
-//   without a refresh token its refresh claim gives up before it writes a fence
-//   (oauth.ts claim: `refresh === undefined` → "unavailable"), nothing is deleted.
+//   with an empty refresh token its refresh claim gives up before it writes a fence
+//   (oauth.ts claim: no normalized `refresh` → "unavailable"), nothing is deleted.
+// - `refresh` is an empty string, never missing: from 2026.11.3 an OAuth profile
+//   without a string `refresh` counts as retired (projectAuthProfileAuthorization),
+//   so no automation could record it as its inference account
+//   (openclaw-routine-accounts.js); an empty one is live until `expires`.
 // - Every ChatGPT feature (chat, image_generate, transcription, realtime, usage,
 //   embeddings) gates on the credential type `oauth`, never on a refresh token.
 // - No RPC writes an OAuth credential: the row is written here, inside one
@@ -165,6 +169,7 @@ export function accessProfile(credential) {
     type: "oauth",
     provider: "openai",
     access: credential.access,
+    refresh: "",
     expires: credential.expires,
     ...(credential.accountId && { accountId: credential.accountId }),
     ...(credential.email && { email: credential.email }),
@@ -232,7 +237,8 @@ export function takeStoredProfile(stateDir, profileId) {
       taken = { ...profile };
       if (typeof profile.refresh !== "string" || !profile.refresh) return undefined;
       const { refresh: _refresh, authFlow: _flow, ...rest } = profile;
-      return { ...store, profiles: { ...store.profiles, [profileId]: rest } };
+      const accessOnly = { ...rest, refresh: "" };
+      return { ...store, profiles: { ...store.profiles, [profileId]: accessOnly } };
     },
     { write: true },
   );

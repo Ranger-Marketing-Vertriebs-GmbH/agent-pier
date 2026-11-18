@@ -1549,6 +1549,7 @@
   "assistant-routines:routineCopy.events.unknown": "de:6ba5014d10af en:d554ee8e2913",
   "assistant-routines:routineCopy.failedInARow": "de:47da1919ad64 en:d66b66581d8a",
   "assistant-routines:routineCopy.failureMessage": "de:917529609169 en:a5dc35f1ff42",
+  "assistant-routines:routineCopy.failures.account": "de:afffa919c22b en:cfdcf4aac06a",
   "assistant-routines:routineCopy.failures.agent-unavailable": "de:03c7f4ed5f95 en:1cb6d1a6cbbf",
   "assistant-routines:routineCopy.failures.delivery": "de:81f96e3807e4 en:d9c4c308c7dc",
   "assistant-routines:routineCopy.failures.gateway-restart": "de:d37df8349ac4 en:612d88479930",
