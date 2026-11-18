@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { assistantApi } from "./assistant-api.js";
 import { featureAfterFailure } from "./agent-offline.js";
+import { clearAgentList, hasAgentList } from "./agent-list-cache.js";
 // A client-side code (the server never sends it) for "the switch could not be read".
 export const FEATURE_CHECK_FAILED = "FEATURE_CHECK_FAILED";
 // One shared opt-in state: the shell, sidebar, accounts and settings all follow it,
@@ -23,6 +24,8 @@ function check() {
     .feature()
     .then((feature) => {
       attempts = 0;
+      // Agents off: the list kept for offline use goes too.
+      if (!feature.enabled) clearAgentList();
       publish({
         enabled: !!feature.enabled,
         error: feature.error || null,
@@ -30,9 +33,9 @@ function check() {
       });
     })
     .catch(() => {
-      // Unknown is not off: report it, keep the app (and agents known to be on) usable
-      // and try again with backoff.
-      publish(featureAfterFailure(state, FEATURE_CHECK_FAILED));
+      // Unknown is not off: report it, keep the app (and agents known to be on, or
+      // kept on this device for this login) usable and try again with backoff.
+      publish(featureAfterFailure(state, FEATURE_CHECK_FAILED, hasAgentList()));
       timer = setTimeout(check, Math.min(1000 * 2 ** attempts++, 30000));
     })
     .finally(() => {

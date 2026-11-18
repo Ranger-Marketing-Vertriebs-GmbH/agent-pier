@@ -72,10 +72,14 @@ export default function AssistantSidebar({ navigate, route }) {
     loaded = false,
     connected,
     offline,
+    restored,
     refresh,
   } = useAssistants();
-  // Without a connection the rows show the last known state until it is back.
-  const stale = offline || !connected;
+  // Without a connection the rows show the last known state until it is back. A page
+  // that opened with the list kept on this device shows it dimmed until AgentPier
+  // answers; the connection note follows only once a read failed.
+  const lost = offline || !connected;
+  const stale = lost || restored;
   // A stopped or failed agent service (handoff 5.10): rows dimmed with "offline" and
   // a warning dot on the group head; the hub shows the banner with start and diagnose.
   const down = serviceDown(runtime);
@@ -298,7 +302,7 @@ export default function AssistantSidebar({ navigate, route }) {
       <ErrorMessage error={error || groupActions.error || ordering.error} />
       {ordering.status}
       {groupActions.dialog}
-      {stale && (
+      {lost && (
         <p role="status" className="assistant-sidebar-offline">
           {copy.sidebarOffline}
         </p>

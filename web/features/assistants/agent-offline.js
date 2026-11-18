@@ -1,14 +1,19 @@
-// What the agent pages keep while AgentPier cannot be reached. Everything stays in
-// this page's memory only: a reload or a logout starts empty, like the session list.
+// What the agent pages keep while AgentPier cannot be reached. Chats stay in this
+// page's memory only; the agent list is also kept on the device for the login that
+// saw it (agent-list-cache.js), so a page opened without a connection lists it.
 
 /** No response at all, or the service briefly unreachable behind it. */
 export function connectionLost(error) {
   return !error?.status || [502, 503, 504].includes(error.status);
 }
 
-/** A failed read of the opt-in switch keeps a known "on": unknown is not off. */
-export function featureAfterFailure(state, error) {
-  return { enabled: !!state?.enabled, error, loading: false };
+/**
+ * A failed read of the opt-in switch keeps a known "on": unknown is not off. Before
+ * any read succeeded, an agent list this login kept on the device counts as "on".
+ */
+export function featureAfterFailure(state, error, kept = false) {
+  const enabled = !!state?.enabled || (state?.loading !== false && kept);
+  return { enabled, error, loading: false };
 }
 
 const textSize = (history) =>

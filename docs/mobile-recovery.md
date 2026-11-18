@@ -119,6 +119,18 @@ Intentionally kept across logout, because they are not chat history caches: mess
 drafts and the outbox (`localStorage`), pending uploads (IndexedDB `chat-upload-store`,
 see below), and the browser's HTTP cache of immutable tool images.
 
+### Agent list on the device
+
+The owner's agent list (the `agent.list` value) is kept in `localStorage` under
+`agentpier.agent-list.v1`, written at most once a second after it changes and when the
+page is hidden, with the login-change marker and the build identifier
+(`web/features/assistants/agent-list-cache.js`). A page that opens while the list
+cannot be read shows the kept list dimmed until the first answer replaces it, and a
+failed first read of the agent switch counts agents as on when such a list exists. The
+entry leaves out the chats of users' own agents and is dropped by another login
+marker or build, a logout or expired session, agents switched off, or a list over 1.5
+million characters. See [When the connection is lost](agents.md#when-the-connection-is-lost).
+
 ## Slow connections
 
 Chat snapshots are validated before use, on the socket and on the HTTP fallback. An

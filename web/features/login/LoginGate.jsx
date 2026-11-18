@@ -10,13 +10,16 @@ import LoginPage from "./LoginPage.jsx";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
+import { clearAgentList } from "../assistants/agent-list-cache.js";
 import { liveAuthCheckEvent } from "../../lib/live/live-client.js";
 import { openPreviewReturn, previewParams, previewReturn } from "./preview-return.js";
 import api from "../../lib/api.js";
 // Everything this page remembers for the signed-in user. Agent data, the agent chat
-// cache and its offline outbox live in the app and go with its unmount.
+// cache and its offline outbox live in the app and go with its unmount; the agent
+// list kept on the device for offline use goes here.
 const forgetUser = () => {
   sharedDrafts.clearAll();
+  clearAgentList();
   void clearChatCache();
 };
 import "./login.css";

@@ -9,6 +9,9 @@ import { liveClient } from "../../lib/live/live-client.js";
 import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 import { sharedDrafts } from "./useAssistants.js";
 import { AgentHistoryCache, connectionLost } from "./agent-offline.js";
+import { readAgentList, saveAgentList } from "./agent-list-cache.js";
+// How long the host waits before it keeps a changed list on the device.
+const SAVE_DELAY_MS = 1000;
 const none = [];
 const nothing = {};
 // The host state from a list read or a list sync; missing sections stay stable.
@@ -33,13 +36,19 @@ const toData = (next) => ({
 // the runtime status). It renders nothing and publishes into the always-mounted
 // gate, so toggling it never remounts the app.
 export default function AssistantsHost({ publishState }) {
-  const [data, setData] = useState({
-    assistants: [],
-    conversations: [],
-    models: [],
-    activity: {},
-  });
-  const [runtime, setRuntime] = useState({ availability: "disabled", sync: "stale" });
+  // The list this login last saw on this device (agent-list-cache.js): shown, as last
+  // known, until AgentPier answers, so a page opened without a connection lists it.
+  const [kept] = useState(() => readAgentList());
+  const [data, setData] = useState(() =>
+    kept
+      ? toData(kept.list)
+      : { assistants: [], conversations: [], models: [], activity: {} },
+  );
+  const [runtime, setRuntime] = useState(
+    () => kept?.list.runtime || { availability: "disabled", sync: "stale" },
+  );
+  // True while what is shown came from the device, not yet from AgentPier.
+  const [restored, setRestored] = useState(Boolean(kept));
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(true);
   // False while AgentPier cannot be reached: the last known agents and chats stay.
@@ -62,7 +71,16 @@ export default function AssistantsHost({ publishState }) {
     let alive = true,
       // The list last shown, and whether the live channel was connected.
       shown = null,
-      linked = false;
+      linked = false,
+      // The list to keep on the device, written once it rested for SAVE_DELAY_MS.
+      unsaved = null,
+      timer = null;
+    const save = () => {
+      clearTimeout(timer);
+      timer = null;
+      if (alive && unsaved) saveAgentList(unsaved);
+      unsaved = null;
+    };
     // A REST read of the list or the runtime (the fallback, `stale`, refresh()) also
     // tells whether AgentPier is there; the shown agents stay until one succeeds.
     const read = async (path, signal) => {
@@ -93,6 +111,9 @@ export default function AssistantsHost({ publishState }) {
         linked = live;
         if (!data || data === shown) return;
         shown = data;
+        unsaved = data;
+        timer ??= setTimeout(save, SAVE_DELAY_MS);
+        setRestored(false);
         const { runtime: status, ...list } = data;
         setData((old) => {
           const next = toData(list);
@@ -111,8 +132,16 @@ export default function AssistantsHost({ publishState }) {
     const online = () => started.refresh();
     window.addEventListener("offline", offline);
     window.addEventListener("online", online);
+    // A page leaving or hidden (a phone app sent away) keeps what it shows now.
+    const hidden = () => document.hidden && save();
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", hidden);
     return () => {
+      // Unmounted by a logout or agents switched off: nothing more is written.
       alive = false;
+      clearTimeout(timer);
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", hidden);
       if (reader.current === started) reader.current = null;
       started.stop();
       window.removeEventListener("offline", offline);
@@ -126,11 +155,12 @@ export default function AssistantsHost({ publishState }) {
       error,
       connected,
       offline: !reachable,
+      restored,
       histories,
       drafts: sharedDrafts,
       refresh,
     }),
-    [data, runtime, error, connected, reachable, histories, refresh],
+    [data, runtime, error, connected, reachable, restored, histories, refresh],
   );
   useEffect(() => publishState(value), [value, publishState]);
   useEffect(() => () => publishState(null), [publishState]);
