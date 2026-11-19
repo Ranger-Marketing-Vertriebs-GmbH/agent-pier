@@ -2291,7 +2291,10 @@ The opt-in contract `tests/integration/assistant-image-contract.test.js`
 (`AGENTPIER_IMAGE_CONTRACT_RUNTIME`) runs the pinned runtime with AgentPier's compiled
 configuration and a local fake of the OpenAI Images API (OpenClaw's QA switch
 `OPENCLAW_QA_ALLOW_LOCAL_IMAGE_PROVIDER` admits the loopback endpoint) and verifies the
-tool, the completion message and the copy into the chat. It uses an API-key route: the
+tool, the completion message and the copy into the chat. Its fake model reads images,
+and the contract pins the known limit that the completion turn reaches it without the
+picture (see [Deferred work and known limits](#deferred-work-and-known-limits)). It
+uses an API-key route: the
 ChatGPT OAuth route through the Codex backend is not qualified without a real account.
 
 ### Managed agent browser
@@ -6155,12 +6158,15 @@ follows the requalification checklist in
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
 - **Generated images in the delivery turn.** OpenClaw (checked up to 2026.11.3) loads the images a
   prompt names only from the agent's workspace while `tools.fs.workspaceOnly` is on,
-  and offers no setting for further folders. The `image_generate` completion turn
+  and offers no setting for further folders: in 2026.11.3 the prompt image loader
+  falls back to the workspace alone whenever `workspaceOnly` is on, and `tools.fs`
+  knows no key besides `workspaceOnly`. The `image_generate` completion turn
   names the image in `state/media/tool-image-generation/`, so a vision model gets the
   turn without the picture, and the Gateway logs that the local media path "is not
   under an allowed directory". Delivery is unaffected (OpenClaw sends the media,
   AgentPier copies the artifact), and `view_image` still reads the shared media
-  folder. Switching `workspaceOnly` off is not an option.
+  folder. Switching `workspaceOnly` off is not an option. The image contract pins
+  this with a vision-capable fake model, so a bump that changes it fails there.
 - **Allowlist warnings from memory search.** AgentPier's own memory search calls
   `memory_search` through `tools.invoke`, where OpenClaw builds only Gateway-scope
   tools. The Gateway then logs once that `read`, `write`, `edit`, `view_image` and

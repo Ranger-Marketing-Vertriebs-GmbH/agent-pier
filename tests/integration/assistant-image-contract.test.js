@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -17,6 +18,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { fixtureModels } from "../helpers/assistant-proactivity-model.js";
+import { lastUserIndex } from "../helpers/openclaw-model-input.js";
 
 // Opt-in: a disposable pinned OpenClaw whose image provider is a local fake of the
 // OpenAI Images API (OpenClaw's own QA switch admits a loopback endpoint), so no
@@ -69,7 +71,7 @@ async function fakes(png) {
     const input = JSON.parse(body || "{}");
     state.requests.push(input);
     // Only the newest owner message decides, and only before its tool call.
-    const last = input.messages.findLastIndex((m) => m.role === "user");
+    const last = lastUserIndex(input.messages);
     const newest = JSON.stringify(input.messages[last] || "");
     const remote = newest.includes("REMOTE_CONTRACT");
     const asked = remote || newest.includes("DRAW_CONTRACT");
@@ -115,6 +117,21 @@ async function fakes(png) {
         server.close(resolve);
       }),
   });
+}
+
+// The agent's model reads images, so OpenClaw would load an image its prompt names.
+function visionModels(model) {
+  const models = fixtureModels(model);
+  return {
+    resolve: (...args) => {
+      const resolved = models.resolve(...args);
+      resolved.provider.models = resolved.provider.models.map((entry) => ({
+        ...entry,
+        input: ["text", "image"],
+      }));
+      return resolved;
+    },
+  };
 }
 
 test(
@@ -188,7 +205,7 @@ test(
       runtime,
       store: f.store,
       workspaces: runtime.paths.workspaces,
-      models: fixtureModels(model),
+      models: visionModels(model),
     });
     f.assistants.config.nativeReady = () => true;
     f.assistants.config.webToolsAvailable = () => ({ createImages: true });
@@ -259,6 +276,37 @@ test(
       JSON.stringify(m.content).includes("artifact_managed_image_"),
     );
     t.diagnostic(`completion=${JSON.stringify(completion).slice(0, 1200)}`);
+    // Known limit (docs/assistant-gateway.md): with tools.fs.workspaceOnly OpenClaw
+    // loads images a prompt names only from the agent's workspace, and offers no
+    // setting for further folders. The completion turn names the image in
+    // state/media/tool-image-generation/, so the vision model gets that turn without
+    // the picture and the Gateway logs the refusal. When a bump changes this, the
+    // entry in the doc goes (or the new setting is wired into runtime-config.js).
+    const delivery = model.requests.find((r) =>
+      JSON.stringify(r.messages).includes("tool-image-generation/"),
+    );
+    assert.ok(delivery, "the completion turn named the generated image to the model");
+    assert.doesNotMatch(
+      JSON.stringify(delivery.messages),
+      /"image_url"/,
+      "the completion turn reached the vision model without the image",
+    );
+    const consoleLog = path.join(runtime.paths.logs, "gateway-console.log");
+    let refusal;
+    const logDeadline = Date.now() + 10000;
+    do {
+      refusal = fs
+        .readFileSync(consoleLog, "utf8")
+        .split("\n")
+        .find((line) => line.includes("Native image: failed to load"));
+      if (refusal) break;
+      await delay(250);
+    } while (Date.now() < logDeadline);
+    t.diagnostic(`prompt image refusal=${refusal}`);
+    assert.match(
+      refusal || "",
+      /tool-image-generation\/.*Local media path is not under an allowed directory/,
+    );
     // AgentPier copies it into the chat's share store from the Gateway.
     const attachments = new AgentAttachments({
       store: f.store,
