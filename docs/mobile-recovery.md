@@ -131,6 +131,46 @@ entry leaves out the chats of users' own agents and is dropped by another login
 marker or build, a logout or expired session, agents switched off, or a list over 1.5
 million characters. See [When the connection is lost](agents.md#when-the-connection-is-lost).
 
+### Views opened offline
+
+Pages load their code on first use. Without a connection that download fails, and a
+view never opened in the running page would show "View unavailable". So once the app
+has started online (the workspace state arrived and the agent switch is known),
+`web/app/view-preload.js` imports the code of the views the owner is likely to open
+offline in the background: one module per idle period of the browser, after the
+first render. A module imported once stays in the page's module map until the page
+reloads, independent of the HTTP cache and the service worker.
+
+| Covered                                       | Modules                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| An agent, "Manage all agents", agent settings | `AgentsPage`, `AssistantChat` (only while agents are on)                |
+| A session in every default mode               | `SessionWorkspace`, `TerminalView`, `SessionPreviews`, `SessionChanges` |
+| Split views and chat contents                 | `SplitViewPage`, `ToolCode`, `DiffRows`                                 |
+
+These views then render their shells with the existing notices: the last known agents,
+"Connection interrupted …" in an agent chat, "Disconnected · retrying …" in a session,
+and a session chat the [chat session cache](#chat-session-cache-in-the-browser) holds.
+A chat that was never loaded still has no messages to show. With the build of
+2026-11-19 this loads about 1.9 MB of JavaScript and CSS (about 610 KB transferred
+with compression) in about 125 files that the browser would otherwise download when
+the views open.
+
+Deliberately left out, because they show nothing useful without AgentPier or are
+rarely opened on the go: settings, connections, projects, pipelines, craft, files and
+the file editor (CodeMirror), artifacts, the inbox, coding and extensions, session
+dialogs (MCP, SSH, agent access, reload), the search dialog and the user app of
+other users. They still show "View unavailable" when first opened offline.
+
+Nothing is loaded when the browser asks to save data (`navigator.connection.saveData`,
+Data Saver or Low Data Mode). A module that fails to load (the connection dropped,
+AgentPier restarted) is tried again on the next `online` event. The root element
+carries the state in `data-view-preload` (`loading`, `done`, `incomplete` or
+`skipped`), which `tests/browser/offline-views.spec.js` waits for. Updates are
+unaffected: the page keeps the build it started with until it reloads, and the
+reload loads the new build's chunk names. The service worker still caches no app code;
+a navigation without a connection opens `offline.html`
+([Startup loading](startup-loading.md#caching-and-updates)).
+
 ## Slow connections
 
 Chat snapshots are validated before use, on the socket and on the HTTP fallback. An

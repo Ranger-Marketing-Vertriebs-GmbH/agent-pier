@@ -40,6 +40,7 @@ import { ViewsContext } from "../features/views/views-context.js";
 import useViewRouting from "../features/views/useViewRouting.js";
 import SingleViewDropTarget from "../features/views/SingleViewDropTarget.jsx";
 import { itemFromRoute, tabOfMode } from "../features/views/click-rule.js";
+import { useViewPreload } from "./view-preload.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -74,6 +75,8 @@ function Application() {
   usePushPresence(state.pushDevices > 0);
   // This browser's device registers again when the server lost it (push-reconcile.js).
   usePushReconcile("owner");
+  // Views likely opened without a connection load in the background (view-preload.js).
+  useViewPreload({ ready, agentsLoading, agentsEnabled });
   useAppBadge();
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false),

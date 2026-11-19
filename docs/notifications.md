@@ -21,7 +21,9 @@ Under **App**, **AgentPier as an app** shows whether this page already runs as a
 installed app. Choose **Install app**, or **Install app** / **Add to Home Screen** in
 the browser menu. Offline, the app shows only a public notice; sessions, chats, API
 responses and credentials are not stored for offline use. An open page that loses its
-connection keeps showing what it already loaded until the connection is back. When the
+connection keeps showing what it already loaded until the connection is back, and
+opens agents and sessions whose code it loaded in the background
+([Views opened offline](mobile-recovery.md#views-opened-offline)). When the
 app opens while AgentPier or its agents do not answer, it lists the agents this login
 last saw on the device ([When the connection is lost](agents.md#when-the-connection-is-lost)).
 
