@@ -77,7 +77,9 @@ serves as `X-AgentPier-Build` on every response and re-reads it when
 version available" notice and never reloads on its own. On the mobile layout the
 notice sits below the mobile header so it never covers header controls. A lazy view
 that fails to load shows the recovery view, with update-specific copy when a newer
-build was already detected.
+build was already detected. After the start, the page loads the code of the agent and
+session views in the background, so they open without a connection; the service
+worker caches no app code ([Views opened offline](mobile-recovery.md#views-opened-offline)).
 
 Caching helps between updates. An update usually renames most chunks, so the first
 launch after an update downloads the start files again. Artifact links opened from

@@ -1962,7 +1962,10 @@ chat you opened before shows its last loaded messages with "Connection interrupt
 Your draft is preserved; history will refresh when connected." Sending stays off until
 the connection is back; the typed text stays in the composer. When AgentPier answers
 again, the list and the open chat refresh by themselves, also after a restart that
-first refused the agent list.
+first refused the agent list. An agent page, "Manage all agents" or a session that
+this page has not opened yet also opens without a connection: once the app has
+started online, it loads their code in the background, unless the browser asks to
+save data ([Views opened offline](mobile-recovery.md#views-opened-offline)).
 
 The agent list is also kept on the device: each list AgentPier sends is written to the
 browser's `localStorage` (`agentpier.agent-list.v1`, at most 1.5 million characters)
