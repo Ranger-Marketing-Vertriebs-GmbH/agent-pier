@@ -106,7 +106,10 @@ test("the closed phone drawer is inert and fits 320 px without horizontal scroll
   );
   await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
   await expect.poll(() => aside.evaluate((node) => node.inert)).toBe(false);
-  expect((await aside.boundingBox()).width).toBe(264);
+  // The drawer slides in: measure once it has settled, to the pixel.
+  await expect
+    .poll(async () => Math.round((await aside.boundingBox()).width * 100) / 100)
+    .toBe(264);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
