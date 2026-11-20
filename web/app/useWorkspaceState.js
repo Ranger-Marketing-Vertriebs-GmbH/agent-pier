@@ -1,4 +1,5 @@
 import { useWorkspaceStateCopy as copy } from "../lib/i18n/messages/app.js";
+import { apiCopy } from "../lib/i18n/messages/components.js";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { chatCacheKey, retainCachedChats } from "../features/chat/chat-session-cache.js";
 import api from "../lib/api.js";
@@ -67,7 +68,12 @@ export default function useWorkspaceState() {
   return {
     state: data || empty,
     loading,
-    error: failure ? copy.serviceConnectionError(failure) : "",
+    // An unreachable AgentPier says so on its own (reach-server.js).
+    error: !failure
+      ? ""
+      : failure === apiCopy.unreachable
+        ? failure
+        : copy.serviceConnectionError(failure),
     ready: Boolean(data),
     refresh,
   };

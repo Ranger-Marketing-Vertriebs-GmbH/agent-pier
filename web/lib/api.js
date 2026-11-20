@@ -1,4 +1,3 @@
-import { observeBuild } from "./build-check.js";
 import { serverMessagesReady, serverProblemText } from "./server-messages.js";
 import { artifactCopy } from "./i18n/messages/artifacts.js";
 import { apiCopy as copy } from "./i18n/messages/components.js";
@@ -6,6 +5,7 @@ import { memoryCopy } from "./i18n/messages/memory.js";
 import { secretsCopy } from "./i18n/messages/secrets.js";
 import { sshProjectCopy } from "./i18n/messages/ssh-projects.js";
 import { noteReadStamp, parseReadStamp } from "./read-stamps.js";
+import { reachServer } from "./reach-server.js";
 export async function apiError(response) {
   if (response.status === 401)
     window.dispatchEvent(new Event("agentpier-login-required"));
@@ -47,18 +47,16 @@ export async function apiError(response) {
   return error;
 }
 export default async function api(path, method = "GET", body, signal) {
-  const response = observeBuild(
-    await fetch(`/api${path}`, {
-      method,
-      signal,
-      headers: body
-        ? {
-            "Content-Type": "application/json",
-          }
-        : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    }),
-  );
+  const response = await reachServer(`/api${path}`, {
+    method,
+    signal,
+    headers: body
+      ? {
+          "Content-Type": "application/json",
+        }
+      : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
   if (!response.ok) throw await apiError(response);
   const data = await response.json().catch(() => ({}));
   // When the server began this read (read-stamps.js); a live hook compares pushes.

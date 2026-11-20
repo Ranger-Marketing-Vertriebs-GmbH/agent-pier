@@ -8,6 +8,7 @@ export const paginationCopy = {
 export const apiCopy = {
   requestFailed: (value1) => `Anfrage fehlgeschlagen (${value1})`,
   timedOut: "Der Server hat nicht rechtzeitig geantwortet.",
+  unreachable: "AgentPier ist nicht erreichbar. Prüfe, ob es läuft.",
 };
 export const imageViewerCopy = {
   title: "Bildansicht",
