@@ -127,3 +127,62 @@ test("an Azure 404 for an unknown deployment names the model, not the protocol",
   assert.equal(result.protocols.responses, "failed");
   assert.equal(result.reasons.responses, "modelNotFound");
 });
+
+// An Azure reasoning deployment refuses max_tokens but answers max_completion_tokens.
+const reasoningRoutes = (key) => ({
+  ...azureRoutes(key),
+  "POST /openai/v1/chat/completions": ({ body }) =>
+    body.max_completion_tokens
+      ? { json: { choices: [{ message: { content: "ok" } }] } }
+      : { status: 400, json: { error: { message: "Use max_completion_tokens" } } },
+});
+
+test("a reasoning deployment's refused max_tokens leaves no warning once the other field works", async (t) => {
+  const server = await fakeEndpoint(t, reasoningRoutes("az-key"));
+  const result = await runEndpointTest({
+    endpoint: azure(server.base),
+    apiKey: "az-key",
+    previousModels: [manual("my-deploy", 128000)],
+  });
+  assert.equal(result.protocols.chatCompletions, "ok");
+  assert.equal(result.reasons.chatCompletions, undefined);
+  assert.equal(
+    result.capabilities.chatCompletions.maxTokensField,
+    "max_completion_tokens",
+  );
+  assert.ok(!result.warnings.includes("rejectedRequest"));
+});
+
+test("a refused minimal request is named on its protocol, not as a general warning", async (t) => {
+  // azureRoutes refuses every Chat Completions request for the deployment.
+  const server = await fakeEndpoint(t, azureRoutes("az-key"));
+  const result = await runEndpointTest({
+    endpoint: azure(server.base),
+    apiKey: "az-key",
+    previousModels: [manual("my-deploy", 128000)],
+  });
+  assert.equal(result.protocols.chatCompletions, "ok");
+  assert.equal(result.reasons.chatCompletions, "rejectedRequest");
+  assert.equal(result.reasons.responses, undefined);
+  assert.ok(!result.warnings.includes("rejectedRequest"));
+});
+
+test("an Azure address without /openai/v1 names the path, not the model", async (t) => {
+  const server = await fakeEndpoint(t, azureRoutes("az-key"));
+  const result = await runEndpointTest({
+    endpoint: { ...azure(server.base), openaiBaseUrl: server.base },
+    apiKey: "az-key",
+    previousModels: [manual("my-deploy", 128000)],
+  });
+  assert.equal(result.protocols.responses, "failed");
+  assert.equal(result.reasons.responses, "basePath");
+  assert.equal(result.reasons.chatCompletions, "basePath");
+  assert.ok(result.warnings.includes("azureBasePath"));
+  // The right path gives no such hint.
+  const right = await runEndpointTest({
+    endpoint: azure(server.base),
+    apiKey: "az-key",
+    previousModels: [manual("my-deploy", 128000)],
+  });
+  assert.ok(!right.warnings.includes("azureBasePath"));
+});

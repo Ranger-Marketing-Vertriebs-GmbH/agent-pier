@@ -49,6 +49,24 @@ test("rejects unsafe or malformed URLs syntactically", () => {
   assert.equal(normalizeEndpointUrl("", { optional: true }), null);
 });
 
+test("a template placeholder in the address says to replace it", () => {
+  for (const url of [
+    "https://<resource>.openai.azure.com/openai/v1",
+    "https://%3Cresource%3E.openai.azure.com/openai/v1",
+    "https://host/<deployment>/v1",
+  ])
+    assert.throws(
+      () => normalizeEndpointUrl(url),
+      { status: 400, message: /<resource>/ },
+      url,
+    );
+  // Other invalid addresses keep the general message.
+  assert.throws(() => normalizeEndpointUrl("https://host/v1?x=1"), {
+    status: 400,
+    message: /Query/,
+  });
+});
+
 test("rejects forbidden auth headers and bad models", () => {
   for (const authHeader of ["Host", "cookie", "bad header", "x".repeat(65), "a\nb"])
     assert.throws(() => validateEndpoint({ ...base, authHeader }), { status: 400 });

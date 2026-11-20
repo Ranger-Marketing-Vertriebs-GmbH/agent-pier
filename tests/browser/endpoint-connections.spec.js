@@ -300,3 +300,33 @@ test("detected models go in one step and manual ones stay", async ({ page }) => 
   await expect(dialog.getByLabel("Context llama3:8b", { exact: true })).toHaveCount(0);
   await expect(dialog.getByLabel("Context my-model", { exact: true })).toBeVisible();
 });
+
+test("model table headers never break inside a word", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "de"));
+  await fixture(page);
+  await page.goto(baseURL + "/connections?section=models");
+  await page
+    .getByRole("button", { name: "Provider-Zugang hinzufügen", exact: true })
+    .click();
+  const dialog = accountDetail(page);
+  await dialog
+    .getByLabel("API-Anbieter", { exact: true })
+    .selectOption("endpoint:ollama");
+  await dialog.getByRole("button", { name: "Verbindung testen", exact: true }).click();
+  await expect(dialog.getByText("Herkunft", { exact: true })).toBeVisible();
+  // Each header ("Herkunft", "Max. Output") stays on one line.
+  const lines = await page.evaluate(() =>
+    [...document.querySelectorAll(".endpoint-models th")]
+      .filter((cell) => cell.textContent.trim())
+      .map((cell) => {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const tops = new Set(
+          [...range.getClientRects()].map((rect) => Math.round(rect.top)),
+        );
+        return [cell.textContent, tops.size];
+      }),
+  );
+  expect(lines.length).toBeGreaterThan(3);
+  for (const [text, count] of lines) expect(count, text).toBe(1);
+});

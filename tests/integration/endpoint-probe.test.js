@@ -191,7 +191,7 @@ test("probe classification distinguishes missing protocol from missing model", (
   });
   assert.deepEqual(classifyProbe({ status: 400, json: {} }, { listedModel: true }), {
     status: "ok",
-    warning: "rejectedRequest",
+    reason: "rejectedRequest",
   });
   assert.deepEqual(classifyProbe({ status: 401, json: {} }, { listedModel: true }), {
     status: "failed",
@@ -269,7 +269,7 @@ test("azure manual deployment: 404 on unlisted model is modelNotFound, 400 is re
     responses: "ok",
     chatCompletions: "ok",
   });
-  assert.ok(result.warnings.includes("rejectedRequest"));
+  assert.equal(result.reasons.chatCompletions, "rejectedRequest");
   assert.ok(
     result.models.some(
       (model) => model.modelId === "my-deploy" && model.source === "manual",

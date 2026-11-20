@@ -185,6 +185,8 @@ export const connectionCopy = {
       network: "Server nicht erreichbar oder Adresse nicht erlaubt",
       tooLarge: "Antwort zu groß",
       aborted: "Abgebrochen",
+      rejectedRequest: "Minimale Testanfrage abgelehnt; der Endpunkt existiert",
+      basePath: "Unter dieser Adresse nichts gefunden; prüfe den Pfad der Basis-URL",
     },
     warnings: {
       ollamaContextUnknown:
@@ -193,8 +195,8 @@ export const connectionCopy = {
         "Einige Modell-IDs waren nicht nutzbar (z. B. Dateipfade). Starte llama.cpp mit --alias oder trage das Modell manuell ein.",
       storedKeyNotUsed:
         "Der gespeicherte Key wurde nicht gesendet, weil sich die Adresse geändert hat.",
-      rejectedRequest:
-        "Der Server hat die minimale Testanfrage abgelehnt, der Endpunkt existiert aber.",
+      azureBasePath:
+        "Basis-URLs von Azure OpenAI enden auf /openai/v1, etwa https://<resource>.openai.azure.com/openai/v1.",
       modelListTruncated:
         "Ein Provider-Zugang fasst höchstens 200 Modelle. Manuelle Modelle bleiben erhalten; einige erkannte Modelle wurden nicht übernommen.",
       azureBaseModels:

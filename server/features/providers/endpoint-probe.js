@@ -4,6 +4,23 @@ import { probes } from "./endpoint-probe-plan.js";
 import { probeCapabilities } from "./endpoint-capability-probe.js";
 
 const PROBE_TIMEOUT = 90_000;
+const AZURE_HOST =
+  /\.(openai\.azure\.com|cognitiveservices\.azure\.com|services\.ai\.azure\.com)$/i;
+
+/**
+ * Whether an Azure OpenAI address lacks the /openai/v1 path its v1 API needs: every
+ * request then answers 404, which says nothing about the deployment.
+ */
+export function azureBasePathMissing(endpoint) {
+  let url;
+  try {
+    url = new URL(endpoint.openaiBaseUrl);
+  } catch {
+    return false;
+  }
+  const azure = endpoint.preset === "azure" || AZURE_HOST.test(url.hostname);
+  return azure && !/\/openai\/v1$/i.test(url.pathname.replace(/\/+$/, ""));
+}
 const TOTAL_TIMEOUT = 180_000;
 
 /**
@@ -19,8 +36,9 @@ export function classifyProbe(result, { listedModel }) {
   const { status, json } = result;
   if (status >= 200 && status < 300)
     return json ? { status: "ok" } : { status: "failed", reason: "invalidResponse" };
+  // The protocol exists, but the minimal request was refused: named on its protocol.
   if (status === 400 || status === 422)
-    return { status: "ok", warning: "rejectedRequest" };
+    return { status: "ok", reason: "rejectedRequest" };
   if ([404, 405, 501].includes(status))
     return listedModel
       ? { status: "unsupported", reason: "notFound" }
@@ -137,7 +155,6 @@ export async function runEndpointTest({
     });
     protocols[name] = outcome.status;
     if (outcome.reason) reasons[name] = outcome.reason;
-    if (outcome.warning) warnings.add(outcome.warning);
   }
   const capabilities = model
     ? await probeCapabilities({
@@ -149,6 +166,18 @@ export async function runEndpointTest({
         lookup,
       })
     : {};
+  if (azureBasePathMissing(endpoint)) {
+    warnings.add("azureBasePath");
+    for (const [name, reason] of Object.entries(reasons))
+      if (["modelNotFound", "notFound"].includes(reason)) reasons[name] = "basePath";
+  }
+  // Reasoning deployments (Azure) refuse the probe's max_tokens; when the capability
+  // probe's max_completion_tokens request went through, Chat Completions works as is.
+  if (
+    reasons.chatCompletions === "rejectedRequest" &&
+    capabilities.chatCompletions?.maxTokensField === "max_completion_tokens"
+  )
+    delete reasons.chatCompletions;
   return {
     models,
     listed: detection.listed,

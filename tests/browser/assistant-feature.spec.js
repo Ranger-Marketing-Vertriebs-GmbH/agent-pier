@@ -61,6 +61,10 @@ async function featureFixture(
           teamSettings: { revision: 0, hostMaxConcurrent: 8 },
         },
       });
+    if (path === "/api/assistant-runtime/enable" && request.method() === "POST") {
+      feature.serviceStarts = (feature.serviceStarts || 0) + 1;
+      return route.fulfill({ status: 202, json: { availability: "starting" } });
+    }
     if (path === "/api/assistant-runtime")
       return route.fulfill({
         json: { availability: "ready", sync: "current", version: "2026.10.3" },
@@ -291,5 +295,7 @@ test("agents off: every hub tab offers Enable agents, Runtime keeps the switch",
   await page.getByRole("tab", { name: "All agents" }).click();
   await page.getByRole("button", { name: "Enable agents" }).click();
   await expect.poll(() => feature.enabled).toBe(true);
+  // Switching agents on starts the agent service too, without a second click.
+  await expect.poll(() => feature.serviceStarts).toBe(1);
   await expect(page.getByRole("heading", { name: "Agent groups" })).toBeVisible();
 });

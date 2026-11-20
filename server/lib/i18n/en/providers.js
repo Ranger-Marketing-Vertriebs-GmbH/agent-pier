@@ -42,6 +42,8 @@ export const providers = Object.freeze({
   invalidEndpoint: "Invalid custom endpoint settings.",
   invalidEndpointUrl:
     "Enter an http or https base URL without credentials, query or fragment.",
+  endpointUrlPlaceholder:
+    "Replace the placeholder in angle brackets, such as <resource>, with your own value, for example your Azure resource name.",
   invalidEndpointHeader: "The auth header name is not allowed.",
   invalidEndpointRouting: "The connection's CLI routing is invalid.",
   invalidEndpointCapabilities: "The connection's adapter capabilities are invalid.",

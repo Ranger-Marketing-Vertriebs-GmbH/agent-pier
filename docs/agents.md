@@ -23,6 +23,7 @@ agents**.
    runtime and its own Node.js into the data directory; nothing is installed globally,
    and the page shows the progress. Installers can do this in advance with
    `--with-assistants` (see [installation](installation.md#managed-assistant-runtime)).
+   Switching agents on also starts the agent service, as **Start service** does.
    **Settings › General › Features** shows whether agents are on and links to
    **Agents › Runtime**.
 2. **Agents › Runtime › Agent service** shows the service, its synchronization and its
