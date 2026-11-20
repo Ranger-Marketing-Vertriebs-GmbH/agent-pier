@@ -309,6 +309,9 @@ export class AgentBus {
       owned.has(peer.agentpierSessionId),
     );
     const byKey = new Map(peers.map((peer) => [peer.key, peer]));
+    // Peers by their AgentPier session's name; the peer name stays the fallback.
+    const sessionNames = new Map(sessions.map((session) => [session.id, session.name]));
+    const nameOf = (peer) => sessionNames.get(peer.agentpierSessionId) || peer.name;
     const items = new Map();
     let scanned = 0;
     let truncated = false;
@@ -331,9 +334,9 @@ export class AgentBus {
           const createdAt = new Date(message.ts).toISOString();
           items.set(message.id, {
             id: message.id,
-            from: { name: sender.name, tool: sender.runtime, key },
+            from: { name: nameOf(sender), tool: sender.runtime, key },
             to: {
-              name: recipient.name,
+              name: nameOf(recipient),
               tool: recipient.runtime,
               key: recipient.key,
             },
@@ -349,12 +352,14 @@ export class AgentBus {
     const sorted = [...items.values()].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id),
     );
+    // A page past the last one shows the last one (the browser follows `page`).
+    const shown = Math.min(page, Math.max(1, Math.ceil(sorted.length / 20)));
     return {
       projectId,
-      page,
+      page: shown,
       pageSize: 20,
       total: sorted.length,
-      items: sorted.slice((page - 1) * 20, page * 20),
+      items: sorted.slice((shown - 1) * 20, shown * 20),
       truncated,
       ...(truncated
         ? {

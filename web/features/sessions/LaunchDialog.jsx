@@ -132,7 +132,8 @@ export default function LaunchDialog({
     [agentAccessIds, setAgentAccessIds] = useState([]),
     [refused, setRefused] = useState(null),
     // The account's open sign-in session that refused the start (SESSION_LOGIN_OPEN).
-    [signIn, setSignIn] = useState(null);
+    [signIn, setSignIn] = useState(null),
+    [signInStopped, setSignInStopped] = useState(0);
   const selectedTool = access.tool;
   const cliRemembered = access.toolRemembered && !profileId;
   const cwdRemembered = Boolean(rememberedCwd) && cwd === rememberedCwd;
@@ -179,6 +180,7 @@ export default function LaunchDialog({
             close={close}
             button={again ? ticketStartCopy.again : commonCopy.startSession}
             disabled={!access.ready || !profileReady}
+            resetError={signInStopped}
             submit={async () => {
               if (!access.ready) throw Error(connectionCopy.chooseAccess);
               if (!profileReady) throw Error(copy.profileUnavailable);
@@ -310,7 +312,13 @@ export default function LaunchDialog({
                   update={update}
                 />
                 {signIn && (
-                  <StopSignIn sessionId={signIn} onStopped={() => setSignIn(null)} />
+                  <StopSignIn
+                    sessionId={signIn}
+                    onStopped={() => {
+                      setSignIn(null);
+                      setSignInStopped((value) => value + 1);
+                    }}
+                  />
                 )}
                 {!ticket && (
                   <label>

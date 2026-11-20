@@ -136,7 +136,7 @@ test("project memory deep links support conflict recovery, revisions, archive an
   await expect(page.getByRole("heading", { name: "Versionsverlauf" })).toBeVisible();
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   await page.getByRole("button", { name: "Archivieren: Build command" }).click();
-  await expect(page.getByText("Noch keine Einträge.")).toBeVisible();
+  await expect(page.getByText("Keine Einträge passen zu dieser Suche.")).toBeVisible();
   await page.getByRole("radio", { name: /^Archiv ·/ }).check();
   await expect(page).toHaveURL(/archived=1/);
   await page.reload();
@@ -446,7 +446,7 @@ test("an obsolete memory page result cannot replace a newer search route", async
   await page.goto(baseURL + "/memory/paged-project?page=99");
   await expect.poll(() => Boolean(controls.releaseEntries)).toBe(true);
   await page.getByRole("textbox", { name: "Wissen suchen" }).fill("new filter");
-  await page.getByRole("button", { name: "Wissen suchen", exact: true }).click();
+  await page.getByRole("button", { name: "Suchen", exact: true }).click();
   await expect(page).toHaveURL(/q=new\+filter$/);
   await expect(page.getByText("Last note")).toBeVisible();
   controls.releaseEntries();

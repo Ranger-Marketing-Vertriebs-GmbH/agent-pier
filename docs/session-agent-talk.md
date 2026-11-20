@@ -44,7 +44,7 @@ An agent's message to a session is typed into the session's terminal. It starts 
 line `[From agent "<name>"]` and ends with a short AgentPier note that says the text is
 from that agent, not from you, and how to answer (`agent_tell` or `agent_ask`). The
 agent's text between them is fenced: every line is prefixed with `> `, so text inside it
-cannot pass for the header or the note. Every kind of line break counts (CRLF, CR, LF,
+cannot pass for the header or the note. When the agent's text itself starts with a copy of its own header line, AgentPier drops that copy, so the session sees the header once. Every kind of line break counts (CRLF, CR, LF,
 vertical tab, form feed, NEL, U+2028, U+2029). The same fence holds the other way: the
 session's text in the agent's prompt has every line prefixed with `> `, after the real
 header. A session's CRLF line breaks are taken as plain line breaks.

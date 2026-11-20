@@ -87,8 +87,26 @@ export default function ProjectKnowledge({
   useEffect(() => {
     setSearch(query);
   }, [query]);
-  const navigate = (changes) =>
-    onNavigate({ ...route, projectId: project.id, projectTab: "knowledge", ...changes });
+  const navigate = (changes, replace = false) =>
+    onNavigate(
+      { ...route, projectId: project.id, projectTab: "knowledge", ...changes },
+      replace,
+    );
+  // Clearing the term also drops the order chosen for the last search.
+  const searchFor = (term, replace = false) =>
+    navigate(
+      { query: term, memoryPage: 1, ...(!term && { memorySort: "relevance" }) },
+      replace,
+    );
+  // Typing searches after a short pause; it replaces the URL instead of adding a
+  // history entry per pause. Enter or the button search at once.
+  useEffect(() => {
+    if (search === query) return;
+    const timer = setTimeout(() => searchFor(search, true), 400);
+    return () => clearTimeout(timer);
+    // searchFor is rebuilt each render; only a new term or route starts the pause.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, query]);
   const bump = () => {
     state.refresh();
     setCountVersion((value) => value + 1);
@@ -141,12 +159,7 @@ export default function ProjectKnowledge({
         className="project-knowledge-search"
         onSubmit={(event) => {
           event.preventDefault();
-          // Clearing the term also drops the order chosen for the last search.
-          navigate({
-            query: search,
-            memoryPage: 1,
-            ...(!search && { memorySort: "relevance" }),
-          });
+          searchFor(search);
         }}
       >
         <input
@@ -155,7 +168,7 @@ export default function ProjectKnowledge({
           onChange={(event) => setSearch(event.target.value)}
           placeholder={copy.search}
         />
-        <button className="button secondary compact">{copy.search}</button>
+        <button className="button secondary compact">{copy.searchAction}</button>
       </form>
       <div className="project-knowledge-filter">
         <Segmented
@@ -221,7 +234,7 @@ export default function ProjectKnowledge({
         {copy.entries}
       </GroupLabel>
       {!state.loading && state.data?.items.length === 0 && (
-        <p className="project-empty">{copy.empty}</p>
+        <p className="project-empty">{query ? copy.noMatches : copy.empty}</p>
       )}
       {state.data?.items.length > 0 && (
         <ListCard labelledBy={entriesHeading} className="project-knowledge-entries">

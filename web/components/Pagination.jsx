@@ -62,7 +62,7 @@ export function Pagination({ paging, label }) {
           type="button"
           className="button secondary compact"
           aria-label={copy.nextPageLabel(label)}
-          disabled={paging.page === paging.pageCount - 1}
+          disabled={paging.page >= paging.pageCount - 1}
           onClick={() => go(paging.page + 1)}
         >
           {commonCopy.next}

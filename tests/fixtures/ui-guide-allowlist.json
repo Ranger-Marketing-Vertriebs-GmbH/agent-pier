@@ -17,7 +17,7 @@
     "web/components/underline-tabs.css": 9,
     "web/features/accounts/accounts-page.css": 12,
     "web/features/agency/agency.css": 2,
-    "web/features/agentbus/agentbus.css": 6,
+    "web/features/agentbus/agentbus.css": 5,
     "web/features/artifacts/artifacts.css": 33,
     "web/features/assistants/browser/agent-browser.css": 6,
     "web/features/chat/chat-images.css": 10,

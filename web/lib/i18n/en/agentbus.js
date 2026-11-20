@@ -12,7 +12,6 @@ export const projectAgentBusCopy = {
     "Reload this session to use the current AgentBus integration.",
   agentbusPending: " in the inbox",
   noProjectMessages: "No sessions with AgentBus yet. Start a new coding CLI session.",
-  missingProjectDescription: "This AgentBus project was not found.",
 };
 export const messageLogCopy = {
   extensionSectionAriaLabel: "AgentBus messages",

@@ -1,4 +1,5 @@
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import StatusChip from "../../components/StatusChip.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { messageLogCopy as copy } from "../../lib/i18n/messages/agentbus.js";
@@ -62,11 +63,12 @@ export default function MessageLog({ project, page, onPage, onTotal = () => {} }
                           {message.to.name || message.to.tool || commonCopy.unknown}
                         </strong>
                       </div>
-                      <span className="agentbus-message-state">
+                      {/* A state, not an action: the shared status chip. */}
+                      <StatusChip tone={message.status === "pending" ? "neutral" : "ok"}>
                         {message.status === "pending"
                           ? commonCopy.inInbox
                           : commonCopy.retrieved}
-                      </span>
+                      </StatusChip>
                     </header>
                     <p className="agentbus-message-time">
                       <time dateTime={message.createdAt}>

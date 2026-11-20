@@ -13,7 +13,6 @@ export const projectAgentBusCopy = {
   agentbusPending: " in der Inbox",
   noProjectMessages:
     "Noch keine Sessions mit AgentBus. Starte eine neue Coding-CLI-Session.",
-  missingProjectDescription: "Dieses AgentBus-Projekt wurde nicht gefunden.",
 };
 export const messageLogCopy = {
   extensionSectionAriaLabel: "AgentBus-Nachrichten",
