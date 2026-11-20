@@ -1445,6 +1445,7 @@
   "plugins.publicRepositoryRequired": "de:b546ce6910b5 en:77b539e50bc0",
   "plugins.readOnly": "de:f2c97d5775dc en:2dea89f5e282",
   "plugins.remoteCatalogEmpty": "de:24b2fc428d88 en:5af7f55a93ba",
+  "plugins.remoteCatalogTimeout": "de:e3a51064d028 en:4ca162ed0051",
   "plugins.remoteCatalogUnavailable": "de:2ca4a7f15598 en:897453d74632",
   "plugins.restartRequiredNotice": "de:ee952569275d en:d855063b87ee",
   "plugins.serviceStopping": "de:71aed00eeea4 en:5a2b95217d64",

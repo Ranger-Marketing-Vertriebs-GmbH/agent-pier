@@ -29,7 +29,10 @@ export const pluginCatalogCopy = {
   extensionSectionLabel: "Plugin-Katalog",
 };
 export const profilePluginsCopy = {
+  retryCatalog: "Katalog erneut laden",
   catalogReasons: {
+    timeout:
+      "Der Standardkatalog des gewählten Accounts hat das Zeitlimit überschritten. Lokale Plugins bleiben verfügbar.",
     empty:
       "Für diesen Account sind keine Standard-Plugins verfügbar. Einen bei Codex angemeldeten Account auswählen und erneut laden.",
     unavailable:

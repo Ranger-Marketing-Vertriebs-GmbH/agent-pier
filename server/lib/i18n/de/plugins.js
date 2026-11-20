@@ -6,6 +6,8 @@ export const plugins = Object.freeze({
   nativeMarketplaceSource: "Vom nativen Codex-Katalog bereitgestellt",
   remoteCatalogEmpty:
     "Für diesen Account sind keine Standard-Plugins verfügbar. Einen bei Codex angemeldeten Account auswählen und erneut laden.",
+  remoteCatalogTimeout:
+    "Der Standardkatalog des gewählten Accounts hat das Zeitlimit überschritten. Lokale Plugins bleiben verfügbar; versuche es erneut.",
   remoteCatalogUnavailable:
     "Der Standardkatalog des ausgewählten Accounts konnte nicht geladen werden. Lokale Plugins bleiben verfügbar.",
   serviceStopping: "Die Plugin-Verwaltung wird beendet.",

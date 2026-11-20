@@ -24,7 +24,9 @@ built-in marketplace, with no source update or removal controls. Choose a logged
 Codex account in **Marketplace account** to browse and install its available plugins.
 An unauthenticated local profile can show an empty catalog even while another
 account has access. AgentPier does not select another account or copy credentials
-automatically.
+automatically. When the selected account's catalog cannot be read, local plugins stay
+available and a note says why: "timed out" when Codex did not answer within 30 seconds,
+"could not be loaded" otherwise; both offer **Load the catalog again**.
 
 Remote installation, removal, and installed state belong to the explicitly selected
 account. Shared-profile synchronization preserves each account's remote plugin

@@ -92,8 +92,11 @@ export async function codexInventory(store, shared, selected) {
       );
     } catch (error) {
       if (store.closed || ![409, 502, 503].includes(error.status)) throw error;
-      result.catalogReason = copy.remoteCatalogUnavailable;
-      result.catalogReasonCode = "unavailable";
+      const timedOut = error.timedOut === true;
+      result.catalogReason = timedOut
+        ? copy.remoteCatalogTimeout
+        : copy.remoteCatalogUnavailable;
+      result.catalogReasonCode = timedOut ? "timeout" : "unavailable";
     }
   }
   result.installed = [
