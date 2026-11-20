@@ -69,7 +69,12 @@ const definition = {
       },
     ],
   }),
-  pipeline: { permissionModes: ["untrusted", "on-request", "never"] },
+  // Codex 0.169 accepts only these approval policies; profiles and runs saved with the
+  // removed "untrusted" run with its closest successor (AGENTPIER-427).
+  pipeline: {
+    permissionModes: ["on-request", "never"],
+    legacyPermissionModes: { untrusted: "on-request" },
+  },
 };
 
 export default definition;

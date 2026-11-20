@@ -12,6 +12,29 @@ export const PERMISSION_MODES = Object.freeze(
     codingCliIds().map((id) => [id, cliDefinition(id).pipeline.permissionModes]),
   ),
 );
+/** The mode a profile or run saved with a mode its CLI no longer accepts runs with. */
+export function currentPermissionMode(tool, mode) {
+  if (!isCodingCli(tool)) return mode;
+  const legacy = cliDefinition(tool).pipeline.legacyPermissionModes || {};
+  return Object.hasOwn(legacy, mode) ? legacy[mode] : mode;
+}
+
+/**
+ * Moves stored profiles off permission modes their CLI no longer accepts. Mutates
+ * `profiles` and returns whether anything changed.
+ */
+export function migratePermissionModes(profiles) {
+  let changed = false;
+  for (const profile of profiles) {
+    const permissions = profile?.config?.permissions;
+    if (!permissions) continue;
+    const mode = currentPermissionMode(profile.config.cliTool, permissions.mode);
+    if (mode === permissions.mode) continue;
+    permissions.mode = mode;
+    changed = true;
+  }
+  return changed;
+}
 export const PROFILE_PHASES = [
   "refinement",
   "planning",

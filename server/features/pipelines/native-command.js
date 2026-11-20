@@ -2,7 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { runSandbox } from "../../lib/sandbox.js";
 import { cliDriver } from "../clis/drivers.js";
-import { PERMISSION_MODES } from "./profile-validation.js";
+import { PERMISSION_MODES, currentPermissionMode } from "./profile-validation.js";
 
 export function nativeCommand({
   tool,
@@ -14,6 +14,8 @@ export function nativeCommand({
   claudeDefault = "default",
   turnEnv = {},
 }) {
+  // A run started before a mode was removed carries it in its profile snapshot.
+  mode = currentPermissionMode(tool, mode);
   if (!PERMISSION_MODES[tool]?.includes(mode))
     throw problem(serverMessages.pipelineProfiles.invalidNativePermissionMode(tool));
   const args = [...launch.args];
