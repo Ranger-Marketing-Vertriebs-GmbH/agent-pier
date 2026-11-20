@@ -270,6 +270,8 @@ export function classifyUpstreamError({
   const retryAfter = retryAfterFrom(headers, now, kind, fields.message);
   if (retryAfter !== undefined) error.retryAfter = retryAfter;
   if (context) Object.assign(error, contextNumbers(fields.message, fields.details));
+  // The provider refused the connection's credentials, not the CLI's own login.
+  if (kind === "auth") error.upstream = true;
   return error;
 }
 
@@ -373,7 +375,22 @@ function contextWording({
   return `prompt is too long: ${prompt} tokens > ${max} maximum`;
 }
 
+// Claude Code answers a 401 with "Please run /login" and retries it for minutes. A
+// provider refusing the connection's credentials is neither: it goes out as a 403,
+// which Claude Code shows at once, naming where to fix it (AGENTPIER-411).
+const providerAuthMessage = (error) =>
+  `The model provider refused the credentials of this connection: ${messageOf(error)}. ` +
+  "Check the connection in AgentPier under Connections › Model access; /login does not apply.";
+
 function messagesError(error) {
+  if (error.kind === "auth" && error.upstream === true)
+    return {
+      status: 403,
+      payload: {
+        type: "error",
+        error: { type: "permission_error", message: providerAuthMessage(error) },
+      },
+    };
   const [status, type] = MESSAGES_ERRORS[error.kind] ?? MESSAGES_ERRORS.server;
   const message =
     error.kind === "contextLength" ? contextWording(error) : messageOf(error);

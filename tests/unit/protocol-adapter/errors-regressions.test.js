@@ -81,3 +81,27 @@ test("Messages 529 overloaded fixture: overloaded, request id not leaked", () =>
   const everything = JSON.stringify([error, rendered, responsesErrorBody(error)]);
   assert.ok(!everything.includes(fixture.headers["request-id"]));
 });
+
+test("a provider's auth refusal never tells Claude Code to run /login", () => {
+  // Claude Code answers a 401 with "Please run /login" (wrong for a provider
+  // connection) and retries it for minutes; a 403 permission error it shows at once.
+  const error = classifyUpstreamError({
+    protocol: "chat",
+    status: 401,
+    body: { error: { message: "Incorrect API key provided", code: "invalid_api_key" } },
+  });
+  const { status, body } = messagesErrorBody(error);
+  assert.equal(status, 403);
+  assert.equal(body.error.type, "permission_error");
+  assert.match(body.error.message, /^The model provider refused/);
+  assert.match(body.error.message, /Incorrect API key provided/);
+  assert.match(body.error.message, /Connections › Model access/);
+  assert.match(messagesErrorEvent(error), /permission_error/);
+  // The adapter's own token check still answers 401 (the CLI's key is wrong).
+  const local = messagesErrorBody({
+    kind: "auth",
+    status: null,
+    message: "invalid adapter token",
+  });
+  assert.equal(local.status, 401);
+});

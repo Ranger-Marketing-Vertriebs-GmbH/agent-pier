@@ -3,6 +3,7 @@ import { markOpenCodeInput } from "./opencode-input-state.js";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { normalizeOpenCode } from "./history-parsers.js";
+import { openCodeErrorMessage } from "./opencode-error-message.js";
 import { openCodeTotals, usageFromTotals } from "./token-usage.js";
 import { nativeId } from "./observability-values.js";
 import { observeOpenCode } from "./opencode-observability.js";
@@ -339,6 +340,9 @@ function page(db, id, scope, before) {
     const visibleParts = [];
     envelope.push({ info, parts: visibleParts });
     boundary = { id: row.id, time: row.time_created, part: null };
+    // The reply's error comes after its parts; pages are collected newest first.
+    const failure = partBefore ? null : openCodeErrorMessage(info);
+    if (failure) messages.push(failure);
     const iterator = partBefore
       ? olderParts.iterate(MAX_PAGE_BYTES, id, row.id, partBefore, SCAN_PARTS - scanned)
       : latestParts.iterate(MAX_PAGE_BYTES, id, row.id, SCAN_PARTS - scanned);
@@ -346,7 +350,10 @@ function page(db, id, scope, before) {
       const part = { ...parse(item), id: item.id, messageID: row.id, sessionID: id };
       visibleParts.unshift(part);
       messages.push(
-        ...normalizeOpenCode({ messages: [{ info, parts: [part] }] }).messages,
+        // The reply's error is added once per message above, not with every part.
+        ...normalizeOpenCode({
+          messages: [{ info: { ...info, error: null }, parts: [part] }],
+        }).messages,
       );
       boundary.part = item.id;
       scanned++;

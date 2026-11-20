@@ -132,7 +132,10 @@ maximum` (or the `max_tokens` variant when shrinking the output budget helps), C
   gets `context_length_exceeded`. Codex errors that should drive its behavior (overflow,
   rate limit, overload, invalid prompt) are sent as an in-stream `response.failed`
   after HTTP 200; plain HTTP error bodies are used for authentication failures and
-  non-streaming requests.
+  non-streaming requests. A provider that refuses the connection's credentials (HTTP 401) reaches Claude Code as a 403 `permission_error` that names the provider's
+  message and **Connections › Model access**: a 401 would make Claude Code retry for
+  minutes and then ask for `/login`, which does not apply to a provider connection. The
+  adapter's own token check still answers 401.
 - **Keep-alives and timing.** The upstream idle timeout is 240 s, below the 300 s of both
   CLIs. Toward Claude Code the adapter writes nothing until the upstream answered 2xx, so
   an upstream rejection (notably overflow) still arrives as an HTTP 400 body; `ping` events

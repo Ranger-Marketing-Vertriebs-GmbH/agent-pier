@@ -6,6 +6,7 @@ import { codexImageInput } from "./codex-image-input.js";
 import { codexUserShellRows } from "./codex-user-shell.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
+import { openCodeErrorMessage } from "./opencode-error-message.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
 import {
   claudeConversationRecord,
@@ -587,6 +588,8 @@ export function normalizeOpenCode(exported) {
           tasks = taskList(input.todos, "opencode-todo");
       }
     });
+    const failure = openCodeErrorMessage(info);
+    if (failure) messages.set(failure.id, failure);
   });
   if (Array.isArray(exported?.todos)) tasks = taskList(exported.todos, "opencode-todo");
   return {

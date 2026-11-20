@@ -14,6 +14,7 @@ import ChatImages from "./ChatImages.jsx";
 import { providerNames } from "./presentation.js";
 import { subagentRowStatus, subagentStatusLabel } from "./subagent-presentation.js";
 import { observedAgent, usageSummary } from "./token-presentation.js";
+import { connectionsRoutePath } from "../connections/routes.js";
 export default function Message({
   message,
   tool,
@@ -110,6 +111,20 @@ export default function Message({
       </details>
     );
   }
+  // A provider refused the reply (an OpenCode message error): say so where the
+  // reply would be, with the way to the model connections.
+  if (message.notice === "provider-error")
+    return (
+      <div className="chat-limit-warnings" role="alert" data-message-id={message.id}>
+        <p>{copy.providerError}</p>
+        <p>{message.text}</p>
+        <div className="chat-limit-actions">
+          <a href={connectionsRoutePath({ section: "models" })}>
+            {copy.openModelConnections}
+          </a>
+        </div>
+      </div>
+    );
   if (message.notice === "usage-limit")
     return (
       <div className="chat-limit-warnings" role="status" data-message-id={message.id}>
