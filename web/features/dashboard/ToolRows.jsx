@@ -23,7 +23,7 @@ import {
   toolActionShortLabel,
 } from "./tool-action-view.js";
 
-// "Update required · 2.1.100 · Requires 2.1.263 or later", as the full grid says it.
+// "Update required · 2.1.100 · Requires 2.1.329 or later", as the full grid says it.
 function stateLine(tool) {
   if (updateRequired(tool))
     return [

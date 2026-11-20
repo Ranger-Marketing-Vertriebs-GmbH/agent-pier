@@ -13,7 +13,7 @@ async function fixture(page, configure = () => {}) {
       installed: true,
       path: "/bin/codex",
       version: null,
-      minimumVersion: "0.153.4",
+      minimumVersion: "0.169.1",
       versionStatus: "unknown",
     },
     {
@@ -22,7 +22,7 @@ async function fixture(page, configure = () => {}) {
       installed: true,
       path: "/bin/claude",
       version: "2.1.100",
-      minimumVersion: "2.1.263",
+      minimumVersion: "2.1.329",
       versionStatus: "update-required",
       managedInstall: true,
     },
@@ -32,7 +32,7 @@ async function fixture(page, configure = () => {}) {
       installed: true,
       path: "/bin/opencode",
       version: "1.18.35",
-      minimumVersion: "1.18.29",
+      minimumVersion: "1.19.6",
       versionStatus: "ok",
     },
   ];
@@ -63,7 +63,7 @@ async function fixture(page, configure = () => {}) {
     version: null,
     message: "",
     installedVersion: "2.1.100",
-    minimumVersion: "2.1.263",
+    minimumVersion: "2.1.329",
     versionStatus: "update-required",
   };
   const calls = { launches: [], updates: 0 };
@@ -79,11 +79,11 @@ async function fixture(page, configure = () => {}) {
         status: 409,
         json: {
           code: "CLI_UPDATE_REQUIRED",
-          updateRequired: { tool: "claude", found: "2.1.100", required: "2.1.263" },
+          updateRequired: { tool: "claude", found: "2.1.100", required: "2.1.329" },
           error:
-            "Claude Code ist in Version 2.1.100 installiert, AgentPier benötigt aber 2.1.263 oder neuer. Bitte das CLI aktualisieren und die Session erneut starten.",
+            "Claude Code ist in Version 2.1.100 installiert, AgentPier benötigt aber 2.1.329 oder neuer. Bitte das CLI aktualisieren und die Session erneut starten.",
           messageKey: "tools.cliUpdateRequired",
-          messageArgs: ["Claude Code", "2.1.100", "2.1.263"],
+          messageArgs: ["Claude Code", "2.1.100", "2.1.329"],
         },
       });
     }
@@ -120,17 +120,17 @@ test("the start page flags an outdated CLI and offers its update first", async (
 }) => {
   await fixture(page);
   const needs = page.getByRole("region", { name: "Needs you" });
-  await expect(needs).toContainText("Claude Code 2.1.263 or later");
+  await expect(needs).toContainText("Claude Code 2.1.329 or later");
   await expect(needs).toContainText("Installed: 2.1.100 · new sessions do not start");
   const tools = page.getByRole("region", { name: /Your tools/ });
   const row = tools.locator(".start-tool").filter({ hasText: "Claude Code" });
   await expect(row).toContainText(
-    "Update required · 2.1.100 · Requires 2.1.263 or later",
+    "Update required · 2.1.100 · Requires 2.1.329 or later",
   );
   await row.getByRole("button", { name: "Update: Claude Code", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Update Claude Code", exact: true }),
-  ).toContainText("Installed: 2.1.100 · Requires 2.1.263 or later");
+  ).toContainText("Installed: 2.1.100 · Requires 2.1.329 or later");
 });
 
 test("the full grid shows each CLI's version and which one is below its minimum", async ({
@@ -141,7 +141,7 @@ test("the full grid shows each CLI's version and which one is below its minimum"
   const claude = card(page, "Claude Code");
   await expect(claude.locator(".tool-state")).toHaveText("Update required");
   await expect(claude.locator(".tool-version")).toHaveText(
-    "Version 2.1.100 · Requires 2.1.263 or later",
+    "Version 2.1.100 · Requires 2.1.329 or later",
   );
   await expect(card(page, "OpenCode").locator(".tool-version")).toHaveText(
     "Version 1.18.35",
@@ -176,17 +176,17 @@ test("an outdated CLI's launch is refused and the dialog offers its update", asy
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
   const notice = dialog.locator(".cli-version-notice.update-required");
   await expect(notice).toContainText(
-    "Claude Code 2.1.100 is older than the minimum version 2.1.263",
+    "Claude Code 2.1.100 is older than the minimum version 2.1.329",
   );
   await dialog.getByRole("button", { name: "Start session", exact: true }).click();
   await expect(dialog.getByRole("alert")).toHaveText(
-    "Claude Code version 2.1.100 is installed, but AgentPier needs 2.1.263 or later. Update the CLI, then start the session again.",
+    "Claude Code version 2.1.100 is installed, but AgentPier needs 2.1.329 or later. Update the CLI, then start the session again.",
   );
   expect(calls.launches).toHaveLength(1);
   await notice.getByRole("button", { name: "Update Claude Code", exact: true }).click();
   const update = page.getByRole("dialog", { name: "Update Claude Code", exact: true });
   await expect(update).toContainText("claude update");
-  await expect(update).toContainText("Installed: 2.1.100 · Requires 2.1.263 or later");
+  await expect(update).toContainText("Installed: 2.1.100 · Requires 2.1.329 or later");
   await update.getByRole("button", { name: "Update now", exact: true }).click();
   await expect(update.getByRole("status").first()).toContainText("CLI updated");
   expect(calls.updates).toBe(1);

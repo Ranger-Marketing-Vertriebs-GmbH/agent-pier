@@ -378,7 +378,7 @@ test("closing and reopening an installation restores its job and success enables
   expect(controls.starts).toHaveLength(1);
   Object.assign(controls.jobs[0], {
     status: "succeeded",
-    version: "codex-cli 0.153.4",
+    version: "codex-cli 0.169.1",
     message: "Codex ist einsatzbereit.",
     finishedAt: "2026-09-06T12:02:00Z",
   });

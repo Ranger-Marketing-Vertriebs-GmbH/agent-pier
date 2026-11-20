@@ -12,7 +12,7 @@ const definition = {
     directory: ".local/bin",
   },
   updateArgs: ["update"],
-  minVersion: "2.1.263",
+  minVersion: "2.1.329",
   launchModes: {
     default: [],
     auto: ["--permission-mode", "auto"],

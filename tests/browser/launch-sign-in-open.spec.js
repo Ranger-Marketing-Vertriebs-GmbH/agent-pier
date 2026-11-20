@@ -18,7 +18,7 @@ test("a start blocked by the open sign-in names it and stops it on request", asy
         installed: true,
         path: "/bin/opencode",
         version: "1.18.35",
-        minimumVersion: "1.18.29",
+        minimumVersion: "1.19.6",
         versionStatus: "ok",
       },
     ],

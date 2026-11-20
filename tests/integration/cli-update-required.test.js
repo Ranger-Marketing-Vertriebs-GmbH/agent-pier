@@ -81,7 +81,7 @@ test("a Claude custom-model launch retries an unreadable version once with a lon
     versions: {
       read: async (_command, options = {}) => {
         calls.push(options);
-        return options.refresh ? "2.1.296" : null;
+        return options.refresh ? "2.1.329" : null;
       },
     },
   });
@@ -92,7 +92,7 @@ test("a Claude custom-model launch retries an unreadable version once with a lon
     provider: { id: "zai", modelId: "glm-5.3" },
   });
   const launch = await store.command(account.id, { claude: "/opt/claude" });
-  assert.equal(launch.cliVersion, "2.1.296");
+  assert.equal(launch.cliVersion, "2.1.329");
   assert.equal(calls.length, 2);
   assert.equal(calls[1].refresh, true);
   assert.ok(calls[1].timeout >= 10_000);
@@ -113,9 +113,9 @@ test("an unreadable version starts the session, a current one is recorded on the
   const unknown = await store.command("local-codex", { codex: silent });
   assert.equal(unknown.command, silent);
   assert.equal(unknown.cliVersion, undefined);
-  const current = cli(root, "claude", 'echo "2.1.296 (Claude Code)"');
+  const current = cli(root, "claude", 'echo "2.1.329 (Claude Code)"');
   const launch = await store.command("local-claude", { claude: current });
-  assert.equal(launch.cliVersion, "2.1.296");
+  assert.equal(launch.cliVersion, "2.1.329");
   // The shell has no minimum and is never probed.
   const shell = await store.command("local-shell", { shell: "/bin/sh" });
   assert.equal(shell.cliVersion, undefined);
@@ -125,7 +125,7 @@ test("the tool list reports version, minimum and state for each installed coding
   const root = directory(t);
   const tools = await withCliVersions(
     [
-      { id: "codex", installed: true, path: cli(root, "codex", "echo 0.160.1") },
+      { id: "codex", installed: true, path: cli(root, "codex", "echo 0.169.1") },
       { id: "claude", installed: true, path: cli(root, "claude", "echo 2.1.100") },
       { id: "opencode", installed: true, path: cli(root, "opencode", "exit 2") },
       { id: "shell", installed: true, path: "/bin/sh" },
@@ -148,7 +148,7 @@ test("the tool list reports version, minimum and state for each installed coding
     [
       {
         id: "codex",
-        version: "0.160.1",
+        version: "0.169.1",
         minimumVersion: MINIMUM_CLI_VERSIONS.codex,
         versionStatus: "ok",
         managedInstall: false,
@@ -215,7 +215,7 @@ test("a started session records the CLI version it launched with", async (t) => 
   const current = cli(
     f.root,
     "current-codex",
-    '[ "$1" = "--version" ] && { echo "codex-cli 0.160.1"; exit 0; }\nexec sleep 30',
+    '[ "$1" = "--version" ] && { echo "codex-cli 0.169.1"; exit 0; }\nexec sleep 30',
   );
   const original = f.application.accounts.command.bind(f.application.accounts);
   f.application.accounts.command = (id, _binaries, login, mode, options) =>
@@ -226,7 +226,7 @@ test("a started session records the CLI version it launched with", async (t) => 
   });
   assert.equal(response.status, 201, await response.clone().text());
   const session = await response.json();
-  assert.equal((await f.application.sessions.get(session.id)).cliVersion, "0.160.1");
+  assert.equal((await f.application.sessions.get(session.id)).cliVersion, "0.169.1");
 });
 
 test("a login with an outdated managed CLI is refused with update_required", async (t) => {

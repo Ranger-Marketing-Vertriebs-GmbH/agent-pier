@@ -37,6 +37,8 @@ Live updates: server state the browser shows reaches it as a push over the live 
 
 Every UI text change must maintain German and English translations in the same change, with matching keys and interpolation arguments. Use reactive exports from `web/lib/i18n/messages/`; do not hardcode product copy. Run the catalog parity tests and exercise changed UI in English. Every change confirms the keys it adds, changes or removes: review each German and English pair, run `npm run i18n:confirm` (optionally limited to keys or catalogs, e.g. `-- telegram-senders`) and commit the updated `translation-lock.json` files; the translation-lock test fails otherwise. Whitespace-only edits need no confirmation. Translate new browser-visible application messages through stable identifiers; native CLI output and diagnostic evidence keep their original language.
 
+CLI versions: a change that adapts to a new CLI version raises that CLI's `minVersion` (`server/features/clis/<id>/definition.js`, table in `docs/cli-updates.md`) to the version it was verified with and removes handling for older layouts in the same change. AgentPier supports each CLI from its `minVersion` to the current release, covered by the real-CLI contract tests; review the minimums at every release.
+
 ## Testing Guidelines
 
 Use `node:test` with strict assertions, fast-check for properties, and Playwright for browser behavior. Name backend tests `*.test.js` and browser tests `*.spec.js`. Add regression coverage for changed behavior; no numeric coverage threshold is configured. Reuse isolated fixtures, and never target real user sessions or the default tmux server.
