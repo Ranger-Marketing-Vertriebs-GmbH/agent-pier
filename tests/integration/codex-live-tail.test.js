@@ -326,3 +326,44 @@ test("a usage-limit failure survives stale API history, repeated reads and API c
     1,
   );
 });
+
+// Codex 0.169 rollouts keep `FileChange.changes` as an object keyed by path, with
+// `{type, unified_diff, move_path}` or `{type: "add", content}` (AGENTPIER-404).
+test("rollout file changes keyed by path show their diffs", async (t) => {
+  const x = await fixture(t);
+  const recorded = (
+    await fs.readFile(
+      new URL("../fixtures/codex-file-change/rollout-items.jsonl", import.meta.url),
+      "utf8",
+    )
+  )
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  await x.write([
+    event("indexed", "task_started"),
+    item("indexed", "old", "before reload"),
+    event("indexed", "turn_aborted"),
+    event("resumed", "task_started"),
+    ...recorded,
+    event("resumed", "task_complete"),
+  ]);
+  const result = await readHistoryPage(x.history, x.session, "thread");
+  const changes = result.messages.filter((m) => m.toolName === "File change");
+  assert.equal(changes.length, 2);
+  const [update, second] = changes;
+  assert.match(update.text, /\/fixture\/project\/notes\.txt/);
+  assert.match(update.text, /\+line three/);
+  assert.equal(update.fileChanges.length, 1);
+  assert.equal(update.fileChanges[0].path, "/fixture/project/notes.txt");
+  assert.equal(update.fileChanges[0].added, 1);
+  assert.deepEqual(
+    second.fileChanges.map((file) => [file.path, file.operation]),
+    [
+      ["/fixture/project/todo.md", "create"],
+      ["/fixture/project/old.txt", "rename"],
+    ],
+  );
+  assert.equal(second.fileChanges[0].added, 2);
+  assert.equal(second.fileChanges[1].movePath, "/fixture/project/new.txt");
+});
