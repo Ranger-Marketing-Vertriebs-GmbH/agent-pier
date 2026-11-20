@@ -55,6 +55,7 @@ export const assistants = {
     failed: "Freigabe fehlgeschlagen; bitte in AgentPier prüfen",
     unknown: "Ergebnis unklar; bitte in AgentPier prüfen",
   },
+  execRequestFailed: "Nicht ausgeführt: Der Agent wartet nicht mehr. Bitte neu anfragen.",
   sshApproval: "SSH-Befehl wartet auf Freigabe",
   sshAgent: (name) => `Agent: ${name}`,
   sshRequestedBy: (name) => `Angefragt von ${name}`,
@@ -418,7 +419,6 @@ export const assistants = {
   memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,
   memberTemplateWarned: (findings) =>
     `Die Prüfung hat gefunden: ${findings}. Prüfe die Vorlage vor der Freigabe.`,
-  // Die Regeln der Skill-Prüfung (skill-scan.js), wie der Browser sie nennt.
   scanRules: {
     "download-exec": "Lädt Code herunter und führt ihn aus",
     "credential-exfiltration": "Liest Zugangsdaten und sendet Daten",

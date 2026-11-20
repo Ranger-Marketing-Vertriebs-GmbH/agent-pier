@@ -1920,6 +1920,7 @@
   "assistant-shell:assistantShellCopy.exec.onceReasons.inline": "de:19cadfc9dc1b en:c70e38e0de21",
   "assistant-shell:assistantShellCopy.exec.onceReasons.interpreter": "de:f672e52159db en:18f2f698d589",
   "assistant-shell:assistantShellCopy.exec.onceReasons.unresolved": "de:7cd3cd6357ee en:b88a1239882b",
+  "assistant-shell:assistantShellCopy.exec.requestFailed": "de:dc5acd51805f en:e75a958c7213",
   "assistant-shell:assistantShellCopy.exec.showFull": "de:dfac58a055c3 en:26e771974952",
   "assistant-shell:assistantShellCopy.exec.showLess": "de:65f4ccb14776 en:94ea9b1d33a0",
   "assistant-shell:assistantShellCopy.exec.title": "de:d23612aeb75b en:ede10871bce9",

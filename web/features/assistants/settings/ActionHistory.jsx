@@ -97,6 +97,11 @@ function ExecCard({ action: a, act }) {
         </p>
       )}
       <p>{copy.states[a.state]}</p>
+      {a.result?.reason === "request-failed" && (
+        <p className="assistant-note" data-exec-request-failed="">
+          {assistantShellCopy.exec.requestFailed}
+        </p>
+      )}
     </article>
   );
 }

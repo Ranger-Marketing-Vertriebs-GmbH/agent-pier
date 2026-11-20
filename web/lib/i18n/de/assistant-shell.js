@@ -73,6 +73,8 @@ export const assistantShellCopy = {
   removeNow: "Jetzt entfernen",
   exec: {
     history: "Shell-Befehl",
+    requestFailed:
+      "Der Befehl wurde nicht ausgeführt: Der Agent wartet nicht mehr auf diese Freigabe. Bitte ihn, den Befehl erneut anzufragen.",
     title: "Shell-Befehl wartet auf Freigabe",
     agent: "Agent",
     folder: "Ordner",
