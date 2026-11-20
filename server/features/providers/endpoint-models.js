@@ -66,6 +66,8 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   let listed = false;
   // 401/403 on a listing route: the key (or its header) was rejected.
   let rejected = false;
+  // The listing never reached the server: "network" or "timeout".
+  let unreachable = null;
   const denied = (status) => {
     if (status === 401 || status === 403) rejected = true;
   };
@@ -83,8 +85,11 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
           routerStatus.set(item.id, item.status);
       listed = true;
     }
-  } catch {
-    /* Listing failures are reported through `listed`. */
+  } catch (error) {
+    // Listing failures are reported through `listed`; one that never reached the
+    // server also names why (AGENTPIER-398).
+    if (["network", "notAllowed", "timeout"].includes(error?.reason))
+      unreachable = error.reason === "notAllowed" ? "network" : error.reason;
   }
   const root = rootUrl(endpoint);
   if (endpoint.preset === "ollama") {
@@ -165,7 +170,11 @@ export async function listEndpointModels({ endpoint, apiKey, signal, lookup }) {
   }
   return {
     listed,
-    ...(!listed && rejected ? { listReason: "auth" } : {}),
+    ...(!listed && rejected
+      ? { listReason: "auth" }
+      : !listed && unreachable
+        ? { listReason: unreachable }
+        : {}),
     models,
     warnings: [...warnings],
   };

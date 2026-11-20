@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import net from "node:net";
 import {
   fakeEndpoint,
   ollamaRoutes,
@@ -435,4 +436,25 @@ test("a rejected listing key marks unprobed protocols untested with the auth rea
   assert.equal(probed.listReason, "auth");
   assert.equal(probed.protocols.chatCompletions, "failed");
   assert.equal(probed.reasons.chatCompletions, "auth");
+});
+
+// An address nobody answers on (AGENTPIER-398): the protocols stay untested, but say
+// that the server could not be reached instead of a bare "Not tested".
+test("an unreachable endpoint marks unprobed protocols with the network reason", async () => {
+  // A port that was free a moment ago refuses the connection.
+  const probe = net.createServer();
+  await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${probe.address().port}`;
+  await new Promise((resolve) => probe.close(resolve));
+  const result = await runEndpointTest({
+    endpoint: draft(base, "custom"),
+    apiKey: "",
+    previousModels: [],
+  });
+  assert.equal(result.listed, false);
+  assert.equal(result.listReason, "network");
+  for (const name of ["messages", "responses", "chatCompletions"]) {
+    assert.equal(result.protocols[name], "skipped", name);
+    assert.equal(result.reasons[name], "network", name);
+  }
 });

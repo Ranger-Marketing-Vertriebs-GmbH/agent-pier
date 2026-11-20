@@ -123,12 +123,13 @@ export async function runEndpointTest({
   for (const [name, probe] of Object.entries(planned)) {
     if (!results[name]) {
       protocols[name] = "skipped";
+      // Likewise a listing that never reached the server ("network", "timeout").
       if (
-        detection.listReason === "auth" &&
+        ["auth", "network", "timeout"].includes(detection.listReason) &&
         probe &&
         new URL(probe.url).origin === listingOrigin
       )
-        reasons[name] = "auth";
+        reasons[name] = detection.listReason;
       continue;
     }
     const outcome = classifyProbe(results[name], {
