@@ -78,11 +78,11 @@
 }
 .local-badge {
   font:
-    600 8px "DM Sans",
+    600 var(--font-size-xs) "DM Sans",
     sans-serif;
-  letter-spacing: 1.4px;
+  letter-spacing: 0.08em;
   margin-left: auto;
-  padding: 4px 5px;
+  padding: 2px 5px;
   border: 1px solid #37383c;
   color: #9a9b9f;
   border-radius: 4px;

@@ -581,7 +581,7 @@ the action verbs and the writing rules are in the [UI glossary](ui-glossary.md).
 | Rule             | Fails on                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | `hexColours`     | a hex colour in a stylesheet other than `web/styles/base.css`                               |
-| `smallFontSizes` | a `font-size` below 11px (px or rem)                                                        |
+| `smallFontSizes` | a `font-size`, or the size in a `font:` shorthand, below 11px (px or rem)                   |
 | `mediaWidths`    | a media query width other than the [breakpoints](#breakpoints), in CSS or a JS query string |
 | `focusOutlines`  | a `:focus` outline that does not use `var(--focus-ring)`                                    |
 | `nativeDialogs`  | `window.confirm`, `alert` or `prompt`                                                       |

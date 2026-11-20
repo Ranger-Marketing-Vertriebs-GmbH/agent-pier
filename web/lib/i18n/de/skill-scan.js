@@ -19,7 +19,8 @@ export const skillScanCopy = {
   nameLabel: "Skill",
   sourceLabel: "Quelle",
   filesLabel: "Dateien",
-  filesSummary: (count, size) => `${count} Dateien · ${size} KiB`,
+  filesSummary: (count, size) =>
+    `${count === 1 ? "1 Datei" : `${count} Dateien`} · ${size} KiB`,
   importKinds: {
     zip: "ZIP-Datei",
     "skill-md": "SKILL.md",

@@ -62,12 +62,22 @@ function pixels(value) {
   return Number(match[1]) * (match[2] === "rem" ? rootFontSize : 1);
 }
 
-/** `font-size` declarations below the 11px floor (px and rem; em is relative). */
+// The size in a `font:` shorthand: the length before an optional /line-height and
+// the family, as in "600 8px \"DM Sans\"" or "12px/1.4 monospace".
+const shorthandSize = (value) =>
+  /(?:^|\s)(\d*\.?\d+(?:px|rem))(?:\s*\/\s*\S+)?\s+\S/.exec(value.trim())?.[1] ?? "";
+
+/**
+ * `font-size` declarations and `font:` shorthands below the 11px floor (px and rem;
+ * em is relative).
+ */
 export const smallFontSizes = (sources) =>
   tally(css(sources), (text) => {
     let n = 0;
-    for (const [, value] of text.matchAll(/font-size\s*:\s*([^;}]+)/g)) {
-      const size = pixels(value);
+    for (const [, property, value] of text.matchAll(
+      /(?<![-\w])(font-size|font)\s*:\s*([^;}]+)/g,
+    )) {
+      const size = pixels(property === "font" ? shorthandSize(value) : value);
       if (size !== null && size > 0 && size < fontSizeFloor) n++;
     }
     return n;

@@ -12,6 +12,8 @@
 .accounts-detail,
 .accounts-detail-group {
   display: grid;
+  /* One column no wider than the pane: a long account name wraps. */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 .accounts-hub {
@@ -38,6 +40,7 @@
   font:
     700 17px "Manrope",
     sans-serif;
+  overflow-wrap: anywhere;
 }
 .accounts-note,
 .accounts-empty {
