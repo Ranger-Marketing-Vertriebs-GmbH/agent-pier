@@ -22,7 +22,8 @@ export default function useChatController({ active, session, request, onConnecti
     session,
     request,
     draft: delivery.draft,
-    disabled: busy || modelPending || delivery.locked,
+    // A pending model change blocks sending only; attaching touches no terminal.
+    disabled: busy || delivery.locked,
     attachments: delivery.attachments,
     setAttachments: delivery.setAttachments,
   });

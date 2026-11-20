@@ -86,13 +86,14 @@ export default function ChatView({
   const [modelOpenable, setModelOpenable] = useState(false);
   const requestPending =
     requestsAvailable && (requestState?.sessionId !== session.id || requestState.blocked);
+  // An open model picker holds sending, not the draft: a file dropped anywhere on
+  // the chat, the picker's popover included, still attaches.
   const drop = useFileDrop({
     enabled:
       active &&
       attachments.supported &&
       !attachments.loading &&
       !busy &&
-      !modelPending &&
       !attachments.uploading &&
       !delivery.locked,
     onFiles: attachments.add,
