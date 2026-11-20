@@ -153,6 +153,7 @@ export default function AgentBrowserView({
             controlling={control.mine}
             input={input}
             keyboardLabel={copy.liveKeyboard}
+            keyboardButton={copy.liveKeyboardButton}
             onEscape={() => handBackButton.current?.focus()}
           />
         ) : (

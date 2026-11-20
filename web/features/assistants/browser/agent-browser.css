@@ -117,7 +117,8 @@
   touch-action: none;
   user-select: none;
 }
-/* Takes the keyboard (and a phone's on-screen keyboard) without being seen. */
+/* Takes the keyboard (and a phone's on-screen keyboard) without being seen. A tap
+   moves it to the tapped point (BrowserScreen.jsx), so iOS does not scroll to it. */
 .agent-browser-keyboard {
   position: absolute;
   left: 0;
@@ -129,6 +130,9 @@
   border: 0;
   padding: 0;
   font-size: 16px;
+}
+.agent-browser-keyboard-button {
+  margin-top: var(--space-2);
 }
 .agent-browser-takeover {
   display: flex;

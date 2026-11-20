@@ -599,7 +599,11 @@ A switch with fresh chats also has the new model review the agent's memory; see
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
   and **Hand back** (or ten minutes without input) gives it back; if the agent tried
   the browser meanwhile, a note in the chat lets it continue. Shift+Escape leaves the
-  browser's keyboard; **Take over here** moves control from another device. At most three visible
+  browser's keyboard; **Take over here** moves control from another device. On a phone
+  a tap on the picture clicks there and opens the phone's keyboard, which stays open
+  for further taps, so you can tap a sign-in field and type; a one-finger drag scrolls
+  the page, and **Keyboard** under the picture opens the keyboard again after it was
+  closed. At most three visible
   browsers run at once, and a browser idle for 15 minutes stops. **Reset browser
   profile** deletes the agent's sign-ins and cookies, also for an archived agent. The chat header shows
   **Browser running** while it runs. Temporary team members get a browser profile

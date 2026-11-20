@@ -92,6 +92,7 @@ export const assistantBrowserCopy = {
   },
   liveTakeOverHere: "Hier übernehmen",
   liveKeyboard: "Tastatureingabe für den Agenten-Browser",
+  liveKeyboardButton: "Tastatur",
   liveEscape: "Umschalt+Esc führt dich aus dem Browser zurück zu „Zurückgeben“.",
   liveStart: "Browser starten",
   liveStop: "Browser beenden",
