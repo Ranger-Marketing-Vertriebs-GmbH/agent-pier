@@ -214,8 +214,11 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   and the add field; the search stays usable. Without entries the picker shows
   `emptyText` and the `children` only.
 - A dialog with a split picker passes `className={grantDialogClass}` to `Modal`: it
-  becomes about 920px wide, and the picker fills the body, so the header, the footer and
-  a status line above the picker stay in place.
+  becomes about 920px wide and 760px high (less in a lower window), and keeps that
+  height while the search narrows the list. The picker fills the body, at least 320px
+  (half the window in very low ones); when that does not fit, the dialog scrolls
+  between its sticky header and footer, so every row and **Save** stay reachable.
+  Outside a dialog each column is at most 560px high.
 
 Not for checkbox lists that set options of one action (use `CheckRow`). The allowed and
 locked rules live in `web/components/grant-picker.js` (`tests/unit/grant-picker.test.js`).

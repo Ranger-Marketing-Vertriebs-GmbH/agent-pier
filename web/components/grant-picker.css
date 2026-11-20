@@ -205,8 +205,13 @@ label.grant-picker-row + .grant-picker-note {
   outline-offset: 2px;
 }
 
-/* In a grant dialog the dialog takes the split width, grows with its content up to its
-   height limit, and the picker fills the body so each column scrolls on its own. */
+/* In a grant dialog the dialog takes the split width and a fixed height, 760px or the
+   dialog's height limit when the window is lower, so it does not jump while the search
+   narrows the list. The picker fills the body and each column scrolls on its own; the
+   picker never gets lower than 320px (half the window in very low ones). When that
+   floor, the hints and the bars do not fit, the dialog itself scrolls between its
+   sticky header and footer, so every row and Save stay reachable. Outside a dialog
+   each column is at most 560px high (above). */
 @media (min-width: 701px) {
   dialog.grant-dialog {
     width: min(920px, calc(100vw - 32px));
@@ -214,21 +219,21 @@ label.grant-picker-row + .grant-picker-note {
   dialog.grant-dialog[open]:has(.grant-picker[data-arrangement="split"]) {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    height: min(760px, calc(var(--visual-viewport-height, 100dvh) - 36px));
   }
   dialog.grant-dialog:has(.grant-picker[data-arrangement="split"])
     > :is(.dialog-heading, .dialog-actions) {
     flex: none;
   }
+  /* Grows into the free height and never shrinks below its hints and the floor. */
   dialog.grant-dialog .dialog-body:has(> .grant-picker[data-arrangement="split"]) {
     display: flex;
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     flex-direction: column;
-    min-height: 0;
   }
   dialog.grant-dialog .dialog-body > .grant-picker[data-arrangement="split"] {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 0 min(320px, 50dvh);
+    min-height: min(320px, 50dvh);
   }
   dialog.grant-dialog .grant-picker[data-arrangement="split"] .grant-picker-column {
     max-height: none;
