@@ -10,6 +10,7 @@ import {
   hermesTestRuntime,
 } from "../helpers/hermes-fake-gateway.js";
 import { agentId, event, refusal, scripted, settle } from "../helpers/hermes-scripted.js";
+import { runFailure } from "../../server/features/assistants/routine-failures.js";
 
 const snapshot = (extra = {}) => ({
   session_id: "s1",
@@ -182,6 +183,76 @@ test("an error event of a submitted turn that never started fails it", async () 
       ["failed", "r"],
       ["other", null],
     ],
+  );
+});
+
+test("a turn the provider refused keeps the provider's reason for the chat", async () => {
+  const { peer, sessions } = await scripted((frame) =>
+    frame.method === "session.create"
+      ? snapshot()
+      : { admission_id: `ad-${frame.params.submission_id}` },
+  );
+  const { key } = await sessions.create({ agentId });
+  const azure =
+    "Error code: 400 - {'error': {'message': \"Function tools with reasoning_effort " +
+    'are not supported for gpt-6.2-sol in /v1/chat/completions."}}';
+  const failed = (runId, payload) => {
+    peer.send(event("message.start", "s1", {}, { admission_id: `ad-${runId}` }));
+    peer.send(
+      event(
+        "message.complete",
+        "s1",
+        { status: "error", ...payload },
+        { admission_id: `ad-${runId}` },
+      ),
+    );
+  };
+  for (const runId of ["p", "q", "g", "e"])
+    await sessions.send({ key, turn: { message: runId }, idempotencyKey: runId });
+  failed("p", {
+    error: azure,
+    error_surface: { layer: "provider", code: "format_error", retryable: false },
+  });
+  // Without `error`, the reply quotes the provider beside a log path.
+  failed("q", {
+    text: "custom rejected the request. Check `/private/var/x/agent.log`.\n\nProvider said: HTTP 400: Function tools with reasoning_effort are not supported.\n\nYour request was not processed.",
+    error_surface: { layer: "provider", code: "reasoning_mandatory", retryable: true },
+  });
+  failed("g", {
+    error: "Interpreter shutting down",
+    error_surface: { layer: "gateway", code: "interpreter_shutdown", retryable: false },
+  });
+  peer.send(event("message.start", "s1", {}, { admission_id: "ad-e" }));
+  peer.send(
+    event("error", "s1", { message: "agent init failed" }, { admission_id: "ad-e" }),
+  );
+  await settle();
+  const provider = await sessions.wait({ runId: "p", waitMs: 100 });
+  assert.deepEqual(provider, {
+    runId: "p",
+    status: "error",
+    reason: "format_error",
+    error: azure,
+    errorReason: "provider",
+  });
+  // The chat's failure rules (run-reconciler.js) name the provider and show its text.
+  const failure = runFailure(provider);
+  assert.equal(failure.reason, "model");
+  assert.match(failure.message, /Function tools with reasoning_effort/);
+  const quoted = await sessions.wait({ runId: "q", waitMs: 100 });
+  assert.equal(
+    quoted.error,
+    "HTTP 400: Function tools with reasoning_effort are not supported.",
+  );
+  assert.equal(runFailure(quoted).reason, "model");
+  // A failure of Hermes itself keeps its text, without naming the provider.
+  const gateway = await sessions.wait({ runId: "g", waitMs: 100 });
+  assert.equal(gateway.errorReason, undefined);
+  assert.equal(gateway.error, "Interpreter shutting down");
+  assert.equal(runFailure(gateway).reason, "other");
+  assert.equal(
+    (await sessions.wait({ runId: "e", waitMs: 100 })).error,
+    "agent init failed",
   );
 });
 

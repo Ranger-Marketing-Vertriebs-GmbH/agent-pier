@@ -220,6 +220,14 @@ export function compileHome(
   ];
   const config = [
     ...(model ? [[["model"], mixture.section], ...mixture.config] : []),
+    // The named providers the model needs (model.js), after the mixture's removals,
+    // unless the mixture's aggregator took the name over.
+    ...(model?.providers && mixture.section?.provider !== "moa"
+      ? Object.entries(model.providers).map(([name, entry]) => [
+          ["providers", name],
+          entry,
+        ])
+      : []),
     [["agent", "disabled_toolsets"], [...new Set(toolsets)].sort()],
     ...(model
       ? [[["agent", "image_input_mode"], model.images ? "native" : undefined]]

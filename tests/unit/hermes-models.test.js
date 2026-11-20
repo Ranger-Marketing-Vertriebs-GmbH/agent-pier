@@ -176,25 +176,49 @@ test("auth.json keeps Hermes's own rows and status and replaces only AgentPier's
   assert.equal(mergeAuth("not json", entry), "not json");
 });
 
-test("Hermes keeps Chat Completions for a connection OpenClaw reaches over Responses", () => {
+test("Hermes runs a keyed connection that offers Responses on Responses", () => {
   // assistant-provider-endpoint.js writes Responses for a keyed connection that offers
-  // it; every such connection also offers Chat Completions, which Hermes keeps.
-  const provider = (api) => ({
+  // it, as OpenClaw agents run it (AGENTPIER-439): Azure reasoning deployments refuse
+  // tools on Chat Completions. Hermes keeps Responses only on a named provider.
+  const provider = (api, extra = {}) => ({
     baseUrl: "https://fixture.openai.azure.com/openai/v1",
     api,
     apiKey: "azure-key",
     authHeader: false,
     headers: { authorization: "", "api-key": "azure-key" },
     models: [{ id: "gpt-6.2-sol", contextWindow: 200000, maxTokens: 32000 }],
+    ...extra,
   });
-  assert.deepEqual(
-    modelSection({ provider: provider("openai-responses") }),
-    modelSection({ provider: provider("openai-completions") }),
-  );
-  assert.equal(
-    modelSection({ provider: provider("openai-responses") }).section.api_mode,
-    "chat_completions",
-  );
+  assert.deepEqual(modelSection({ provider: provider("openai-responses") }), {
+    section: {
+      provider: "custom:agentpier-model",
+      default: "gpt-6.2-sol",
+      context_length: 200000,
+    },
+    providers: {
+      "agentpier-model": {
+        base_url: "https://fixture.openai.azure.com/openai/v1",
+        api_mode: "codex_responses",
+        key_env: "AUXILIARY_AGENTPIER_API_KEY",
+        extra_headers: {
+          Authorization: "",
+          "api-key": "${AUXILIARY_AGENTPIER_API_KEY}",
+        },
+      },
+    },
+    env: { AUXILIARY_AGENTPIER_API_KEY: "azure-key" },
+    images: false,
+  });
+  // A Chat-only connection stays on Chat Completions, with no named provider.
+  const chat = modelSection({ provider: provider("openai-completions") });
+  assert.equal(chat.section.provider, "custom");
+  assert.equal(chat.section.api_mode, "chat_completions");
+  assert.equal(chat.providers, undefined);
+  // Without a key the connection cannot run on Responses (nativeApi).
+  const keyless = modelSection({
+    provider: provider("openai-responses", { apiKey: undefined, headers: undefined }),
+  });
+  assert.equal(keyless.section.api_mode, "chat_completions");
   assert.deepEqual(modelSection({ provider: provider("anthropic-messages") }), {
     unsupported: "modelProtocol",
   });
