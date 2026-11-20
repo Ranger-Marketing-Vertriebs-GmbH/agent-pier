@@ -47,13 +47,45 @@
   min-width: 0;
   max-width: 60vw;
 }
-.agent-browser-url {
+/* The browser toolbar above the picture (BrowserToolbar.jsx): buttons and address on
+   one row, the tab switcher below when the browser has several tabs. */
+.agent-browser-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.agent-browser-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.agent-browser-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+.agent-browser-address {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
-  font-size: 12px;
-  overflow: hidden;
+}
+.agent-browser-address input {
+  padding: 7px 10px;
+  font-size: var(--font-size-sm);
   text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0.8;
+}
+.agent-browser-address input:read-only {
+  color: var(--muted);
+}
+.agent-browser-toolbar .agent-browser-tabs {
+  flex: 1 1 auto;
+}
+.agent-browser-toolbar .agent-browser-tabs select {
+  flex: 1 1 auto;
+  max-width: none;
 }
 .agent-browser-screen {
   display: flex;
@@ -102,6 +134,17 @@
 @media (max-width: 700px) {
   .agent-browser-body {
     padding: 12px;
+  }
+  /* Phones: the address takes its own full-width row under the buttons, so it fits
+     at 320px; every target stays 44px. */
+  .agent-browser-toolbar-row:first-child {
+    flex-wrap: wrap;
+  }
+  .agent-browser-address {
+    flex-basis: 100%;
+  }
+  .agent-browser-address input {
+    min-height: var(--touch-target);
   }
   .agent-browser-preview {
     width: 56px;

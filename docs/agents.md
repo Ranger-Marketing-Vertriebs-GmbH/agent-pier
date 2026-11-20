@@ -605,7 +605,14 @@ A switch with fresh chats also has the new model review the agent's memory; see
   to sign in, it asks in the chat with a **Take over my browser** button, which opens
   the live view taking control and starts the browser first if it is stopped (your own
   agents only; on Telegram it asks you to open the browser in AgentPier). Shift+Escape leaves the
-  browser's keyboard; **Take over here** moves control from another device. On a phone
+  browser's keyboard; **Take over here** moves control from another device. A toolbar
+  above the picture shows the page address and, with several tabs, a tab switcher; it
+  is read-only while you watch. While you hold control, **Back**, **Forward**,
+  **Reload** and **Stop loading** work, you can type an address and press Enter to
+  open it, switch to another tab (a sign-in that opened its own) and **Close tab**.
+  An address you open follows the agent browser's network rule: private, loopback
+  and cloud-metadata addresses only with **Allow private networks for all agent
+  browsers**. On a phone the buttons are 44px and the address takes its own row. On a phone
   a tap on the picture clicks there and opens the phone's keyboard, which stays open
   for further taps, so you can tap a sign-in field and type; a one-finger drag scrolls
   the page, and **Keyboard** under the picture opens the keyboard again after it was
@@ -2333,7 +2340,7 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   files and browser, only after you switch on **Owner may read chats** for her. Chats
   count from that moment on; her own agent's memory, files and browser become readable
   in full, older entries included. You only watch her agent's browser: its live view
-  offers no **Take over**, start, tab choice or follow. She sees that it is on, in her
+  offers no **Take over**, start, tab choice or follow, and its toolbar only shows the address. She sees that it is on, in her
   chats and in her agent's browser view. On a shared agent you see its
   settings and shared memory, never other users' chats. See
   [Private chats of restricted users](assistant-gateway.md#private-chats-of-restricted-users).

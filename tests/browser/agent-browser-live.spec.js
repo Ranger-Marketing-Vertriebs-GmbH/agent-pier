@@ -1,134 +1,6 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
-import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
-import { fixture } from "./providers-fixture.js";
-
-const home = {
-  id: "home",
-  name: "Home",
-  instructions: "",
-  revision: 1,
-  effectiveRevision: 1,
-  model: { connectionId: "router", modelId: "model" },
-  capabilities: { browser: true },
-  browserRunning: true,
-};
-// A real 1x1 JPEG, so a test sees whether the browser may decode the picture.
-const jpeg = Buffer.from(
-  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////" +
-    "////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAA" +
-    "AAAAAP/aAAgBAQABPxA=",
-  "base64",
-);
-// One frame as OpenClaw sends it: header length, JSON header, JPEG bytes.
-function frame() {
-  const header = Buffer.from(
-    JSON.stringify({ url: "https://shop.example/", cssWidth: 800 }),
-  );
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(header.length);
-  return Buffer.concat([length, header, jpeg]);
-}
-// The picture loaded and decoded (the page's CSP allows blob: images).
-const decoded = (picture) =>
-  expect
-    .poll(() => picture.evaluate((img) => img.complete && img.naturalWidth))
-    .toBeGreaterThan(0);
-const tabs = [
-  { targetId: "t1", title: "Shop", url: "https://shop.example/" },
-  { targetId: "t2", title: "Cart", url: "https://shop.example/cart" },
-];
-
-async function setup(
-  page,
-  {
-    status = "live",
-    refuse = false,
-    control,
-    viewOnly = false,
-    busy = false,
-    stopFails = false,
-    agent = {},
-  } = {},
-) {
-  await fixture(page);
-  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  await page.route(/\/api\/assistant/, async (route) => {
-    if (await fulfillEnabledAssistantFeature(route)) return;
-    const path = new URL(route.request().url()).pathname;
-    if (path === "/api/assistants")
-      return route.fulfill({
-        json: {
-          assistants: [{ ...home, ...agent }],
-          conversations: [
-            {
-              id: "c1",
-              assistantId: "home",
-              runtimeSessionKey: "k",
-              channel: "agentpier",
-            },
-          ],
-          models: [{ id: "router", name: "Router", available: true }],
-        },
-      });
-    if (path === "/api/assistant-runtime")
-      return route.fulfill({
-        json: {
-          availability: "ready",
-          sync: "current",
-          browser: {
-            available: true,
-            name: "Chrome for Testing",
-            visible: { available: true },
-          },
-        },
-      });
-    if (path.endsWith("/messages"))
-      return route.fulfill({ json: { messages: [], requests: [] } });
-    return route.fulfill({ json: {} });
-  });
-  const commands = [];
-  commands.connects = 0;
-  await page.routeWebSocket("**/api/assistants/home/browser-stream*", (ws) => {
-    commands.connects++;
-    let current = status;
-    const state = (control) =>
-      ws.send(
-        JSON.stringify({
-          type: "state",
-          state: {
-            status: current,
-            url: "https://shop.example/",
-            title: "Shop",
-            targetId: "t1",
-            tabs,
-            control,
-            busy,
-            // A view-only viewer sees a pinned tab but cannot follow the agent.
-            ...(viewOnly ? { viewOnly, pinned: true } : {}),
-          },
-        }),
-      );
-    ws.onMessage((message) => {
-      const command = JSON.parse(message);
-      commands.push(command);
-      // The server's answer to a takeover and a hand-back.
-      if (command.type === "take") state({ held: true, mine: true, warning: false });
-      if (command.type === "handBack") state({ held: false, mine: false });
-      // The server stops the browser; the next refresh reports it stopped.
-      if (command.type === "stop" && stopFails)
-        ws.send(JSON.stringify({ type: "error", code: "STOP_FAILED" }));
-      else if (command.type === "stop") {
-        current = "stopped";
-        state({ held: false, mine: false });
-      }
-    });
-    state(control || { held: false, mine: false });
-    if (status === "live") ws.send(frame());
-    if (refuse) ws.close({ code: 1008 });
-  });
-  return commands;
-}
+import { decoded, setup } from "../helpers/agent-browser-live-fixture.js";
 
 for (const [label, use] of [
   ["desktop", {}],
@@ -143,13 +15,16 @@ for (const [label, use] of [
       const commands = await setup(page);
       await page.goto(baseURL + "/agents/home/browser");
       await expect(page.getByRole("status").filter({ hasText: "Live" })).toBeVisible();
+      // Watching only: the address is shown, read-only.
+      await expect(page.getByLabel("Address")).toHaveValue("https://shop.example/");
+      await expect(page.getByLabel("Address")).not.toBeEditable();
       await expect(
-        page.getByText("https://shop.example/", { exact: true }),
-      ).toBeVisible();
+        page.getByRole("button", { name: "Back", exact: true }),
+      ).toBeDisabled();
       const picture = page.getByRole("img", { name: "Live view of Home's browser" });
       await expect(picture).toHaveAttribute("src", /^blob:/);
       await decoded(picture);
-      await page.getByLabel("Tab").selectOption("t2");
+      await page.getByLabel("Tab", { exact: true }).selectOption("t2");
       await expect
         .poll(() => commands)
         .toContainEqual({ type: "select", targetId: "t2" });
@@ -169,7 +44,7 @@ for (const [label, use] of [
       ).toBeVisible();
       await decoded(page.getByRole("img", { name: "Live view of Home's browser" }));
       await expect(page.getByRole("button", { name: /Take over/ })).toHaveCount(0);
-      await expect(page.getByLabel("Tab")).toHaveCount(0);
+      await expect(page.getByLabel("Tab", { exact: true })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Follow the agent" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Stop browser" })).toHaveCount(0);
       expect([...commands]).toEqual([]);

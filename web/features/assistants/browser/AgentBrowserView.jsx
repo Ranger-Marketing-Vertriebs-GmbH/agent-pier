@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import BrowserScreen from "./BrowserScreen.jsx";
+import BrowserToolbar from "./BrowserToolbar.jsx";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 import useBrowserStream from "./useBrowserStream.js";
 import "./agent-browser.css";
 
 /**
- * The live view of an agent's own browser: the picture, the page address, its tabs
- * and the browser's state, and the takeover: while the viewer holds control the
- * agent's browser calls wait (browser-takeover.js). The owner's page and a user's
+ * The live view of an agent's own browser: the picture, its toolbar (address, tabs,
+ * back, forward, reload and stop; BrowserToolbar.jsx) and the browser's state, and
+ * the takeover: while the viewer holds control the agent's browser calls wait
+ * (browser-takeover.js) and the toolbar drives the browser. The owner's page and a user's
  * (UserBrowserPage.jsx) share it; the server decides who may watch and drive.
  * `takeover` takes over as soon as the picture is live, and starts a stopped browser
  * first (an agent's take-over request, AGENTPIER-434); `onControl(mine)` reports it.
@@ -21,8 +23,20 @@ export default function AgentBrowserView({
   onControl,
   privacyNote,
 }) {
-  const { state, image, error, select, follow, start, stop, take, handBack, input } =
-    useBrowserStream(assistant.id);
+  const {
+    state,
+    image,
+    error,
+    select,
+    follow,
+    start,
+    stop,
+    take,
+    handBack,
+    navigate,
+    tab,
+    input,
+  } = useBrowserStream(assistant.id);
   const status = state.status;
   const viewOnly = state.viewOnly === true;
   const control = state.control || { held: false, mine: false };
@@ -59,21 +73,6 @@ export default function AgentBrowserView({
           <i aria-hidden="true" />
           {copy.liveStatus[status] || status}
         </span>
-        {!viewOnly && state.tabs.length > 0 && (
-          <label className="agent-browser-tabs">
-            <span>{copy.liveTab}</span>
-            <select
-              value={state.targetId || ""}
-              onChange={(event) => select(event.target.value)}
-            >
-              {state.tabs.map((tab) => (
-                <option key={tab.targetId} value={tab.targetId}>
-                  {tab.title || tab.url || tab.targetId}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         {!viewOnly && state.pinned && (
           <button type="button" className="button secondary compact" onClick={follow}>
             {copy.liveFollow}
@@ -139,10 +138,15 @@ export default function AgentBrowserView({
           )}
         </div>
       )}
-      {state.url && (
-        <p className="agent-browser-url" title={state.url}>
-          {state.url}
-        </p>
+      {runs && (
+        <BrowserToolbar
+          state={state}
+          controlling={control.mine}
+          viewOnly={viewOnly}
+          navigate={navigate}
+          tab={tab}
+          select={select}
+        />
       )}
       <div className="agent-browser-screen">
         {status === "stopped" ? (
