@@ -35,6 +35,9 @@ export function AccountSaveBar({
   note,
   saveDisabled = false,
   saveFocusKey,
+  // Asked last on every save path: false holds this save back (e.g. after pointing the
+  // owner at a field that should be filled first).
+  beforeSave,
 }) {
   // Every save path (bar, Enter, overwrite, "Save and switch") asks this first, so a
   // form that is not savable shows its inline reason instead of a server error.
@@ -42,11 +45,13 @@ export function AccountSaveBar({
   useLayoutEffect(() => {
     if (!gate) return undefined;
     gate.current = () =>
-      !saveDisabled && (!formRef?.current || formRef.current.reportValidity());
+      !saveDisabled &&
+      (!formRef?.current || formRef.current.reportValidity()) &&
+      (!beforeSave || beforeSave() !== false);
     return () => {
       gate.current = null;
     };
-  }, [gate, formRef, saveDisabled]);
+  }, [gate, formRef, saveDisabled, beforeSave]);
   return (
     <>
       <SaveBar

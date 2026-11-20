@@ -19,14 +19,17 @@ import ConnectionDeleteSheet from "./ConnectionDeleteSheet.jsx";
 import ConnectionEndpointGroups from "./ConnectionEndpointGroups.jsx";
 import ConnectionRestartBlock from "./ConnectionRestartBlock.jsx";
 import useEndpointTest from "./useEndpointTest.js";
+import { focusContextField } from "./context-focus.js";
 import { connectionSaveStep, connectionValues } from "./connection-save.js";
 import {
   initialEndpoint,
   keyReentryRequired,
   LISTED_PRESETS,
+  missingContextModels,
   modelsInvalid,
   parseProviderChoice,
   providerChoice,
+  usableProtocols,
   withoutTest,
 } from "./endpoint-draft.js";
 import { connectionProviderName } from "./provider-name.js";
@@ -70,6 +73,8 @@ export default function ConnectionDetail({
   const [created, setCreated] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [probeModelId, setProbeModel] = useState("");
+  // The manual models (as one key) a save already asked to give a context size.
+  const [contextAsked, setContextAsked] = useState("");
   const form = useAccountDraft({
     server,
     tab: accountItemTitle(entry),
@@ -114,6 +119,17 @@ export default function ConnectionDetail({
       removeApiKey: values.removeApiKey,
     });
   const modelsBlocked = endpoint && modelsInvalid(values.endpoint.models);
+  const missingContext = endpoint ? missingContextModels(values.endpoint) : [];
+  const missingKey = missingContext.map((model) => model.modelId).join("\n");
+  // A manual model (an Azure deployment) without a context size cannot be used, and no
+  // server reports one: the first save points at its field, a second save goes ahead.
+  const beforeSave = () => {
+    if (!missingContext.length || contextAsked === missingKey) return true;
+    setContextAsked(missingKey);
+    focusContextField(missingContext[0].modelId);
+    return false;
+  };
+  const noProtocol = endpoint && usableProtocols(values.endpoint).length === 0;
   const options =
     providers.data?.providers ||
     (connection
@@ -151,6 +167,7 @@ export default function ConnectionDetail({
           saveLabel={copy.save}
           note={restartNote(usage)}
           saveDisabled={keyReentry || modelsBlocked || (!connection && !providers.data)}
+          beforeSave={beforeSave}
         />
       }
     >
@@ -238,6 +255,7 @@ export default function ConnectionDetail({
           {providers.loading && !connection && <p role="status">{copy.loading}</p>}
           <ErrorMessage error={providers.error} />
           {keyReentry && <p role="alert">{copy.endpoint.keyReentry}</p>}
+          {noProtocol && <p role="alert">{copy.endpoint.noProtocol}</p>}
           {endpoint && (
             <ConnectionEndpointGroups
               endpoint={values.endpoint}
@@ -246,6 +264,8 @@ export default function ConnectionDetail({
               tester={tester}
               probeModelId={probeModelId}
               setProbeModel={setProbeModel}
+              focusModel={entry.model}
+              contextAsked={Boolean(contextAsked) && missingContext.length > 0}
             />
           )}
         </fieldset>

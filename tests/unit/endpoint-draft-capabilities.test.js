@@ -134,7 +134,7 @@ test("a proposal for an unused protocol never replaces its stored value", () => 
   });
 });
 
-test("a test whose listing was refused keeps protocols it did not probe", () => {
+test("a test whose listing or key was refused keeps the protocols ticked", () => {
   const draft = applyProposal(
     {
       ...fresh(),
@@ -149,10 +149,11 @@ test("a test whose listing was refused keeps protocols it did not probe", () => 
       capabilities: {},
     },
   );
+  // A rejected key is no proof that Chat Completions is missing.
   assert.deepEqual(draft.protocols, {
     messages: false,
     responses: true,
-    chatCompletions: false,
+    chatCompletions: true,
   });
   assert.equal(draft.lastTest.reasons.responses, "auth");
 });

@@ -97,12 +97,23 @@ const chatgptStatus = {
   expiring: ["warning", "signInExpiring"],
 };
 
+// An own endpoint with no usable protocol reaches no CLI: launchers leave it out.
+const noProtocol = ({ providerId, endpoint }) =>
+  providerId === "endpoint" &&
+  !!endpoint?.protocols &&
+  !Object.entries(endpoint.protocols).some(
+    ([name, enabled]) => enabled && (name !== "messages" || !!endpoint.anthropicBaseUrl),
+  );
+
 function modelProblems(services, agentsOn) {
   const connections = services.providerConnections.list();
   const accounts = services.accounts.list();
   const items = connections.map((connection) => ({
     id: connection.id,
-    problem: connection.launchable === false ? ["keyMissing"] : [],
+    problem: [
+      ...(connection.launchable === false ? ["keyMissing"] : []),
+      ...(noProtocol(connection) ? ["noProtocol"] : []),
+    ],
     warning: [],
   }));
   const unknown = accounts.length ? ["cliAccountSignIn"] : [];

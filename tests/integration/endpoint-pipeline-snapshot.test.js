@@ -79,8 +79,9 @@ test("endpoint snapshot keeps only the protocol and origin the profile's CLI use
   const opencode = setup(t, "opencode").profile.providerConnectionSnapshot.endpoint;
   assert.deepEqual(opencode, {
     origins: ["http://127.0.0.1:11434"],
-    protocols: { chatCompletions: true },
-    route: { mode: "native", source: "chatCompletions" },
+    // OpenCode's Automatic route prefers Responses.
+    protocols: { responses: true },
+    route: { mode: "sdk", source: "responses" },
     models: {
       qwen3: { contextTokens: 32768, outputTokens: null },
       llama: { contextTokens: 65536, outputTokens: null },
@@ -107,7 +108,7 @@ test("pipeline launch accepts unrelated endpoint edits and a re-test", (t) => {
   // Another model's limits, other protocols and the Anthropic URL are not used here.
   edit({
     models: [model("qwen3", 32768), model("llama", 131072)],
-    protocols: { messages: false, responses: false, chatCompletions: true },
+    protocols: { messages: false, responses: true, chatCompletions: false },
     anthropicBaseUrl: "http://127.0.0.1:9999",
   });
   launch();
@@ -120,7 +121,7 @@ test("pipeline launch refuses relevant endpoint changes", (t) => {
   context.edit({ openaiBaseUrl: "http://127.0.0.1:8080/v1" });
   assert.throws(() => context.launch(), changed);
   context.edit({
-    protocols: { messages: true, responses: true, chatCompletions: false },
+    protocols: { messages: true, responses: false, chatCompletions: true },
   });
   assert.throws(() => context.launch());
   const claude = setup(t, "claude");
@@ -173,7 +174,9 @@ test("a legacy snapshot still refuses an origin change", (t) => {
 });
 
 test("a route-less opencode snapshot is refused once auto resolves to an sdk route", (t) => {
-  const { profile, launch, edit } = setup(t, "opencode");
+  const { profile, launch, edit } = setup(t, "opencode", undefined, {
+    protocols: { messages: true, responses: false, chatCompletions: true },
+  });
   delete profile.providerConnectionSnapshot.endpoint.route;
   launch();
   edit({ protocols: { messages: false, responses: true, chatCompletions: false } });

@@ -1,5 +1,6 @@
 import React from "react";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
+import ContextNeeded from "./ContextNeeded.jsx";
 
 export default function EndpointTestResult({ draft, setDraft, result }) {
   const copy = connectionCopy.endpoint;
@@ -52,6 +53,7 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
           {copy.warnings[warning] || warning}
         </p>
       ))}
+      {result && <ContextNeeded draft={draft} />}
     </fieldset>
   );
 }

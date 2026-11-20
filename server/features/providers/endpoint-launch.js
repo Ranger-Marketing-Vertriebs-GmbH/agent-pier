@@ -93,8 +93,37 @@ const SDK = {
   },
 };
 
+// OpenCode asks for at most this many output tokens (its OUTPUT_TOKEN_MAX).
+const OPENCODE_OUTPUT_MAX = 32_000;
+
+/**
+ * Chat Completions request quirks the connection test found, as OpenCode model options.
+ * @ai-sdk/openai-compatible spreads them into the body after its own fields, so a
+ * deployment that refuses `max_tokens` (OpenAI and Azure reasoning models) gets
+ * `max_completion_tokens` and a null `max_tokens` instead.
+ */
+function chatModelOptions(endpoint, model) {
+  const chat = endpoint?.adapterCapabilities?.chatCompletions || {};
+  if (chat.maxTokensField !== "max_completion_tokens") return {};
+  return {
+    options: {
+      max_completion_tokens: Math.min(
+        model.outputTokens || OPENCODE_OUTPUT_MAX,
+        OPENCODE_OUTPUT_MAX,
+      ),
+      max_tokens: null,
+    },
+  };
+}
+
 /** OpenCode resolves `{env:…}` references itself, so the key stays in the environment. */
-export function endpointOpenCodeLaunch(result, description, secret, connectionName) {
+export function endpointOpenCodeLaunch(
+  result,
+  description,
+  secret,
+  connectionName,
+  { endpoint } = {},
+) {
   const { model, auth } = description;
   const key = secret?.apiKey?.trim();
   const cliModelId = `${description.providerKey}/${model.modelId}`;
@@ -142,6 +171,7 @@ export function endpointOpenCodeLaunch(result, description, secret, connectionNa
           [model.modelId]: {
             name: model.label,
             limit: { context: model.contextTokens, output: model.outputTokens },
+            ...(source === "chatCompletions" ? chatModelOptions(endpoint, model) : {}),
           },
         },
       },

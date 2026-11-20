@@ -142,9 +142,13 @@ for (const key of ["endpoint-secret", null])
       assert.deepEqual(result.args.slice(-2), ["--model", "qwen3-coder:30b"]);
     });
     test(`opencode endpoint launch ${label}`, (t) => {
+      // The Chat Completions route (Automatic would prefer Responses).
       const result = launch(t, "opencode", {
         key,
-        endpoint: endpointBlock({ authHeader: header }),
+        endpoint: endpointBlock({
+          authHeader: header,
+          routing: { opencode: "chatCompletions" },
+        }),
       });
       const config = JSON.parse(result.env.OPENCODE_CONFIG_CONTENT);
       const provider = config.provider["agentpier-endpoint"];

@@ -263,3 +263,12 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.endpoint-context-needed {
+  display: grid;
+  gap: 6px;
+}
+.endpoint-context-needed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

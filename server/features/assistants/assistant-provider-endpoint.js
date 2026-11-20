@@ -45,9 +45,16 @@ export function endpointCapability(connection) {
           ]
         : [],
   );
+  // The models the owner still has to give a context size, so the agent wizard can
+  // link to their rows (Azure lists no context for deployments).
+  const contextMissing = endpoint.models
+    .filter(({ contextTokens }) => !(contextTokens >= 4000))
+    .slice(0, 20)
+    .map(({ modelId }) => modelId);
   return {
     available: models.length > 0,
     ...(models.length ? {} : { reason: "modelConfiguration" }),
+    ...(contextMissing.length ? { contextMissing } : {}),
     // A key sent in a header of its own instead of as a bearer token.
     ...(hasSecret && endpoint.authHeader ? { keyHeader: true } : {}),
     models,

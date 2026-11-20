@@ -770,7 +770,7 @@
       "env": {
         "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
         "HOME": "<root>",
-        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/qwen3\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"qwen3\":{\"name\":\"qwen3\",\"limit\":{\"context\":32768,\"output\":8192}}}}}}",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/qwen3\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"qwen3\":{\"name\":\"qwen3\",\"limit\":{\"context\":32768,\"output\":8192}}}}}}",
         "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/endpoint/cache",
         "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/endpoint/config",
         "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/endpoint/data",
@@ -789,7 +789,7 @@
       "env": {
         "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
         "HOME": "<root>",
-        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/llama\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"llama\":{\"name\":\"llama\",\"limit\":{\"context\":65536,\"output\":16384}}}}}}",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/llama\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"llama\":{\"name\":\"llama\",\"limit\":{\"context\":65536,\"output\":16384}}}}}}",
         "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/endpoint/cache",
         "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/endpoint/config",
         "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/endpoint/data",

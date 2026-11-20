@@ -288,3 +288,22 @@ test("endpoint image support and chat adapter options map to native model fields
   for (const field of ["routing", "adapterCapabilities", "thinkTag", "promptCache"])
     assert.equal(serialized.includes(field), false, field);
 });
+
+test("an endpoint names the models that still need a context size", (t) => {
+  const { connections, models } = fixture(t);
+  const c = create(
+    connections,
+    endpoint("custom", {
+      models: [
+        { modelId: "prod", label: "prod", contextTokens: null, source: "manual" },
+        { modelId: "small", label: "small", contextTokens: 2048, source: "manual" },
+      ],
+    }),
+  );
+  const capability = models.listCapabilities().find((item) => item.id === c.id);
+  assert.equal(capability.reason, "modelConfiguration");
+  assert.deepEqual(capability.contextMissing, ["prod", "small"]);
+  const ready = create(connections);
+  const usable = models.listCapabilities().find((item) => item.id === ready.id);
+  assert.equal("contextMissing" in usable, false);
+});

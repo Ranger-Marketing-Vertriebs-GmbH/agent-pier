@@ -14,7 +14,11 @@ available through their existing paths.
 | Azure OpenAI / Foundry v1  | Azure OpenAI preset; `https://RESOURCE.openai.azure.com/openai/v1`; deployment name as model ID | Chat Completions streaming |
 
 Enable the connection's Chat Completions protocol and configure each model's context
-window (at least 4,000 tokens, the pinned runtime's hard minimum). The configured
+window (at least 4,000 tokens, the pinned runtime's hard minimum). A connection without
+such a model is listed as unavailable ("Configure a model with at least 4,000 context
+tokens"); the wizard and agent settings name it and link to the context field of its
+first model that lacks one. Azure deployments always need this step: Azure reports no
+context size. The configured
 output limit is preserved; an omitted limit uses the central
 connection's normal default (a quarter of context, capped at 32,000 tokens). Use a
 model that supports streamed function calls for assistant tools. Configuring a
@@ -27,7 +31,9 @@ header to suppress the SDK's default Bearer credential. A custom `Authorization`
 header sends the raw configured value, which may include a prefix when required. For Azure,
 the Azure OpenAI preset sets `api-key` as the custom authentication header; save the Azure API key.
 The v1 URL does not require a dated `api-version` query parameter. Azure's model ID
-is the deployment name, which can differ from the underlying model name.
+is the deployment name, which can differ from the underlying model name. Pasting a
+deployment's target URI into the base URL field keeps the v1 base URL and adds the
+deployment as a model; base models from Azure's model list are never added.
 See [Microsoft's v1 API documentation](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle).
 
 Keyless local connections use OpenClaw's native local authentication handling;

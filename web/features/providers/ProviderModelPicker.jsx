@@ -2,6 +2,7 @@ import React from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderCatalogStatus from "./ProviderCatalogStatus.jsx";
 import ProviderModelDetails from "./ProviderModelDetails.jsx";
+import ModelContextLink from "./ModelContextLink.jsx";
 import { providerCopy as copy } from "../../lib/i18n/messages/providers.js";
 export default function ProviderModelPicker({
   catalog,
@@ -52,7 +53,21 @@ export default function ProviderModelPicker({
         <p className="field-description">{copy.noModels}</p>
       )}
       {unavailable.length > 0 && (
-        <p className="field-description">{copy.modelsNeedContext(unavailable.length)}</p>
+        <p className="field-description">
+          {copy.modelsNeedContext(unavailable.length)}
+          {catalog.connectionId &&
+            unavailable.slice(0, 3).map((model, index) => (
+              <React.Fragment key={model.modelId}>
+                {index ? " · " : " "}
+                <ModelContextLink
+                  connectionId={catalog.connectionId}
+                  modelId={model.modelId}
+                >
+                  {copy.setContext(model.modelId)}
+                </ModelContextLink>
+              </React.Fragment>
+            ))}
+        </p>
       )}
       {!catalog.endpoint && <ProviderCatalogStatus catalog={catalog} />}
       <ProviderModelDetails model={selected} tool={tool} />

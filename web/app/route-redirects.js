@@ -10,7 +10,7 @@ const accountSections = new Set(["models", "services", "mcp-servers"]);
 // ({ result, serverId?, reason? }), never a credential.
 const returnFields = ["returnTo"];
 const cliFields = ["item", "returnTo"];
-const accountItemFields = ["item", "step"];
+const accountItemFields = ["item", "step", "model"];
 const accountFields = ["returnTo", "mcpOAuth"];
 const kept = (route, fields) =>
   Object.fromEntries(

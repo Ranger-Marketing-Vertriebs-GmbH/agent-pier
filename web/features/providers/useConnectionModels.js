@@ -39,5 +39,7 @@ export default function useConnectionModels(connection, tool) {
     refresh,
     reloading: false,
     endpoint: true,
+    // Links of models that need a context size open this connection's model rows.
+    connectionId: connection.id,
   };
 }

@@ -144,4 +144,6 @@ export const assistantWorkflowCopy = {
     unsupportedAuthentication:
       "Dieser Authentifizierungsheader wird von der Agent-Laufzeit nicht unterstützt",
   },
+  providerContextNeeded: (name) =>
+    `${name} hat noch kein Modell mit mindestens 4.000 Kontext-Token. Trage die Kontextgröße im Provider-Zugang ein:`,
 };
