@@ -6,6 +6,7 @@ import path from "node:path";
 import { parse } from "smol-toml";
 import { remoteLaunchArgs } from "../../server/features/requests/codex-launch-args.js";
 import { appServerArgs } from "../../server/features/requests/codex-launch.js";
+import { OUTER_SANDBOX_VARIABLE } from "../../server/lib/sandbox.js";
 
 async function fixture(t) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "ap-codex-args-"));
@@ -134,4 +135,42 @@ test("launches without grants and literal prompts retain their existing argument
   ];
   assert.deepEqual(remoteLaunchArgs(args, options), { terminal: args, overrides: [] });
   assert.throws(() => remoteLaunchArgs(["--add-dir"], options), /Missing/);
+});
+// AGENTPIER-402: Codex cannot apply its own Seatbelt sandbox inside nono
+// ("sandbox-exec: sandbox_apply: Operation not permitted", exit 71), so nono is the
+// boundary and Codex's sandbox is off; the approval policy stays untouched.
+for (const resume of [false, true]) {
+  test(`inside nono Codex runs without a sandbox of its own (resume: ${resume})`, async (t) => {
+    const options = await fixture(t);
+    options.env[OUTER_SANDBOX_VARIABLE] = "nono";
+    const result = remoteLaunchArgs(
+      [
+        "-c",
+        'sandbox_mode="workspace-write"',
+        "--add-dir",
+        path.join(options.cwd, "attachments"),
+        ...(resume ? ["resume", "thread-id"] : ["--", "-c prompt"]),
+      ],
+      options,
+    );
+    const server = appServerArgs([...result.terminal, ...result.overrides]);
+    for (const args of [server, resume ? result.overrides : result.terminal]) {
+      assert.ok(args.includes('sandbox_mode="danger-full-access"'));
+      assert.equal(args.includes('sandbox_mode="workspace-write"'), false);
+    }
+    assert.equal(
+      [...result.terminal, ...result.overrides].some((arg) =>
+        String(arg).startsWith("approval_policy"),
+      ),
+      false,
+    );
+    if (resume) assert.deepEqual(result.terminal, ["resume", "thread-id"]);
+    // The pin comes before the prompt, never after `--`.
+    else assert.deepEqual(result.terminal.slice(-2), ["--", "-c prompt"]);
+  });
+}
+test("without nono the launch keeps Codex's own sandbox", async (t) => {
+  const options = await fixture(t);
+  const result = remoteLaunchArgs([], options);
+  assert.deepEqual(result, { terminal: [], overrides: [] });
 });

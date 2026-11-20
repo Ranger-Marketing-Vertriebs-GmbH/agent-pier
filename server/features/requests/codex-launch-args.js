@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { parse } from "smol-toml";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { OUTER_SANDBOX_VARIABLE, codexOuterSandboxArguments } from "../../lib/sandbox.js";
 import { cliDriver } from "../clis/drivers.js";
 
 const valueOptions = new Set([
@@ -59,12 +60,18 @@ export function remoteLaunchArgs(args, { env = process.env, cwd = process.cwd() 
     directories = [];
   const options = launchOptions(args);
   const resume = options.some(([arg]) => arg === "resume");
+  // Inside nono Codex runs without a sandbox of its own (server/lib/sandbox.js).
+  const outer = env[OUTER_SANDBOX_VARIABLE] === "nono";
+  let prompt = -1;
   for (const option of options) {
     const [arg, value] = option;
     if (arg === "--") {
+      prompt = terminal.length;
       terminal.push(...option);
       break;
     }
+    const override = configOverride(option);
+    if (outer && override && /^sandbox_mode\s*=/.test(override)) continue;
     // Remote resume rejects permission flags on the TUI. Keep the launch mode
     // on the owned server, whose defaults also affect resumed threads.
     if (
@@ -79,7 +86,6 @@ export function remoteLaunchArgs(args, { env = process.env, cwd = process.cwd() 
       );
       continue;
     }
-    const override = configOverride(option);
     if (resume && override && permissionKeys.has(override.split(/[.=]/, 1)[0].trim())) {
       overrides.push(...option);
       continue;
@@ -95,6 +101,16 @@ export function remoteLaunchArgs(args, { env = process.env, cwd = process.cwd() 
       // Values of other options may look like flags; never reinterpret them.
       terminal.push(...option);
     }
+  }
+  if (outer) {
+    // A resumed TUI rejects permission settings; its server takes them instead.
+    if (resume) overrides.push(...codexOuterSandboxArguments());
+    else
+      terminal.splice(
+        prompt < 0 ? terminal.length : prompt,
+        0,
+        ...codexOuterSandboxArguments(),
+      );
   }
   if (!directories.length) return { terminal, overrides };
   let config = {};

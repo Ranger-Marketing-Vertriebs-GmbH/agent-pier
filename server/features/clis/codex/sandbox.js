@@ -4,6 +4,7 @@ import path from "node:path";
 import { bundleGrants } from "../ca-files.js";
 import { SHARED_FOLDERS, linkedFolderGrants } from "../linked-folders.js";
 import { assetDirectories } from "./profile-files.js";
+import { OUTER_SANDBOX_VARIABLE } from "../../../lib/sandbox.js";
 
 /** The CA bundle macOS ships as a file, the same roots as its system trust store. */
 export const SYSTEM_CA_BUNDLE = "/etc/ssl/cert.pem";
@@ -128,12 +129,19 @@ export function executablePackageGrants(command, env = {}) {
   return [];
 }
 
-/** The launch with what Codex needs inside a nono sandbox. */
+/**
+ * The launch with what Codex needs inside a nono sandbox. Its own sandbox cannot be
+ * applied inside nono's, so the launch says that nono is the boundary:
+ * codex-launch-args.js then starts Codex without one (server/lib/sandbox.js).
+ */
 export function sandboxLaunch(
   launch,
   { platform = process.platform, exists = fs.existsSync } = {},
 ) {
-  const prepared = trustStoreLaunch(launch, { platform, exists });
+  const prepared = trustStoreLaunch(
+    { ...launch, env: { ...launch.env, [OUTER_SANDBOX_VARIABLE]: "nono" } },
+    { platform, exists },
+  );
   // A session's command is the wrapper's interpreter by now; its Codex executable
   // is declared in requests.js. A login or a headless run names Codex itself.
   const grants = [
