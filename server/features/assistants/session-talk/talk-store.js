@@ -132,6 +132,24 @@ export class TalkStore {
       .all()
       .map(parse);
   }
+  /** An agent's sends since `since` whose delivery was still open (talk-follow.js). */
+  openSends(since) {
+    return this.db
+      .prepare(
+        "SELECT body FROM session_talk WHERE op='send' AND direction='to-session' AND phase='sent' AND created_at>=? AND json_extract(body,'$.status') IN ('pending','handed-off','uncertain') ORDER BY created_at, rowid",
+      )
+      .all(since)
+      .map(parse);
+  }
+  /** The newest sends of one agent to one session, newest first (talkRead). */
+  recentSends({ sessionId, assistantId, since, limit }) {
+    return this.db
+      .prepare(
+        "SELECT body FROM session_talk WHERE session_id=? AND assistant_id=? AND created_at>=? AND op='send' AND phase='sent' ORDER BY created_at DESC, rowid DESC LIMIT ?",
+      )
+      .all(sessionId, assistantId, since, limit)
+      .map(parse);
+  }
   /** Asks no waiter handed over and none marked late: after a restart, nobody holds them. */
   unclaimedAsks() {
     return this.db

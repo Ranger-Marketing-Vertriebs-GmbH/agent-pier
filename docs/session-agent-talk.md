@@ -49,9 +49,13 @@ vertical tab, form feed, NEL, U+2028, U+2029). The same fence holds the other wa
 session's text in the agent's prompt has every line prefixed with `> `, after the real
 header. A session's CRLF line breaks are taken as plain line breaks.
 
-A message an agent sent to a session (`send`) that the terminal did not confirm stays
-shown as pending in the agent's chat until the agent sends it again with the same
-`requestId`; AgentPier does not resend it on its own.
+A message an agent sent to a session (`send`) that a busy session holds, or whose
+acceptance the CLI has not confirmed yet, is shown as pending in the agent's chat.
+AgentPier follows its delivery (for up to 13 hours) and marks it accepted or rejected
+once the session takes or refuses it; the agent's chat updates over the live channel.
+The agent learns the outcome from `read` on that session, which lists its ten newest
+sends there with their status (`sends`). A send again with the same `requestId`
+returns the same delivery; AgentPier never types a message twice.
 
 ## Waiting and late answers
 

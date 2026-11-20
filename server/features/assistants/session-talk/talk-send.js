@@ -18,6 +18,7 @@ import {
 import { noteLimit, talkBudgetRefusal } from "./talk-budget.js";
 import { sessionHasTools, sessionProjectId, talkAgent, talkVia } from "./talk-reach.js";
 import { fromAgent } from "./talk-text.js";
+import { followMs, sendOutcome, stillOpen } from "./talk-follow.js";
 
 const notFound = () => assistantProblem("notFound", 404);
 // Sends delivering in this process, by delivery id (talkSend).
@@ -147,7 +148,10 @@ async function deliver(w, { session, agent, fields, deliveryId, rowId, retry }, 
     throw error;
   }
   const status = deliveryStatuses.has(receipt?.status) ? receipt.status : "uncertain";
-  talk.store.patch(rowId, { phase: "sent", status });
+  talk.store.patch(rowId, { phase: "sent", ...sendOutcome(receipt, status) });
+  // A busy session takes the message later: the row follows its receipt.
+  if (stillOpen(receipt)) talk.following.add(rowId);
+  else talk.following.delete(rowId);
   talk.changed();
   audit(w, session, fields, {
     deliveryId,
@@ -189,7 +193,32 @@ function audit(w, session, fields, { deliveryId, status }) {
 /** read on a granted session: its replies (readReplies) and state; nothing is kept. */
 export async function talkRead(w, ctx, input) {
   readOptions(input);
-  const { session } = await reach(w, ctx.assistantId, input.sessionId);
+  const { session, agent } = await reach(w, ctx.assistantId, input.sessionId);
   const { replies, cursor } = await readReplies(w, session.id, input);
-  return { replies, cursor, state: await activity(w, session) };
+  const sends = recentSends(w, session, agent);
+  return {
+    replies,
+    cursor,
+    state: await activity(w, session),
+    ...(sends.length ? { sends } : {}),
+  };
+}
+
+// The agent's newest messages to the session with their delivery status, so it
+// learns that a pending one arrived instead of sending it again.
+function recentSends(w, session, agent) {
+  const talk = w.sessions.talk;
+  return talk.store
+    .recentSends({
+      sessionId: session.id,
+      assistantId: agent.id,
+      since: talk.now() - followMs,
+      limit: 10,
+    })
+    .map((row) => ({
+      deliveryId: row.deliveryId,
+      ...(row.requestId ? { requestId: row.requestId } : {}),
+      status: row.status === "handed-off" && row.settled ? "accepted" : row.status,
+      sentAt: new Date(row.createdAt).toISOString(),
+    }));
 }

@@ -207,3 +207,38 @@ test("an older table without the lookup columns is migrated from the bodies", ()
     ["q", "l"],
   );
 });
+
+test("open sends survive a restart for following; settled and old ones do not", async () => {
+  const { seedFollowing } =
+    await import("../../server/features/assistants/session-talk/talk-follow.js");
+  let now = 1000;
+  const store = open(() => now);
+  const send = (status, extra = {}) =>
+    store.create({
+      ...base,
+      op: "send",
+      direction: "to-session",
+      phase: "sent",
+      status,
+      ...extra,
+    });
+  const held = send("pending");
+  const waiting = send("handed-off");
+  send("handed-off", { settled: true });
+  send("accepted");
+  send("pending", { phase: "sending" });
+  now = 2000;
+  const talk = { store, now: () => now, following: new Set() };
+  seedFollowing(talk);
+  assert.deepEqual([...talk.following].sort(), [held.id, waiting.id].sort());
+  now = 1000 + 14 * 60 * 60 * 1000;
+  talk.following.clear();
+  seedFollowing(talk);
+  assert.equal(talk.following.size, 0);
+  assert.deepEqual(
+    store
+      .recentSends({ sessionId: "s1", assistantId: "a1", since: 0, limit: 2 })
+      .map((row) => row.status),
+    ["accepted", "handed-off"],
+  );
+});
