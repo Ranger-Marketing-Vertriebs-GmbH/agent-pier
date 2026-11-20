@@ -2,6 +2,7 @@
   "files": [
     "tests/integration/assistant-runtime-contract.test.js",
     "tests/integration/assistant-provider-contract.test.js",
+    "tests/integration/assistant-provider-responses-contract.test.js",
     "tests/integration/assistant-chat-stream-contract.test.js",
     "tests/integration/assistant-attachments-contract.test.js",
     "tests/integration/assistant-multi-chat-contract.test.js",
@@ -72,6 +73,7 @@
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
     "tests/integration/assistant-provider-contract.test.js": 55,
+    "tests/integration/assistant-provider-responses-contract.test.js": 20,
     "tests/integration/assistant-chat-stream-contract.test.js": 44,
     "tests/integration/assistant-attachments-contract.test.js": 67,
     "tests/integration/assistant-multi-chat-contract.test.js": 60,

@@ -1,5 +1,10 @@
 import { readHermesConfig } from "./home-merge.js";
-import { endpointKeyEnv, openRouterKeyEnv, openRouterUrl } from "./model.js";
+import {
+  endpointKeyEnv,
+  openRouterKeyEnv,
+  openRouterUrl,
+  speaksChatCompletions,
+} from "./model.js";
 
 // Mixture of Agents (ADR 0007 decision 9; docs/hermes-runtime.md): an agent's advisor
 // models (runtimeOptions.hermes.mixture, ../hermes-options.js) as Hermes's MoA preset.
@@ -78,7 +83,7 @@ export function checkedPreset(preset, providers) {
 // cannot reach as one: a ChatGPT account, another protocol, a key in a header of its
 // own, no model.
 function slotEntry(provider, keyEnv) {
-  if (!provider || provider.api !== "openai-completions") return null;
+  if (!speaksChatCompletions(provider)) return null;
   if (provider.authHeader === false || provider.headers) return null;
   const model = provider.models?.[0]?.id;
   if (typeof model !== "string" || !model.trim() || !provider.baseUrl) return null;

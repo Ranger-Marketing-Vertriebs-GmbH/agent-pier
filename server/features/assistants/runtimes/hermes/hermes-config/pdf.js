@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { speaksChatCompletions } from "./model.js";
 
 // Read PDFs for a Hermes agent (AGENTPIER-364), as an OpenClaw agent reads them
 // (pdf-policy.js, OpenClaw's pdf tool in its extraction mode): AgentPier's own `pdf`
@@ -107,7 +108,7 @@ function fallbackOf(pdf, modelProxy) {
   }
   const provider = pdf?.provider;
   const [model] = provider?.models || [];
-  if (provider?.api !== "openai-completions" || !model?.id) return null;
+  if (!speaksChatCompletions(provider) || !model?.id) return null;
   const header = provider.baseUrl === openRouterUrl ? null : keyHeader(provider);
   return {
     fallback: {

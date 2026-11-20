@@ -6,12 +6,12 @@ enter the exact configured model ID. Each assistant and team member can select i
 own connection and model. Native ChatGPT account selection and OpenRouter remain
 available through their existing paths.
 
-| Connection                 | Central settings                                                                                | Assistant transport        |
-| -------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------- |
-| Ollama                     | Ollama preset; normally `http://127.0.0.1:11434/v1`                                             | Chat Completions streaming |
-| llama.cpp                  | llama.cpp preset; normally `http://127.0.0.1:8080/v1`                                           | Chat Completions streaming |
-| Generic compatible service | Custom preset; service's API base URL                                                           | Chat Completions streaming |
-| Azure OpenAI / Foundry v1  | Azure OpenAI preset; `https://RESOURCE.openai.azure.com/openai/v1`; deployment name as model ID | Chat Completions streaming |
+| Connection                 | Central settings                                                                                | Assistant transport                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Ollama                     | Ollama preset; normally `http://127.0.0.1:11434/v1`                                             | Chat Completions streaming (Responses with an API key)         |
+| llama.cpp                  | llama.cpp preset; normally `http://127.0.0.1:8080/v1`                                           | Chat Completions streaming                                     |
+| Generic compatible service | Custom preset; service's API base URL                                                           | Chat Completions streaming (Responses when ticked, with a key) |
+| Azure OpenAI / Foundry v1  | Azure OpenAI preset; `https://RESOURCE.openai.azure.com/openai/v1`; deployment name as model ID | Responses streaming                                            |
 
 Enable the connection's Chat Completions protocol and configure each model's context
 window (at least 4,000 tokens, the pinned runtime's hard minimum). A connection without
@@ -41,8 +41,9 @@ AgentPier does not create a fake key. Supported local hosts are localhost, loopb
 addresses, RFC1918 IPv4 addresses, `.local` names, and the native runtime's Docker/Orb
 host aliases. Public keyless endpoints are unavailable because the pinned runtime
 requires credentials for them. URLs requiring query parameters, legacy Azure
-`/deployments/...` APIs, automatic Entra token acquisition, and Responses-only or
-Messages-only connections are outside this adapter's supported contract. Unsupported
+`/deployments/...` APIs, automatic Entra token acquisition, and connections without
+Chat Completions (Responses-only or Messages-only) are outside this adapter's supported
+contract. Unsupported
 catalog providers remain unavailable rather than silently selecting another account.
 Arbitrary custom authentication headers (for example `X-Inference-Key`) are unavailable
 when a key is configured: pinned OpenClaw 2026.9.8 and its OpenAI SDK cannot suppress
@@ -77,12 +78,26 @@ capability responses expose model choices and stable availability reasons only.
 OpenClaw owns request streaming, tool execution, and context handling. Its transport
 configuration is documented in the [custom provider reference](https://docs.openclaw.ai/gateway/config-tools/custom-providers).
 
-Agents call an endpoint connection's Chat Completions API directly through OpenClaw.
-From the connection they use the per-model image support, the max-tokens field and the
-stream-usage option. Route choices and all other protocol adapter options (reasoning
-effort, parallel tool calls, prompt cache key, reasoning replay, system messages,
+Agents call an endpoint connection directly through OpenClaw. A connection with an API
+key and the Responses protocol ticked (the Azure OpenAI preset ticks it) runs agents on
+the Responses API (`api: "openai-responses"`); every other connection runs them on Chat
+Completions (`api: "openai-completions"`), which also stays the fallback when the
+connection test unticks Responses. Azure reasoning deployments need Responses: on Chat
+Completions they refuse function tools together with `reasoning_effort` ("Function
+tools with reasoning_effort are not supported for … in /v1/chat/completions"), and
+`/think off` does not help. Keyless connections stay on Chat Completions because the
+pinned runtime's local authentication covers only keyless Chat Completions providers.
+
+From the connection, agents on Chat Completions use the per-model image support, the
+max-tokens field, the stream-usage option, and a reasoning-effort option the connection
+test found refused (`reasoning_effort` is then never sent). Agents on Responses use the
+per-model image support, the prompt cache key option, and a refused reasoning option
+(the model is then written without reasoning); Responses always sends
+`max_output_tokens`, so the max-tokens field does not apply. Route choices and all
+other protocol adapter options (parallel tool calls, reasoning replay, system messages,
 think-tag extraction) apply only to coding CLIs that use an adapter route, and the
-adapter option panel is shown only while such a route exists.
+adapter option panel is shown only while such a route exists. Hermes agents keep Chat
+Completions for every endpoint connection.
 
 ## Verification
 
@@ -101,6 +116,10 @@ AGENTPIER_ASSISTANT_PROVIDER_RUNTIME=/absolute/path/to/pinned-runtime \
 It validates real streamed function calls, tool-result continuation, endpoint paths,
 Bearer/custom/no-auth headers, and absence of fixture secrets in model request
 bodies, history, capability responses, runtime logs and redacted Gateway configuration.
+`assistant-provider-responses-contract.test.js` runs the same tool loop against a
+local server that answers like an Azure reasoning deployment: it refuses function
+tools with `reasoning_effort` on Chat Completions and accepts them on Responses. The
+agent's turn goes to `/openai/v1/responses` with the key in `api-key` only.
 The sibling `assistant-provider-schedule-contract.test.js` verifies actual native
 cron execution after rotation/restart and proves a forced revoked job cannot reach
 the model server. Synchronization and HTTP-route tests cover maintenance conflicts,

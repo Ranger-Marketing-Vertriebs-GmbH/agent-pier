@@ -69,6 +69,7 @@ jobs:
           --concurrency 1 --retry --no-skips --test-timeout 600000
           tests/integration/assistant-runtime-contract.test.js
           tests/integration/assistant-provider-contract.test.js
+          tests/integration/assistant-provider-responses-contract.test.js
           tests/integration/assistant-chat-stream-contract.test.js
           tests/integration/assistant-native-interfaces-contract.test.js
           tests/integration/assistant-native-write-contract.test.js

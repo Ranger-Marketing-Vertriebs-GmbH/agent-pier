@@ -175,3 +175,27 @@ test("auth.json keeps Hermes's own rows and status and replaces only AgentPier's
   ]);
   assert.equal(mergeAuth("not json", entry), "not json");
 });
+
+test("Hermes keeps Chat Completions for a connection OpenClaw reaches over Responses", () => {
+  // assistant-provider-endpoint.js writes Responses for a keyed connection that offers
+  // it; every such connection also offers Chat Completions, which Hermes keeps.
+  const provider = (api) => ({
+    baseUrl: "https://fixture.openai.azure.com/openai/v1",
+    api,
+    apiKey: "azure-key",
+    authHeader: false,
+    headers: { authorization: "", "api-key": "azure-key" },
+    models: [{ id: "gpt-6.2-sol", contextWindow: 200000, maxTokens: 32000 }],
+  });
+  assert.deepEqual(
+    modelSection({ provider: provider("openai-responses") }),
+    modelSection({ provider: provider("openai-completions") }),
+  );
+  assert.equal(
+    modelSection({ provider: provider("openai-responses") }).section.api_mode,
+    "chat_completions",
+  );
+  assert.deepEqual(modelSection({ provider: provider("anthropic-messages") }), {
+    unsupported: "modelProtocol",
+  });
+});

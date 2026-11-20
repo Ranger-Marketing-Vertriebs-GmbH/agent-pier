@@ -98,8 +98,9 @@ one of OpenClaw's entries.
 | ChatGPT login OpenClaw holds      | refused until moved to AgentPier                                       | none                          |
 
 Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's and other
-vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) is a Chat Completions
-endpoint and compiles to `provider: custom`. `api_mode` is always `chat_completions`, so
+vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) offers Chat Completions
+and compiles to `provider: custom`, also where OpenClaw agents run it on Responses
+([model connections](assistant-model-connections.md)). `api_mode` is always `chat_completions`, so
 Hermes never switches an `api.openai.com` or `/anthropic` URL to another wire protocol
 (`agent/agent_init.py`). The endpoint's Chat Completions options need no key: Hermes
 sends no output cap on an agent's turn and picks `max_completion_tokens` itself where

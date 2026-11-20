@@ -23,6 +23,11 @@ test(
     const preset = process.env.AGENTPIER_ASSISTANT_LIVE_PRESET || "custom";
     const contextTokens = Number(process.env.AGENTPIER_ASSISTANT_LIVE_CONTEXT);
     const outputTokens = Number(process.env.AGENTPIER_ASSISTANT_LIVE_OUTPUT || 2048);
+    // Agents on a keyed connection that offers Responses run on Responses (Azure's
+    // preset ticks it); AGENTPIER_ASSISTANT_LIVE_RESPONSES=0 or 1 overrides that.
+    const responses =
+      (process.env.AGENTPIER_ASSISTANT_LIVE_RESPONSES ??
+        (preset === "azure" ? "1" : "0")) === "1";
     assert.ok(installed && path.isAbsolute(installed), "absolute runtime required");
     assert.ok(baseUrl && modelId, "explicit endpoint URL and model required");
     assert.ok(
@@ -88,7 +93,7 @@ test(
         preset,
         openaiBaseUrl: baseUrl,
         authHeader: process.env.AGENTPIER_ASSISTANT_LIVE_AUTH_HEADER || null,
-        protocols: { messages: false, responses: false, chatCompletions: true },
+        protocols: { messages: false, responses, chatCompletions: true },
         models: [{ modelId, source: "manual", contextTokens, outputTokens }],
       },
     });

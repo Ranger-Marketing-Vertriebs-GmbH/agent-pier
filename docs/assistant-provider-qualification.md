@@ -10,11 +10,11 @@ On October 10, 2026, Ollama and llama.cpp were qualified on a Mac mini (Apple M4
 48 GB) against the pinned OpenClaw 2026.9.8 runtime. Both engines ran locally without
 keys; existing personal accounts and private runtime state were not imported.
 
-| Target                    | Actual inference qualification | Engine and model                                                                     | Limitation                                                                       |
-| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Ollama                    | Passed (live runner, 1/1)      | Ollama 0.40.2, `qwen3:4b`, context 32,768 (set via `OLLAMA_CONTEXT_LENGTH`), keyless | The connection test cannot read the loaded context; confirm it manually.         |
-| llama.cpp                 | Passed (live runner, 1/1)      | llama.cpp build 11429, `Qwen2.5-3B-Instruct` Q4_K_M, `--jinja -c 32768`, keyless     | Small models may store notes outside `memory/`, so memory search misses them.    |
-| Azure OpenAI / Foundry v1 | Not performed                  | —                                                                                    | No authorized deployment URL, model/deployment ID, and credential were provided. |
+| Target                    | Actual inference qualification | Engine and model                                                                     | Limitation                                                                                               |
+| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Ollama                    | Passed (live runner, 1/1)      | Ollama 0.40.2, `qwen3:4b`, context 32,768 (set via `OLLAMA_CONTEXT_LENGTH`), keyless | The connection test cannot read the loaded context; confirm it manually.                                 |
+| llama.cpp                 | Passed (live runner, 1/1)      | llama.cpp build 11429, `Qwen2.5-3B-Instruct` Q4_K_M, `--jinja -c 32768`, keyless     | Small models may store notes outside `memory/`, so memory search misses them.                            |
+| Azure OpenAI / Foundry v1 | Failed on Chat Completions     | OpenClaw 2026.11.3, deployment `gpt-6.2-sol`, `api-key`                              | Agents now use Responses; see [Azure OpenAI reasoning deployments](#azure-openai-reasoning-deployments). |
 
 The same day, an isolated AgentPier instance of this branch was driven through its
 real web UI: both endpoints were added and tested under Accounts (all three protocols
@@ -27,6 +27,35 @@ with `qwen3:4b`, which reasons before answering.
 
 On October 8, 2026, no running local inference endpoint or authorized Azure
 deployment was available to the qualification run.
+
+### Azure OpenAI reasoning deployments
+
+The Azure qualification with OpenClaw 2026.11.3 and the reasoning deployment
+`gpt-6.2-sol` (`/openai/v1` base URL, `api-key` header) found that agents could not
+run on Chat Completions: every turn failed with `400 Function tools with
+reasoning_effort are not supported for gpt-6.2-sol in /v1/chat/completions`, and
+`/think off` did not help. Azure points such deployments to `/v1/responses`.
+
+What works since then, by the deterministic contract only: a keyed connection that
+offers Responses (the Azure OpenAI preset ticks it) runs agents on OpenClaw's
+`openai-responses` adapter. It posts to `<base URL>/responses` with the key in
+`api-key` and an empty `Authorization`, sends tools and `reasoning` together, and
+caps output with `max_output_tokens`; the Chat Completions `max_completion_tokens`
+option does not apply there. `assistant-provider-responses-contract.test.js` runs a
+`session_status` tool loop against a simulated server that refuses tools with
+`reasoning_effort` on Chat Completions and accepts them on Responses.
+
+Limits until a real Azure run repeats the check (`AGENTPIER_ASSISTANT_LIVE_PRESET=azure`
+below ticks Responses):
+
+- OpenClaw treats `*.openai.azure.com` hosts as native OpenAI routes (default
+  reasoning effort, prompt cache key, no `instructions` field); the simulated server
+  runs on loopback and does not exercise that host class.
+- A connection whose test unticks Responses, or that has no key, stays on Chat
+  Completions and keeps failing with reasoning deployments.
+- Hermes agents keep Chat Completions for every endpoint connection.
+- Entra ID tokens, legacy `/deployments/...` URLs and `api-version` queries remain
+  unsupported.
 
 This discovery is limited to the inspected host and conventional installation
 locations. It does not establish that no endpoint exists elsewhere. No engine or
@@ -73,7 +102,8 @@ file containing the key. The file must have no group/other permissions, for exam
 mode `0600`. Do not put the key directly into a shell command. The test never writes
 to that file. For Azure v1, use the `/openai/v1` base URL, the deployment name as the
 model, and `AGENTPIER_ASSISTANT_LIVE_AUTH_HEADER=api-key`. Leaving the header unset
-selects Bearer authentication. The endpoint is contacted directly, preserving the
+selects Bearer authentication. The `azure` preset ticks Responses, so the agent runs on
+Responses; `AGENTPIER_ASSISTANT_LIVE_RESPONSES=0` or `1` overrides that for any preset. The endpoint is contacted directly, preserving the
 native adapter's host and authentication behavior.
 
 A passing run requires a successful native `session_status` receipt, the requested
