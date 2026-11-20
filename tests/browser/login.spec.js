@@ -30,7 +30,12 @@ test("first user setup, reload, logout and login protect the complete workspace"
       path: `/tmp/agentpier-login-setup-${browserName}.png`,
       fullPage: true,
     });
-    await page.getByLabel("Benutzername", { exact: true }).fill("owner");
+    // Phones type the user name as is: no capital, no autocorrect (AGENTPIER-385).
+    const username = page.getByLabel("Benutzername", { exact: true });
+    await expect(username).toHaveAttribute("autocapitalize", "none");
+    await expect(username).toHaveAttribute("autocorrect", "off");
+    await expect(username).toHaveAttribute("spellcheck", "false");
+    await username.fill("owner");
     await page
       .getByLabel("Passwort", { exact: true })
       .fill("disposable-browser-password");

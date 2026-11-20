@@ -74,6 +74,10 @@ export default function LoginPage({ status, onLogin, refresh }) {
           <input
             name="username"
             autoComplete="username"
+            // A user name is typed as is: no capital first letter, no autocorrect.
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             maxLength={100}
             value={username}
