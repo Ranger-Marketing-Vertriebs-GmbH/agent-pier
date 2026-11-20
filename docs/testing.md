@@ -112,11 +112,16 @@ Two activity checks are opt-in as well. The first starts the installed Codex thr
 the request bridge in the same isolated way and checks that its turns reach the
 session activity; the second runs the installed Claude Code in a temporary HOME on a
 private tmux socket against a local mock of the Messages API (no account, no model
-calls) and checks the activity hooks for a turn, a background shell, Esc and exit:
+calls) and checks the activity hooks for a turn, a background shell, Esc and exit. The
+same switch runs the plan approval contract: Claude Code starts in plan mode, the mock
+writes a plan file and calls `ExitPlanMode`, and a PermissionRequest hook answers
+with AgentPier's own plan answer. Each approval must leave plan mode without Claude's
+"Ready to code?" dialog, and Keep planning must stay in plan mode:
 
 ```sh
 AGENTPIER_TEST_CODEX_BIN=/absolute/path/to/codex node --test tests/integration/codex-activity-native.test.js
 AGENTPIER_CLI_HOOK_CONTRACT=1 node --test tests/integration/claude-activity-hooks-contract.test.js
+AGENTPIER_CLI_HOOK_CONTRACT=1 node --test tests/integration/claude-plan-approval-contract.test.js
 ```
 
 The GitHub MCP server contract for agents is opt-in as well. It starts the pinned

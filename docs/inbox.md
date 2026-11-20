@@ -111,6 +111,18 @@ rest of the session; Keep planning stops Claude in plan mode so you can send fee
 in chat. Switching the permission mode outside such a plan approval stays in the
 terminal (Shift+Tab).
 
+Claude Code (2.1.329 and later) reads the plan from its plan file and passes it to the
+approval hook as `plan` and `planFilePath`. It acts on an approval only when the hook
+returns that input as `updatedInput`; without it, Claude keeps the card's answer
+unused and shows its own "Ready to code?" dialog. AgentPier therefore returns the
+unchanged input with each approval and the chosen mode as a session `setMode`.
+
+Opening the Terminal tab while a plan or tool approval waits hands it to Claude's own
+dialog: the card leaves chat and the inbox, and chat shows "Claude is waiting in the
+terminal for your approval" until you answer there, send a message, dismiss the
+notice or ten minutes pass. While Claude's dialog is on screen, the session reads as
+**Waiting**, also when the bridge mod last reported a running turn.
+
 ## Remembered and default approvals
 
 Every CLI tool approval (Claude Code, Codex and OpenCode) also offers **Always allow

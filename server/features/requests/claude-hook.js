@@ -10,6 +10,7 @@ import { subagentTranscriptPath, watchNativeDecision } from "./claude-native-dec
 import { workflowMeta } from "./claude-workflow-meta.js";
 import {
   alwaysDecision,
+  exitPlanAllow,
   persistentRules,
   planRequest,
   ruleText,
@@ -154,7 +155,10 @@ export function claudeRequest(data) {
                 decision:
                   input.choice === "always"
                     ? alwaysDecision(rules)
-                    : { behavior: input.choice },
+                    : // Without a plan Claude still needs the input echoed back.
+                      input.choice === "allow" && data.tool_name === "ExitPlanMode"
+                      ? exitPlanAllow(data.tool_input)
+                      : { behavior: input.choice },
               },
             },
     };

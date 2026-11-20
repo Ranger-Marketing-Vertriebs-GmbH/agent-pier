@@ -62,21 +62,28 @@ export const alwaysDecision = (rules) => ({
 const keepPlanning =
   "The user reviewed this plan in AgentPier chat and wants to keep planning. " +
   "Stay in plan mode and do not implement anything yet; wait for the user's feedback.";
-const planDecisions = {
+const planModes = { acceptEdits: "acceptEdits", approve: "default" };
+
+/**
+ * Claude Code ignores a hook's allow for a tool that needs the user's own answer
+ * (ExitPlanMode, AskUserQuestion) unless it carries `updatedInput`, and then shows
+ * its own dialog in the terminal. The unchanged input — for ExitPlanMode the
+ * `plan` and `planFilePath` Claude read from disk — makes the allow count.
+ */
+export const exitPlanAllow = (toolInput, mode) => ({
+  behavior: "allow",
+  updatedInput: toolInput && typeof toolInput === "object" ? toolInput : {},
   // Like Claude's own dialog: leaving plan mode sets the mode for the rest of
   // the session, never a persisted default.
-  acceptEdits: {
-    behavior: "allow",
-    updatedPermissions: [
-      { type: "setMode", mode: "acceptEdits", destination: "session" },
-    ],
-  },
-  approve: {
-    behavior: "allow",
-    updatedPermissions: [{ type: "setMode", mode: "default", destination: "session" }],
-  },
-  keep: { behavior: "deny", message: keepPlanning, interrupt: true },
-};
+  ...(mode
+    ? { updatedPermissions: [{ type: "setMode", mode, destination: "session" }] }
+    : {}),
+});
+
+const planDecision = (choice, toolInput) =>
+  choice === "keep"
+    ? { behavior: "deny", message: keepPlanning, interrupt: true }
+    : exitPlanAllow(toolInput, planModes[choice]);
 
 /** ExitPlanMode: show the plan itself and Claude's three answers. */
 export function planRequest(data) {
@@ -102,7 +109,7 @@ export function planRequest(data) {
         : {
             hookSpecificOutput: {
               hookEventName: "PermissionRequest",
-              decision: planDecisions[input.choice],
+              decision: planDecision(input.choice, data.tool_input),
             },
           },
   };

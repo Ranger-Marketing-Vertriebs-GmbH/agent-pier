@@ -38,15 +38,36 @@ const border = (line) => /^\s*[─━]{8,}\s*$/.test(line);
 const agentRow =
   /^\s*◯\s+\S[^\n]*(?:\s{2,}\d+[hms](?:\s+\d+[ms]){0,2}|\s+\d+[hms](?:\s+\d+[ms]){0,2}\s+·\s+↓\s+[\d.]+[kKmM]?\s+tokens)\s*$/;
 
+const selectedOption = /^\s*❯\s*\d+\.\s+\S/;
+const option = /^\s*(?:❯\s*)?\d+\.\s+\S/;
+
+/**
+ * Claude's own question dialog in place of the composer (a permission, the plan's
+ * "Ready to code?", AskUserQuestion): a question, then numbered options with one
+ * selected. Only read when no composer is on screen, so transcript text never counts.
+ */
+export function questionDialog(lines) {
+  const bottom = lines.slice(-24);
+  const selected = bottom.findLastIndex((line) => selectedOption.test(line));
+  if (selected < 0) return false;
+  return (
+    bottom.filter((line) => option.test(line)).length >= 2 &&
+    bottom.slice(0, selected).some((line) => /\?\s*$/.test(line))
+  );
+}
+
 /** `{ lines, original }`: the last screen rows, plain and styled. */
 export function activity({ lines, original }) {
   const prompt = nativePromptRow(lines);
-  if (prompt < 0) return { state: "unknown" };
   // Claude keeps the composer between rules, with live task controls below it.
-  const lowerBorder = lines.findIndex(
-    (line, index) => index > prompt && index < prompt + 8 && border(line),
-  );
-  if (!border(lines[prompt - 1] || "") || lowerBorder < 0) return { state: "unknown" };
+  const lowerBorder =
+    prompt < 0
+      ? -1
+      : lines.findIndex(
+          (line, index) => index > prompt && index < prompt + 8 && border(line),
+        );
+  if (prompt < 0 || !border(lines[prompt - 1] || "") || lowerBorder < 0)
+    return { state: questionDialog(lines) ? "waiting" : "unknown" };
   const nativeFooter = lines.slice(lowerBorder + 1).join("\n");
   // Narrow panes clip the footer hint, so the task panel header counts too.
   const panel = lines.findIndex(
