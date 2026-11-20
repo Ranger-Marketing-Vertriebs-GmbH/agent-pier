@@ -184,6 +184,13 @@ test.describe("touch screen", () => {
       dialog.getByRole("searchbox", { name: "Search SSH accesses" }),
     ).not.toBeFocused();
   });
+
+  test("removing the last row leaves the add field unfocused", async ({ page }) => {
+    const box = await specimen(page, "GrantPicker · stacked");
+    await box.getByRole("button", { name: "Remove prod-web-01" }).tap();
+    await expect(box.getByText("prod-web-01", { exact: true })).toHaveCount(0);
+    await expect(box.getByRole("combobox", { name: "Add SSH access" })).not.toBeFocused();
+  });
 });
 
 test.describe("phone", () => {

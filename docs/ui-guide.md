@@ -214,9 +214,10 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   hears why it cannot be switched off. `action` (`{ label, onClick }`) adds a text
   button to the allowed row. When a remove or action button disappears after its click,
   the focus moves to the next allowed row's remove button, else the previous one, else
-  the search or add field. An allowed row stacks name, `sub` and the `badge` and
-  `notes` line below each other, with the `action` on a line of its own, so long notes
-  stay readable in the 320px column.
+  the search or add field (not on touch screens, so no on-screen keyboard opens). An
+  allowed row stacks name, `sub` and the `badge` and `notes` line below each other,
+  with the `action` on a line of its own, so long notes stay readable in the 320px
+  column.
 - `disabled` (a save is running) disables the checkboxes, the remove and action buttons
   and the add field; the search stays usable. Without entries the picker shows
   `emptyText` and the `children` only.
