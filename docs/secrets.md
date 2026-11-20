@@ -44,7 +44,7 @@ Every Codex, Claude Code, OpenCode and shell session gets a file at `<data>/secr
 The file contains:
 
 - the secrets of the session's project, and
-- the secrets you ticked in the new-session dialog. It lists all secrets as optional, with their owner shown; the note there says that the session's own project secrets are always included.
+- the secrets you added in the new-session dialog. Its **Secrets** section lists the secrets you added, each with a remove button, and ends in the **Add secret** field, which offers all secrets as optional, with their owner shown; the note there says that the session's own project secrets are always included.
 
 Choose secrets only when you launch a session. A login session refuses the choice, and launches from a task profile have no picker. After launch, the file follows changes to project secrets and values at once and is removed when the session stops or is removed. A project rebind after `git init` moves the project secrets along ([SSH accesses](ssh-access.md#git-initialization-in-a-session-folder)).
 
