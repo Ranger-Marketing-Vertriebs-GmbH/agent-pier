@@ -167,8 +167,10 @@ AgentPier restarted) is tried again on the next `online` event. The root element
 carries the state in `data-view-preload` (`loading`, `done`, `incomplete` or
 `skipped`), which `tests/browser/offline-views.spec.js` waits for. Updates are
 unaffected: the page keeps the build it started with until it reloads, and the
-reload loads the new build's chunk names. The service worker still caches no app code;
-a navigation without a connection opens `offline.html`
+reload loads the new build's chunk names. The service worker keeps the files these
+imports load together with the last app shell, so an app reopened without a connection
+starts with them, the kept agent list and the kept workspace state; without a kept
+shell a navigation opens `offline.html`
 ([Startup loading](startup-loading.md#caching-and-updates)).
 
 ## Slow connections

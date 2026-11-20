@@ -68,23 +68,39 @@ measurements, not performance guarantees. The main JS chunk fell from approximat
 | Other static files (`sw.js`, icons, manifest, unhashed assets) | `no-cache`                    |
 | App documents, `/api`, `/auth`, errors                         | `no-store`                    |
 
-App documents stay `no-store` so a disconnected device never shows a cached shell
-that looks connected; the service worker keeps serving `offline.html` for failed
-navigations. That page tells the two causes apart with `navigator.onLine`: "This
-device is offline" asks for a network, "AgentPier is not reachable" says that the
-device is online but the service does not answer (stopped or restarting). It asks
+App documents stay `no-store` in the browser's HTTP cache. The service worker
+(`public/sw.js`) asks the network first for every navigation and keeps the last app
+document it got (status 200, HTML, with `X-AgentPier-Build`) as the app shell, plus
+the content-hashed files under `/assets` that pages of that build loaded. A
+navigation that gets no answer opens that shell for pages of the app, so the
+installed app reopens without AgentPier; files, and devices without a kept shell, get
+`offline.html`. A shell of another build replaces the old one and drops its assets,
+and because the network always comes first, a kept shell never pins an old build
+while AgentPier answers. Signing in records that this device was last signed in as
+the owner (`agentpier.signed-in.v1`, no secret, bound to the login-change marker); a
+start that cannot reach `/auth/status` then opens the app in offline mode with the
+agent list, the workspace state (`agentpier.workspace-state.v1`, sessions, accounts
+and tools, bound to the login and build) and the views it kept, and shows "AgentPier
+is unreachable". Without that record the start shows the same message as an error.
+Both try `/auth/status` again after 2 s, 4 s, 8 s … up to one minute; logout, an
+expired session or a signed-out answer forget both records.
+
+`offline.html` tells the two causes apart with `navigator.onLine`: "This device is
+offline" asks for a network, "AgentPier is not reachable" says that the device is
+online but the service does not answer (stopped or restarting). It asks
 `/api/health` again by itself after 2 s, 4 s, 8 s … up to one minute, at once on the
 `online` event, when the page becomes visible or on **Try again now**, and reloads as
-soon as any HTTP answer arrives (`public/offline.js`). The production build writes a build ID into
-`<meta name="agentpier-build">`. The server sends the ID of the files it currently
-serves as `X-AgentPier-Build` on every response and re-reads it when
-`dist/index.html` changes. When the two differ, the app shows a non-modal "New
-version available" notice and never reloads on its own. On the mobile layout the
-notice sits below the mobile header so it never covers header controls. A lazy view
-that fails to load shows the recovery view, with update-specific copy when a newer
-build was already detected. After the start, the page loads the code of the agent and
-session views in the background, so they open without a connection; the service
-worker caches no app code ([Views opened offline](mobile-recovery.md#views-opened-offline)).
+soon as any HTTP answer arrives (`public/offline.js`).
+
+The production build writes a build ID into `<meta name="agentpier-build">`. The
+server sends the ID of the files it currently serves as `X-AgentPier-Build` on every
+response and re-reads it when `dist/index.html` changes. When the two differ, the app
+shows a non-modal "New version available" notice and never reloads on its own. On the
+mobile layout the notice sits below the mobile header so it never covers header
+controls. A lazy view that fails to load shows the recovery view, with update-specific
+copy when a newer build was already detected. After the start, the page loads the code
+of the agent and session views in the background, so they open without a connection
+([Views opened offline](mobile-recovery.md#views-opened-offline)).
 
 Caching helps between updates. An update usually renames most chunks, so the first
 launch after an update downloads the start files again. Artifact links opened from

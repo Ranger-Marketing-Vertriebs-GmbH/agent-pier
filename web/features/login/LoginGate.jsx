@@ -14,15 +14,26 @@ import { clearAgentList } from "../assistants/agent-list-cache.js";
 import { liveAuthCheckEvent } from "../../lib/live/live-client.js";
 import { openPreviewReturn, previewParams, previewReturn } from "./preview-return.js";
 import api from "../../lib/api.js";
+import { forgetSignedIn, rememberSignedIn, wasSignedIn } from "./signed-in-cache.js";
+import { clearWorkspaceState } from "../../app/workspace-state-cache.js";
 // Everything this page remembers for the signed-in user. Agent data, the agent chat
 // cache and its offline outbox live in the app and go with its unmount; the agent
 // list kept on the device for offline use goes here.
 const forgetUser = () => {
   sharedDrafts.clearAll();
   clearAgentList();
+  clearWorkspaceState();
+  forgetSignedIn();
   void clearChatCache();
 };
 import "./login.css";
+// A status read that failed is tried again after 2 s, 4 s, 8 s … up to one minute.
+const FIRST_RETRY_MS = 2000;
+const LONGEST_RETRY_MS = 60000;
+// The status shown while AgentPier cannot be reached on a device last signed in as
+// the owner: the app opens with what the device kept (agent list, workspace state,
+// chats) and its own offline notices, and the next answer replaces it.
+const OFFLINE_STATUS = { configured: true, authenticated: true, offline: true };
 // A restricted user never loads the owner's app, only her own shell.
 const UserApp = lazy(() => import("../users/UserApp.jsx"));
 export default function LoginGate({ children }) {
@@ -52,20 +63,41 @@ export default function LoginGate({ children }) {
   useEffect(() => {
     startupStage(status || error ? "done" : "authenticating");
   }, [status, error]);
+  const retry = useRef({ timer: null, delay: FIRST_RETRY_MS });
+  const stopRetry = useCallback(() => {
+    clearTimeout(retry.current.timer);
+    retry.current = { timer: null, delay: FIRST_RETRY_MS };
+  }, []);
   const refresh = useCallback(async () => {
     const current = invalidate();
+    clearTimeout(retry.current.timer);
     try {
       const next = await loginRequest("status");
       if (typeof next.configured !== "boolean" || typeof next.authenticated !== "boolean")
         throw new Error(copy.failed);
       if (current !== generation.current) return;
       if (!next.authenticated) forgetUser();
+      rememberSignedIn(next);
+      stopRetry();
       setStatus(next);
       setError("");
     } catch (failure) {
-      if (current === generation.current) setError(failure.message);
+      if (current !== generation.current) return;
+      // Unreachable on a device last signed in as the owner: the app in offline mode.
+      if (failure.code === "UNREACHABLE" && wasSignedIn()) {
+        setStatus((shown) => (shown?.authenticated ? shown : OFFLINE_STATUS));
+        setError("");
+      } else setError(failure.message);
+      const { delay } = retry.current;
+      retry.current = {
+        delay: Math.min(delay * 2, LONGEST_RETRY_MS),
+        timer: setTimeout(() => refreshRef.current(), delay),
+      };
     }
-  }, [invalidate]);
+  }, [invalidate, stopRetry]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  useEffect(() => stopRetry, [stopRetry]);
   useEffect(() => {
     const expired = () => {
       invalidate();

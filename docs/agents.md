@@ -1970,7 +1970,10 @@ save data ([Views opened offline](mobile-recovery.md#views-opened-offline)).
 The agent list is also kept on the device: each list AgentPier sends is written to the
 browser's `localStorage` (`agentpier.agent-list.v1`, at most 1.5 million characters)
 for the login that received it. When the app opens again (the installed app on a
-phone included) and AgentPier or its agents do not answer, the sidebar, the agents
+phone included, also when AgentPier itself cannot be reached: the service worker then
+opens the kept app shell, see
+[Caching and updates](startup-loading.md#caching-and-updates)) and AgentPier or its
+agents do not answer, the sidebar, the agents
 page and the start page list these agents dimmed, with the note above once a read
 failed, and the first answer replaces them. The entry holds what the browser already
 showed, never credentials, and leaves out the chats of users' own agents. Another
