@@ -196,6 +196,18 @@ test("Runtime holds the agent service, updates, teams, dreaming, advanced and st
     .click();
 });
 
+test("a stopped agent service offers Start service", async ({ page }) => {
+  const { runtime } = await setup(page);
+  runtime.availability = "disabled";
+  await page.goto(baseURL + "/agents?tab=runtime");
+  await expect(
+    page
+      .locator(".agents-hub-row-actions")
+      .getByRole("button", { name: "Start service" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enable service" })).toHaveCount(0);
+});
+
 test("phones show the hub in one column", async ({ page }) => {
   await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });

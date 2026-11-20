@@ -78,6 +78,8 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   await next(page);
   await expect(page.getByRole("alert")).toContainText("Give the agent a name.");
   await identity(page);
+  // Fixed, the problem goes at once, not only with the next "Next".
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await next(page);
   await expect(heading(page, "Capabilities")).toBeVisible();
   await page.getByRole("radio", { name: /^Assistant/ }).check();

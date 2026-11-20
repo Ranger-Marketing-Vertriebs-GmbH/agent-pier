@@ -23,12 +23,18 @@
     display: none;
   }
 }
+/* The name keeps room for a few letters before the chips beside it shrink: on a
+   phone "Shell: approval" squeezed it to "W…". */
 .assistant-header-name :is(h1, h2) {
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: min(7em, 60%);
 }
 .assistant-shell-chip {
-  display: inline-flex;
-  flex: none;
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 2px 8px;
   border: 1px solid var(--accent-line);
   border-radius: 20px;

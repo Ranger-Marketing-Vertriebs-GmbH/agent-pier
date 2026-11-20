@@ -266,3 +266,19 @@ test("desktop settings save from the same bar", async ({ page }) => {
     page.locator("#agent-profile").getByRole("button", { name: "Save agent" }),
   ).toHaveCount(0);
 });
+
+test.describe("the agent header on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("keeps the name readable beside the shell chip", async ({ page }) => {
+    await setupAssistantSettings(page, {
+      assistant: { ...full, name: "Weekly planner", shell: "approval" },
+    });
+    await page.goto(baseURL + settingsPath());
+    const name = page.locator(".assistant-header h1");
+    await expect(name).toHaveText("Weekly planner");
+    await expect(page.locator(".assistant-header .assistant-shell-chip")).toBeVisible();
+    // Room for several letters, not "W…".
+    expect((await name.boundingBox()).width).toBeGreaterThanOrEqual(70);
+  });
+});

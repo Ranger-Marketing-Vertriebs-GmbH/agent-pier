@@ -163,3 +163,20 @@ test("header status shows a pending approval before the running attempt", () => 
     label: "Ausgang unklar",
   });
 });
+
+test("the header never says Ready while the chat is cut off or the agent archived", () => {
+  assert.deepEqual(status({ disconnected: true }), {
+    tone: "attention",
+    label: "Verbindung unterbrochen",
+  });
+  assert.deepEqual(status({ assistant: { ...assistant, archivedAt: "2026-01-01" } }), {
+    tone: "muted",
+    label: "Archiviert",
+  });
+  // A stopped service still names itself first.
+  assert.equal(
+    status({ disconnected: true, runtime: { availability: "disabled" } }).label,
+    "Gestoppt",
+  );
+  assert.equal(status({}).label, "Bereit");
+});
