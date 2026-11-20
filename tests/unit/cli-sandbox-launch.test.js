@@ -13,6 +13,7 @@ import {
 } from "../../server/features/clis/claude/sandbox.js";
 import { sandboxLaunch as opencodeSandboxLaunch } from "../../server/features/clis/opencode/sandbox.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
+import { OUTER_SANDBOX_VARIABLE } from "../../server/lib/sandbox.js";
 import {
   AccountStore,
   cleanEnvironment,
@@ -41,8 +42,12 @@ test("the operator's own CA settings stay as they are, and their file is readabl
     for (const name of ["SSL_CERT_FILE", "CODEX_CA_CERTIFICATE"]) {
       const launch = { command: "/bin/codex", env: { [name]: bundle } };
       const prepared = codexSandboxLaunch(launch, { platform });
-      // Nothing of AgentPier's own is set beside the operator's choice.
-      assert.deepEqual(prepared.env, launch.env, name);
+      // No CA setting of AgentPier's own is set beside the operator's choice.
+      assert.deepEqual(
+        prepared.env,
+        { ...launch.env, [OUTER_SANDBOX_VARIABLE]: "nono" },
+        name,
+      );
       assert.deepEqual(prepared.sandboxGrants, [{ access: "read", path: bundle }], name);
     }
   // Both set: both files, each once.
@@ -64,7 +69,9 @@ test("the operator's own CA settings stay as they are, and their file is readabl
   // A value that names no file of its own is left to Codex: nothing is granted.
   for (const value of ["/corp/missing.pem", "relative.pem", root, "/dev/null"]) {
     const launch = { command: "/bin/codex", env: { CODEX_CA_CERTIFICATE: value } };
-    assert.equal(codexSandboxLaunch(launch, mac), launch, value);
+    const prepared = codexSandboxLaunch(launch, mac);
+    assert.equal(prepared.sandboxGrants, undefined, value);
+    assert.equal(prepared.env.SSL_CERT_FILE, undefined, value);
   }
 });
 
@@ -81,10 +88,23 @@ test("the server's CODEX_CA_CERTIFICATE reaches the sessions like its SSL_CERT_F
   assert.equal(env.CODEX_HOME, undefined);
 });
 
-test("Codex keeps its launch where the bundle is missing or the host is not macOS", () => {
+test("Codex gets no CA file where the bundle is missing or the host is not macOS", () => {
   const launch = { command: "/bin/codex", env: {} };
-  assert.equal(codexSandboxLaunch(launch, { ...mac, exists: () => false }), launch);
-  assert.equal(codexSandboxLaunch(launch, { ...mac, platform: "linux" }), launch);
+  for (const options of [
+    { ...mac, exists: () => false },
+    { ...mac, platform: "linux" },
+  ]) {
+    const prepared = codexSandboxLaunch(launch, options);
+    assert.equal(prepared.env.SSL_CERT_FILE, undefined);
+    assert.equal(prepared.sandboxGrants, undefined);
+  }
+});
+
+test("a sandboxed Codex learns that nono is its boundary", () => {
+  const launch = { command: "/bin/codex", env: { PATH: "/bin" } };
+  const prepared = codexSandboxLaunch(launch, { ...mac, platform: "linux" });
+  assert.equal(prepared.env[OUTER_SANDBOX_VARIABLE], "nono");
+  assert.equal(launch.env[OUTER_SANDBOX_VARIABLE], undefined);
 });
 
 test("Claude Code's socket folder is resolved the way the CLI resolves it", () => {
@@ -186,8 +206,10 @@ test("the nono adapter hands a sandboxed Codex launch the CA file", async () => 
   assert.deepEqual(seen, ["codex"]);
   assert.equal(wrapped.env.SSL_CERT_FILE, SYSTEM_CA_BUNDLE);
   assert.ok(flagValues(wrapped.args, "--read-file").includes(SYSTEM_CA_BUNDLE));
+  assert.equal(wrapped.env[OUTER_SANDBOX_VARIABLE], "nono");
   const plain = await sandbox.prepare({ launch, profile: null, tool: "codex" });
   assert.equal(plain.env.SSL_CERT_FILE, undefined);
+  assert.equal(plain.env[OUTER_SANDBOX_VARIABLE], undefined);
 });
 
 /** A managed Claude account folder whose asset folders link to the CLI's own profile. */

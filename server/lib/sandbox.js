@@ -18,6 +18,20 @@ export function codexSandboxArguments() {
 }
 
 /**
+ * Set on a launch that runs inside nono. macOS refuses a second Seatbelt profile
+ * inside nono's ("sandbox-exec: sandbox_apply: Operation not permitted", exit 71),
+ * so a Codex with a sandbox of its own could run no command at all. Inside nono,
+ * nono is the boundary and Codex runs with `danger-full-access`
+ * (codexOuterSandboxArguments); its approval policy stays as the launch mode set it.
+ */
+export const OUTER_SANDBOX_VARIABLE = "AGENTPIER_OUTER_SANDBOX";
+
+/** The `-c` override pair that turns Codex's own sandbox off inside nono. */
+export function codexOuterSandboxArguments() {
+  return ["-c", `sandbox_mode=${tomlValue("danger-full-access")}`];
+}
+
+/**
  * The sandbox a native run is confined to, published to the agent as
  * AGENTRUNNER_SANDBOX. nono is the outer boundary when a session names a
  * sandbox profile, so it wins over Codex's own sandbox mode. Without one,

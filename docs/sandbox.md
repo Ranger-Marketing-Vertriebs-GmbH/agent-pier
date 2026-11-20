@@ -455,6 +455,29 @@ gets nothing beyond the executable.
   the binary lies in another package beside it. Grant the prefix in the sandbox
   profile. This case was not run.
 
+**Codex: nono is the only sandbox.** Codex confines the commands it runs with a
+sandbox of its own (`sandbox_mode`, Seatbelt on macOS). macOS refuses a second
+Seatbelt profile inside nono's, so a sandboxed Codex with its own sandbox on ran no
+command at all: every `exec_command` ended with exit 71, `sandbox-exec:
+sandbox_apply: Operation not permitted` (Codex 0.169.1 with nono 0.79.0; YOLO was
+spared because it turns Codex's sandbox off). Inside nono AgentPier therefore starts
+Codex with `sandbox_mode="danger-full-access"`: the nono adapter marks the launch
+(`AGENTPIER_OUTER_SANDBOX=nono`, `server/features/clis/codex/sandbox.js`) and
+`server/features/requests/codex-launch-args.js` replaces any sandbox pin, such as the
+`workspace-write` of a chat attachment grant, for both the TUI and its app server.
+Commands then run under the nono profile alone. The approval policy is left as the
+launch mode set it: Standard keeps Codex's `on-request`, so Codex still asks whenever
+it decides a command needs the owner, and YOLO keeps `never`. Codex 0.169 has no
+policy that asks before every command (it refuses `approval_policy="untrusted"` as
+"no longer supported"), so a Standard session inside nono asks about as often as an
+unsandboxed one, which also runs workspace commands without asking. What the nono
+profile denies fails in the command instead of raising an escalation prompt.
+
+Claude Code and OpenCode do not have this problem. Claude Code's own bash sandbox
+(`sandbox.enabled` in its settings) is off unless the owner turns it on, and AgentPier
+never does; turned on inside nono it would hit the same macOS refusal. OpenCode has no
+operating-system sandbox of its own.
+
 **Codex: no shared app-server daemon.** Codex 0.157 and later attach an interactive
 TUI to a shared background app server (the "daemon", `codex app-server daemon`) when
 one runs for the same `CODEX_HOME`. That server runs the tools, so a sandboxed TUI
@@ -606,12 +629,11 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    parity requires granting each active integration's own subtree of the AgentPier
    data directory, `server/`, `vendor/`, `node_modules/` and the Node binary. A
    sandboxed session is confined against accident, not against intent.
-2. **Nested Codex confinement fails quietly.** Codex is wrapped like the other CLIs,
-   nesting nono around Codex's own [sandbox mode](architecture.md). `server/lib/sandbox.js`
-   already records that Codex ignores an unusable writable-root grant while the session
-   still looks healthy; the same silent failure applies when the outer nono sandbox
-   denies something Codex expected, so a misconfigured grant is harder to diagnose for
-   Codex than for Claude Code or OpenCode.
+2. **Codex's own sandbox is off inside nono.** A sandboxed Codex session runs with
+   `sandbox_mode="danger-full-access"`, because macOS cannot apply Codex's Seatbelt
+   profile inside nono's ([details](#what-claude-code-and-codex-need-in-a-sandbox)).
+   The nono profile is the only file and network boundary of such a session, and a
+   denial shows up as a failing command rather than as a Codex escalation prompt.
 3. **Denial prompts are unhandled.** When nono denies an access, it raises an
    interactive save-profile prompt in the CLI's own terminal and writes a draft under
    `~/.config/nono/profile-drafts`. AgentPier does not surface that prompt in the chat
