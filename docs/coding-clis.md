@@ -272,7 +272,9 @@ member is used.
 - `modelPicker`: `openKeys` (steps of `{ keys }`, `{ type }` or `{ pauseMs }`),
   `parse(raw)` (the picker or `null`), `current(raw)` (the model shown),
   `promptReady(raw)` (whether the picker may be opened), `unsupported(raw)` (a picker
-  AgentPier must not drive), and `resolveDisplayed?(displayed, options)`: the
+  AgentPier must not drive), `moreModels?(raw)` (an expander row that hides further
+  models: `{ position, expanded, focused }` or `null`; the controller opens it so chat
+  lists every model), and `resolveDisplayed?(displayed, options)`: the
   `{ modelId, reasoningEffort? }` behind the displayed name on a reload, or `undefined`
   when it cannot be kept. `options` holds `observed`, `fallback`, `models`, `identifier`
   and `unavailable`. Without it (OpenCode) only an exact model id is kept.

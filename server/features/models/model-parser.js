@@ -16,3 +16,7 @@ export function currentModel(tool, raw) {
 export function modelPromptReady(tool, raw) {
   return isCodingCli(tool) && picker(tool).promptReady(raw);
 }
+/** The picker's expander of further models (Claude Code), or null. */
+export function moreModelsRow(tool, raw) {
+  return (isCodingCli(tool) && picker(tool).moreModels?.(raw)) || null;
+}
