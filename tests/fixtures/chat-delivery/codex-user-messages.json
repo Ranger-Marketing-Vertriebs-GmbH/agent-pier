@@ -1,0 +1,59 @@
+{
+  "note": "Recorded from Codex CLI 0.169.1 through AgentPier's delivery path (tests/helpers/application.js, the probe provider with an image-capable model, private tmux socket): the app-server `userMessage` items of `thread/read` and the receipts of the deliveries that sent them. Image data is replaced by `<image>`, upload paths by `<upload:name>`; `body` is the chat message as the composer sends it.",
+  "cli": "0.169.1",
+  "messages": [
+    {
+      "label": "image and text file",
+      "body": "AP_PROBE_IMGFILE look at both\n<upload:shot.png>\n<upload:notes.txt>",
+      "attachments": ["shot.png", "notes.txt"],
+      "receipt": { "status": "accepted", "confirmation": "events" },
+      "item": {
+        "type": "userMessage",
+        "id": "01a1f929-a411-7ad0-8970-fb603b920a07",
+        "clientId": "27244545-7188-4aaf-ad8e-61ef4412c956",
+        "content": [
+          { "type": "image", "url": "<image>", "detail": null },
+          {
+            "type": "text",
+            "text": "[Image #1] AP_PROBE_IMGFILE look at both\n<upload:notes.txt>",
+            "text_elements": [
+              { "byteRange": { "start": 0, "end": 10 }, "placeholder": "[Image #1]" }
+            ]
+          }
+        ],
+        "startedAtMs": 1795181618193,
+        "completedAtMs": 1795181618193
+      }
+    },
+    {
+      "label": "image",
+      "body": "AP_PROBE_IMG what is this\n<upload:shot.png>",
+      "attachments": ["shot.png"],
+      "receipt": { "status": "accepted", "confirmation": "events" },
+      "item": {
+        "type": "userMessage",
+        "id": "01a1f929-b8b5-76b2-965b-0a8f2e7d374d",
+        "clientId": "6f3c3fec-eb32-45e3-a7a2-e44bcbbbef69",
+        "content": [
+          { "type": "image", "url": "<image>", "detail": null },
+          {
+            "type": "text",
+            "text": "[Image #1] AP_PROBE_IMG what is this",
+            "text_elements": [
+              { "byteRange": { "start": 0, "end": 10 }, "placeholder": "[Image #1]" }
+            ]
+          }
+        ],
+        "startedAtMs": 1795181623477,
+        "completedAtMs": 1795181623477
+      }
+    },
+    {
+      "label": "local command",
+      "body": "/status",
+      "attachments": [],
+      "receipt": { "status": "accepted", "confirmation": "screen", "command": true },
+      "item": null
+    }
+  ]
+}

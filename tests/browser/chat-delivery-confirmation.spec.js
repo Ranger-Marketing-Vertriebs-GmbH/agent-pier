@@ -132,18 +132,27 @@ test("an acceptance that follows the native row still shows Accepted by CLI", as
   await expect(badge).toHaveText("✓Accepted by CLI");
 });
 
-test("an accepted command shows handed over briefly and keeps its message", async ({
+test("an accepted command shows handed over briefly, then retires its card", async ({
   page,
   liveStub,
 }) => {
-  const state = await fixture(page, { command: true });
-  await sendMessage(page, "/cost");
-  state.receipt = { status: "accepted", command: true, acceptedAt: Date.now() };
+  const state = await fixture(page, { command: true, confirmation: "screen" });
+  await sendMessage(page, "/status");
+  state.receipt = {
+    status: "accepted",
+    command: true,
+    confirmation: "screen",
+    acceptedAt: Date.now(),
+  };
   await liveStub.changed(topic);
   await expect(status(page)).toHaveText("Command handed over");
-  await expect(page.locator(".chat-delivery-status")).toHaveCount(0, { timeout: 6000 });
-  await expect(page.locator(".chat-delivery-message")).toContainText("/cost");
+  await expect(page.locator(".chat-delivery-message")).toContainText("/status");
+  // No native row follows a command: its card must not stay below later replies.
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator(".chat-native-delivery")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
 });
 
 test("a handoff without confirmation asks after eight seconds", async ({ page }) => {

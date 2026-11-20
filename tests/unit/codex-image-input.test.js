@@ -35,3 +35,16 @@ test("only explicit image chips and embedded image bytes provide native input ev
   ])
     assert.deepEqual(codexImageInput(content), {});
 });
+
+test("Codex 0.169's image blocks name their data URL `url`", () => {
+  // Recorded from a Codex CLI 0.169.1 thread/read (tests/fixtures/chat-delivery).
+  const recorded = { type: "image", url: image.image_url, detail: null };
+  assert.deepEqual(codexImageInput([recorded, text]).imageInput, {
+    text: "Inspect 🐈 and literal [Image #2]",
+    hashes: codexImageInput([image, text]).imageInput.hashes,
+  });
+  assert.deepEqual(
+    codexImageInput([{ ...recorded, url: "https://x.invalid/a.png" }, text]),
+    {},
+  );
+});

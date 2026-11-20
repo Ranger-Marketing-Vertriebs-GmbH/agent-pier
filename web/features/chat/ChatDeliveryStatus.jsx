@@ -3,7 +3,7 @@ import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React from "react";
 import Message from "./ChatMessage.jsx";
 import { deliveryNotices, visibleDeliveries } from "./chat-draft.js";
-import { deliveryView } from "./delivery-confirmation.js";
+import { deliveryView, retiredCommand } from "./delivery-confirmation.js";
 import useDeliveryClock from "./useDeliveryClock.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { serverText } from "../../lib/server-messages.js";
@@ -19,8 +19,10 @@ export default function ChatDeliveryStatus({
 }) {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
-  const notices = deliveryNotices(delivery, messages, position);
-  const now = useDeliveryClock(notices);
+  const listed = deliveryNotices(delivery, messages, position);
+  const now = useDeliveryClock(listed);
+  // A handed-over command leaves once its notice ended (retiredCommand).
+  const notices = listed.filter((item) => !retiredCommand(item, now));
   const content = notices.map((item) => {
     // Server confirmation (events or screen); null keeps the text-based presentation.
     const view = deliveryView(item, now);

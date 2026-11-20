@@ -38,7 +38,8 @@ export function codexImageInput(content) {
   }
   const hashes = [];
   for (const image of images) {
-    const url = image.imageUrl ?? image.image_url;
+    // Codex 0.164 and later name the data URL `url` (0.169.1 recorded).
+    const url = image.url ?? image.imageUrl ?? image.image_url;
     if (typeof url !== "string" || url.length > Math.ceil(MAX_BYTES / 3) * 4 + 64)
       return {};
     const match =

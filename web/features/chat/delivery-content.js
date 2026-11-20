@@ -21,6 +21,19 @@ const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 const exactly = (text) => text.trimEnd();
 
 const words = (text) => text.replace(/\s+/g, " ").trim();
+// The image files the server pastes as chips (claude-image-paste.js): absolute paths.
+const IMAGE = /^\/.*\.(?:png|jpe?g|gif|webp)$/i;
+// The sent text without one path line per image: what follows the chips natively.
+function withoutLines(text, images) {
+  const left = images.map((image) => image.path);
+  const kept = text.split("\n").filter((line) => {
+    const index = left.indexOf(line.trim());
+    if (index < 0) return true;
+    left.splice(index, 1);
+    return false;
+  });
+  return kept.join("\n");
+}
 const time = (value) => (typeof value === "number" ? value : Date.parse(value));
 
 // A queued Claude image prompt has no path evidence (see claude-image-history.js).
@@ -85,19 +98,18 @@ export function deliveryContentMatches(item, message, exact = false) {
   if (equal(message?.text || "", item.text)) return true;
   if (message?.claudeImageInput) return queuedImagesMatch(item, message.claudeImageInput);
   const input = message?.imageInput;
-  const attachments = item.attachments;
+  // Only image attachments become chips; other files stay path lines of the text.
+  const images = Array.isArray(item.attachments)
+    ? item.attachments.filter((attachment) => IMAGE.test(attachment.path))
+    : [];
   if (
     !input ||
     typeof input.text !== "string" ||
     !Array.isArray(input.paths) ||
-    !Array.isArray(attachments) ||
-    !attachments.length ||
-    attachments.length !== input.paths.length ||
-    attachments.some((attachment, i) => !input.paths[i].includes(attachment.path))
+    !images.length ||
+    images.length !== input.paths.length ||
+    images.some((image, i) => !input.paths[i].includes(image.path))
   )
     return false;
-  const reconstructed = [input.text, ...attachments.map((attachment) => attachment.path)]
-    .filter(Boolean)
-    .join("\n");
-  return equal(reconstructed, item.text);
+  return equal(input.text, withoutLines(item.text, images));
 }
