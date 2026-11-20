@@ -87,6 +87,21 @@ export const requestCopy = {
   noteLabel: (prompt) => `Note for Claude: ${prompt}`,
   preview: (label) => `Preview: ${label}`,
   details: "Requested action",
+  // AgentPier's own option labels by their stable key (server/features/requests/
+  // option-labels.js); labels a CLI wrote itself arrive as they are.
+  optionLabels: {
+    once: "Allow once",
+    turnAllow: "Allow for this turn",
+    sessionAllow: "Allow for this session",
+    always: "Always allow",
+    deny: "Deny",
+    cancel: "Cancel",
+    planAcceptEdits: "Approve plan and auto-accept edits",
+    planApprove: "Approve plan and review each edit",
+    planKeep: "Keep planning",
+    rememberSession: "Always allow in this session",
+    rememberProject: "Always allow in this project",
+  },
   claudeOptions: {
     allow: "Allow once",
     always: "Always allow",

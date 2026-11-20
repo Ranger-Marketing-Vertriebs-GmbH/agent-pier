@@ -1,6 +1,7 @@
 import { serverCatalogs } from "../../../lib/i18n/catalogs.js";
 import { redactSecrets } from "../../../lib/secret-redaction.js";
 import { actionPath, fenced } from "../action-text.js";
+import { localizedOptionLabel } from "../../requests/option-labels.js";
 
 const promptLimit = 1500;
 const labelLimit = 64;
@@ -45,7 +46,7 @@ function promptText(entry, title) {
 
 // The buttons of a live prompt: one per permission option, or per option of one
 // single-choice question; none otherwise.
-function buttons(action, entry) {
+function buttons(action, entry, labels) {
   const button = (answer, label) => ({
     proposalId: action.id,
     revision: action.revision,
@@ -56,7 +57,9 @@ function buttons(action, entry) {
     expiresAt: null,
   });
   if (entry?.kind === "permission")
-    return (entry.options || []).map((o) => button({ choice: o.id }, o.label));
+    return (entry.options || []).map((o) =>
+      button({ choice: o.id }, localizedOptionLabel(o, labels)),
+    );
   const q = singleQuestion(entry);
   if (!q || q.multiple) return [];
   return (q.options || []).map((o) => button({ answers: { [q.id]: [o.id] } }, o.label));
@@ -72,7 +75,8 @@ function buttons(action, entry) {
 export function notifyEscalation(w, action, phase, key, _m, target, entry = null) {
   if (!["approval", "result"].includes(phase)) return;
   const p = action.payload,
-    c = sessionMessages(w.s.assistantChannels.store.get(target.channelId));
+    channel = w.s.assistantChannels.store.get(target.channelId),
+    c = sessionMessages(channel);
   let agent = action.assistantId;
   try {
     agent = w.a.store.getAssistant(action.assistantId).name;
@@ -82,7 +86,9 @@ export function notifyEscalation(w, action, phase, key, _m, target, entry = null
     literal(redactSecrets(p.sessionName || p.sessionId)),
   );
   const asked = cut(promptText(entry, p.title), promptLimit);
-  const actions = phase === "approval" ? buttons(action, entry) : [];
+  // AgentPier's own option labels in the channel's language (option-labels.js).
+  const labels = (serverCatalogs[channel?.language] || serverCatalogs.de).requests;
+  const actions = phase === "approval" ? buttons(action, entry, labels) : [];
   const hint = takesText(entry)
     ? c.escalationReplyHint
     : actions.length
