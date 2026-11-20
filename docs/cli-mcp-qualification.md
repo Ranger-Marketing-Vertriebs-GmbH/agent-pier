@@ -15,7 +15,7 @@ AGENTPIER_CLI_MCP_LOGIN_PROBE=1 AGENTPIER_CLI_CONTRACT_DATA_DIR=<AgentPier data 
   node --test tests/integration/cli-mcp-login-probe.test.js
 ```
 
-Qualified versions: Claude Code 2.1.296, Codex 0.160.1, OpenCode 1.18.35. The native-entry contract (`cli-mcp-contract.test.js`), timeouts included, also passed with Claude Code 2.1.302; its per-server `timeout` was not checked against 2.1.296.
+Qualified versions: Claude Code 2.1.329, Codex 0.169.1, OpenCode 1.19.6, the minimum versions of [CLI updates](cli-updates.md#minimum-cli-versions). On 2026-11-20 the native-entry contract, the brokered Codex login (now pinned to 0.169.1) and the login probe passed with them. They were first qualified with Claude Code 2.1.296, Codex 0.160.1 and OpenCode 1.18.35.
 
 The temporary HOME (`tests/helpers/cli-contract.js` `isolatedHome()`) also holds
 `CODEX_HOME`, the XDG directories and Claude Code's `CLAUDE_CONFIG_DIR` and
@@ -86,7 +86,7 @@ Details from the probe:
   delivered to that listener completes the login (`authenticated`).
 
 Built for Codex in AgentPier-managed accounts (docs/mcp.md, "Codex accounts";
-`server/features/mcp-servers/codex-mcp-logins.js`). What it relies on in Codex 0.160.1,
+`server/features/mcp-servers/codex-mcp-logins.js`). What it relies on in Codex 0.169.1 (first established with 0.160.1),
 established by `codex-mcp-login-contract.test.js`:
 
 - `codex -c mcp_oauth_credentials_store="file" -c mcp_oauth_callback_url="<base>" mcp

@@ -46,11 +46,11 @@ UI updates are available for native installations in the server home and AgentPi
 
 AgentPier starts sessions with a CLI it installed itself only when that CLI is at or above its minimum version:
 
-| CLI         | Minimum   | Verified with                                                                                                                                    |
-| ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Codex       | `0.169.1` | Model picker with short key hints, composer footer with wrapped working directories, hook review screen and image input (`codex update` above)   |
-| Claude Code | `2.1.329` | Redrawn `/model` picker with the **More models** row, plan approval dialog, `agentpier-bridge` mod with task stop, and the `MessageDisplay` hook |
-| OpenCode    | `1.19.6`  | Native model menus, reader plugin and live provider sessions with Chat binding                                                                   |
+| CLI         | Minimum   | Verified with                                                                                                                                                                                                           |
+| ----------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Codex       | `0.169.1` | `/model` and effort pickers with short key hints and the idle composer footer (captures in `tests/fixtures/models`), MCP entries and the brokered MCP login ([qualification](cli-mcp-qualification.md)), `codex update` |
+| Claude Code | `2.1.329` | Redrawn `/model` picker with **More models**, onboarding theme dialog, activity hooks and plan approval (`AGENTPIER_CLI_HOOK_CONTRACT=1`), MCP entries and login ([qualification](cli-mcp-qualification.md))            |
+| OpenCode    | `1.19.6`  | MCP entries and login ([qualification](cli-mcp-qualification.md))                                                                                                                                                       |
 
 AgentPier supports each CLI from its minimum to the current release, covered by the real-CLI contract tests (for example `AGENTPIER_CLI_HOOK_CONTRACT=1` for Claude Code's hooks). A change that adapts AgentPier to a new CLI release raises that CLI's minimum to the release it was verified with and removes the handling of older layouts in the same change; the minimums are reviewed at every AgentPier release. Releases below a minimum are not known to be broken, but AgentPier no longer reads their older screens and hooks. A prerelease of a minimum (for example `2.1.329-beta.1`) counts as that version.
 
