@@ -14,6 +14,7 @@ import {
   primaryActions,
   localCommitsBlockDelete,
   offeredRunActions,
+  uncommittedBlockDelete,
   requestRunAction,
 } from "./run-action-request.js";
 
@@ -38,12 +39,13 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
     try {
       deleted = await requestRunAction(
         run,
-        action === "delete-local" ? "delete" : action,
+        action === "delete-local" || action === "delete-changes" ? "delete" : action,
         {
           feedback,
           review: true,
           resumeAt,
           confirmLocalCommits: action === "delete-local",
+          keepChanges: action === "delete-changes",
         },
       );
     } catch (error) {
@@ -51,6 +53,11 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
       // the run branch.
       if (action === "delete" && localCommitsBlockDelete(error)) {
         setConfirm("delete-local");
+        return;
+      }
+      // Uncommitted changes: confirming commits them to the kept run branch first.
+      if (action === "delete" && uncommittedBlockDelete(error)) {
+        setConfirm("delete-changes");
         return;
       }
       throw error;
@@ -122,7 +129,9 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
           confirmLabel={
             confirm === "delete-local"
               ? copy.deleteKeepBranch
-              : copy.confirmLabels[confirm]
+              : confirm === "delete-changes"
+                ? copy.deleteKeepChanges
+                : copy.confirmLabels[confirm]
           }
           onCancel={() => setConfirm(null)}
           onConfirm={() => execute(confirm)}

@@ -151,3 +151,39 @@ test("local-only commits ask once more and remove the worktree keeping the branc
   await expect(page).toHaveURL(/\/pipelines$/);
   expect(deletes).toEqual(["", "?confirmLocalCommits=true"]);
 });
+
+test("uncommitted changes ask once more and are kept as a commit on the run branch", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  Object.assign(run, { status: "cancelled", actions: ["delete"] });
+  state.runs.push(run);
+  const deletes = [];
+  await page.route("**/api/pipeline-runs/run-one**", (route) => {
+    const request = route.request();
+    if (request.method() !== "DELETE") return route.fallback();
+    const url = new URL(request.url());
+    deletes.push(url.search);
+    if (!url.searchParams.has("keepChanges"))
+      return route.fulfill({
+        status: 409,
+        json: { code: "PIPELINE_UNCOMMITTED_CHANGES", error: "uncommitted" },
+      });
+    return route.fallback();
+  });
+  await openPipelines(page, "runs/run-one");
+  await page.getByRole("button", { name: "Delete run", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Delete/ })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("uncommitted changes");
+  await dialog
+    .getByRole("button", { name: "Commit changes and delete", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/pipelines$/);
+  expect(deletes).toEqual(["", "?keepChanges=true"]);
+});

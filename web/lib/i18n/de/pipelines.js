@@ -113,6 +113,7 @@ export const pipelineCopy = {
   confirmTitles: {
     delete: (run) => `Lauf „${run}“ löschen?`,
     "delete-local": (run) => `Arbeitsverzeichnis von „${run}“ entfernen?`,
+    "delete-changes": (run) => `Nicht committete Änderungen von „${run}“ behalten?`,
     abort: (run) => `Lauf „${run}“ abbrechen?`,
     override: (run) => `Aktuelle Stufe von „${run}“ übergehen?`,
     "create-pr": (run) => `Pull Request von „${run}“ erstellen oder aktualisieren?`,
@@ -425,6 +426,9 @@ export const pipelineCopy = {
   deleteLocalCommits:
     "Dieser Worktree hat Commits, die nur lokal existieren, etwa weil das Repository kein Remote hat. Beim Entfernen des Worktrees bleiben sie im Lauf-Branch erhalten.",
   deleteKeepBranch: "Worktree entfernen, Branch behalten",
+  deleteUncommitted:
+    "Der Worktree dieses Laufs hat nicht committete Änderungen und kann deshalb nicht einfach entfernt werden. Beim Löschen werden sie als Zwischenstand-Commit im Lauf-Branch gesichert, der erhalten bleibt; danach wird der Worktree entfernt.",
+  deleteKeepChanges: "Änderungen committen und löschen",
   overrides: "Übergangene Ergebnisse",
   overrideEntry: (time, reason) => `${time} · übergangen: ${reason}`,
   cancelRun: "Die aktive Stufe wird gestoppt. Das Arbeitsverzeichnis bleibt erhalten.",
