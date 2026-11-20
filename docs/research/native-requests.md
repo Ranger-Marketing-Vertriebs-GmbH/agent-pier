@@ -335,6 +335,17 @@ catches up: the message is held (`pending`, `waiting: "request"`) with its journ
 still `reserved`, and is delivered once the menu is answered. The original draft
 does not need to be dismissed or retyped.
 
+The startup menu's default, **1. Review hooks**, opens Codex's hooks browser (also
+reachable with `/hooks`), where a bare `t` trusts every listed hook and space toggles
+one. Codex 0.169.1 starts the thread before that browser, which retired the startup
+card, and AgentPier read the browser neither as a blocking screen nor as a dialog, so a
+chat message typed into it could trust hooks the owner never looked at
+(AGENTPIER-397). `requests/codex-hook-browser.js` now recognizes its list and detail
+views (fixtures captured from Codex 0.169.1): while they list hooks to review, chat
+input is held and the session shows a `codexHookTrust` card whose trust choice presses
+`t` in the list view and whose skip choice closes the browser with Escape; without
+hooks to review the browser reads as a dialog that holds input as well.
+
 Reproduce using only disposable profiles, private tmux and the loopback mock provider:
 
 ```sh

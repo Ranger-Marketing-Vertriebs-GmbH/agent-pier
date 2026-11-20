@@ -2,6 +2,7 @@
 // limit warnings. Pure screen parsing; the shared callers dispatch here.
 import { currentCodexModel, codexModelFooter } from "../../models/codex-model-parser.js";
 import { hookTrustScreen } from "../../requests/codex-hook-trust.js";
+import { hookBrowserScreen } from "../../requests/codex-hook-browser.js";
 import {
   clean,
   nativePromptRow,
@@ -244,6 +245,8 @@ export function promptState({ raw, pane }) {
       return { state: placeholder ? "empty" : "draft", rows: content };
     }
   }
+  // The hooks browser takes keys of its own (`t` trusts all hooks, space toggles one).
+  if (hookBrowserScreen(raw)) return { state: "dialog" };
   // Native selectors end with this footer; a normal composer above wins.
   const bottom = lines
     .filter((row) => row.trim())
@@ -262,11 +265,17 @@ export function promptState({ raw, pane }) {
 export const promptProof = (rows, text) =>
   rows.join("").endsWith(text.replaceAll("\n", ""));
 
-/** The hook review screen holds input until AgentPier answers it. */
 /** Local commands that send no submit event; delivery confirms them by screen. */
 export const localCommands = ["status", "compact", "model", "diff", "mention"];
 
-export const blockingScreen = (raw) => hookTrustScreen(raw);
+/**
+ * The startup hook review and the hooks browser while it shows hooks to review hold
+ * input until AgentPier answers them (codex-hook-browser.js).
+ */
+export function blockingScreen(raw) {
+  const browser = hookBrowserScreen(raw);
+  return hookTrustScreen(raw) || (browser?.count ? browser : null);
+}
 
 /**
  * Codex tokenizes bare paths on spaces; a quoted path remains one image. Codex

@@ -1,4 +1,5 @@
 import { refreshOpenStartup, refreshStartupPrompts } from "./claude-startup-prompts.js";
+import { refreshHookBrowser } from "./codex-hook-browser.js";
 import { hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
@@ -404,6 +405,7 @@ export class RequestBroker {
   /** hasPending() after an open startup dialog was compared with the screen. */
   async stillPending(sessionId) {
     await refreshOpenStartup(this, sessionId).catch(() => {});
+    await refreshHookBrowser(this, sessionId).catch(() => {});
     return this.hasPending(sessionId);
   }
   /**
@@ -422,6 +424,9 @@ export class RequestBroker {
     if (session.status !== "running")
       await this.discard(sessionId, { removeLaunch: false });
     await refreshStartupPrompts(this, session);
+    // A terminal briefly unavailable (reload, stop) leaves the list as it is.
+    if (session.status === "running")
+      await refreshHookBrowser(this, sessionId).catch(() => {});
     const now = Date.now();
     const notice = this.notice(sessionId);
     return {

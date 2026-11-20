@@ -369,6 +369,7 @@ export class SessionManager {
                   "Enter",
                   "Escape",
                   "s",
+                  "t",
                   "C-e",
                   "C-u",
                 ].includes(key),
