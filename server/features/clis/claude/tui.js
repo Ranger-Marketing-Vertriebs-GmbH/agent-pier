@@ -156,19 +156,52 @@ export function composer({ raw, lines, row, line, plain: text, pane }) {
   return unknownComposer();
 }
 
-function parsePicker(raw) {
+// Claude Code 2.1.329 folds older models under an unnumbered expander row,
+// "▸ More models" ("▾" once open), whose models follow it numbered on.
+const expanderRow = /^\s*(❯)?\s*([▸▾])\s+More models\s*$/;
+const numberedRow = /^\s*[❯›>]?\s*\d+\.\s+\S/;
+
+/** The open native picker: its lines, title row and footer, or null. */
+function pickerScreen(raw) {
   const lines = styledLines(raw);
   const found = pickerTitle(lines, (title) => title === "Select model");
   if (!found) return null;
-  const { start, kind } = found;
   // The native dialog footer must be the last content on screen. A model menu
   // quoted in an assistant response still has the real composer below it.
   // Claude wraps both its controls and descriptions at mobile terminal widths.
-  const footer = pickerFooter(lines, start);
-  if (!footer) return null;
+  const footer = pickerFooter(lines, found.start);
+  return footer ? { lines, ...found, footer } : null;
+}
+
+/**
+ * The "More models" row of the open picker: its place in the arrow-key order
+ * (`position`), whether it is open and whether it has the focus. Null without one.
+ */
+function expander(screen) {
+  if (!screen) return null;
+  let position = 0;
+  for (let i = screen.start + 1; i < screen.lines.length; i++) {
+    const text = screen.lines[i].text;
+    const row = expanderRow.exec(text);
+    if (row) return { position, expanded: row[2] === "▾", focused: !!row[1] };
+    if (numberedRow.test(text)) position++;
+  }
+  return null;
+}
+
+function moreModels(raw) {
+  return expander(pickerScreen(raw));
+}
+
+function parsePicker(raw) {
+  const screen = pickerScreen(raw);
+  if (!screen) return null;
+  const { lines, start, kind, footer } = screen;
   let selectKey = "Enter";
   if (/s to use this session only/i.test(footer)) selectKey = "s";
-  if (/set as default/i.test(footer) && selectKey !== "s") return null;
+  if (/set as default|enter to save/i.test(footer) && selectKey !== "s") return null;
+  // The expander has the focus: Enter opens or closes it, no model is selected.
+  if (/enter to (?:expand|collapse)/i.test(footer)) return null;
   const {
     options,
     selected,
@@ -176,6 +209,11 @@ function parsePicker(raw) {
   } = numberedOptions(lines, start, kind, {
     wrapped: true,
   });
+  // The expander takes one arrow-key step between the models above and below it.
+  const more = expander(screen);
+  if (more)
+    for (const [index, option] of options.entries())
+      option.position = index < more.position ? index : index + 1;
   // Claude Code 2.1.322 names the current row by its family alone ("Sonnet ✔") and
   // starts the row's description with the model ("Sonnet 5.5 · Efficient …").
   const described = options
@@ -200,7 +238,7 @@ function unsupportedPicker(raw) {
   return (
     title >= 0 &&
     !!footer &&
-    /set as default/i.test(footer) &&
+    /set as default|enter to save/i.test(footer) &&
     !/s to use this session only/i.test(footer)
   );
 }
@@ -274,6 +312,7 @@ export const modelPicker = {
   current: currentModel,
   promptReady,
   unsupported: unsupportedPicker,
+  moreModels,
   resolveDisplayed,
 };
 

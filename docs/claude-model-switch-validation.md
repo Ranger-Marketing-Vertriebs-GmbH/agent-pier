@@ -27,6 +27,32 @@ the chat observer and verifies that visible terminals retain their dimensions an
 reattachment resumes automatic sizing. Mobile browser coverage runs the real model
 parser and controller with a controlled CLI boundary in German and English.
 
-Run `node --test tests/unit/models.test.js tests/integration/model-viewport.test.js`
+## Claude Code 2.1.329
+
+Claude Code 2.1.329 redrew `/model`. A subtitle ("Your pick is the default for new
+sessions …") follows the title, an effort row (`◐ Medium effort (default) ←/→ to
+adjust`) and a `/fast` hint sit below the options, and the footer starts with the
+session-only key: `s to use this session only · Enter to save · Esc to cancel`.
+AgentPier did not recognise that footer, so the chat showed "the CLI is waiting for
+another selection" without models. A footer without the session-only key would save
+the default and stays undriven.
+
+Subscription accounts also see an unnumbered `▸ More models` row after the first
+models. Enter on it toggles the list (`▾ More models`); the hidden models follow it,
+numbered on. While the row has the focus, the effort row disappears and the footer
+reads `Enter to expand · Esc to cancel`. When the chat opens the picker, AgentPier
+arrows to that row, presses Enter only once the screen shows the row focused, and
+arrows back to the model that was selected, so the chat lists every model. Selection
+counts the row as one arrow-key step. The effort row is not a model and stays in the
+terminal.
+
+The API-key layout (no expander) was captured from the installed 2.1.329 in a
+disposable HOME, a private tmux socket and the mock Anthropic API, and the controller
+opened the picker and switched to Sonnet for the session there. The expander screens
+are reconstructed from an owner screenshot and Claude Code's renderer, because the
+expander only appears with a subscription's model catalog; see
+`tests/fixtures/models/README.md`.
+
+Run `node --test tests/unit/claude-model-picker-2-1-329.test.js tests/unit/models.test.js tests/integration/model-viewport.test.js`
 and `npx playwright test tests/browser/claude-model-control.spec.js tests/browser/model-control.spec.js`.
 Set `AGENTPIER_TEST_BROWSER=webkit` for the WebKit browser run.

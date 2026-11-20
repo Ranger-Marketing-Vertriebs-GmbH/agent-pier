@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.329
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   /fixture
+
+▎ Auto mode is now Claude Code's default
+▎ permission mode.
+▎ Auto mode lets Claude handle permission prompts
+▎ automatically. Claude checks each tool call for
+▎ risky actions and prompt injection before
+▎ executing, runs the ones it assesses as
+▎ lower-risk, and blocks the rest.
+▎ https://code.claude.com/docs/en/permission-modes
+
+
+
+
+
+
+
+
+──────────────────────────────────────────────────
+  Select model
+  Your pick is the default for new sessions. For
+  other models, use --model.
+
+  ❯ 1. Default (recommended) ✔  Use the default
+                                model (currently
+                                Opus 5.5)
+    2. Opus                     Opus 5.5
+    3. Fable                    Fable 5.2
+    4. Sonnet                   Sonnet 5.5
+    5. Haiku                    Haiku 5.5
+
+  $4/$20 per Mtok
+
+  ◐ Medium effort (default) ←/→ to adjust
+
+  s to use this session only · Enter to save ·
+  Esc to cancel

@@ -5,12 +5,16 @@ import {
   parseModelPicker,
   currentModel,
   modelPromptReady,
+  moreModelsRow,
   unsupportedModelPicker,
 } from "./model-parser.js";
 export { parseModelPicker, currentModel, modelPromptReady } from "./model-parser.js";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sameOption = (a, b) =>
   a && b && a.label === b.label && a.description === b.description;
+/** An option's place in the arrow-key order; an expander row may sit in between. */
+const position = (option) => option.position ?? Number(option.id);
+const selectedOption = (menu) => menu?.options.find((x) => x.id === menu.selected);
 
 /** A control bridge to the existing native picker, never a second model process. */
 export class ModelController {
@@ -93,7 +97,7 @@ export class ModelController {
         ? await this.wait(tx, (menu, screen) => !!menu || modelPromptReady(tool, screen))
         : await tx.screen();
       const menu = parseModelPicker(tool, raw);
-      if (menu) return this.state(id, tool, raw);
+      if (menu) return this.state(id, tool, await this.expand(tx, raw));
       if (!modelPromptReady(tool, raw))
         throw problem(serverMessages.models.checkActionOrDraft, 409);
       this.state(id, tool, raw);
@@ -103,10 +107,36 @@ export class ModelController {
         if (step.pauseMs) await sleep(step.pauseMs);
         if (step.keys) await tx.keys(step.keys);
       }
-      const result = this.state(id, tool, await this.wait(tx, (menu) => !!menu));
+      const shown = await this.wait(tx, (menu) => !!menu);
+      const result = this.state(id, tool, await this.expand(tx, shown));
       if (!result.picker) result.notice = serverMessages.models.nativePickerNotRecognized;
       return result;
     });
+  }
+  /**
+   * Opens a collapsed "More models" row so the chat lists every model: arrows to
+   * the row, Enter only once the row has the focus, and back to the model that was
+   * selected. Any step the screen does not confirm stops with the screen as it is.
+   */
+  async expand(tx, raw) {
+    const tool = tx.session.tool;
+    const menu = parseModelPicker(tool, raw);
+    const more = moreModelsRow(tool, raw);
+    const origin = selectedOption(menu);
+    if (!origin || !more || more.expanded || more.position <= position(origin))
+      return raw;
+    const steps = more.position - position(origin);
+    const focused = (screen) => moreModelsRow(tool, screen)?.focused === true;
+    await tx.keys(Array(steps).fill("Down"));
+    let screen = await this.wait(tx, (_, next) => focused(next));
+    // Enter on any other row would save that model as the default.
+    if (!focused(screen) || !focused(await tx.screen())) return screen;
+    await tx.keys(["Enter"]);
+    const opened = (next) => focused(next) && moreModelsRow(tool, next).expanded;
+    screen = await this.wait(tx, (_, next) => opened(next));
+    if (!opened(screen)) return screen;
+    await tx.keys(Array(steps).fill("Up"));
+    return this.wait(tx, (next) => sameOption(selectedOption(next), origin));
   }
   select(id, { token, optionId } = {}) {
     return this.sessions.control(id, async (tx) => {
@@ -120,7 +150,7 @@ export class ModelController {
       if (!option || menu.selected === null)
         throw problem(serverMessages.models.invalidSelection);
       this.state(id, tool, raw);
-      const steps = Number(optionId) - Number(menu.selected);
+      const steps = position(option) - position(selectedOption(menu));
       if (steps) {
         await tx.keys(Array(Math.abs(steps)).fill(steps > 0 ? "Down" : "Up"));
         raw = await this.wait(
