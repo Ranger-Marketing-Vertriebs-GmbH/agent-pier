@@ -146,6 +146,25 @@ test("another failure keeps no reason", async (t) => {
   assert.deepEqual([ended.state, ended.failure], ["failed", undefined]);
 });
 
+test("a provider refusal fails with its text, redacted (AGENTPIER-411)", async (t) => {
+  const { service: s, attempt } = service(t, {
+    wait: {
+      status: "error",
+      error:
+        // Assembled at run time so the secret scanner doesn't read a fake key as a leak.
+        `⚠️ 401 Access denied due to invalid subscription key. api_key=${["sk", "live", "1234567890abcdef"].join("-")}`,
+    },
+  });
+  await reconcileRuns(s);
+  const ended = s.ledger.getAttempt(attempt.id);
+  assert.deepEqual([ended.state, ended.failure], ["failed", "provider"]);
+  assert.match(
+    ended.failureMessage,
+    /^401 Access denied due to invalid subscription key/,
+  );
+  assert.doesNotMatch(ended.failureMessage, /sk-live|⚠️/);
+});
+
 // Logs of the guard, kept out of the test output.
 function quiet(t) {
   const logged = [];

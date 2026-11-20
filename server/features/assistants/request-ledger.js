@@ -29,7 +29,19 @@ const evidenceOf = (r) => {
 };
 // Why a failed turn ended, when AgentPier knows it: its run timed out or stalled, or
 // the Gateway refused it before running it (conversation-turns.js sendRefusal).
-const failures = new Set(["timeout", "stalled", "degraded", "starting", "refused"]);
+// `provider`: the model provider refused it; its redacted text is `failureMessage`.
+const failures = new Set([
+  "timeout",
+  "stalled",
+  "degraded",
+  "starting",
+  "refused",
+  "provider",
+]);
+const failureMessageOf = (r) => {
+  const message = evidenceOf(r).failureMessage;
+  return typeof message === "string" && message ? { failureMessage: message } : {};
+};
 // A send whose acknowledgement was lost (conversation-turns.js) leaves the attempt
 // uncertain but confirmable: the Gateway may still prove it runs the turn.
 const unconfirmedSend = (r) =>
@@ -46,7 +58,10 @@ const attemptRecord = (r) =>
     // Why a failed turn ended, when AgentPier knows (run-reconciler.js,
     // run-stall-guard.js, conversation-turns.js): one of `failures`.
     ...(r.state === "failed" && failures.has(evidenceOf(r).failure)
-      ? { failure: evidenceOf(r).failure }
+      ? {
+          failure: evidenceOf(r).failure,
+          ...(evidenceOf(r).failure === "provider" ? failureMessageOf(r) : {}),
+        }
       : {}),
   };
 export class RequestLedger {

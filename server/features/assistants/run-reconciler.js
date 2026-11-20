@@ -1,6 +1,7 @@
 import { settleUnreviewable } from "./attempt-recovery.js";
 import { titleAfterReply } from "./generated-titles.js";
 import { runtimeForSession } from "./runtimes/runtime-for.js";
+import { runFailure } from "./routine-failures.js";
 
 export function terminalState(result) {
   if (result.status === "ok")
@@ -16,6 +17,17 @@ function timedOut(service, runId, result) {
     service.runFailures?.get(runId) === "timeout" ||
     typeof result.timeoutPhase === "string"
   );
+}
+// A run the model provider refused (an auth failure, a cool-down, a quota): OpenClaw
+// reports its own text in `error` ("⚠️ 401 …"). The turn keeps it, redacted and
+// without the warning sign, so the chat can show it (AGENTPIER-411).
+function providerFailure(result) {
+  const error =
+    typeof result.error === "string" ? result.error.replace(/^\s*⚠️\s*/u, "") : "";
+  const failure = runFailure({ ...result, error });
+  if (failure?.reason !== "model") return {};
+  const message = failure.message || "";
+  return { failure: "provider", ...(message ? { failureMessage: message } : {}) };
 }
 // OpenClaw's own commands that start the chat's next lifecycle (`/new <model>` too).
 const resetsChat = (text) =>
@@ -63,7 +75,9 @@ export async function reconcileRuns(service) {
             ? { failure: "stalled" }
             : state === "failed" && timedOut(service, runId || attempt.id, result)
               ? { failure: "timeout" }
-              : {}),
+              : state === "failed"
+                ? providerFailure(result)
+                : {}),
         });
       else {
         const described = await sessions.describe({

@@ -33,6 +33,8 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Bilder in der Nachricht",
 };
 export const chatMessageCopy = {
+  providerError: "Der Modellanbieter hat die Anfrage abgelehnt:",
+  openModelConnections: "Modell-Zugänge öffnen",
   outputOmitted: (size) => `… ${size} ausgelassen …`,
   loadFullOutput: (size) => `Vollständige Ausgabe laden (${size})`,
   loadFullOutputFailed: "Die vollständige Ausgabe konnte nicht geladen werden.",

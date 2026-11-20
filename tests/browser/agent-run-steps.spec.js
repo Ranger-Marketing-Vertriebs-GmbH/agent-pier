@@ -22,6 +22,8 @@ const languages = {
     continue: "Please continue where you stopped.",
     timedOut: /The model did not answer in time\./,
     longChat: /This chat is long\./,
+    provider: /The model provider refused this message/,
+    modelAccess: "Open model access",
     retrying: "The model did not answer, trying again (2 of 8)",
     approval: "Waiting for approval",
     compacting: "Summarising the chat",
@@ -40,6 +42,8 @@ const languages = {
     continue: "Bitte mach dort weiter, wo du aufgehört hast.",
     timedOut: /Das Modell hat nicht rechtzeitig geantwortet\./,
     longChat: /Dieser Chat ist lang\./,
+    provider: /Der Modellanbieter hat diese Nachricht abgelehnt/,
+    modelAccess: "Modell-Zugänge öffnen",
     retrying: "Das Modell hat nicht geantwortet, neuer Versuch (2 von 8)",
     approval: "Wartet auf Freigabe",
     compacting: "Fasst den Chat zusammen",
@@ -180,6 +184,31 @@ for (const [language, copy] of Object.entries(languages))
         .getByRole("button", { name: copy.retry })
         .click();
       await expect.poll(() => state.posted.map((p) => p.text)).toEqual([copy.continue]);
+    });
+
+    test("a turn the provider refused shows its error and the way to the connection", async ({
+      page,
+    }) => {
+      await chatFixture(page, {
+        language,
+        history: running({
+          id: "a-1",
+          state: "failed",
+          failure: "provider",
+          failureMessage: "401 Access denied due to invalid subscription key.",
+        }),
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      const notice = page.locator(".assistant-run-failure");
+      await expect(notice).toContainText(copy.provider);
+      await expect(notice).toContainText(
+        "401 Access denied due to invalid subscription key.",
+      );
+      await expect(notice.getByRole("link", { name: copy.modelAccess })).toHaveAttribute(
+        "href",
+        "/connections?section=models",
+      );
+      await noSideScroll(page);
     });
 
     test("a user sees her own turn's steps in her app", async ({ page }) => {

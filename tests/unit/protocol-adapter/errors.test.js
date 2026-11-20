@@ -301,6 +301,7 @@ test("classifyUpstreamError redacts secrets and ignores upstream headers", () =>
     kind: "auth",
     status: 401,
     message: "Invalid key [redacted] for user",
+    upstream: true,
   });
   const rendered = JSON.stringify([messagesErrorBody(error), responsesErrorBody(error)]);
   assert.ok(!rendered.includes("req_abc"));

@@ -47,6 +47,10 @@ reader retains `task_complete.error` while the native history API catches up; a
 stable per-turn ID prevents duplicate error messages after refresh. Legacy rollout
 normalization retains the same failures. Claude's structured `system/api_error`
 records are also shown, alongside its existing synthetic assistant error messages.
+OpenCode keeps a provider's refusal on the assistant message (`info.error`), often
+without any part; the chat shows it after the reply's parts as an alert ("The model
+provider refused the request") with a link to **Connections › Model access**. A reply
+the owner stopped (`MessageAbortedError`) adds nothing.
 Subagent-side errors and unrelated system metadata remain outside the transcript.
 Provider messages keep their original language and do not trigger retries.
 

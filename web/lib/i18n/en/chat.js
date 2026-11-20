@@ -32,6 +32,8 @@ export const chatImagesCopy = {
   chatImagesAriaLabel: "Images in this message",
 };
 export const chatMessageCopy = {
+  providerError: "The model provider refused the request:",
+  openModelConnections: "Open model access",
   outputOmitted: (size) => `… ${size} omitted …`,
   loadFullOutput: (size) => `Load full output (${size})`,
   loadFullOutputFailed: "The full output could not be loaded.",

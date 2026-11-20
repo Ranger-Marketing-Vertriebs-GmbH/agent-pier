@@ -61,7 +61,10 @@ export const agentRunStepsCopy = {
   timedOut:
     "The model did not answer in time. Check what the agent already did before you try again.",
   // The agent service refused the message before running it (server sendRefusal).
+  openModelAccess: "Open model access",
   refusedTurn: {
+    provider:
+      "The model provider refused this message, so the agent could not answer. Check the agent's model connection:",
     degraded:
       "This agent couldn't start in the agent service, so the message was not delivered. Restart the agent service to bring it back.",
     starting:

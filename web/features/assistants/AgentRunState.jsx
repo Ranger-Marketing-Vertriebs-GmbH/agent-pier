@@ -1,4 +1,5 @@
 import React from "react";
+import { connectionsRoutePath } from "../connections/routes.js";
 import "./agent-run-state.css";
 import StatusDot from "../../components/StatusDot.jsx";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
@@ -204,6 +205,18 @@ export default function AgentRunState({
       {failure && (
         <div className="assistant-notice assistant-run-failure" data-failure={failure}>
           <p>{copy.refusedTurn[failure] || copy.timedOut}</p>
+          {failure === "provider" && (
+            <>
+              {attempt.failureMessage && (
+                <p className="assistant-run-failure-detail">{attempt.failureMessage}</p>
+              )}
+              <p>
+                <a href={connectionsRoutePath({ section: "models" })}>
+                  {copy.openModelAccess}
+                </a>
+              </p>
+            </>
+          )}
           {onRetry && (
             <div className="assistant-run-actions">
               <button

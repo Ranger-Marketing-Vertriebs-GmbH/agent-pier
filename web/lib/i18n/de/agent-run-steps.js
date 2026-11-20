@@ -62,7 +62,10 @@ export const agentRunStepsCopy = {
   timedOut:
     "Das Modell hat nicht rechtzeitig geantwortet. Prüfe, was der Agent schon erledigt hat, bevor du es erneut versuchst.",
   // Der Agentendienst hat die Nachricht abgelehnt, bevor sie lief (Server sendRefusal).
+  openModelAccess: "Modell-Zugänge öffnen",
   refusedTurn: {
+    provider:
+      "Der Modellanbieter hat diese Nachricht abgelehnt, deshalb konnte der Agent nicht antworten. Prüfe den Modell-Zugang des Agenten:",
     degraded:
       "Dieser Agent konnte im Agentendienst nicht starten, die Nachricht wurde nicht zugestellt. Starte den Agentendienst neu, um ihn wiederherzustellen.",
     starting:

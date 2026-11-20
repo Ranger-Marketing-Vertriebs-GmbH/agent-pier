@@ -1918,6 +1918,12 @@ the chat then says that the model did not answer in time and offers **Try again*
 model stream that stops sending ends sooner: OpenClaw retries it after two minutes and
 gives up after a few tries.
 
+When the model provider refuses a turn (a rejected key, a quota, a cool-down after
+failed attempts), the turn ends as failed with "The model provider refused this
+message, so the agent could not answer." followed by OpenClaw's own error text
+(secrets redacted, at most 500 characters) and a link to **Connections › Model
+access**, instead of a bare "Failed".
+
 When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
