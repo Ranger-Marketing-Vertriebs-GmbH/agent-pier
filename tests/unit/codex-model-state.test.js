@@ -125,3 +125,23 @@ test("Codex native provider footers allow opening the picker without overwriting
     false,
   );
 });
+
+test("Codex 0.169.1 is ready with its footer wrapped over a long working directory", async () => {
+  const { modelPromptReady } =
+    await import("../../server/features/models/model-parser.js");
+  for (const name of ["codex-0169-composer.ansi", "codex-0169-composer-wrapped.ansi"]) {
+    const raw = await fs.readFile(
+      new URL(`../fixtures/models/${name}`, import.meta.url),
+      "utf8",
+    );
+    assert.equal(currentModel("codex", raw), "GPT-5.5", name);
+    assert.equal(modelPromptReady("codex", raw), true, name);
+    const draft = raw.replace(/Ask Codex to do anything/, "\x1b[0mreal draft");
+    assert.equal(modelPromptReady("codex", draft), false, name);
+  }
+  // A wrapped footer is one block: a blank row or prose above it ends it.
+  const quoted = composer(
+    "GPT-5.5 default · /a/long/\n  path\n\n  ← for agents · ? for shortcuts",
+  );
+  assert.equal(currentModel("codex", quoted), null);
+});

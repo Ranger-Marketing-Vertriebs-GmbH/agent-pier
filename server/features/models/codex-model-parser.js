@@ -12,18 +12,26 @@ export function codexModelFooter(text) {
     lines.length -
     1 -
     (/^ {2}\S.*\bfor (?:shortcuts|agents)$/.test(lines.at(-1)) ? 1 : 0);
+  // A long working directory wraps the footer over several rows; a blank row
+  // separates the footer from the composer above it.
+  let first = last;
+  while (first - 1 > prompt + 1 && /^ {2}\S/.test(lines[first - 1] || "")) first--;
   if (
     prompt >= 0 &&
-    last > prompt &&
+    first > prompt &&
     last - prompt <= 10 &&
-    !lines[last - 1].trim() &&
+    !lines[first - 1].trim() &&
     /^ {2}\S/.test(lines[last])
   ) {
-    for (const field of lines[last].trim().split(/\s+·\s+/)) {
+    const footer = lines
+      .slice(first, last + 1)
+      .map((line) => line.trim())
+      .join(" ");
+    for (const field of footer.split(/\s+·\s+/)) {
       const match = footerModel.exec(field);
       if (match && label(match[1]))
         return {
-          index: last,
+          index: first,
           model: match[2] === "default" ? match[1] : `${match[1]} ${match[2]}`,
         };
     }

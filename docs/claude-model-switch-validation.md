@@ -53,6 +53,22 @@ are reconstructed from an owner screenshot and Claude Code's renderer, because t
 expander only appears with a subscription's model catalog; see
 `tests/fixtures/models/README.md`.
 
+## Codex 0.169.1
+
+**Choose model** opens Codex's picker only when the composer is idle: AgentPier reads
+the prompt row and the footer that names the model (`GPT-5.5 default · <working
+directory>`) below a blank row, followed by Codex's key hint (`← for agents · ? for
+shortcuts`). A long working directory wraps that footer over several rows. AgentPier
+read only the last footer row, found no model in it and refused the picker with
+"Model selection is not available right now". The footer is now read as one block of
+rows between the blank row and the key hint. A capture of the installed 0.169.1 at
+80 columns in a disposable HOME and a private tmux socket reproduced the refusal;
+with the fix the controller opened the picker there and listed its models.
+
+Run `node --test tests/unit/codex-model-state.test.js` for the captured idle screens.
+
+## Tests
+
 Run `node --test tests/unit/claude-model-picker-2-1-329.test.js tests/unit/models.test.js tests/integration/model-viewport.test.js`
 and `npx playwright test tests/browser/claude-model-control.spec.js tests/browser/model-control.spec.js`.
 Set `AGENTPIER_TEST_BROWSER=webkit` for the WebKit browser run.

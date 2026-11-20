@@ -21,3 +21,9 @@ expanded screens follow Claude Code's renderer (the row's `▸`/`▾` marker in 
 number, models below it numbered on, the effort row hidden and an "Enter to expand"
 or "Enter to collapse" footer while the row has the focus). The older models listed
 under the row are placeholders.
+
+`codex-0169-composer.ansi` (120 × 40) and `codex-0169-composer-wrapped.ansi` (80 × 40,
+a deep working directory) are idle Codex 0.169.1 screens from a disposable
+`CODEX_HOME` with a synthetic API key and an unreachable API address. Temporary path
+segments were replaced with placeholders of the same length, so the footer wraps as
+captured.
