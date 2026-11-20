@@ -105,6 +105,8 @@ export const sshCopy = {
     "Der Name kann geändert werden. Füge für anderes Schlüsselmaterial einen weiteren Schlüssel hinzu.",
 
   title: "SSH-Zugänge",
+  // One SSH access, as the type of the add field in the session SSH dialog.
+  grantType: "SSH-Zugang",
   description: "Verbindungen und Schlüssel für deine Projekte.",
   scope:
     "Zuweisungen helfen beim gezielten Zugriff unter einem Betriebssystembenutzer. Sie isolieren keine Prozesse und schützen Schlüssel nicht vor anderen Prozessen dieses Benutzers.",

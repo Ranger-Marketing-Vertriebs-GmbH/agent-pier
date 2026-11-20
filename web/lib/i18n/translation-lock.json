@@ -8136,6 +8136,7 @@
   "ssh:sshCopy.emptyKeys": "de:b0d0eec5393e en:4bf273c05d20",
   "ssh:sshCopy.fingerprint": "de:18e312741865 en:db33e7a97455",
   "ssh:sshCopy.generate": "de:9aa9336fa153 en:fb5ed08052ff",
+  "ssh:sshCopy.grantType": "de:6b81b2b6e29e en:4755492e0213",
   "ssh:sshCopy.host": "de:4a823118b9ba en:4a823118b9ba",
   "ssh:sshCopy.hosts": "de:bba9af131107 en:bba9af131107",
   "ssh:sshCopy.import": "de:9284db949200 en:abc502cc1a51",

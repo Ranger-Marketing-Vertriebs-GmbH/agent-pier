@@ -75,6 +75,94 @@ test("existing session assignment exposes copy command without sending agent inp
   expect(state.assignedIds).toEqual([]);
 });
 
+// The session SSH dialog chooses through GrantPicker
+// (docs/ui-guide.md#choosing-what-a-session-may-use): search and rows on the left, the
+// allowed list on the right, stacked on phones.
+async function openSessionSsh(page) {
+  await page.goto(baseURL + "/sessions/fixture-session");
+  await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".grant-picker")).toBeVisible();
+  return dialog;
+}
+const sessionPuts = (state) =>
+  state.calls
+    .filter((call) => call.method === "PUT" && call.path.includes("/sessions/"))
+    .map((call) => call.body);
+
+test("the session SSH dialog finds an access by typing and keeps the payload", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.accesses = Array.from({ length: 24 }, (_, index) => {
+    const name = `host-${String(index + 1).padStart(2, "0")}`;
+    return { ...state.access, id: `ssh-${name}`, name, host: `${name}.example.test` };
+  });
+  const dialog = await openSessionSsh(page);
+  const search = dialog.getByRole("searchbox", { name: "SSH-Zugänge durchsuchen" });
+  await expect(search).toBeFocused();
+  const choices = dialog.getByRole("group", { name: "SSH-Zugänge", exact: true });
+  const allowed = dialog.getByRole("group", { name: /^Erlaubt in dieser Session/ });
+  await search.fill("host-23");
+  await expect(choices.getByRole("checkbox")).toHaveCount(1);
+  await choices.getByRole("checkbox", { name: "host-23" }).check();
+  await expect(allowed.getByText("host-23", { exact: true })).toBeVisible();
+  await allowed.getByRole("button", { name: "host-23 entfernen" }).click();
+  await expect(allowed.getByText("host-23", { exact: true })).toHaveCount(0);
+  await expect(choices.getByRole("checkbox", { name: "host-23" })).not.toBeChecked();
+  await choices.getByRole("checkbox", { name: "host-23" }).check();
+  await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(dialog.getByText("Gespeichert", { exact: true })).toBeVisible();
+  expect(sessionPuts(state)).toEqual([{ accessIds: ["ssh-host-23"] }]);
+});
+
+test("the session SSH dialog stacks on a phone and keeps choices across the breakpoint", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await fixture(page);
+  state.accesses = [state.access];
+  const dialog = await openSessionSsh(page);
+  const picker = dialog.locator(".grant-picker");
+  await expect(picker).toHaveAttribute("data-arrangement", "split");
+  await dialog.getByRole("checkbox", { name: "Build server" }).check();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(picker).toHaveAttribute("data-arrangement", "stacked");
+  await expect(
+    dialog
+      .getByRole("group", { name: /^Erlaubt in dieser Session/ })
+      .getByText("Build server", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("combobox", { name: "SSH-Zugang hinzufügen" }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(picker).toHaveAttribute("data-arrangement", "split");
+  await expect(dialog.getByRole("checkbox", { name: "Build server" })).toBeChecked();
+  expect(sessionPuts(state)).toEqual([]);
+});
+
+test("an inherited access stays allowed when its explicit assignment is removed", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.accesses = [state.access];
+  state.assignedIds = [state.access.id];
+  state.inheritedIds = [state.access.id];
+  const dialog = await openSessionSsh(page);
+  const allowed = dialog.getByRole("group", { name: /^Erlaubt in dieser Session/ });
+  await expect(allowed.getByText(/Vom Projekt verwaltet/)).toBeVisible();
+  await expect(allowed.getByText(/Explizite Session-Zuordnung/)).toBeVisible();
+  await allowed.getByRole("button", { name: "Explizite Zuordnung entfernen" }).click();
+  await expect(allowed.getByText(/Explizite Session-Zuordnung/)).toHaveCount(0);
+  await expect(allowed.getByText(/Vom Projekt verwaltet/)).toBeVisible();
+  const box = dialog.getByRole("checkbox", { name: "Build server" });
+  await expect(box).toBeChecked();
+  await expect(box).toBeDisabled();
+  await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect.poll(() => sessionPuts(state)).toEqual([{ accessIds: [] }]);
+});
+
 test("endpoint edits invalidate confirmation and deletion requires confirmation", async ({
   page,
 }) => {
