@@ -138,7 +138,10 @@ test("the Agent access dialog lists the allowed agents beside the search", async
   await search.fill("plan");
   await expect(access.getByRole("checkbox")).toHaveCount(1);
   await access.getByRole("checkbox", { name: /Planner/ }).check();
-  await expect(access.getByText("via project", { exact: true })).toBeVisible();
+  const allowed = access.getByRole("group", { name: /^Allowed in this session/ });
+  await expect(allowed.getByText("Network Architect", { exact: true })).toBeVisible();
+  await expect(allowed.getByText("Planner", { exact: true })).toBeVisible();
+  await expect(allowed.getByText("via project", { exact: true })).toBeVisible();
   await expect(
     access.getByRole("button", { name: "Remove Network Architect" }),
   ).toHaveCount(0);
