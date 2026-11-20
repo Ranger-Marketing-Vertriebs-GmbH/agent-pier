@@ -184,11 +184,14 @@ function Application() {
   const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];
   const installed = state.tools.filter((t) => t.installed).length;
+  // An update names its tool, as the update dialog expects (AppDialogs.jsx).
   const act = (type, item) =>
-    setModal({
-      type,
-      item,
-    });
+    type === "update"
+      ? update(item)
+      : setModal({
+          type,
+          item,
+        });
   const content = (
     <AppSearch
       navigate={openRoute}
@@ -454,6 +457,7 @@ function Application() {
                     route={route}
                     navigate={navigate}
                     account={state.accounts.find((a) => a.id === activeSession.accountId)}
+                    cliTool={state.tools.find((t) => t.id === activeSession.tool)}
                     autoResume={state.autoResumeInterrupted !== false}
                     action={act}
                     mode={sessionMode}

@@ -69,6 +69,8 @@ export default function SessionWorkspace({
   autoResume = true,
   // The pane's chrome inside a split view ({ menuItems, close, headerProps }), else null.
   pane = null,
+  // The session CLI's entry of the workspace state (version, minimum, installation).
+  cliTool = null,
 }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   // On a phone the session's actions share one More menu, so the header never overflows.
@@ -386,6 +388,8 @@ export default function SessionWorkspace({
               request={api}
               onConnection={setConnection}
               openTerminal={showTerminal}
+              cliTool={cliTool}
+              updateCli={action ? (tool) => action("update", tool) : undefined}
               openFile={(file) =>
                 navigate({ ...route, mode: "files", file, filePath: "", filePage: 1 })
               }

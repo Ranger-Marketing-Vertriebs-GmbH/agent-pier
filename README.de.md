@@ -237,7 +237,8 @@ Installierte Versionen aktualisierst du unter
 ([Release-Kanäle](docs/release-channels.md)). Startet die neue Version nicht, kehrt
 AgentPier zur vorherigen zurück. Coding-CLIs aktualisierst du in der Übersicht
 ([CLI-Updates](docs/cli-updates.md)); ein von AgentPier installiertes CLI unter seiner
-Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Checkout wird mit `git pull`,
+Mindestversion startet erst nach dem Update wieder Sessions, und eine laufende Session
+mit älterem CLI weist im Chat darauf hin und zeigt, wie du es aktualisierst. Ein Quellcode-Checkout wird mit `git pull`,
 `npm ci` und `npm run build` aktualisiert
 ([Aktualisieren](docs/installation.md#6-updating)).
 

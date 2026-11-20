@@ -271,3 +271,14 @@ export const chatDeliveryCopy = {
       "Die CLI hat nicht bestätigt, dass alle angehängten Bilder übernommen wurden. Bitte prüfe die TUI, bevor du erneut sendest.",
   },
 };
+export const chatCliVersionCopy = {
+  title: "CLI veraltet",
+  outdated: (name, found, required) =>
+    `Dieses ${name} ${found} ist älter, als AgentPier unterstützt (${required}). Einige Chat-Funktionen funktionieren eventuell nicht. So aktualisierst du es:`,
+  homebrew: "Mit Homebrew, in einem Terminal:",
+  npm: "Mit npm, in einem Terminal:",
+  unknown:
+    "Mit dem Paketmanager, Installer oder Download, mit dem du es installiert hast. AgentPier hat diese Kopie nicht installiert und kann sie nicht aktualisieren.",
+  copyCommand: "Befehl kopieren",
+  reload: "Lade die Session danach neu, um die neue Version zu nutzen.",
+};
