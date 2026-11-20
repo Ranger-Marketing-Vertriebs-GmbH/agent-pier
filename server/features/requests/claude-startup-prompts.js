@@ -40,8 +40,8 @@ function themeDialog(lines, text) {
     )
   )
     return null;
-  // Rows follow the /theme hint as one contiguous block. Claude 2.1.270 numbered
-  // them ("❯ 2. Dark mode ✔"); 2.1.296 drops numbers and leads with the check mark.
+  // Rows follow the /theme hint as one contiguous block, unnumbered, the current
+  // theme's check mark before its label ("❯ ✔ Dark mode").
   const start = lines.findIndex(
     (line) => line.trim() === "To change this later, run /theme",
   );
@@ -55,14 +55,10 @@ function themeDialog(lines, text) {
     }
     block.push(line);
   }
-  const rows = block.map((line) =>
-    line.match(/^\s*(❯)?\s*(?:([1-9])\.\s+)?(?:✔\s+)?(\S.*?)(?:\s+✔)?$/),
-  );
-  if (rows.length < 2 || rows.length > 9 || rows.some((m) => !m || m[3].includes("❯")))
+  const rows = block.map((line) => line.match(/^\s*(❯)?\s*(?:✔\s+)?(\S.*?)$/));
+  if (rows.length < 2 || rows.length > 9 || rows.some((m) => !m || m[2].includes("❯")))
     return null;
-  const numbered = rows.every((m, index) => m[2] === String(index + 1));
-  if (!numbered && rows.some((m) => m[2])) return null;
-  const options = rows.map((m, index) => ({ id: String(index + 1), label: m[3] }));
+  const options = rows.map((m, index) => ({ id: String(index + 1), label: m[2] }));
   const cursor = rows.flatMap((m, index) => (m[1] === "❯" ? [index] : []));
   if (cursor.length !== 1) return null;
   return { dialog: "theme", selected: options[cursor[0]].id, options };

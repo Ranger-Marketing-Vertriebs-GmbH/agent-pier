@@ -9,57 +9,9 @@ import {
 } from "../../server/features/models/model-controller.js";
 const fixture = async (name) =>
   fs.readFile(new URL(`../fixtures/models/${name}`, import.meta.url), "utf8");
-test("native Claude menu exposes available models and the actual default resolution", async () => {
-  const raw = await fixture("claude-model.ansi");
-  const menu = parseModelPicker("claude", raw);
-  assert.equal(menu.kind, "model");
-  assert.equal(menu.options.length, 4);
-  assert.equal(menu.options[0].current, true);
-  assert.match(menu.currentModel, /Opus 5/);
-  assert.equal(menu.selectKey, "s");
-  assert.equal(menu.options[2].label, "Sonnet");
-});
-for (const width of [50, 80]) {
-  test(`Claude model selection reads wrapped native menus at ${width} columns`, async () => {
-    const raw = await fixture(`claude-model-${width}.txt`);
-    const menu = parseModelPicker("claude", raw);
-    assert.ok(menu, "the native picker must be available in chat");
-    assert.equal(menu.options.length, 6);
-    assert.equal(menu.selected, "5");
-    assert.equal(menu.currentModel, "Sonnet 4.6");
-    assert.equal(menu.selectKey, "s", "changing the session must not change the default");
-    assert.equal(
-      menu.options[0].description,
-      "Use the default model (currently Opus 5 (1M context)) · $5/$25 per Mtok",
-    );
-    assert.equal(
-      menu.options[5].description,
-      "Newer version available · select Sonnet for Sonnet 5",
-    );
-    assert.equal(modelPromptReady("claude", raw), false);
-    for (const suffix of ["\n❯\n? for shortcuts", "\n\n❯ draft\n? for shortcuts"])
-      assert.equal(parseModelPicker("claude", raw + suffix), null);
-  });
-}
-test("Codex model and reasoning stages remain distinct; current marker differs from highlight", async () => {
-  const menu = parseModelPicker("codex", await fixture("codex-model.txt"));
-  assert.equal(menu.kind, "model");
-  assert.equal(menu.options.length, 6);
-  assert.equal(menu.selected, "5");
-  assert.equal(menu.currentModel, "gpt-5.2");
-  const effort = parseModelPicker("codex", await fixture("codex-effort.txt"));
-  assert.equal(effort.kind, "effort");
-  assert.equal(effort.currentModel, null);
-  assert.match(effort.title, /gpt-5.4/);
-  assert.equal(effort.options.length, 6);
-  assert.equal(
-    parseModelPicker(
-      "codex",
-      "Approve command?\n› 1. Yes\n  2. No\nPress enter to confirm",
-    ),
-    null,
-  );
-});
+const CLAUDE_MENU = "claude-2.1.329-model.ansi";
+const menuFixture = (tool) =>
+  fixture(tool === "claude" ? CLAUDE_MENU : `${tool}-model.ansi`);
 test("Codex 0.160 pickers with short key-hint footers are recognized", async () => {
   const select = parseModelPicker("codex", await fixture("codex-0160-model-select.ansi"));
   assert.equal(select?.kind, "model");
@@ -84,6 +36,13 @@ test("Codex 0.160 pickers with short key-hint footers are recognized", async () 
   const quoted = await fixture("codex-0160-effort.ansi");
   assert.equal(
     parseModelPicker("codex", quoted.trimEnd() + "\n› Ask Codex\n  model medium"),
+    null,
+  );
+  assert.equal(
+    parseModelPicker(
+      "codex",
+      "Approve command?\n› 1. Yes\n  2. No\nPress enter to confirm",
+    ),
     null,
   );
 });
@@ -220,16 +179,16 @@ function fakeManager(tool, screen) {
   return { sessions, state, calls };
 }
 test("a narrow Claude picker opens, switches and cancels through chat without changing the default", async () => {
-  const menu = await fixture("claude-model-50.txt");
-  const idle = "Claude Code\nSonnet 4.6 · API Usage Billing\n❯ draft\n? for shortcuts";
+  const menu = await fixture("claude-2.1.329-model-50.txt");
+  const idle = "Claude Code\nOpus 5.5 · API Usage Billing\n❯ draft\n? for shortcuts";
   const { sessions, state, calls } = fakeManager("claude", idle);
   state.onKeys = (keys) => {
     if (keys.join() === "M-p") state.screen = menu;
-    if (keys.join() === "Up")
+    if (keys.join() === "Down,Down,Down,Down")
       state.screen = menu
         .replace("    5. Haiku", "  ❯ 5. Haiku")
-        .replace("  ❯ 6.", "    6.");
-    if (keys.join() === "s") state.screen = idle.replace("Sonnet 4.6", "Haiku 4.5");
+        .replace("  ❯ 1.", "    1.");
+    if (keys.join() === "s") state.screen = idle.replace("Opus 5.5", "Haiku 5.5");
     if (keys.join() === "Escape") state.screen = idle;
   };
   const models = new ModelController({ sessions, timeout: 300 });
@@ -242,20 +201,23 @@ test("a narrow Claude picker opens, switches and cancels through chat without ch
     token: opened.picker.token,
     optionId: "4",
   });
-  assert.equal(selected.currentModel, "Haiku 4.5");
+  assert.equal(selected.currentModel, "Haiku 5.5");
   assert.equal(selected.pending, false);
   assert.equal(selected.picker, null);
   assert.doesNotThrow(() => models.guardInput("one", { tool: "claude" }, state.screen));
   const reopened = await models.open("one");
   const cancelled = await models.cancel("one", { token: reopened.picker.token });
   assert.equal(cancelled.pending, false);
-  assert.deepEqual(calls, [["M-p"], ["Up"], ["s"], ["M-p"], ["Escape"]]);
+  assert.deepEqual(calls, [
+    ["M-p"],
+    ["Down", "Down", "Down", "Down"],
+    ["s"],
+    ["M-p"],
+    ["Escape"],
+  ]);
 });
 test("Claude selection refuses default-only confirmation and keeps input blocked", async () => {
-  const raw = (await fixture("claude-model-80.txt")).replace(
-    " · s to use this session only",
-    "",
-  );
+  const raw = (await fixture(CLAUDE_MENU)).replace("s to use this session only · ", "");
   assert.equal(parseModelPicker("claude", raw), null);
   assert.equal(modelPromptReady("claude", raw), false);
   const { sessions, calls } = fakeManager("claude", raw);
@@ -269,19 +231,19 @@ test("Claude selection refuses default-only confirmation and keeps input blocked
   assert.deepEqual(calls, []);
 });
 test("Claude confirmation follows the current footer and rejects tokens from another action", async () => {
-  const raw = await fixture("claude-model-80.txt");
-  const legacy = raw.replace(
-    "Enter to set as default · s to use this session only",
+  const raw = await fixture(CLAUDE_MENU);
+  const confirm = raw.replace(
+    "s to use this session only · Enter to save",
     "Enter to confirm",
   );
   const { sessions, state, calls } = fakeManager("claude", raw);
   const models = new ModelController({ sessions, timeout: 100 });
   const opened = await models.read("one");
-  state.screen = "An old menu said: s to use this session only\n" + legacy;
+  state.screen = "An old menu said: s to use this session only\n" + confirm;
   const current = await models.read("one");
   assert.equal(parseModelPicker("claude", state.screen).selectKey, "Enter");
   await assert.rejects(
-    models.select("one", { token: opened.picker.token, optionId: "5" }),
+    models.select("one", { token: opened.picker.token, optionId: "0" }),
     { status: 409 },
   );
   assert.deepEqual(calls, []);
@@ -290,16 +252,13 @@ test("Claude confirmation follows the current footer and rejects tokens from ano
   };
   const selected = await models.select("one", {
     token: current.picker.token,
-    optionId: "5",
+    optionId: "0",
   });
   assert.equal(selected.pending, false);
   assert.deepEqual(calls, [["Enter"]]);
 });
 test("stale menu tokens cannot send keys to another native screen", async () => {
-  const { sessions, state, calls } = fakeManager(
-    "claude",
-    await fixture("claude-model.ansi"),
-  );
+  const { sessions, state, calls } = fakeManager("claude", await fixture(CLAUDE_MENU));
   const models = new ModelController({ sessions });
   const initial = await models.read("one");
   state.screen = "Do you approve this command?";
@@ -310,10 +269,7 @@ test("stale menu tokens cannot send keys to another native screen", async () => 
   assert.deepEqual(calls, []);
 });
 test("selection is acknowledged by native state and never confirms an unexpected dialog", async () => {
-  const { sessions, state, calls } = fakeManager(
-    "claude",
-    await fixture("claude-model.ansi"),
-  );
+  const { sessions, state, calls } = fakeManager("claude", await fixture(CLAUDE_MENU));
   const models = new ModelController({ sessions, timeout: 100 });
   const initial = await models.read("one");
   state.onKeys = () => {
@@ -333,7 +289,7 @@ test("opening uses draft-preserving native shortcuts, and never sends unknown in
     ["claude", ["M-p"]],
     ["opencode", ["C-x", "m"]],
   ]) {
-    const menu = await fixture(tool + "-model.ansi");
+    const menu = await menuFixture(tool);
     const { sessions, state, calls } = fakeManager(
       tool,
       tool === "claude"
@@ -357,7 +313,7 @@ test("opening uses draft-preserving native shortcuts, and never sends unknown in
 });
 
 test("open waits for delayed native rendering instead of returning the unchanged composer", async () => {
-  const menu = await fixture("claude-model.ansi");
+  const menu = await fixture(CLAUDE_MENU);
   const { sessions, state } = fakeManager(
     "claude",
     "Claude Code\n❯ draft\n? for shortcuts",
@@ -377,7 +333,7 @@ test("input guard rejects native model menus even after a server restart", async
       model.guardInput(
         "one",
         { tool: "codex" },
-        "Select Model\n› 1. gpt-test (current)\nPress enter to confirm or esc to go back",
+        "Select Model\n› 1. gpt-test (current)\nenter select · esc back",
       ),
     /Modellauswahl/,
   );
@@ -403,7 +359,7 @@ test("OpenCode search clears the whole native input even if its old text is clip
 });
 
 test("a quoted model menu above the native composer cannot be mistaken for an active picker", async () => {
-  const quoted = await fixture("codex-model.txt");
+  const quoted = await fixture("codex-0160-model-select.ansi");
   assert.equal(
     parseModelPicker(
       "codex",
@@ -411,7 +367,7 @@ test("a quoted model menu above the native composer cannot be mistaken for an ac
     ),
     null,
   );
-  const claude = await fixture("claude-model.ansi");
+  const claude = await fixture(CLAUDE_MENU);
   assert.equal(parseModelPicker("claude", claude + "\n❯ \n  ? for shortcuts"), null);
 });
 
@@ -449,7 +405,7 @@ test("Codex ready prompt tolerates terminal padding while a stale prompt above a
 
 test("Codex model switching opens and completes while the task keeps running", async () => {
   const busy = "• Working (12s • esc to interrupt)\n\n›\n? for shortcuts";
-  const menu = await fixture("codex-model.txt");
+  const menu = await fixture("codex-0160-model-select.ansi");
   const { sessions, state, calls } = fakeManager("codex", busy);
   state.onKeys = () => {
     state.screen = menu;
@@ -499,7 +455,7 @@ for (const [tool, busy, shortcut, confirmation] of [
   ],
 ])
   test(`${tool} can switch model during a running task using its draft-preserving shortcut`, async () => {
-    const menu = await fixture(tool + "-model.ansi");
+    const menu = await menuFixture(tool);
     const { sessions, state, calls } = fakeManager(tool, busy);
     state.onKeys = () => {
       state.screen = menu;

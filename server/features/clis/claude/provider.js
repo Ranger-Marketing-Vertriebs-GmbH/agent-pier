@@ -38,22 +38,12 @@ export function environment(
   return env;
 }
 
-export function launch(
-  result,
-  { description, secret, metadata, cliVersion, adapterRoute, endpointKind },
-) {
+export function launch(result, { metadata, cliVersion, endpointKind }) {
   return configureClaudeProvider(
     result,
     metadata,
     // Probed asynchronously by the caller (accounts.command); never read here.
     cliVersion ?? null,
-    {
-      forceCustom: endpointKind,
-      customHeader:
-        endpointKind &&
-        !adapterRoute &&
-        !!description.auth.header &&
-        !!secret?.apiKey?.trim(),
-    },
+    { forceCustom: endpointKind },
   );
 }

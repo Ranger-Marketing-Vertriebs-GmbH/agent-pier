@@ -46,7 +46,7 @@ function launch(
     key = "endpoint-secret",
     endpoint = endpointBlock(),
     modelId = "qwen3-coder:30b",
-    cliVersion = "2.1.263",
+    cliVersion = "2.1.329",
   } = {},
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-endpoint-launch-"));
@@ -206,15 +206,12 @@ test("a user-set endpoint output limit above 32000 reaches Claude Code unchanged
   assert.equal(auto.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, "32000");
 });
 
-test("custom header on old Claude Code is refused; old version without header works", (t) => {
-  assert.throws(
-    () =>
-      launch(t, "claude", {
-        endpoint: endpointBlock({ authHeader: "api-key" }),
-        cliVersion: "2.1.226",
-      }),
-    /2\.1\.227/,
-  );
+test("a custom header needs no release check beyond the minimum Claude Code", (t) => {
+  const header = launch(t, "claude", {
+    endpoint: endpointBlock({ authHeader: "api-key" }),
+    cliVersion: "2.1.226",
+  });
+  assert.match(header.env.ANTHROPIC_CUSTOM_HEADERS, /^api-key: /);
   assert.equal(
     launch(t, "claude", { cliVersion: "2.1.200" }).env.ANTHROPIC_AUTH_TOKEN,
     "endpoint-secret",

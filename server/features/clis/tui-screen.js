@@ -61,7 +61,7 @@ export function pickerFooter(lines, start = -1) {
   const index = lines.findLastIndex(
     (line, position) =>
       position > start &&
-      /^\s*(?:(?:press )?enter to (?:confirm|set as default|save|expand|collapse)|enter (?:select|confirm|default) · |s to use this session only · )/i.test(
+      /^\s*(?:(?:press )?enter to (?:confirm|save|expand|collapse)|enter (?:select|confirm|default) · |s to use this session only · )/i.test(
         line.text,
       ),
   );
@@ -72,13 +72,12 @@ export function pickerFooter(lines, start = -1) {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
-  // Codex 0.160 renders short key hints: "enter select · esc back" while a model
-  // still needs an effort, "enter default · s session · esc back" on the last step.
-  // Claude Code 2.1.329 puts the session-only key first ("s to use this session
-  // only · Enter to save · Esc to cancel") and names its expander's action.
-  return /^(?:press )?enter to (?:confirm|set as default)(?: or | · (?:s to use this session only · )?)esc to (?:cancel|go back)$/i.test(
-    footer,
-  ) ||
+  // Codex renders short key hints: "enter select · esc back" while a model still
+  // needs an effort, "enter default · s session · esc back" on the last step.
+  // Claude Code puts the session-only key first ("s to use this session only ·
+  // Enter to save · Esc to cancel") and names its expander's action. A generic
+  // confirmation reads "Press enter to confirm or esc to cancel".
+  return /^(?:press )?enter to confirm or esc to cancel$/i.test(footer) ||
     /^enter (?:select|confirm|default) · (?:s session · )?esc back$/i.test(footer) ||
     /^(?:s to use this session only · )?enter to (?:save|confirm|expand|collapse) · esc to cancel$/i.test(
       footer,

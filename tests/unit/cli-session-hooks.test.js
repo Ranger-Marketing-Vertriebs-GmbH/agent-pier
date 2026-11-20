@@ -240,16 +240,16 @@ const BINDING = {
     sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/codex-merged"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {},
   },
-  "claude-old": {
-    args: ["--session-id","claude-old","--plugin-dir","<root>/data/native-sessions/claude-old/claude-old.claude","--plugin-dir","<root>/data/native-sessions/claude-old/claude-old.claude-activity"],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-old/claude-old.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
+  "claude-unknown": {
+    args: ["--session-id","claude-unknown","--plugin-dir","<root>/data/native-sessions/claude-unknown/claude-unknown.claude","--plugin-dir","<root>/data/native-sessions/claude-unknown/claude-unknown.claude-activity"],
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-unknown/claude-unknown.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/claude-old"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/claude-unknown"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {
-      "claude-old.claude/.claude-plugin/plugin.json": {"name":"agentpier-reader","version":"1.0.0","description":"Native session identity for the AgentPier reader"},
-      "claude-old.claude/hooks/hooks.json": {"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}]}},
-      "claude-old.claude-activity/.claude-plugin/plugin.json": {"name":"agentpier-activity","version":"1.0.0","description":"Native session activity for AgentPier"},
-      "claude-old.claude-activity/hooks/hooks.json": {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"StopFailure":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"PermissionRequest":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"PreToolUse":[{"matcher":"AskUserQuestion","hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"Elicitation":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"SessionEnd":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}]}},
+      "claude-unknown.claude/.claude-plugin/plugin.json": {"name":"agentpier-reader","version":"1.0.0","description":"Native session identity for the AgentPier reader"},
+      "claude-unknown.claude/hooks/hooks.json": {"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}]}},
+      "claude-unknown.claude-activity/.claude-plugin/plugin.json": {"name":"agentpier-activity","version":"1.0.0","description":"Native session activity for AgentPier"},
+      "claude-unknown.claude-activity/hooks/hooks.json": {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"StopFailure":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"PermissionRequest":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"PreToolUse":[{"matcher":"AskUserQuestion","hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"Elicitation":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}],"SessionEnd":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5,"async":true}]}]}},
     },
   },
   "claude-stream": {
@@ -291,8 +291,8 @@ test("the native binding adds each CLI's hooks, plugins and TUI configuration", 
         ],
       },
     ],
-    "claude-old": ["claude", { cliVersion: "2.1.151" }],
-    "claude-stream": ["claude", { cliVersion: "2.1.152", args: ["--resume", "x"] }],
+    "claude-unknown": ["claude", {}],
+    "claude-stream": ["claude", { cliVersion: "2.1.329", args: ["--resume", "x"] }],
     opencode: ["opencode", {}],
   };
   for (const [name, [tool, launch]] of Object.entries(cases))

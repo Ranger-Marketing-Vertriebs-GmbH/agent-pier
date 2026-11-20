@@ -1,24 +1,20 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { atLeast } from "../tools/cli-version.js";
+import { isCliVersion } from "../tools/cli-version.js";
 
-// Claude Code loads hooks modules (mods) from a `--plugin-dir` since this release.
-export const CLAUDE_MOD_VERSION = "2.1.287";
 export const claudeBridgeName = "agentpier-bridge";
-// The release the mod's `$.tool.call` TaskStop was verified on (stop a task).
-export const CLAUDE_TASK_STOP_VERSION = "2.1.325";
 const moduleFile = fileURLToPath(new URL("./bridge-mod.js", import.meta.url));
 
 /**
  * Add the bridge mod to a Claude Code launch the request broker prepares: a plugin
  * folder of this launch's own (`requests/<id>.claude-bridge`, a copy, since Claude
  * Code writes type declarations into a folder it loads a mod from), its socket in
- * the environment and the sandbox grant to reach it. A Claude Code that is older or
- * of unknown version starts without it and keeps the MessageDisplay hook.
+ * the environment and the sandbox grant to reach it. Every supported Claude Code
+ * loads mods (2.1.287 and later); one of unknown version starts without it.
  */
 export async function addClaudeBridge(broker, id, { launch, args, env }) {
-  if (!atLeast(launch.cliVersion, CLAUDE_MOD_VERSION)) return [];
+  if (!isCliVersion(launch.cliVersion)) return [];
   // Validated and kept inside the broker's directory before anything is removed.
   const directory = broker.sessionPath(id, ".claude-bridge");
   await fs.rm(directory, { recursive: true, force: true });

@@ -214,7 +214,7 @@ const drivers = new Map();
  *   metadata, env, cliVersion, adapterRoute, endpointKind }; each returns `result`.
  * binding: the native session binding (see `<id>/binding.js`). idOptional: a hook may
  *   record a launch before the CLI names its session (OpenCode). addHooks(launch, { id,
- *   directory, script, cliVersion, atLeast, pluginUrl, ensureDir, write, quote, fail }):
+ *   directory, script, cliVersion, isCliVersion, pluginUrl, ensureDir, write, quote, fail }):
  *   adds the hooks running `script --record`. resolve?(binding, session, { forInput,
  *   receipt, resolveProcess }): the thread of the running process, or null for the
  *   receipt (Codex). reportedActivity?(binding, session, activity): the activity report

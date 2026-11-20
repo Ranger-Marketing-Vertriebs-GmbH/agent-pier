@@ -7,7 +7,6 @@ import path from "node:path";
 import { RequestBroker } from "../../server/features/requests/request-broker.js";
 import { ReplyStreams } from "../../server/features/chat/reply-streams.js";
 import { ClaudeModBridge } from "../../server/features/claude-mod/claude-mod-bridge.js";
-import { CLAUDE_MOD_VERSION } from "../../server/features/claude-mod/claude-mod-launch.js";
 import { nextReplies } from "../../web/features/chat/reply-stream.js";
 import { fakeModRuntime } from "../helpers/fake-mod-runtime.js";
 import { until } from "../helpers/adapter-process.js";
@@ -103,8 +102,8 @@ test("a Claude Code with mods gets the bridge plugin, its socket and the sandbox
   assert.equal(fs.existsSync(directory), false);
 });
 
-test("an older or unknown Claude Code keeps the MessageDisplay path alone", async (t) => {
-  for (const cliVersion of ["2.1.286", null]) {
+test("a Claude Code of unknown version keeps the MessageDisplay path alone", async (t) => {
+  for (const cliVersion of [null, "unknown"]) {
     const { launch } = await setup(t, { cliVersion });
     assert.equal(
       launch.args.some((arg) => arg.endsWith(".claude-bridge")),
@@ -112,7 +111,6 @@ test("an older or unknown Claude Code keeps the MessageDisplay path alone", asyn
     );
     assert.equal(launch.env.AGENTPIER_CLAUDE_BRIDGE_SOCKET, undefined);
   }
-  assert.equal(CLAUDE_MOD_VERSION, "2.1.287");
 });
 
 test("the real mod module streams a turn through the broker's socket", async (t) => {

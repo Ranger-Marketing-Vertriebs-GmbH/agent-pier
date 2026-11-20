@@ -8,7 +8,7 @@ ${selected === 1 ? "›" : " "} 1. Review hooks
 ${selected === 2 ? "›" : " "} 2. Trust all and continue
 ${selected === 3 ? "›" : " "} 3. Continue without trusting (hooks won't run)
 
-  Press enter to confirm or esc to go back
+  enter confirm · esc skip
 `;
 export const hookList = {
   data: [

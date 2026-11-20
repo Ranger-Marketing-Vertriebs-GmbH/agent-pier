@@ -58,6 +58,10 @@ test("Claude 2.1.329's picker reads at 50 columns with its footer wrapped", asyn
   assert.equal(menu.currentModel, "Opus 5.5");
   assert.equal(menu.selectKey, "s");
   assert.equal(menu.options[0].description, "Use the default model (currently Opus 5.5)");
+  assert.equal(modelPromptReady("claude", raw), false);
+  // A picker the composer has replaced is no longer open.
+  for (const suffix of ["\n❯\n? for shortcuts", "\n\n❯ draft\n? for shortcuts"])
+    assert.equal(parseModelPicker("claude", raw + suffix), null);
 });
 
 test("a picker that would only save the default stays undriven", async () => {

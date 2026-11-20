@@ -228,11 +228,11 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 
 - `idOptional`: a hook may record a launch before the CLI names its session (OpenCode).
 - `addHooks(launch, options)`: `options` holds `id`, `directory`, `script`,
-  `cliVersion`, `atLeast`, `pluginUrl`, `ensureDir`, `write`, `quote` and `fail`. It
+  `cliVersion`, `isCliVersion`, `pluginUrl`, `ensureDir`, `write`, `quote` and `fail`. It
   adds the hooks that run `script --record`. Codex merges them into existing
   `-c hooks.SessionStart=`/`hooks.UserPromptSubmit=` overrides; Claude
   Code adds `--session-id` (unless the launch resumes or names one) and the identity,
-  activity and (from 2.1.152) live reply plugins below `directory`; OpenCode writes a
+  activity and (when its version was read) live reply plugins below `directory`; OpenCode writes a
   TUI config with the `pluginUrl` plugin. `fail(key)` builds the session problem `key`.
 - `resolve?(binding, session, { forInput, receipt, resolveProcess })`: the thread of the
   running process, or `null` to use the hook receipt (Codex, through its app-server

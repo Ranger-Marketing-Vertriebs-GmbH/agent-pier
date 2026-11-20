@@ -8,6 +8,7 @@ import { ProviderCatalog } from "../../server/features/providers/provider-catalo
 import { prepareProviderLaunch } from "../../server/features/providers/provider-launch.js";
 import { validateProviderSelection } from "../../server/features/providers/provider-definitions.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { MINIMUM_CLI_VERSIONS } from "../../server/features/tools/cli-version.js";
 
 const catalog = new ProviderCatalog();
 function launch(t, tool, id, options = {}) {
@@ -27,7 +28,7 @@ function launch(t, tool, id, options = {}) {
       args: options.args || [],
       env: { PATH: "/bin", HOME: root },
     },
-    { root, catalog, cliVersion: options.cliVersion ?? "2.1.263" },
+    { root, catalog, cliVersion: options.cliVersion ?? "2.1.329" },
   );
 }
 
@@ -121,10 +122,6 @@ test("Codex refuses Z.ai profiles without explicit Responses entitlement", () =>
   }
 });
 
-test("custom Claude model window corrections require a supported CLI version", (t) => {
-  assert.throws(() => launch(t, "claude", "zai", { cliVersion: "2.1.192" }), /2\.1\.193/);
-});
-
 test("OpenRouter GLM uses the smaller routing window without disabling Claude compaction", (t) => {
   const result = launch(t, "claude", "openrouter", {
     selection: { modelId: "z-ai/glm-5.3" },
@@ -186,18 +183,14 @@ test("unknown Claude versions request a retry instead of claiming the CLI is out
   }
 });
 
-test("Claude custom-model checks use the shared version helper and keep their messages", (t) => {
-  assert.throws(
-    () => launch(t, "claude", "zai", { cliVersion: "2.1.192" }),
-    (error) =>
-      error.status === 409 &&
-      error.message === serverMessages.providers.claudeVersionTooOld,
-  );
-  assert.equal(
-    launch(t, "claude", "zai", { cliVersion: "2.1.193" }).env
-      .CLAUDE_CODE_MAX_CONTEXT_TOKENS !== undefined,
-    true,
-  );
+test("Claude custom models need a read version, never a release above the minimum", (t) => {
+  // Custom contexts (2.1.193) lie below the minimum Claude Code, so any read
+  // version configures them; only an unread one is refused below.
+  for (const cliVersion of ["2.1.192", MINIMUM_CLI_VERSIONS.claude])
+    assert.notEqual(
+      launch(t, "claude", "zai", { cliVersion }).env.CLAUDE_CODE_MAX_CONTEXT_TOKENS,
+      undefined,
+    );
   // A launch without a probed version is unverified; the launch path never runs
   // the CLI itself (accounts.command probes it asynchronously beforehand).
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-provider-launch-"));

@@ -13,7 +13,7 @@ import {
   writeJsonAtomic,
 } from "../../../vendor/agentbus/core/fsx.js";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
-import { atLeast } from "../tools/cli-version.js";
+import { isCliVersion } from "../tools/cli-version.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { resolveRuntime } from "./native-session-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -35,8 +35,6 @@ import {
 } from "./native-session-receipt.js";
 
 export { claimNativeSession };
-
-export { MESSAGE_DISPLAY_VERSION } from "../clis/claude/binding.js";
 
 const modulePath = fileURLToPath(import.meta.url);
 // The binding members of a coding CLI's driver; other tools (shell) have none.
@@ -110,7 +108,7 @@ export class NativeSessionBinding {
         directory: own,
         script: modulePath,
         cliVersion: launch.cliVersion,
-        atLeast,
+        isCliVersion,
         pluginUrl: pathToFileURL(
           fileURLToPath(new URL("./native-session-opencode.js", import.meta.url)),
         ).href,

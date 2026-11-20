@@ -254,15 +254,13 @@ test("command results are validated before the bridge reads them", () => {
     );
 });
 
-test("the driver needs a connected channel and Claude Code 2.1.325", async () => {
+test("the driver needs a connected channel and a known Claude Code version", async () => {
   const commands = new ClaudeModCommands({ holdMs: 25000 });
-  let cli = "2.1.324";
+  let cli = "2.1.329";
   const driver = claudeTaskDriver({ commands, mod: { cli: () => cli } });
   const session = { id: "s", tool: "claude", status: "running" };
   assert.equal(driver.connected(session), false);
   commands.poll({ id: "s" }, new Promise(() => {}), "i1");
-  assert.equal(driver.connected(session), false, "2.1.324 is too old");
-  cli = "2.1.325";
   assert.equal(driver.connected(session), true);
   cli = undefined;
   assert.equal(driver.connected(session), false, "no hello for this launch");
@@ -409,10 +407,10 @@ test("a poll's version connects the driver after a restart that heard no hello",
   const commands = new ClaudeModCommands({ holdMs: 25000 });
   const driver = claudeTaskDriver({ commands, mod: { cli: () => undefined } });
   const session = { id: "s", tool: "claude", status: "running" };
-  commands.poll({ id: "s" }, new Promise(() => {}), "i1", "2.1.324");
-  assert.equal(driver.connected(session), false, "too old");
-  commands.poll({ id: "s" }, new Promise(() => {}), "i1", "2.1.325");
-  assert.equal(commands.cli("s"), "2.1.325");
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1");
+  assert.equal(driver.connected(session), false, "no version yet");
+  commands.poll({ id: "s" }, new Promise(() => {}), "i1", "2.1.329");
+  assert.equal(commands.cli("s"), "2.1.329");
   assert.equal(driver.connected(session), true);
   commands.poll({ id: "s" }, new Promise(() => {}), "i1");
   assert.equal(driver.connected(session), true, "a poll without one keeps it");

@@ -8,7 +8,6 @@ import { RequestBroker } from "../../server/features/requests/request-broker.js"
 import { ClaudeModBridge } from "../../server/features/claude-mod/claude-mod-bridge.js";
 import { ClaudeModCommands } from "../../server/features/claude-mod/claude-mod-commands.js";
 import { claudeTaskDriver } from "../../server/features/claude-mod/claude-task-driver.js";
-import { CLAUDE_TASK_STOP_VERSION } from "../../server/features/claude-mod/claude-mod-launch.js";
 import { TaskControl } from "../../server/features/chat/task-control.js";
 import { TaskStopStore } from "../../server/features/chat/task-stop-store.js";
 import { setTimeout as delay } from "node:timers/promises";
@@ -225,7 +224,6 @@ test("the real mod stops a task through TaskStop and AgentPier drops its notific
   assert.deepEqual(await runtime.dispatch("prompt.submit", notification, next), {
     drop: "Stopped in AgentPier",
   });
-  assert.equal(CLAUDE_TASK_STOP_VERSION, "2.1.325");
 });
 
 const SHELL = "b4qyjbxhd";
@@ -342,9 +340,7 @@ test("a restarted server learns the Claude Code version from the next poll, not 
     assert.equal(commands.cli("s"), undefined, JSON.stringify(odd));
   }
   assert.equal(driver.connected(session), false);
-  await poll({ cli: "2.1.324" });
-  assert.equal(driver.connected(session), false, "too old");
-  await poll({ cli: CLAUDE_TASK_STOP_VERSION });
+  await poll({ cli: "2.1.329" });
   assert.equal(mod.cli("s"), undefined, "no hello was heard");
   assert.equal(driver.connected(session), true);
 });
