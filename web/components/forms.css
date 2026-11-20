@@ -95,8 +95,12 @@ input::placeholder,
 textarea::placeholder {
   color: #6e6f73;
 }
+/* At least 41px, and taller when the font is: with a fixed height the 16px text on
+   phones and in agent settings lost its descenders. */
 select {
-  height: 41px;
+  height: auto;
+  min-height: 41px;
+  line-height: normal;
 }
 .input-action {
   position: relative;

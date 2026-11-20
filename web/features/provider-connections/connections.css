@@ -89,7 +89,7 @@
   overflow-wrap: anywhere;
 }
 .endpoint-models input[type="number"] {
-  width: 11ch;
+  width: 15ch;
   min-width: 0;
 }
 .endpoint-models [data-missing-context] input:first-child {
@@ -108,9 +108,10 @@
   white-space: nowrap;
   color: var(--muted);
 }
+/* As wide as its longest choice ("Automatisch"): the table scrolls sideways instead. */
 .endpoint-models .endpoint-model-images select {
-  min-width: 0;
-  max-width: 7.5rem;
+  width: auto;
+  min-width: max-content;
 }
 @media (max-width: 700px) {
   .endpoint-model-scroll thead {

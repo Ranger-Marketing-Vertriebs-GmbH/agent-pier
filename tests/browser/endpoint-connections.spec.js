@@ -11,6 +11,23 @@ import {
 
 test.use({ locale: "en-GB" });
 
+// How many pixels of a select's chosen label or an input's placeholder do not fit.
+const textCut = (locator) =>
+  locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const canvas = document.createElement("canvas").getContext("2d");
+    canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const text =
+      element.tagName === "SELECT"
+        ? element.options[element.selectedIndex].text
+        : element.placeholder;
+    const room =
+      element.clientWidth -
+      parseFloat(style.paddingLeft) -
+      (element.tagName === "SELECT" ? 16 : parseFloat(style.paddingRight));
+    return Math.max(0, Math.ceil(canvas.measureText(text).width - room));
+  });
+
 test("create a keyless Ollama connection, confirm context and launch with it", async ({
   page,
 }) => {
@@ -42,7 +59,7 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   );
   expect(testCall.body).not.toHaveProperty("apiKey");
   const context = dialog.getByLabel("Context llama3:8b", { exact: true });
-  await expect(context).toHaveAttribute("placeholder", "Model maximum: 131072");
+  await expect(context).toHaveAttribute("placeholder", "max. 131072");
   await context.fill("8192");
   const overflow = await page.evaluate(() => {
     const scroller = document.querySelector(".endpoint-model-scroll");
@@ -62,6 +79,11 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   expect(overflow.dialog).toBe(0);
   expect(overflow.scroller).toBeLessThanOrEqual(0);
   expect(overflow.idHeight).toBeLessThan(40);
+  // The Images choice and the context placeholder show in full (AGENTPIER-399).
+  expect(await textCut(dialog.getByLabel("Images llama3:8b", { exact: true }))).toBe(0);
+  await context.fill("");
+  expect(await textCut(context)).toBe(0);
+  await context.fill("8192");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
