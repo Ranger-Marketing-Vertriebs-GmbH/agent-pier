@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
-import CheckRow from "../../components/CheckRow.jsx";
+import GrantPicker, { grantDialogClass } from "../../components/GrantPicker.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
@@ -70,7 +70,7 @@ export default function SessionAgentAccessDialog({ session, close }) {
         if (!busy) close();
       }}
       closeDisabled={busy}
-      className="session-agent-access-dialog"
+      className={`session-agent-access-dialog ${grantDialogClass}`}
       footer={
         data ? (
           <>
@@ -114,31 +114,24 @@ export default function SessionAgentAccessDialog({ session, close }) {
               {copy.tools[data.tools === "ready" ? "ready" : "missing"]}
             </StatusChip>
           </p>
-          <fieldset className="check-list" disabled={busy}>
-            <legend className="visually-hidden">{copy.title}</legend>
-            {!data.agents.length && <p className="dialog-hint">{copy.empty}</p>}
-            {data.agents.map((agent) => {
-              const managed = inherited.includes(agent.id);
-              return (
-                <CheckRow
-                  key={agent.id}
-                  title={agent.name}
-                  checked={managed || choices.includes(agent.id)}
-                  disabled={busy || managed}
-                  onChange={(event) => {
-                    setSaved(false);
-                    setSelected(
-                      event.target.checked
-                        ? [...choices, agent.id]
-                        : choices.filter((id) => id !== agent.id),
-                    );
-                  }}
-                >
-                  {managed && <span className="check-row-meta">{copy.viaProject}</span>}
-                </CheckRow>
-              );
-            })}
-          </fieldset>
+          <GrantPicker
+            entries={data.agents.map((agent) => ({
+              id: agent.id,
+              name: agent.name,
+              locked: inherited.includes(agent.id),
+              notes: inherited.includes(agent.id) ? [copy.viaProject] : [],
+            }))}
+            selected={choices}
+            onChange={(ids) => {
+              setSaved(false);
+              setSelected(ids);
+            }}
+            typeLabel={copy.grantType}
+            listLabel={copy.listLabel}
+            disabled={busy}
+            emptyText={copy.empty}
+            autoFocus
+          />
         </>
       )}
     </Modal>
