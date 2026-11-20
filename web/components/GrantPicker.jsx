@@ -32,8 +32,8 @@ const fieldSelector = ".grant-picker-search input, .add-picker-field input";
 /**
  * Keeps the keyboard focus in the picker when a click removes the button that had it
  * ("Remove X", "Remove explicit assignment"): it moves to the next allowed row's remove
- * button, else the previous one, else the search or add field. Returns the handler to
- * call with the clicked button before the change.
+ * button, else the previous one, else the search or add field (not on touch screens).
+ * Returns the handler to call with the clicked button before the change.
  */
 function useFocusAfterRemove(root) {
   const pending = useRef(null);
@@ -45,7 +45,10 @@ function useFocusAfterRemove(root) {
     const next = [target.next, target.previous].find(
       (button) => button?.isConnected && !button.disabled,
     );
-    (next ?? root.current?.querySelector(fieldSelector))?.focus();
+    if (next) next.focus();
+    // Touch screens get no field focus, so no on-screen keyboard opens.
+    else if (!window.matchMedia?.(touchQuery).matches)
+      root.current?.querySelector(fieldSelector)?.focus();
   });
   return (button) => {
     const rows = [...root.current.querySelectorAll(".grant-picker-allowed")];
