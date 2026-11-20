@@ -58,7 +58,10 @@ export class AgentSessionStore {
       .prepare("DELETE FROM agent_coding_sessions WHERE session_id=?")
       .run(sessionId);
   }
-  /** Merges `values` into the record; the session and its agent never change. */
+  /**
+   * Merges `values` into the record; the session and its agent never change. A
+   * record that ends calls `onEnded(record)` (agent-coding-sessions.js).
+   */
   patch(sessionId, values) {
     const current = this.get(sessionId);
     if (!current) throw assistantProblem("notFound", 404);
@@ -71,6 +74,7 @@ export class AgentSessionStore {
     this.db
       .prepare("UPDATE agent_coding_sessions SET body=? WHERE session_id=?")
       .run(JSON.stringify(next), sessionId);
+    if (next.ended === true && current.ended !== true) this.onEnded?.(next);
     return next;
   }
 }
