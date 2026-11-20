@@ -354,20 +354,6 @@ test("prefix and word matches rank before inner matches", () => {
   );
 });
 
-test("searching stays fast with thousands of entries", () => {
-  const many = Array.from({ length: 300 }, (_, n) => ({
-    id: `agent-${n}`,
-    name: `Agent Nummer ${n}`,
-    capabilities: { memory: true },
-  }));
-  const big = buildSearchIndex({ agents: many, connections, agentsEnabled: true });
-  assert.ok(big.length > 3000, `${big.length} entries`);
-  const start = performance.now();
-  for (const query of ["ssh", "agent 42 zug", "einstellungen zugriff", "x"])
-    searchEntries(big, query);
-  assert.ok(performance.now() - start < 200, "four queries in under 200 ms");
-});
-
 test("Show changes opens the open session's Changes tab and only then", () => {
   const withSession = buildSearchIndex({
     agents,

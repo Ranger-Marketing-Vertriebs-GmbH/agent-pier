@@ -90,8 +90,9 @@ test("project scope and remote reads go through the safe options", async (t) => 
   const scope = await projectScope(cwd);
   assert.equal(scope.kind, "git");
   assert.equal(scope.cwd, cwd);
+  // A loaded host can take longer than the 2 s default, which reads as no remote.
   assert.equal(
-    await new GitRemotes().read(cwd),
+    await new GitRemotes({ timeoutMs: 30000 }).read(cwd),
     "https://example.invalid/owner/repo.git",
   );
   assert.equal(fs.existsSync(marker), false);
@@ -127,7 +128,13 @@ test("a program reached only through the environment stays off too", (t) => {
 });
 
 // A hook that writes the marker, installed as `name` in the fixture repository.
+// tracked.txt is staged first and then given an older time than the index records:
+// a status refreshes that entry and writes the index every time. Left to racy-git
+// detection, the write would depend on whether the setup crossed a second.
 function hook(cwd, marker, name) {
+  setup(cwd, "-c", "core.fsmonitor=false", "add", "tracked.txt");
+  const past = new Date(Date.now() - 3600000);
+  fs.utimesSync(path.join(cwd, "tracked.txt"), past, past);
   const file = path.join(cwd, ".git", "hooks", name);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `#!/bin/sh\necho ${name} >> '${marker}'\n`, { mode: 0o700 });

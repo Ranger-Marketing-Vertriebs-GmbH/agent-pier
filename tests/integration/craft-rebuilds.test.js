@@ -310,8 +310,12 @@ test("close fits the shutdown budget when every stop hangs", async (t) => {
   const began = Date.now();
   await f.rebuilds.close();
   const took = Date.now() - began;
-  assert.ok(took < 4000, `close took ${took} ms`);
-  assert.ok(await until(() => !pids.some(exists), 2000));
+  // Each child takes about 3 s (2 s for the stops, 1 s exit grace) plus the kills,
+  // which a loaded host stretches. The bound is the server's forced exit (6 s,
+  // server/index.js): a close waiting for a hanging stop (60 s) or closing the two
+  // children one after the other (≥ 6 s) misses it.
+  assert.ok(took < 6000, `close took ${took} ms`);
+  assert.ok(await until(() => !pids.some(exists)));
   assert.equal(f.rebuilds.get(one.id).status, "paused");
 });
 
@@ -368,8 +372,10 @@ test("an idle child closes after 60 s", async (t) => {
       return f.rebuilds.get(view.id).status === "ready";
     }),
   );
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  // The idle close was armed within the last 2 s of fake time.
+  // The idle close is armed once the child neither runs nor calls anything.
+  const children = [...f.rebuilds.children.entries.values()];
+  assert.equal(children.length, 1);
+  assert.ok(await until(() => children.every((entry) => entry.idle)));
   timers.advance(55000);
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(client.alive, true);
