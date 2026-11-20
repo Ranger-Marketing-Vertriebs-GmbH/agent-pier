@@ -519,6 +519,14 @@ session header (**Started by agent <name>**). The agent's own instructions gain 
 `## Coding sessions` section that names its enabled projects and the pattern: start,
 send, wait, read, answer or escalate, repeat, stop.
 
+Under **Overview › Actions and coding tasks** each start is a **Coding session** row
+with the project and the CLI. While its session lives the row says **Session running**
+and offers **Stop session**, which stops the session as its own Stop does; once the
+session stopped or was deleted it says **Session ended** and offers nothing. The
+server reads this from the session's record (`sessionEnded`), and the record's end
+re-reads the agent's action topic. An escalated prompt is a **Question from a coding
+session** row.
+
 ## Work goals
 
 An agent can keep working on a job until it is done ([Work until done](agents.md#work-until-done);

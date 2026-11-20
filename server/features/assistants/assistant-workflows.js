@@ -123,7 +123,7 @@ export class AssistantWorkflows {
       const { files: _files, ...payload } = a.payload;
       projected.payload = payload;
     }
-    return projected;
+    return { ...projected, ...this.sessions?.startState(a) }; // a session start's state
   }
   // `delegated` adds members' requests still waiting in turns this agent delegated,
   // for the owner's views; the agent's own tool listing leaves them out.

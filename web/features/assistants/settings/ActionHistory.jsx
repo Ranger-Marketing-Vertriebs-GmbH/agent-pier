@@ -22,6 +22,8 @@ import SshAccessProposalCard, {
   SshAccessCreatedNote,
 } from "../SshAccessProposalCard.jsx";
 import { sshProposalCopy } from "../../../lib/i18n/messages/assistant-ssh-proposals.js";
+import { assistantMailCopy } from "../../../lib/i18n/messages/assistant-mail.js";
+import { names as toolNames } from "../../../lib/providers.js";
 
 const decide = (action, decision, extra = {}) =>
   api(`/assistant-actions/${encodeURIComponent(action.id)}/decision`, "POST", {
@@ -159,6 +161,28 @@ function SftpCard({ action: a, act, assistantId }) {
   );
 }
 
+// The heading of an action without a card of its own, by its kind.
+const heading = (a) =>
+  ({
+    coding_start: copy.coding,
+    session_start: copy.codingSession,
+    session_request: copy.escalation.title,
+    memory_write: copy.memory,
+    mail_send: assistantMailCopy.title,
+  })[a.payload.action] || copy.otherAction;
+// An agent's coding session start stays running while its session lives
+// (session-start.js); the server says whether the session ended (`sessionEnded`).
+const liveSession = (a) =>
+  a.payload.action === "session_start" &&
+  a.state === "running" &&
+  a.sessionId &&
+  a.sessionEnded === false;
+function stateText(a) {
+  if (a.payload.action === "session_start" && a.state === "running")
+    return a.sessionEnded === false ? copy.sessionLive : copy.sessionEnded;
+  return copy.states[a.state];
+}
+
 function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "ssh")
     return <SshCard action={a} act={act} assistantId={assistantId} />;
@@ -207,7 +231,7 @@ function ActionCard({ action: a, assistantId, busy, act }) {
     );
   return (
     <article className="assistant-card assistant-reminder-row">
-      <h3>{a.payload.action === "coding_start" ? copy.coding : copy.memory}</h3>
+      <h3>{heading(a)}</h3>
       {a.requestedBy && <p>{copy.requestedBy(a.memberName)}</p>}
       {a.requestedBy && a.state === "awaiting_approval" && (
         <p className="assistant-note">{copy.memberApprovalHint}</p>
@@ -215,16 +239,19 @@ function ActionCard({ action: a, assistantId, busy, act }) {
       <p>
         {a.projectName}
         {a.pipelineName ? ` · ${a.pipelineName}` : ""}
+        {a.payload.options?.tool
+          ? ` · ${toolNames[a.payload.options.tool] || a.payload.options.tool}`
+          : ""}
       </p>
-      <p>{copy.states[a.state]}</p>
+      <p>{stateText(a)}</p>
       {a.diagnostic && copy.diagnostics[a.diagnostic] && (
         <p className="assistant-note">{copy.diagnostics[a.diagnostic]}</p>
       )}
       {a.payload.title && <strong>{a.payload.title}</strong>}
       <p className="assistant-memory-text">{a.payload.task || a.payload.content}</p>
-      {a.payload.baseBranch && (
+      {(a.payload.baseBranch || a.payload.options?.baseBranch) && (
         <p>
-          {copy.branch}: {a.payload.baseBranch}
+          {copy.branch}: {a.payload.baseBranch || a.payload.options.baseBranch}
         </p>
       )}
       {a.payload.expectedRevision && (
@@ -259,7 +286,7 @@ function ActionCard({ action: a, assistantId, busy, act }) {
               {copy[decision]}
             </button>
           ))}
-        {a.state === "running" && (
+        {a.state === "running" && a.payload.action === "coding_start" && (
           <button
             className="button secondary"
             disabled={busy}
@@ -274,6 +301,19 @@ function ActionCard({ action: a, assistantId, busy, act }) {
             }
           >
             {copy.cancel}
+          </button>
+        )}
+        {liveSession(a) && (
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() =>
+              act(() =>
+                api(`/sessions/${encodeURIComponent(a.sessionId)}/stop`, "POST", {}),
+              )
+            }
+          >
+            {copy.stopSession}
           </button>
         )}
         {a.state === "unknown" && (

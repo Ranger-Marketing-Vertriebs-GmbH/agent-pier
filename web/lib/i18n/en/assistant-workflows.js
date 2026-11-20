@@ -39,6 +39,11 @@ export const assistantWorkflowCopy = {
     "No actions yet. Ask this agent in chat to inspect project memory or propose a coding task.",
   coding: "Coding task",
   codingSession: "Coding session",
+  // An agent's coding session start in the action history: its session's state.
+  sessionLive: "Session running",
+  sessionEnded: "Session ended",
+  stopSession: "Stop session",
+  otherAction: "Agent action",
   // What an agent's coding session start would launch with (SessionLaunchFacts.jsx).
   sessionLaunch: {
     mode: "Launch mode",

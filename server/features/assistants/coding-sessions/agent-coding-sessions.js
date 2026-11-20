@@ -61,6 +61,9 @@ export class AgentCodingSessions {
   constructor(w) {
     this.w = w;
     this.store = new AgentSessionStore(w.a.store.db);
+    // The agent's action history shows whether its session start still lives
+    // (assistant-workflows.js project); an end re-reads its action topic.
+    this.store.onEnded = (record) => w.written?.([{ assistantId: record.assistantId }]);
     // Sessions asking and telling agents (session-talk/session-talk.js).
     this.talk = new SessionTalk(w);
     // Starts running in this process, by action key (session-start.js runStart).
@@ -217,6 +220,20 @@ export class AgentCodingSessions {
     } catch {
       return [];
     }
+  }
+  /**
+   * What the action history shows of a running coding session start `a`, which
+   * stays running while its session lives (session-start.js): the session and
+   * whether its record ended, so the row offers Stop only while it is live. Empty
+   * for any other action.
+   */
+  startState(a) {
+    if (a.payload?.action !== "session_start" || a.state !== "running") return {};
+    const record = a.sessionId ? this.store.get(a.sessionId) : null;
+    return {
+      sessionId: a.sessionId ?? null,
+      sessionEnded: !record || record.ended === true,
+    };
   }
   /**
    * Whether an agent controls this session now: a record that has not ended (one
