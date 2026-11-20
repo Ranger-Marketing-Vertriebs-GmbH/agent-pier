@@ -15,7 +15,7 @@ for (const [tool, mode] of [
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-profile-model-"));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const cli = path.join(root, "version-fixture");
-    fs.writeFileSync(cli, "#!/bin/sh\nprintf '2.1.263\\n'\n", { mode: 0o700 });
+    fs.writeFileSync(cli, "#!/bin/sh\nprintf '2.1.329\\n'\n", { mode: 0o700 });
     const accounts = new AccountStore({ dataDir: root, home: root });
     const provider = { id: "openrouter", modelId: "anthropic/claude-sonnet-4.6" };
     const account = accounts.create({

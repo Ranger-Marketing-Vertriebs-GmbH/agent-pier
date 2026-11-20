@@ -39,7 +39,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { recordNativeSession } from ${JSON.stringify(bindingModule)};
 const args = process.argv.slice(2);
-if (args.includes('--version')) { console.log('2.1.263'); process.exit(0); }
+if (args.includes('--version')) { console.log('2.1.329'); process.exit(0); }
 const resumed = args.includes('--resume');
 if (resumed && fs.existsSync(${JSON.stringify(failStartup)})) process.exit(23);
 const nativeId = args[args.indexOf(resumed ? '--resume' : '--session-id') + 1];

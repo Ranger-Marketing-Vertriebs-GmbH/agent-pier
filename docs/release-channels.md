@@ -20,6 +20,10 @@ rate limit. Stable checks do not require the release-list API.
 1. Set `package.json` and `package-lock.json` to the candidate version, for example
    `1.29.0-rc.1`, on a release branch. Submit the change through a pull request and
    complete the required checks and review.
+   Review each coding CLI's minimum version on that branch (see
+   [minimum CLI versions](cli-updates.md#minimum-cli-versions)): raise it to the
+   oldest release the real-CLI contract tests passed with, and name a raised
+   minimum in the release's **Upgrade notes**.
 2. After merging, tag the corresponding commit `v1.29.0-rc.1` and push the tag.
    The existing release workflow builds all four platform packages and installer
    assets, verifies their checksums, then publishes a GitHub prerelease titled

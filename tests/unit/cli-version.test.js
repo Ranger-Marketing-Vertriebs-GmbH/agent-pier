@@ -164,7 +164,7 @@ test("an unknown version warns without blocking, a current one passes", async ()
     },
   );
   assert.equal(
-    (await requireCliVersion("codex", "/opt/codex", { version: "0.160.1" }))
+    (await requireCliVersion("codex", "/opt/codex", { version: "0.169.1" }))
       .versionStatus,
     "ok",
   );
@@ -219,12 +219,12 @@ test("concurrent probes of one binary share a single --version run", async (t) =
 test("the tool list never waits for a probe in flight", async (t) => {
   const root = directory(t);
   const file = path.join(root, "codex");
-  cli(file, "codex-cli 0.160.1");
+  cli(file, "codex-cli 0.169.1");
   let finish;
   const probe = createCliVersionProbe({
     run: () =>
       new Promise((resolve) => {
-        finish = () => resolve("codex-cli 0.160.1");
+        finish = () => resolve("codex-cli 0.169.1");
       }),
   });
   const tool = { id: "codex", installed: true, path: file };
@@ -237,5 +237,5 @@ test("the tool list never waits for a probe in flight", async (t) => {
   await new Promise((resolve) => setTimeout(resolve, 20));
   const [known] = await withCliVersions([tool], { probe });
   assert.equal(known.versionStatus, "ok");
-  assert.equal(known.version, "0.160.1");
+  assert.equal(known.version, "0.169.1");
 });

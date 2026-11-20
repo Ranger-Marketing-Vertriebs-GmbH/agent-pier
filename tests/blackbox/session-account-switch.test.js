@@ -37,7 +37,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {recordNativeSession} from ${JSON.stringify(binding)};
 const args = process.argv.slice(2);
-if(args.includes('--version')) {console.log('0.153.4'); process.exit(0);}
+if(args.includes('--version')) {console.log('0.169.1'); process.exit(0);}
 if(args.includes('app-server')) {process.stdin.resume(); await new Promise(()=>setInterval(()=>{},1000));}
 const launch = JSON.parse(fs.readFileSync(process.env.AGENTPIER_NATIVE_BINDING_FILE));
 const resume = args.includes('resume') || args.includes('--resume');

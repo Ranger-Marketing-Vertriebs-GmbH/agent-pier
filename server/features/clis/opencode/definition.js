@@ -12,7 +12,7 @@ const definition = {
     directory: ".opencode/bin",
   },
   updateArgs: ["upgrade", "--method", "curl"],
-  minVersion: "1.18.29",
+  minVersion: "1.19.6",
   launchModes: { default: [], auto: ["--auto"] },
   defaultLaunchMode: "auto",
   unattendedModes: ["auto"],
