@@ -10,11 +10,12 @@ On October 10, 2026, Ollama and llama.cpp were qualified on a Mac mini (Apple M4
 48 GB) against the pinned OpenClaw 2026.9.8 runtime. Both engines ran locally without
 keys; existing personal accounts and private runtime state were not imported.
 
-| Target                    | Actual inference qualification | Engine and model                                                                     | Limitation                                                                                               |
-| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Ollama                    | Passed (live runner, 1/1)      | Ollama 0.40.2, `qwen3:4b`, context 32,768 (set via `OLLAMA_CONTEXT_LENGTH`), keyless | The connection test cannot read the loaded context; confirm it manually.                                 |
-| llama.cpp                 | Passed (live runner, 1/1)      | llama.cpp build 11429, `Qwen2.5-3B-Instruct` Q4_K_M, `--jinja -c 32768`, keyless     | Small models may store notes outside `memory/`, so memory search misses them.                            |
-| Azure OpenAI / Foundry v1 | Failed on Chat Completions     | OpenClaw 2026.11.3, deployment `gpt-6.2-sol`, `api-key`                              | Agents now use Responses; see [Azure OpenAI reasoning deployments](#azure-openai-reasoning-deployments). |
+| Target                     | Actual inference qualification   | Engine and model                                                                     | Limitation                                                                                                                 |
+| -------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Ollama                     | Passed (live runner, 1/1)        | Ollama 0.40.2, `qwen3:4b`, context 32,768 (set via `OLLAMA_CONTEXT_LENGTH`), keyless | The connection test cannot read the loaded context; confirm it manually.                                                   |
+| llama.cpp                  | Passed (live runner, 1/1)        | llama.cpp build 11429, `Qwen2.5-3B-Instruct` Q4_K_M, `--jinja -c 32768`, keyless     | Small models may store notes outside `memory/`, so memory search misses them.                                              |
+| Azure OpenAI / Foundry v1  | Failed on Chat Completions       | OpenClaw 2026.11.3, deployment `gpt-6.2-sol`, `api-key`                              | Agents now use Responses; see [Azure OpenAI reasoning deployments](#azure-openai-reasoning-deployments).                   |
+| Azure OpenAI v1 (OpenClaw) | Passed on Responses (2026-11-20) | OpenClaw 2026.11.3, deployment `gpt-6.2-sol`, `api-key`, context 1,000,000           | Hermes agents: deterministic contract only; see [Azure OpenAI reasoning deployments](#azure-openai-reasoning-deployments). |
 
 The same day, an isolated AgentPier instance of this branch was driven through its
 real web UI: both endpoints were added and tested under Accounts (all three protocols
@@ -45,6 +46,37 @@ option does not apply there. `assistant-provider-responses-contract.test.js` run
 `session_status` tool loop against a simulated server that refuses tools with
 `reasoning_effort` on Chat Completions and accepts them on Responses.
 
+#### OpenClaw on Azure, November 20, 2026 (AGENTPIER-169)
+
+A real Azure run on main `86aef5678` (OpenClaw 2026.11.3) qualified OpenClaw agents on
+Azure: an Azure OpenAI v1 connection (`/openai/v1` base URL, `api-key` header,
+Responses ticked) and the reasoning deployment `gpt-6.2-sol` with a context of
+1,000,000 tokens, driven through AgentPier's web UI in an isolated test instance.
+Passed, each on the Responses route:
+
+- a plain reply;
+- tool calls: memory (a note written and searched), `web_search` and the agent
+  browser;
+- a multi-turn conversation;
+- a model switch Azure → OpenRouter → Azure in the same agent, each turn answered on
+  the model then selected.
+
+#### Hermes on Azure
+
+Hermes v0.22.5 reaches a non-OpenAI host on Responses only as a named provider: a
+plain `provider: custom` drops `api_mode: codex_responses` there
+(`hermes_cli/runtime_provider.py` `_resolve_plain_custom_api_mode`), a `providers:`
+entry keeps it, and its Responses transport knows Azure hosts
+(`agent/transports/codex.py` `_is_azure_responses`). The same feature test found every
+Hermes turn on `gpt-6.2-sol` failing on Chat Completions, also with **Thinking level**
+Off: Hermes drops `reasoning_effort` after the first 400, but Azure refuses tools
+unless it is `none` (AGENTPIER-439). A keyed connection that offers Responses now runs
+a Hermes agent's own model on Responses too, as on OpenClaw
+([Hermes runtime](hermes-runtime.md#model-connection)).
+`hermes-azure-responses-contract.test.js` runs a tool loop of the pinned Hermes against
+the simulated Azure server on Responses, and checks that a refused turn ends with the
+provider's own reason. A real Azure run of a Hermes agent is still open.
+
 Limits until a real Azure run repeats the check (`AGENTPIER_ASSISTANT_LIVE_PRESET=azure`
 below ticks Responses):
 
@@ -52,8 +84,9 @@ below ticks Responses):
   reasoning effort, prompt cache key, no `instructions` field); the simulated server
   runs on loopback and does not exercise that host class.
 - A connection whose test unticks Responses, or that has no key, stays on Chat
-  Completions and keeps failing with reasoning deployments.
-- Hermes agents keep Chat Completions for every endpoint connection.
+  Completions and keeps failing with reasoning deployments, on OpenClaw and on Hermes.
+- A Hermes agent with advisors (Mixture of Agents) needs an aggregator that takes a
+  Bearer key; an Azure connection with an `api-key` header cannot be one.
 - Entra ID tokens, legacy `/deployments/...` URLs and `api-version` queries remain
   unsupported.
 

@@ -64,6 +64,38 @@ function failureReason(payload) {
   return /time[ds]?[_\s-]?out/i.test(raw) ? "timeout" : raw.slice(0, 60);
 }
 
+// Hermes's error layers (agent/error_surface.py) that name the model provider: its
+// API refused or failed the call, its key or its billing.
+const providerLayers = new Set(["provider", "endpoint", "auth", "billing"]);
+// How much of Hermes's error text an outcome keeps; routine-failures.js redacts and
+// shortens it further for the chat.
+const maxError = 4000;
+
+/**
+ * What a failed turn's outcome carries for AgentPier's failure rules
+ * (routine-failures.js runFailure, as for OpenClaw's run errors): Hermes's error
+ * text and, for an error of the provider's layers, `errorReason` "provider", so the
+ * chat shows the provider's reason (AGENTPIER-439). The text is the provider's own
+ * line where Hermes quotes it ("Provider said: …" in agent/turn_failure_copy.py's
+ * reply, which also names a log path), else `message.complete`'s `error` or text, or
+ * an `error` event's `message`.
+ */
+function failureDetails(payload) {
+  const texts = [payload?.error, payload?.text, payload?.message].filter(
+    (value) => typeof value === "string" && value.trim(),
+  );
+  const said = texts
+    .map((value) => /^Provider said:\s*(.+)$/m.exec(value)?.[1]?.trim())
+    .find(Boolean);
+  const error = said || texts[0] || "";
+  const layer = payload?.error_surface?.layer;
+  return {
+    ...(error && { error: error.slice(0, maxError) }),
+    ...(providerLayers.has(layer) &&
+      payload.error_surface.code !== "timeout" && { errorReason: "provider" }),
+  };
+}
+
 /**
  * The port's kind of one Hermes event (agent-runtime.js RUN_EVENT_KINDS): a turn's
  * `message.start` starts it, `message.delta` is reply text, `tool.*` its tool steps,
@@ -374,7 +406,7 @@ export class HermesRuns {
       this.fanouts.delete(runId);
       turn.current = null;
       turn.open.delete(runId);
-      this.ended(runId, kind, reason);
+      this.ended(runId, kind, reason, kind === "failed" ? failureDetails(payload) : {});
     }
   }
 
@@ -420,13 +452,13 @@ export class HermesRuns {
     return null;
   }
 
-  ended(runId, kind, reason) {
+  ended(runId, kind, reason, details = {}) {
     const outcome =
       kind === "finished"
         ? { runId, status: "ok" }
         : kind === "aborted"
           ? { runId, status: "aborted", aborted: true }
-          : { runId, status: "error", reason };
+          : { runId, status: "error", reason, ...details };
     this.outcomes.set(runId, outcome);
     if (this.outcomes.size > keptOutcomes)
       this.outcomes.delete(this.outcomes.keys().next().value);

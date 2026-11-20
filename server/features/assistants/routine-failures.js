@@ -18,8 +18,11 @@ export const failureReasons = [
   "delivery",
   "other",
 ];
-// OpenClaw's failover reasons that name the model provider (failover-error).
+// OpenClaw's failover reasons that name the model provider (failover-error), and
+// "provider", which a Hermes run carries for an error of the provider's layers
+// (runtimes/hermes/hermes-run-state.js failureDetails).
 const modelReasons = new Set([
+  "provider",
   "auth",
   "auth_permanent",
   "billing",

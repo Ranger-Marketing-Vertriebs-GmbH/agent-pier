@@ -88,19 +88,31 @@ one of OpenClaw's entries.
 
 ### Model connection
 
-| Connection                        | `model` section                                                        | `.env`                        |
-| --------------------------------- | ---------------------------------------------------------------------- | ----------------------------- |
-| Custom OpenAI-compatible endpoint | `provider: custom`, `base_url`, `default`, `key_env`, `context_length` | `AUXILIARY_AGENTPIER_API_KEY` |
-| Endpoint with an `api-key` header | the same, plus `extra_headers` referencing the key                     | `AUXILIARY_AGENTPIER_API_KEY` |
-| Local server without a key        | `provider: custom` without `key_env`                                   | none                          |
-| OpenRouter                        | `provider: openrouter`, `default`                                      | `OPENROUTER_API_KEY`          |
-| ChatGPT login AgentPier holds     | `provider: openai-codex`, `default`; pool row in `auth.json`           | `HERMES_CODEX_BASE_URL`       |
-| ChatGPT login OpenClaw holds      | refused until moved to AgentPier                                       | none                          |
+| Connection                           | `model` section                                                                                                                                                                        | `.env`                        |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Custom OpenAI-compatible endpoint    | `provider: custom`, `base_url`, `default`, `key_env`, `context_length`                                                                                                                 | `AUXILIARY_AGENTPIER_API_KEY` |
+| Keyed endpoint that offers Responses | `provider: custom:agentpier-model`, `default`, `context_length`; `providers.agentpier-model` with `base_url`, `api_mode: codex_responses`, `key_env`, `extra_headers` for a key header | `AUXILIARY_AGENTPIER_API_KEY` |
+| Endpoint with an `api-key` header    | the same, plus `extra_headers` referencing the key                                                                                                                                     | `AUXILIARY_AGENTPIER_API_KEY` |
+| Local server without a key           | `provider: custom` without `key_env`                                                                                                                                                   | none                          |
+| OpenRouter                           | `provider: openrouter`, `default`                                                                                                                                                      | `OPENROUTER_API_KEY`          |
+| ChatGPT login AgentPier holds        | `provider: openai-codex`, `default`; pool row in `auth.json`                                                                                                                           | `HERMES_CODEX_BASE_URL`       |
+| ChatGPT login OpenClaw holds         | refused until moved to AgentPier                                                                                                                                                       | none                          |
 
-Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's and other
-vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) offers Chat Completions
-and compiles to `provider: custom`, also where OpenClaw agents run it on Responses
-([model connections](assistant-model-connections.md)). `api_mode` is always `chat_completions`, so
+A connection that sends a key and offers Responses (the Azure OpenAI preset ticks it)
+runs the agent's own model on Responses, the rule OpenClaw agents follow
+([model connections](assistant-model-connections.md)): Azure reasoning deployments
+refuse function tools on Chat Completions unless `reasoning_effort` is `none`, and
+Hermes drops the field after the first refusal, which does not help (AGENTPIER-439).
+Hermes keeps `api_mode: codex_responses` for a host other than OpenAI's only on a
+named provider (`hermes_cli/runtime_provider.py` `_resolve_plain_custom_api_mode`), so
+the model section names `custom:agentpier-model` and that entry holds the URL, mode, key
+name and key header; Hermes's Responses transport knows Azure hosts
+(`agent/transports/codex.py`). While the agent has advisors, the same entry is the
+aggregator's on Chat Completions ([Mixture of Agents](#mixture-of-agents)).
+
+Every other endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's
+and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) offers Chat
+Completions and compiles to `provider: custom` with `api_mode: chat_completions`, so
 Hermes never switches an `api.openai.com` or `/anthropic` URL to another wire protocol
 (`agent/agent_init.py`). The endpoint's Chat Completions options need no key: Hermes
 sends no output cap on an agent's turn and picks `max_completion_tokens` itself where
@@ -1295,6 +1307,15 @@ relies on these:
 | Context size      | `session.stats { session_id }`: `last_prompt_tokens`, `context_length`                                             |
 | Questions         | `clarify.request` → `clarify.respond`; `clarify.settled`, `approval.cancelled`                                     |
 | Sudo, secrets     | the `sudo` and `secret` requests, declined at once with `{ value: "" }`                                            |
+
+A turn that fails ends with `message.complete` (`status: error`) or an `error` event.
+The run's outcome keeps Hermes's error text: the provider's own line where Hermes's
+reply quotes it ("Provider said: …", `agent/turn_failure_copy.py`), else `error`, the
+reply text or the event's `message`. An error of the provider's layers
+(`error_surface.layer` `provider`, `endpoint`, `auth` or `billing`, not a timeout)
+also names the provider as the cause, so the chat shows **The model provider refused
+this message** with that text, redacted, as for OpenClaw agents
+(`run-reconciler.js`, `routine-failures.js`; AGENTPIER-439).
 
 After a model switch with fresh chats, AgentPier reviews the agent's `MEMORY.md` and
 `USER.md` on its new model (`memory-review.js`) with one `llm.oneshot` call: the

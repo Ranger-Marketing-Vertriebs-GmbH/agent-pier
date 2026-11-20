@@ -32,12 +32,28 @@ export const openRouterUrl = "https://openrouter.ai/api/v1";
 
 /**
  * Whether Hermes can reach a connection's provider (assistant-models.js) over Chat
- * Completions. OpenClaw runs a keyed endpoint that offers Responses on Responses
- * (assistant-provider-endpoint.js nativeApi); every endpoint agents may use also
- * offers Chat Completions at the same base URL, which Hermes keeps.
+ * Completions: every endpoint agents may use offers it at the same base URL, also one
+ * an agent's own model reaches on Responses (onResponses).
  */
 export const speaksChatCompletions = (provider) =>
   provider?.api === "openai-completions" || provider?.api === "openai-responses";
+
+/**
+ * Whether an agent's own model runs on Responses: a connection that sends a key and
+ * offers Responses (assistant-provider-endpoint.js nativeApi, the rule OpenClaw agents
+ * follow). Azure reasoning deployments refuse function tools on Chat Completions
+ * unless `reasoning_effort` is "none" (AGENTPIER-439).
+ */
+export const onResponses = (provider) =>
+  provider?.api === "openai-responses" && !!provider.apiKey;
+
+// The named provider of an agent's own model on Responses. Hermes honours
+// `api_mode: codex_responses` for a non-OpenAI host only on a named `providers:`
+// entry: a plain `provider: custom` drops it there (hermes_cli/runtime_provider.py
+// `_resolve_plain_custom_api_mode`; runtime_provider_custom.py
+// `_resolve_named_custom_runtime` keeps it). The mixture's aggregator uses the same
+// name (mixture.js), on Chat Completions, while advisors are set.
+export const responsesProvider = "agentpier-model";
 const reference = (name) => `\${${name}}`;
 
 // Request headers for an endpoint that takes its key in another header than
@@ -54,13 +70,18 @@ function keyHeaders(provider) {
 /**
  * Hermes's `model` section and .env secrets for `connection`, or
  * `{ unsupported }` naming why Hermes cannot use it: "modelAccount" for a ChatGPT
- * account, "modelProtocol" for a transport other than Chat Completions. Pure.
+ * account, "modelProtocol" for a transport other than Chat Completions. `providers`:
+ * the named providers the section needs. Pure.
  *
- * Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's
- * and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio, …) offers
- * Chat Completions (assistant-provider-endpoint.js), even where OpenClaw runs it on
- * Responses (speaksChatCompletions), and is compiled as
- * `provider: custom` with `api_mode: chat_completions`; the explicit mode keeps
+ * A keyed connection that offers Responses (onResponses) runs on Responses, as on
+ * OpenClaw: `provider: custom:agentpier-model` with the named entry's `base_url`,
+ * `api_mode: codex_responses`, key name and key header. Hermes's Responses transport
+ * knows Azure hosts (agent/transports/codex.py `_is_azure_responses`).
+ *
+ * Every other endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI,
+ * Anthropic's and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM
+ * Studio, …) offers Chat Completions (assistant-provider-endpoint.js) and is compiled
+ * as `provider: custom` with `api_mode: chat_completions`; the explicit mode keeps
  * Hermes from switching an api.openai.com or `/anthropic` URL to another wire
  * protocol (agent/agent_init.py `_resolve_api_mode`, `_finalize_routing`). The
  * endpoint's Chat Completions options need no key in Hermes v0.22.5:
@@ -116,6 +137,25 @@ function baseSection(connection, modelProxy) {
       images: Array.isArray(model.input) && model.input.includes("image"),
     };
   const headers = provider.apiKey ? keyHeaders(provider) : undefined;
+  const context = Number.isInteger(model.contextWindow) && {
+    context_length: model.contextWindow,
+  };
+  // Hermes sends images natively only to models it knows see them.
+  const images = Array.isArray(model.input) && model.input.includes("image");
+  if (onResponses(provider))
+    return {
+      section: { provider: `custom:${responsesProvider}`, default: model.id, ...context },
+      providers: {
+        [responsesProvider]: {
+          base_url: provider.baseUrl,
+          api_mode: "codex_responses",
+          key_env: endpointKeyEnv,
+          ...(headers && { extra_headers: headers }),
+        },
+      },
+      env: { [endpointKeyEnv]: provider.apiKey },
+      images,
+    };
   return {
     section: {
       provider: "custom",
@@ -124,13 +164,10 @@ function baseSection(connection, modelProxy) {
       api_mode: "chat_completions",
       ...(provider.apiKey && { key_env: endpointKeyEnv }),
       ...(headers && { extra_headers: headers }),
-      ...(Number.isInteger(model.contextWindow) && {
-        context_length: model.contextWindow,
-      }),
+      ...context,
     },
     env: provider.apiKey ? { [endpointKeyEnv]: provider.apiKey } : {},
-    // Hermes sends images natively only to models it knows see them.
-    images: Array.isArray(model.input) && model.input.includes("image"),
+    images,
   };
 }
 

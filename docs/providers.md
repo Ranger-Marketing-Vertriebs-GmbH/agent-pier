@@ -209,10 +209,10 @@ its hint links straight to that model's context field
 
 Model changes inside a running endpoint session require a reload.
 
-**Agents.** Agents (OpenClaw) do not use the CLI routes or the adapter. A connection
-with a key and **Responses** ticked runs them on the Responses API, which Azure OpenAI
-reasoning deployments need: on Chat Completions they refuse function tools together
-with `reasoning_effort`. Other connections, and every keyless one, run agents on Chat
+**Agents.** Agents (OpenClaw and Hermes) do not use the CLI routes or the adapter. A
+connection with a key and **Responses** ticked runs them on the Responses API, which
+Azure OpenAI reasoning deployments need: on Chat Completions they refuse function tools
+together with `reasoning_effort`. Other connections, and every keyless one, run agents on Chat
 Completions. Of the adapter options, agents take the output limit field, stream usage
 and a refused reasoning effort on Chat Completions, and the cache key and a refused
 reasoning effort on Responses. See

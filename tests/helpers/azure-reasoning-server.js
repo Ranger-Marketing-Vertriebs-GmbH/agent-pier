@@ -1,12 +1,16 @@
 import http from "node:http";
 
 // A model server that answers like an Azure OpenAI v1 resource with a reasoning
-// deployment (AGENTPIER-425): Chat Completions refuses function tools together with
-// `reasoning_effort` and points to Responses, which accepts both. It takes its key in
-// the `api-key` header only and runs one `session_status` tool loop on either API.
+// deployment (AGENTPIER-425): Chat Completions refuses function tools unless
+// `reasoning_effort` is "none" (without one the deployment reasons at its default, so
+// dropping it does not help, AGENTPIER-439) and points to Responses, which accepts
+// both. The refusal is Azure's own text of 2026-11-20. It takes its key in
+// the `api-key` header only and runs one tool loop on either API: `session_status`
+// (OpenClaw's), or the tool `tool` names.
 export const AZURE_TOOLS_REFUSAL =
   "Function tools with reasoning_effort are not supported for gpt-6.2-sol in " +
-  "/v1/chat/completions. Please use /v1/responses instead.";
+  "/v1/chat/completions. To use function tools, use /v1/responses or set " +
+  "reasoning_effort to 'none'.";
 
 const sse = (res, events) => {
   res.writeHead(200, { "content-type": "text/event-stream" });
@@ -18,9 +22,9 @@ const sse = (res, events) => {
 const toolTurn = (items, isUser, isResult) =>
   items.findLastIndex(isUser) > items.findLastIndex(isResult);
 
-function chatCompletions(res, input) {
+function chatCompletions(res, input, name) {
   const useTool =
-    input.tools?.some((tool) => tool.function?.name === "session_status") &&
+    input.tools?.some((tool) => tool.function?.name === name) &&
     toolTurn(
       input.messages,
       (m) => m.role === "user",
@@ -41,7 +45,7 @@ function chatCompletions(res, input) {
               index: 0,
               id: "azure-status",
               type: "function",
-              function: { name: "session_status", arguments: "{}" },
+              function: { name, arguments: "{}" },
             },
           ],
         })
@@ -51,10 +55,10 @@ function chatCompletions(res, input) {
   ]);
 }
 
-function responses(res, input) {
+function responses(res, input, name) {
   const items = Array.isArray(input.input) ? input.input : [];
   const useTool =
-    input.tools?.some((tool) => tool.name === "session_status") &&
+    input.tools?.some((tool) => tool.name === name) &&
     toolTurn(
       items,
       (item) => item.role === "user",
@@ -66,7 +70,7 @@ function responses(res, input) {
         id: "fc_azure_status",
         type: "function_call",
         call_id: "call_azure_status",
-        name: "session_status",
+        name,
         arguments: "{}",
         status: "completed",
       }
@@ -119,7 +123,11 @@ function responses(res, input) {
   );
 }
 
-export async function azureReasoningServer({ apiKey, deployment = "gpt-6.2-sol" }) {
+export async function azureReasoningServer({
+  apiKey,
+  deployment = "gpt-6.2-sol",
+  tool = "session_status",
+}) {
   const requests = [];
   const refuse = (res, status, message, param = null) => {
     res.writeHead(status, { "content-type": "application/json" });
@@ -141,13 +149,13 @@ export async function azureReasoningServer({ apiKey, deployment = "gpt-6.2-sol" 
     if (input.model !== deployment)
       return refuse(res, 404, "The API deployment for this resource does not exist.");
     if (req.url === "/openai/v1/chat/completions") {
-      if (input.tools?.length && input.reasoning_effort !== undefined)
+      if (input.tools?.length && input.reasoning_effort !== "none")
         return refuse(res, 400, AZURE_TOOLS_REFUSAL, "reasoning_effort");
       if (input.max_tokens !== undefined)
         return refuse(res, 400, "Use 'max_completion_tokens' instead.", "max_tokens");
-      return chatCompletions(res, input);
+      return chatCompletions(res, input, tool);
     }
-    if (req.url === "/openai/v1/responses") return responses(res, input);
+    if (req.url === "/openai/v1/responses") return responses(res, input, tool);
     return refuse(res, 404, "Resource not found.");
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

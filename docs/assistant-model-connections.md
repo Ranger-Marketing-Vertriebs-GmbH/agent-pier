@@ -87,6 +87,7 @@ Completions they refuse function tools together with `reasoning_effort` ("Functi
 tools with reasoning_effort are not supported for … in /v1/chat/completions"), and
 `/think off` does not help. Keyless connections stay on Chat Completions because the
 pinned runtime's local authentication covers only keyless Chat Completions providers.
+Hermes agents follow the same rule ([Hermes runtime](hermes-runtime.md#model-connection)).
 
 From the connection, agents on Chat Completions use the per-model image support, the
 max-tokens field, the stream-usage option, and a reasoning-effort option the connection

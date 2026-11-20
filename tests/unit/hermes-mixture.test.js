@@ -325,3 +325,49 @@ test("a preset is only ever written with AgentPier's named providers", () => {
       /never written/,
     );
 });
+
+test("an agent model on Responses keeps its named provider beside the closed preset", () => {
+  // A keyed connection that offers Responses runs there (model.js onResponses).
+  const responses = {
+    ...own,
+    provider: endpoint("main", "sk-main", { api: "openai-responses" }),
+  };
+  const alone = configOf(home(profile(), undefined, {}, responses));
+  assert.deepEqual(alone.model, {
+    provider: "custom:agentpier-model",
+    default: "main-model",
+    context_length: 64000,
+  });
+  assert.deepEqual(alone.providers["agentpier-model"], {
+    base_url: "https://main.example.test/v1",
+    api_mode: "codex_responses",
+    key_env: "AUXILIARY_AGENTPIER_API_KEY",
+  });
+  assertClosed(alone);
+  // With advisors the name is the aggregator's, on Chat Completions.
+  const mixed = configOf(home(profile(two), twoResolved, {}, responses));
+  assert.equal(mixed.model.provider, "moa");
+  assert.deepEqual(mixed.providers["agentpier-model"], {
+    base_url: "https://main.example.test/v1",
+    api_mode: "chat_completions",
+    key_env: "AUXILIARY_AGENTPIER_API_KEY",
+  });
+  // Removing them again gives the model its own entry back.
+  const after = home(
+    profile([]),
+    [],
+    {
+      existing: {
+        "config.yaml": home(profile(two), twoResolved, {}, responses).files[
+          "config.yaml"
+        ],
+      },
+    },
+    responses,
+  );
+  assert.deepEqual(
+    configOf(after).providers["agentpier-model"],
+    alone.providers["agentpier-model"],
+  );
+  assert.deepEqual(configOf(after).model, alone.model);
+});
