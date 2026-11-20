@@ -47,6 +47,7 @@ import { sameTurn } from "./same-turn.js";
 import TalkBar from "../talk/TalkBar.jsx";
 import useChatTalk from "./useChatTalk.js";
 import useChatPinboard from "./pinboard/useChatPinboard.js";
+import { useTakeoverLink } from "./browser/TakeoverLink.jsx";
 import ChatPinboardBody, { PinboardTab } from "./pinboard/ChatPinboard.jsx";
 import { CardActions, cardActions, closedCards } from "./cards/card-actions.js";
 export default function AssistantChat({
@@ -179,6 +180,7 @@ export default function AssistantChat({
     () => (mentionMembers.length ? { members: mentionMembers, navigate } : null),
     [mentionMembers, navigate],
   );
+  const takeover = useTakeoverLink(assistant, navigate);
   // Mail cards whose outcome the transcript already notes (MailRunNote).
   const notedMail = useMemo(
     () =>
@@ -461,6 +463,7 @@ export default function AssistantChat({
                     focusedNote={focusedNote}
                     mentions={mentions}
                     removeShared={offline ? null : removeShared}
+                    takeover={takeover}
                   />
                 ))}
                 {active &&
@@ -498,6 +501,7 @@ export default function AssistantChat({
                     name={assistant.name}
                     text={delta.text}
                     streaming={Boolean(active)}
+                    takeover={takeover}
                   />
                 )}
                 <AgentRunState

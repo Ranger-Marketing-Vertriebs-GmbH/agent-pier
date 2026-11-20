@@ -57,6 +57,10 @@
     padding: 0 6px;
   }
 }
+/* Browser (AssistantHeader.jsx) is a link that looks like Settings beside it. */
+.assistant-header .agent-chat-browser {
+  text-decoration: none;
+}
 .assistant-header .agent-chat-pin[aria-pressed="true"] {
   background: var(--button-secondary-bg);
   color: var(--accent-text);

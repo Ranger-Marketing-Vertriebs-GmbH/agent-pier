@@ -387,7 +387,10 @@ The information architecture is recorded in
   status line, not the model id). On a phone the status there is the dot alone (its word
   is the dot's label and tooltip), so the title stays readable, and every header icon is
   a 44px touch target. The work goal (with **Stop**, in a sheet) and the events (with a
-  working dot while one runs) are header icons, beside **Talk**. **New chat** and
+  working dot while one runs) are header icons, beside **Talk**. While the agent's
+  browser capability is on, **Browser** (`globe` icon) sits left of them, labelled like
+  **Settings** on a computer and an icon on a phone (it fits at 320px), in ⋯ in a pane;
+  the live preview replaces it while the browser runs. **New chat** and
   **Summarize this chat** (`summarise` icon) live in the Chats sheet, which the chat
   title opens, and in ⌘K, never as loose icons. On a phone a segmented **Chat | Pinboard (n)**
   switch replaces the former chat-selector row, so the chat gains no extra row; a

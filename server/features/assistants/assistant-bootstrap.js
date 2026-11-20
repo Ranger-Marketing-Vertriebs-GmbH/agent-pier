@@ -162,6 +162,15 @@ const uploadGuidance = [
   "- Other paths are refused, files outside your workspace and your project folders cannot be uploaded, and every upload is recorded for the owner. Upload only what the person you work for asked for.",
 ].join("\n");
 
+// The owner signs in for the agent by taking over its browser: the chat shows this
+// link as a button to the browser's live view, taking control (TakeoverLink.jsx).
+// Only the owner's own agents: an agent of users serves people the link is not for.
+const takeoverGuidance = [
+  "## Browser sign-ins",
+  "- When the owner has to sign in, enter a code or solve a check in your browser, ask in the AgentPier chat and put this link on a line of its own: [Take over my browser](agentpier:browser-takeover). AgentPier shows it as a button that opens your browser (starting it if needed) with the owner in control. Wait for the owner to hand the browser back.",
+  "- On Telegram the link does not work: ask the owner to open your browser in AgentPier and choose Take over. Never ask for passwords or one-time codes in a chat.",
+].join("\n");
+
 // Generated images reach the chat's person without the agent (generated-images.js):
 // on an agent of users that is the user who asked, never the owner.
 // `inline`: the tool waits for its image (Hermes), instead of a background task.
@@ -322,6 +331,9 @@ export function assistantBootstrap(
       : []),
     ...(previews && mayOpenPreviews(assistant) ? [previewGuidance] : []),
     ...(personalCapabilities(assistant).browser ? [uploadGuidance] : []),
+    ...(personalCapabilities(assistant).browser && !assistant.userAccess
+      ? [takeoverGuidance]
+      : []),
     // While the agent can create images: the capability with a ready ChatGPT account.
     ...(images && personalCapabilities(assistant).createImages
       ? [imageGuidance(Boolean(assistant.userAccess), images === "inline")]

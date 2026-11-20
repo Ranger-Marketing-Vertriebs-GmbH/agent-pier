@@ -590,15 +590,21 @@ A switch with fresh chats also has the new model review the agent's memory; see
   take over the browser in its live view or drag the window in from the corner. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
   Testing, never the owner's Chrome, and on Linux a display. Without one,
   **Install browser** installs a managed Chrome for Testing with progress, then offers
-  **Restart agent service**. **Open live view** (or the small preview in the chat header while
-  the browser runs) shows the browser live at `/agents/<id>/browser`, wherever its
+  **Restart agent service**. **Open live view**, **Browser** in the chat header (an
+  icon on a phone, an entry of ⋯ in a split-view pane; the small live preview takes
+  its place while the browser runs) or "<agent>'s browser" in the search (⌘K or
+  Ctrl+K) shows the browser live at `/agents/<id>/browser`, also while it is
+  stopped, wherever its
   window is, with its address and tabs; pick a tab or follow the agent, **Stop
   browser** (its tabs close, its profile stays; the agent's next browser call starts it
   again; it asks first while the agent uses the browser or someone controls it) and
   **Start browser** there. Only the owner sees it, and no pictures are stored. **Take over** there
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
   and **Hand back** (or ten minutes without input) gives it back; if the agent tried
-  the browser meanwhile, a note in the chat lets it continue. Shift+Escape leaves the
+  the browser meanwhile, a note in the chat lets it continue. When the agent needs you
+  to sign in, it asks in the chat with a **Take over my browser** button, which opens
+  the live view taking control and starts the browser first if it is stopped (your own
+  agents only; on Telegram it asks you to open the browser in AgentPier). Shift+Escape leaves the
   browser's keyboard; **Take over here** moves control from another device. On a phone
   a tap on the picture clicks there and opens the phone's keyboard, which stays open
   for further taps, so you can tap a sign-in field and type; a one-finger drag scrolls

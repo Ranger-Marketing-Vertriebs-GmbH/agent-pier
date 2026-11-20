@@ -1,5 +1,5 @@
 // ⌘K entries of each agent: its settings tabs and subpages ("Ops-Wache · Zugriffe"),
-// its pinboard, and its own actions (Duplicate, Archive, Restart main chat, Clear
+// its pinboard and browser, and its own actions (Duplicate, Archive, Restart main chat, Clear
 // attachments), which open the agent's settings and the dialog behind the action.
 import { agentLifecycleCopy } from "../lib/i18n/messages/agent-lifecycle.js";
 import { assistantAttachmentsCopy } from "../lib/i18n/messages/assistant-attachments.js";
@@ -11,7 +11,7 @@ import {
   isPersonal,
   visibleAgentTabs,
 } from "../features/assistants/settings/agent-settings-fields.js";
-import { pinboardEntry } from "./agent-chat-entries.js";
+import { browserEntry, pinboardEntry } from "./agent-chat-entries.js";
 import { alias, bilingual, join, text } from "./search-labels.js";
 
 // An agent's tabs and the old tab names that lead to them.
@@ -98,6 +98,8 @@ export function agentEntries(agents) {
       });
     const pinboard = pinboardEntry(agent, name, root, { bilingual, join, named });
     if (pinboard) entries.push(pinboard);
+    const browser = browserEntry(agent, name, root, { bilingual, join, named });
+    if (browser) entries.push(browser);
     for (const page of Object.keys(pageKeys)) {
       if (!tabs.includes(pageTabs[page]) || !agentPageAllowed(agent, page)) continue;
       entries.push({

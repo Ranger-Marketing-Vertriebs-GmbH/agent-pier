@@ -10,7 +10,8 @@ import "./agent-browser.css";
  * and the browser's state, and the takeover: while the viewer holds control the
  * agent's browser calls wait (browser-takeover.js). The owner's page and a user's
  * (UserBrowserPage.jsx) share it; the server decides who may watch and drive.
- * `takeover` takes over as soon as the picture is live; `onControl(mine)` reports it.
+ * `takeover` takes over as soon as the picture is live, and starts a stopped browser
+ * first (an agent's take-over request, AGENTPIER-434); `onControl(mine)` reports it.
  * A view-only viewer (the owner on a user's own agent, under her opt-in) only watches:
  * no takeover, start, stop, tab choice or follow.
  */
@@ -26,6 +27,7 @@ export default function AgentBrowserView({
   const viewOnly = state.viewOnly === true;
   const control = state.control || { held: false, mine: false };
   const asked = useRef(false);
+  const started = useRef(false);
   const handBackButton = useRef(null);
   useEffect(() => {
     if (takeover && !viewOnly && !asked.current && status === "live" && !control.held) {
@@ -33,6 +35,12 @@ export default function AgentBrowserView({
       take();
     }
   }, [takeover, viewOnly, status, control.held, take]);
+  useEffect(() => {
+    if (takeover && !viewOnly && !started.current && status === "stopped") {
+      started.current = true;
+      start();
+    }
+  }, [takeover, viewOnly, status, start]);
   const mine = control.mine;
   useEffect(() => {
     onControl?.(mine);

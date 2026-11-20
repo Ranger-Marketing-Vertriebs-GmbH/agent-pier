@@ -13,6 +13,7 @@ import { formatChatTime } from "../../lib/i18n/index.js";
 import ChatTime from "./ChatTime.jsx";
 import { remarkMemberMentions } from "./mention-markdown.js";
 import RouteLink from "./RouteLink.jsx";
+import { takeoverMarkdown } from "./browser/TakeoverLink.jsx";
 import "./member-mentions.css";
 
 // Memoized so a streamed delta re-parses only the streaming message, not the history.
@@ -28,7 +29,8 @@ import "./member-mentions.css";
 // A message the history could not load whole (`cut`), or has not loaded whole yet
 // (`partial`), ends with a short note. A file the agent shared (`shared`) shows its
 // caption as the text; one no longer stored (`unavailable`) says so, and
-// `removeShared(file)` lets the owner delete it.
+// `removeShared(file)` lets the owner delete it. An agent's take-over link
+// (`takeover`: `{ assistantId, navigate }`) is a button to its browser, taking over.
 export default memo(function AssistantMessage({
   role,
   name,
@@ -46,6 +48,7 @@ export default memo(function AssistantMessage({
   shared = false,
   unavailable = false,
   removeShared = null,
+  takeover = null,
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
@@ -57,6 +60,7 @@ export default memo(function AssistantMessage({
     !forwarded &&
     (!source || (source === "telegram" && sender?.kind === "owner"));
   const chips = owner && mentions?.members.length ? mentions : null;
+  const agent = role === "assistant";
   const markdown = useMemo(
     () =>
       chips
@@ -64,8 +68,10 @@ export default memo(function AssistantMessage({
             plugins: [remarkMemberMentions(chips.members)],
             components: { "member-mention": mentionChip(chips) },
           }
-        : {},
-    [chips],
+        : agent
+          ? takeoverMarkdown(takeover)
+          : {},
+    [chips, agent, takeover],
   );
   const marked = role === "user" && (source === "telegram" || lead || session);
   const message = (

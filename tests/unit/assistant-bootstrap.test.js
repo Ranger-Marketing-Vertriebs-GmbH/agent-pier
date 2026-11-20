@@ -205,6 +205,17 @@ test("an agent with the browser learns to stage a file before uploading it", () 
   assert.match(text, /Pass the uploadPath it returns unchanged/);
 });
 
+test("an owner's agent with the browser asks for sign-ins with the take-over link", () => {
+  assert.doesNotMatch(assistantBootstrap(assistant, {}), /## Browser sign-ins/);
+  const browser = { ...assistant, capabilities: { browser: true } };
+  const text = assistantBootstrap(browser, {});
+  assert.match(text, /## Browser sign-ins/);
+  assert.match(text, /\[Take over my browser\]\(agentpier:browser-takeover\)/);
+  // An agent of users: the link leads to the owner's page, so it learns nothing of it.
+  const users = assistantBootstrap({ ...browser, userAccess: { users: [] } }, {});
+  assert.doesNotMatch(users, /agentpier:browser-takeover/);
+});
+
 test("an agent with coding session projects learns the session pattern", () => {
   const codingSessions = [
     { projectId: "p1", name: "Shop" },
