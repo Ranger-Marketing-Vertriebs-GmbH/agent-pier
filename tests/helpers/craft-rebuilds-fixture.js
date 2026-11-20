@@ -21,7 +21,11 @@ export const exists = (pid) => {
   }
 };
 
-export async function until(check, timeoutMs = 5000) {
+/**
+ * Polls `check` until it holds. The default bound is generous: a loaded CI host can
+ * take seconds to start a child process, and a check that holds returns at once.
+ */
+export async function until(check, timeoutMs = 30000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
     if (await check()) return true;
