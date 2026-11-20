@@ -205,6 +205,8 @@ its hint links straight to that model's context field
   tests your first deployment and never a base model; without a deployment the test asks
   for one and probes nothing.
 
+**Remove all detected models** below the table clears a long detected list (an Azure resource lists hundreds of base models) in one step and keeps the models you added by hand.
+
 Model changes inside a running endpoint session require a reload.
 
 **Agents.** Agents (OpenClaw) do not use the CLI routes or the adapter. A connection

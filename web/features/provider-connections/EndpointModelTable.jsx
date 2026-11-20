@@ -8,6 +8,7 @@ import {
   modelProblem,
   setModelImages,
   validModelId,
+  withoutModels,
 } from "./endpoint-draft.js";
 
 const tokens = (value) => (value === "" ? null : Number(value));
@@ -33,6 +34,7 @@ export default function EndpointModelTable({
         model.modelId === modelId ? { ...model, ...values, contextEdited: true } : model,
       ),
     }));
+  const detected = draft.models.filter((model) => model.source === "detected").length;
   const trimmed = newId.trim();
   const canAdd =
     validModelId(trimmed) && !draft.models.some((m) => m.modelId === trimmed);
@@ -162,12 +164,12 @@ export default function EndpointModelTable({
                         className="button secondary"
                         aria-label={copy.removeModel(model.modelId)}
                         onClick={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            models: current.models.filter(
-                              (item) => item.modelId !== model.modelId,
+                          setDraft((current) =>
+                            withoutModels(
+                              current,
+                              (item) => item.modelId === model.modelId,
                             ),
-                          }))
+                          )
                         }
                       >
                         ×
@@ -184,6 +186,21 @@ export default function EndpointModelTable({
         <p id="endpoint-images-help" className="field-description">
           {copy.imagesHelp}
         </p>
+      )}
+      {detected > 0 && (
+        // A long detected list (an Azure resource lists hundreds) goes in one step;
+        // manual models stay.
+        <button
+          type="button"
+          className="button secondary compact"
+          onClick={() =>
+            setDraft((current) =>
+              withoutModels(current, (model) => model.source === "detected"),
+            )
+          }
+        >
+          {copy.removeDetected(detected)}
+        </button>
       )}
       <div className="endpoint-add-model">
         <input

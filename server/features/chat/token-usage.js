@@ -197,7 +197,10 @@ export function codexTotals(usage, source, observedAt) {
 /** OpenCode session row: reasoning and both cache counts are separate, so all add up. */
 export function openCodeTotals(row, observedAt = null) {
   const value = object(row);
-  const amount = usd(value.cost);
+  // OpenCode counts 0 for a model without a configured price (a provider connection's
+  // models): after tokens were used, 0 means "price unknown", not free.
+  const used = [value.tokens_input, value.tokens_output].some((n) => Number(n) > 0);
+  const amount = value.cost === 0 && used ? null : usd(value.cost);
   return totalsValue({
     inputTokens: value.tokens_input,
     outputTokens: value.tokens_output,

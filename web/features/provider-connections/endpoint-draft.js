@@ -386,3 +386,13 @@ export function endpointPayload(draft) {
     thinkTagExtraction: draft.thinkTagExtraction,
   };
 }
+
+/**
+ * The draft without the models `remove` picks. The note that detected models were left
+ * out at the limit no longer applies once the owner removed models himself.
+ */
+export const withoutModels = (draft, remove) => ({
+  ...draft,
+  models: draft.models.filter((model) => !remove(model)),
+  modelsTruncated: false,
+});
