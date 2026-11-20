@@ -100,6 +100,9 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
     take: ({ move = false } = {}) =>
       send({ type: "take", ...(move ? { move: true } : {}) }),
     handBack: () => send({ type: "handBack" }),
+    // The takeover's browser toolbar (browser-navigation.js on the server).
+    navigate: (command) => send({ type: "navigate", ...command }),
+    tab: (command) => send({ type: "tab", ...command }),
     input,
   };
 }

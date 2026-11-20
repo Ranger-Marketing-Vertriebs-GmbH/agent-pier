@@ -816,8 +816,12 @@ the Chromium if it does not run, and refuse with the OpenClaw guard's reasons (t
 owner holds the browser, three visible browsers are in use, the browser is off). The
 idle stop after 15 minutes, the owner's start and stop, the live view and takeover work
 as on OpenClaw: the browser sub-port speaks the part of OpenClaw's browser control API
-they use (`GET /`, `POST /start`, `POST /stop`, `GET /tabs`, `POST /screencast`), and
-its screencast relays CDP's `Page.startScreencast` frames in OpenClaw's frame format.
+they use (`GET /`, `POST /start`, `POST /stop`, `GET /tabs`, `POST /screencast`, and
+for the takeover's browser toolbar `POST /navigate`, `POST /tabs/focus` and
+`DELETE /tabs/<targetId>` in `hermes-browser-control.js`), and its screencast relays
+CDP's `Page.startScreencast` frames in OpenClaw's frame format. An address the owner
+opens there passes AgentPier's private-network check first; cloud metadata addresses
+stay blocked even with private networks allowed, as for Hermes's own tools.
 The browser stops with the agent's process set.
 
 Navigation policy: with **Allow private networks for all agent browsers** off, Hermes

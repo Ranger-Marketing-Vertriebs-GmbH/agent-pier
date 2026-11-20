@@ -2647,8 +2647,13 @@ same socket carries the takeover's input ([Takeover](#takeover)).
   forwards OpenClaw's binary frames unchanged (a four-byte header length, a JSON
   header, the JPEG); the chat header's preview asks for one frame a second
   (`?preview=1`). A viewer that cannot keep up loses frames instead of queuing them.
-  Viewers send `select`, `follow`, `start` and `stop`; anything else, and any binary
-  message, closes the socket.
+  Viewers send `select`, `follow`, `start` and `stop`, and while holding control the
+  takeover's input and toolbar commands ([Takeover](#takeover)); anything else, and
+  any binary message, closes the socket.
+- The page address, title and tab list reach the page in these state messages as the
+  server learns them: the screencast's `ready` and `meta` messages carry the address
+  of the shown tab as it changes, and the stream's refresh (every three seconds, and
+  at once after a toolbar command) lists the tabs. The page never polls.
 - Frames are never stored on disk or logged. The server keeps each stream's newest
   frame in memory and sends it to a viewer who joins, because the screencast sends a
   frame only when the page repaints (and once when it starts); a dropped upstream
@@ -2718,6 +2723,39 @@ sign in, solve a check or search, and **Hand back** returns it.
   the field alone. **Keyboard** under the picture (phones) focuses it explicitly. Shift+Escape leaves the browser and focuses **Hand back**; every other key
   goes to the page.
 - While the owner holds the browser, a tab it opens (an OAuth popup) is shown at once.
+- The browser toolbar above the picture (`BrowserToolbar.jsx`) shows the address and,
+  with more than one tab, a tab switcher; it is read-only while the viewer only
+  watches (the switcher then only picks the shown tab, `select`). The holder's
+  commands travel on the live-view socket and are refused for anyone else
+  (`NOT_HOLDER`, `VIEW_ONLY`); they share the input's rate limit, run one after another
+  (`browser-takeover.js`) and none runs once the lease ended or moved:
+  - `{ type: "navigate", action: "go", url }`: the typed text becomes an http(s)
+    address (`https://` when it names no scheme; javascript:, file:, data:, chrome:,
+    credentials in the address and spaces are refused, `browser-navigation.js`). It
+    passes the agent browser's network rule first: unless the owner enabled
+    **Allow private networks for all agent browsers**, a loopback, private,
+    link-local (cloud metadata), shared or unspecified address, a `localhost` name or
+    a name that resolves to any such address is refused (`NAVIGATION_BLOCKED`). It is
+    then opened through the runtime's own `POST /navigate` on the agent's profile with
+    the shown tab's `targetId`: OpenClaw applies the same navigation policy
+    (`ssrfPolicy`) to it as to the agent's own navigation, and its refusal is
+    reported as blocked too. A Hermes agent's browser answers that route itself
+    (`hermes-browser-control.js`, CDP `Page.navigate` on the tab's loopback socket).
+  - `{ type: "navigate", action: "back" | "forward" | "reload" | "stop" }`: raw CDP
+    calls to the shown tab over the takeover's channel (`CdpInput`): `Page.reload`,
+    `Page.stopLoading`, and for back and forward `Page.getNavigationHistory`, then
+    `Page.navigateToHistoryEntry` with the neighbouring entry, whose address passes
+    the same network rule first. OpenClaw 2026.11.3's browser control API has no
+    history routes.
+  - `{ type: "tab", action: "switch" | "close", targetId }` for a tab of the listed
+    ones: `switch` calls `POST /tabs/focus`, so the agent continues there, and shows
+    that tab (as `select`); `close` calls `DELETE /tabs/<targetId>?targetIdMode=raw`.
+    A Hermes browser uses its DevTools `/json/activate` and `/json/close`.
+    Errors come back as `{ type: "error", code }` with `INVALID_NAVIGATION`,
+    `NAVIGATION_BLOCKED`, `NAVIGATION_FAILED` or `NO_TARGET`. The toolbar never reads
+    the agent's cookies, storage or credentials: it only opens addresses and switches
+    tabs. On a phone its icon buttons keep 44px targets and the address field takes
+    its own row, so it fits at 320px.
 - Not in the picture: the browser's own windows (file pickers, HTTP sign-in dialogs,
   permission prompts) and open drop-down lists, which Chromium draws outside the
   page. A focused drop-down list follows the arrow keys and Enter. HTML drag and drop

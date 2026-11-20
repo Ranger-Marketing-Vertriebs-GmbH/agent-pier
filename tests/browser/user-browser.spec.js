@@ -45,6 +45,7 @@ const family = userAgent({ id: "family", name: "Family", shared: true });
 const languages = {
   de: {
     takeOver: "Übernehmen",
+    address: "Adresse",
     mine: /Du steuerst den Browser/,
     unavailable: /arbeitet gerade für jemand anderen/,
     idle: /Gerade nutzt niemand den Browser/,
@@ -54,6 +55,7 @@ const languages = {
   },
   en: {
     takeOver: "Take over",
+    address: "Address",
     mine: /You control the browser/,
     unavailable: /working for someone else right now/,
     idle: /Nobody is using this agent's browser right now/,
@@ -72,9 +74,7 @@ for (const [language, copy] of Object.entries(languages))
       });
       const commands = await stream(page);
       await page.goto(baseURL + "/agents/family/browser");
-      await expect(
-        page.getByText("https://shop.example/", { exact: true }),
-      ).toBeVisible();
+      await expect(page.getByLabel(copy.address)).toHaveValue("https://shop.example/");
       await page.getByRole("button", { name: copy.takeOver, exact: true }).click();
       await expect(page.getByText(copy.mine)).toBeVisible();
       expect(commands).toContainEqual({ type: "take" });
