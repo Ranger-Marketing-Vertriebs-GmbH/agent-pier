@@ -39,6 +39,9 @@ export const copy = {
     removed: "Session removed",
     removeStale: "Remove from view",
     removePane: (name) => `Remove ${name} from the view`,
+    paneMenu: (name) => `More for ${name}`,
+    removeSession: "Remove session",
+    removeNow: "Remove now",
     nameLabel: "View name",
     notFound: "Page not found",
     narrowNote: /Panes side by side need a window wider than 1150 px/,
@@ -55,6 +58,9 @@ export const copy = {
     removed: "Session entfernt",
     removeStale: "Aus der Ansicht nehmen",
     removePane: (name) => `${name} aus der Ansicht nehmen`,
+    paneMenu: (name) => `Mehr zu ${name}`,
+    removeSession: "Session entfernen",
+    removeNow: "Jetzt entfernen",
     nameLabel: "Name der Ansicht",
     notFound: "Seite nicht gefunden",
     narrowNote: /Mehrere Bereiche nebeneinander gibt es ab 1151 px/,
@@ -129,8 +135,8 @@ function explorerAnswer(session, rest, url) {
 /**
  * Mocks the app for a split view (`views` replaces the one default view); returns the
  * controls: `views` (the stored list; `POST /api/views` adds to it, refused from 30),
- * `writes` ({ method, id?, body } per view write), `sessionPosts` (POST paths under
- * /api/sessions), `presence` (REST presence reports) and `sessions` (shown in
+ * `writes` ({ method, id?, body } per view write), `sessionPosts` and `sessionDeletes`
+ * (POST and DELETE paths under /api/sessions), `presence` (REST presence reports) and `sessions` (shown in
  * /api/state; replace it to drop a session) and `agents` (the agents fixture's state;
  * `chat` overrides its options).
  */
@@ -160,6 +166,7 @@ export async function splitViewFixture(
     created: 0,
     writes: [],
     sessionPosts: [],
+    sessionDeletes: [],
     presence: [],
     sessions: [sessions.s1, sessions.s2],
     pushDevices: 0,
@@ -248,6 +255,7 @@ export async function splitViewFixture(
     const session = /^\/api\/sessions\/([^/]+)(\/.*)?$/.exec(path);
     if (session) {
       if (method === "POST") controls.sessionPosts.push(path);
+      if (method === "DELETE") controls.sessionDeletes.push(path);
       const rest = session[2] || "";
       if (rest === "/chat")
         return route.fulfill({

@@ -498,6 +498,7 @@ function Application() {
             update,
             page,
             select,
+            route,
           }}
         />
         <FileNavigationGuardDialog guard={fileNavigationGuard} />

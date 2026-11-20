@@ -6,6 +6,7 @@ import { names, utilityPages } from "../lib/providers.js";
 import Modal from "../components/Modal.jsx";
 import AsyncForm from "../components/AsyncForm.jsx";
 import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
+import { leavesAfterRemoval } from "./removed-session.js";
 import { forgetCachedChat } from "../features/chat/chat-session-cache.js";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
 import ReaDialog from "../features/tools/ReaDialog.jsx";
@@ -22,6 +23,7 @@ export default function AppDialogs({
   update,
   page,
   select,
+  route,
 }) {
   return (
     <>
@@ -114,7 +116,8 @@ export default function AppDialogs({
                 if (modal.type === "remove") {
                   await api(`/sessions/${item.id}`, "DELETE");
                   forgetCachedChat(item.id);
-                  select(null);
+                  // A split view or another page stays; only the session page leaves.
+                  if (leavesAfterRemoval(route, item.id)) select(null);
                 }
                 if (modal.type === "removeTool")
                   await api(`/tools/${encodeURIComponent(item.tool)}`, "DELETE");
