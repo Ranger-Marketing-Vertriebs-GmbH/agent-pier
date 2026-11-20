@@ -45,6 +45,10 @@ serviceWorkerTest(
         "/pwa-maskable-512.png",
       ].sort(),
     );
+    // The kept app shell is checked in offline-reopen.spec.js; without one, the
+    // anonymous offline page opens.
+    expect(await page.evaluate(() => caches.has("agentpier-shell-v1"))).toBe(true);
+    await page.evaluate(() => caches.delete("agentpier-shell-v1"));
     await page.route("**/api/**", (route) => route.abort("internetdisconnected"));
     await context.setOffline(true);
     await page.goto(baseURL + "/sessions/private-id/chat");

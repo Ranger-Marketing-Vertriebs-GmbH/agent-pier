@@ -6,6 +6,7 @@ import api from "../lib/api.js";
 import useLiveTopic from "../lib/live/useLiveTopic.js";
 import { workspaceStateView } from "./workspace-state-view.js";
 import { createRefreshRetry } from "./refresh-retry.js";
+import { readWorkspaceState, saveWorkspaceState } from "./workspace-state-cache.js";
 
 const empty = {
   tools: [],
@@ -65,8 +66,17 @@ export default function useWorkspaceState() {
     if (Array.isArray(data?.sessions))
       retainCachedChats(new Set(data.sessions.map(chatCacheKey)));
   }, [data]);
+  // The state kept on this device (workspace-state-cache.js): written at most once a
+  // second after a change, shown while AgentPier cannot be read and nothing came yet.
+  const [kept] = useState(readWorkspaceState);
+  useEffect(() => {
+    if (!data) return;
+    const timer = setTimeout(() => saveWorkspaceState(data), 1000);
+    return () => clearTimeout(timer);
+  }, [data]);
+  const shown = data || (failure ? kept : null);
   return {
-    state: data || empty,
+    state: shown || empty,
     loading,
     // An unreachable AgentPier says so on its own (reach-server.js).
     error: !failure
@@ -74,7 +84,7 @@ export default function useWorkspaceState() {
       : failure === apiCopy.unreachable
         ? failure
         : copy.serviceConnectionError(failure),
-    ready: Boolean(data),
+    ready: Boolean(shown),
     refresh,
   };
 }

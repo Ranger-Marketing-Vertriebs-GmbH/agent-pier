@@ -13,6 +13,18 @@ const PUBLIC_PATHS = [
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(PUBLIC_CACHE).then((cache) => cache.addAll(PUBLIC_PATHS)));
 });
+// The app shell for reopening the installed app without AgentPier: the last app
+// document a navigation got (index.html, the same for every person and free of data)
+// and the content-hashed files under /assets that pages of its build loaded. Navigations
+// always ask the network first, so a new build replaces the shell as soon as AgentPier
+// answers, and a shell of another build drops the assets of the old one. Only without
+// an answer does the kept shell open; without one, offline.html does.
+const SHELL_CACHE = "agentpier-shell-v1";
+const ASSET_CACHE = "agentpier-assets-v1";
+const SHELL_KEY = "/.agentpier-shell";
+const BUILD_KEY = "/.agentpier-shell-build";
+const HASHED_ASSET =
+  /^\/assets\/(?:startup-[a-f0-9]{12}|[^/]+-[A-Za-z0-9_-]{8})\.[a-z0-9]+$/;
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -21,13 +33,42 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           names
             .filter(
-              (name) => name.startsWith("agentpier-public-") && name !== PUBLIC_CACHE,
+              (name) =>
+                (name.startsWith("agentpier-public-") && name !== PUBLIC_CACHE) ||
+                (name.startsWith("agentpier-shell-") && name !== SHELL_CACHE) ||
+                (name.startsWith("agentpier-assets-") && name !== ASSET_CACHE),
             )
             .map((name) => caches.delete(name)),
         ),
       ),
   );
 });
+// Keeps an app document the server sent for a known page (200, HTML, with its build).
+async function keepShell(response) {
+  const build = response.headers.get("X-AgentPier-Build");
+  const type = response.headers.get("Content-Type") || "";
+  if (response.status !== 200 || !build || !type.includes("text/html")) return;
+  const cache = await caches.open(SHELL_CACHE);
+  const kept = await (await cache.match(BUILD_KEY))?.text();
+  if (kept !== build) await caches.delete(ASSET_CACHE);
+  await cache.put(SHELL_KEY, response);
+  await cache.put(BUILD_KEY, new Response(build));
+}
+// A page of the app (no file name, nothing under /assets) opens the kept shell.
+async function offlineDocument(url) {
+  const page = !/\.[^/]+$/.test(url.pathname) && !url.pathname.startsWith("/assets/");
+  const shell = page && (await (await caches.open(SHELL_CACHE)).match(SHELL_KEY));
+  return shell || (await caches.open(PUBLIC_CACHE)).match("/offline.html");
+}
+async function hashedAsset(request, event) {
+  const cache = await caches.open(ASSET_CACHE);
+  const kept = await cache.match(request, { ignoreVary: true });
+  if (kept) return kept;
+  const response = await fetch(request);
+  if (response.status === 200)
+    event.waitUntil(cache.put(request, response.clone()).catch(() => {}));
+  return response;
+}
 self.addEventListener("fetch", (event) => {
   const request = event.request,
     url = new URL(request.url);
@@ -40,10 +81,16 @@ self.addEventListener("fetch", (event) => {
     return;
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() =>
-        caches.open(PUBLIC_CACHE).then((cache) => cache.match("/offline.html")),
+      fetch(request).then(
+        (response) => {
+          event.waitUntil(keepShell(response.clone()).catch(() => {}));
+          return response;
+        },
+        () => offlineDocument(url),
       ),
     );
+  } else if (HASHED_ASSET.test(url.pathname) && !url.search) {
+    event.respondWith(hashedAsset(request, event));
   } else if (PUBLIC_PATHS.includes(url.pathname) && !url.search) {
     event.respondWith(
       caches
