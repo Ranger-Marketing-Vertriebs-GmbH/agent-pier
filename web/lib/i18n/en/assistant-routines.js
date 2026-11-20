@@ -80,5 +80,6 @@ export const routineCopy = {
   history: "Run history",
   hideHistory: "Hide run history",
   noRuns: "No runs yet.",
+  resultInChat: "The whole result is in the chat’s events.",
   runOk: "Completed",
 };

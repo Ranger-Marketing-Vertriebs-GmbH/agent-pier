@@ -184,8 +184,10 @@ export default function AssistantRuntimeUpdates({ onChange, navigate }) {
             >
               {copy.updates.stage}
             </button>
+            {/* The filled look only while it can be activated; a disabled one is
+                not the page's main action (AGENTPIER-440). */}
             <button
-              className="button primary"
+              className={`button ${activatable && !blocked ? "primary" : "secondary"}`}
               disabled={blocked || !activatable}
               onClick={() => operate("activate")}
             >

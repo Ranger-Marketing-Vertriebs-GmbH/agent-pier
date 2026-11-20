@@ -93,6 +93,9 @@ export default function AgentRunState({
 }) {
   const running = Boolean(active && !uncertain);
   const view = running && !compacting ? steps : null;
+  // A finished turn keeps its steps, collapsed under its state (AGENTPIER-440 U8).
+  const finished = !view && !compacting && steps?.ended ? steps : null;
+  const listed = view || finished;
   // Re-renders while it runs; a new frame re-renders at once, so read the clock here.
   useNow(Boolean(view));
   const stalled = stalledMinutes(view, Date.now());
@@ -122,14 +125,16 @@ export default function AgentRunState({
                 : assistantCopy.status[shownAttempt.state]}
         </p>
       )}
-      {view && view.steps.length > 0 && (
+      {listed && listed.steps.length > 0 && (
         <details className="assistant-run-steps">
-          <summary>{copy.stepCount(view.steps.length + view.omitted)}</summary>
+          <summary>{copy.stepCount(listed.steps.length + listed.omitted)}</summary>
           <ol aria-label={copy.steps}>
-            {view.omitted > 0 && (
-              <li className="assistant-run-step omitted">{copy.earlier(view.omitted)}</li>
+            {listed.omitted > 0 && (
+              <li className="assistant-run-step omitted">
+                {copy.earlier(listed.omitted)}
+              </li>
             )}
-            {view.steps.map((step) =>
+            {listed.steps.map((step) =>
               step.kind === "advisor" ? (
                 <AdvisorStep key={step.id} step={step} />
               ) : (

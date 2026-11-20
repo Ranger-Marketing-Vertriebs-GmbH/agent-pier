@@ -48,6 +48,15 @@ export class RoutineResults {
       .get(bindingId);
     return row ? JSON.parse(row.body) : null;
   }
+  /** The recorded runs of one routine or reminder, newest first (its run history). */
+  forBinding(bindingId, limit = 50) {
+    return this.db
+      .prepare(
+        "SELECT body FROM assistant_routine_results WHERE json_extract(body, '$.bindingId')=? ORDER BY rowid DESC LIMIT ?",
+      )
+      .all(bindingId, limit)
+      .map((row) => JSON.parse(row.body));
+  }
   forConversation(conversationId) {
     return this.db
       .prepare(
@@ -126,4 +135,41 @@ const warnings = {
 /** The readable warnings of a routine's last recorded run; none without notes. */
 export function runWarnings(result) {
   return (result?.notes || []).map((note) => warnings[note]).filter(Boolean);
+}
+
+// A run history entry shows this much of its result; the chat has the whole text.
+const resultPreview = 280;
+// A recorded result belongs to the run it falls into: from shortly before the run's
+// start (the clocks of the runtime's log and its completion differ) to a little after
+// its end, as the runtimes stamp the completion with either time.
+const before = 5000;
+const after = 120000;
+
+/**
+ * The run history `entries` (routine-failures.js runEntry, any order) with what each
+ * successful run delivered: `result`, the start of its text as `recorded` (newest
+ * first, RoutineResults#forBinding) holds it, `resultCut` when it goes on. Each
+ * recorded result goes to the nearest run it falls into, once.
+ */
+export function withRunResults(entries, recorded) {
+  const free = recorded.filter(
+    (r) => r.status === "ok" && typeof r.text === "string" && r.text.trim(),
+  );
+  return entries.map((entry) => {
+    if (entry.status !== "ok" || !Number.isSafeInteger(entry.runAtMs)) return entry;
+    const end =
+      entry.runAtMs + (Number.isFinite(entry.durationMs) ? entry.durationMs : 0);
+    let best = -1;
+    free.forEach((r, index) => {
+      if (r.runAtMs < entry.runAtMs - before || r.runAtMs > end + after) return;
+      const gap = Math.abs(r.runAtMs - entry.runAtMs);
+      if (best < 0 || gap < Math.abs(free[best].runAtMs - entry.runAtMs)) best = index;
+    });
+    if (best < 0) return entry;
+    const [match] = free.splice(best, 1);
+    const text = turnText(match.text);
+    return text.length > resultPreview
+      ? { ...entry, result: `${text.slice(0, resultPreview - 1)}…`, resultCut: true }
+      : { ...entry, result: text };
+  });
 }

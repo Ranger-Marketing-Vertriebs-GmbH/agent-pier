@@ -709,6 +709,10 @@ installation and updates. The owner opts in with **Offer Hermes Agent** under
 **Agents › Runtime › Hermes Agent**, `--with-hermes` or
 `PUT /api/assistant-runtime/hermes {"enabled": true}`; the opt-in is `hermes.enabled` in `<data>/assistants/settings.json`, beside the
 runtime switch. Enabling starts the installation in the background and then the Hermes agents;
+while it runs, the install state's `installStep` (`{ step, index, of }`: `download`,
+`python`, `packages`, `check`, `tools`, from `hermes-install.js` `HERMES_INSTALL_STEPS`)
+names the step, which the **State** row shows as "step 3 of 5, installing the Python
+packages (about 540 MB)", sampled every 3 s by the `runtimes` live topic;
 disabling stops their process sets and keeps the installation for the next opt-in.
 When this AgentPier pins a newer release than the installed one, the group shows
 **Update** (`POST /api/assistant-runtime/hermes/update`): the new release is installed

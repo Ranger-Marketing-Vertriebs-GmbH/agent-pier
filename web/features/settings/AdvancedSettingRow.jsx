@@ -123,7 +123,11 @@ export default function AdvancedSettingRow({
                   className={`list-row-pill advanced-setting-badge${restart ? "" : " live"}`}
                   title={restart ? copy.restartLabel : copy.liveLabel}
                 >
-                  {restart ? copy.restart : copy.live}
+                  {restart
+                    ? copy.restart
+                    : scope.name
+                      ? copy.liveFor(scope.name)
+                      : copy.live}
                 </span>
               )}
               {scope.pills.map((pill) => {

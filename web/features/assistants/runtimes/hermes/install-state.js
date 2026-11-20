@@ -39,3 +39,21 @@ export function hermesStatus(state) {
 /** The error text of `code` from `errors`, or `fallback(code)` for an unknown code. */
 export const hermesErrorText = (code, errors, fallback) =>
   Object.hasOwn(errors, code) ? errors[code] : fallback(code);
+
+const installSteps = new Set(["download", "python", "packages", "check", "tools"]);
+
+/**
+ * The running installation's step (`installStep`: `{ step, index, of }`, server
+ * hermes-provisioning.js), or null while none runs or the state names none.
+ */
+export function hermesInstallStep(state) {
+  const at = state?.installing === true ? state.installStep : null;
+  if (!at || !installSteps.has(at.step)) return null;
+  const { index, of } = at;
+  return Number.isSafeInteger(index) &&
+    Number.isSafeInteger(of) &&
+    index >= 1 &&
+    index <= of
+    ? { step: at.step, index, of }
+    : null;
+}

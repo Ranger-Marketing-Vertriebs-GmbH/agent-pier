@@ -84,5 +84,6 @@ export const routineCopy = {
   history: "Laufverlauf",
   hideHistory: "Laufverlauf ausblenden",
   noRuns: "Noch keine Läufe.",
+  resultInChat: "Das ganze Ergebnis steht bei den Ereignissen im Chat.",
   runOk: "Abgeschlossen",
 };

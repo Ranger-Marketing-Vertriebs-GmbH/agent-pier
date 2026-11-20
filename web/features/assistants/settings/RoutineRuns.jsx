@@ -120,10 +120,22 @@ export default function RoutineRuns({ assistantId, item, busy }) {
             runtime={runtime}
           />
         ) : (
-          <p key={`${run.runAtMs}-${index}`} className="agent-row-note">
-            {formatTimestamp(run.runAtMs)} ·{" "}
-            {run.status === "ok" ? copy.runOk : copy.states.unknown}
-          </p>
+          <div key={`${run.runAtMs}-${index}`} className="routine-run">
+            <p className="agent-row-note">
+              {formatTimestamp(run.runAtMs)} ·{" "}
+              {run.status === "ok" ? copy.runOk : copy.states.unknown}
+            </p>
+            {/* What it delivered, beside "Completed" (AGENTPIER-440 U10); the
+                chat's event area holds the whole text. */}
+            {typeof run.result === "string" && run.result && (
+              <p className="routine-run-result">
+                {run.result}
+                {run.resultCut && (
+                  <span className="routine-run-result-more"> {copy.resultInChat}</span>
+                )}
+              </p>
+            )}
+          </div>
         ),
       )}
     </div>

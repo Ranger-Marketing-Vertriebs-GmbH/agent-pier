@@ -97,6 +97,16 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   await expect(page.locator("[data-access-grant='p1']")).toBeVisible();
   await next(page);
   await expect(heading(page, "Channels & routines")).toBeVisible();
+  // Check-ins are on: what they cost is in view (AGENTPIER-440 U7), 9:00 to 18:00
+  // every 30 minutes.
+  await expect(
+    page.getByText("About 18 extra model runs per day", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: "How often" }).selectOption("1h");
+  await expect(
+    page.getByText("About 9 extra model runs per day", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: "How often" }).selectOption("30m");
   await page.getByLabel("Telegram bot token").fill("123:abc");
   await page.getByRole("switch", { name: "Create a first routine" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Daily overview");
@@ -108,6 +118,9 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   await next(page);
   await expect(heading(page, "Review")).toBeVisible();
   await expect(page.getByText("1 project")).toBeVisible();
+  await expect(
+    page.getByText("Check-ins (about 18 runs a day)", { exact: false }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Create agent", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
   expect(sent.map(([name]) => name)).toEqual([

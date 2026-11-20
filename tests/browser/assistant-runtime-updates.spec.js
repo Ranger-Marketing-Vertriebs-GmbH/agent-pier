@@ -65,8 +65,15 @@ test("owner stages and activates an update, then continues recovery on mobile", 
     .filter({ has: page.getByRole("heading", { name: "OpenClaw updates" }) });
   await expect(panel.getByText("2 agents affected (+10 team members)")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Activate update" })).toBeDisabled();
+  // A disabled Activate is not the filled main action (AGENTPIER-440 U4).
+  await expect(panel.getByRole("button", { name: "Activate update" })).toHaveClass(
+    /\bsecondary\b/,
+  );
   await panel.getByRole("button", { name: "Stage update" }).click();
   await expect(panel.getByText("Staged", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Activate update" })).toHaveClass(
+    /\bprimary\b/,
+  );
   await panel.getByRole("button", { name: "Activate update" }).click();
   await expect(panel.getByText("Update complete", { exact: true })).toBeVisible();
   expect(state.actions).toEqual(["stage", "activate"]);

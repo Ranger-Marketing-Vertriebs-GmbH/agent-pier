@@ -30,7 +30,9 @@
   min-width: min(7em, 60%);
 }
 .assistant-shell-chip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -42,4 +44,32 @@
   color: var(--accent);
   font-size: 11px;
   white-space: nowrap;
+}
+.assistant-shell-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assistant-shell-chip-icon {
+  display: none;
+  flex: none;
+}
+/* Phones: a chip is its icon, so "Shell: approval" and "Browser running" are never
+   cut to "S…" and "Bro…"; the words stay for screen readers and in the title. */
+@media (max-width: 700px) {
+  .assistant-shell-chip {
+    flex: none;
+    padding: 3px 6px;
+  }
+  .assistant-shell-chip-icon {
+    display: block;
+  }
+  .assistant-shell-chip-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

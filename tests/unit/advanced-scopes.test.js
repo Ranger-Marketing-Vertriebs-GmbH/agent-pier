@@ -91,9 +91,11 @@ test("a row shows how the first runtime that takes it does, and names the others
   const data = { runtimes: [service(), second()] };
   const both = { id: "a", runtimes: { one: taken(), two: taken("restart") } };
   const alone = { id: "b", runtimes: { one: taken("restart") } };
+  // Beside a restart pill the badge names its runtime: "Immediate for One".
   assert.deepEqual(settingScope(data, both), {
     taken: both.runtimes.one,
     pills: [{ kind: "restart", name: "Two" }],
+    name: "One",
   });
   assert.deepEqual(settingScope(data, alone), {
     taken: alone.runtimes.one,
@@ -135,6 +137,7 @@ test("the notes read as before with the shipped runtimes' names, in both languag
   setLanguage("en");
   assert.equal(copy.runtimeOnly("OpenClaw"), "OpenClaw only");
   assert.equal(copy.runtimeRestart("Hermes"), "Restarts Hermes agents");
+  assert.equal(copy.liveFor("OpenClaw"), "Immediate for OpenClaw");
   assert.equal(
     copy.runtimeOnlyLabel("OpenClaw", "Hermes"),
     "Applies to OpenClaw agents only; Hermes agents keep Hermes's default",
@@ -154,6 +157,7 @@ test("the notes read as before with the shipped runtimes' names, in both languag
   setLanguage("de");
   assert.equal(copy.runtimeOnly("OpenClaw"), "Nur OpenClaw");
   assert.equal(copy.runtimeRestart("Hermes"), "Startet Hermes-Agenten neu");
+  assert.equal(copy.liveFor("OpenClaw"), "Sofort für OpenClaw");
   assert.equal(
     copy.runtimeOnlyLabel("OpenClaw", "Hermes"),
     "Gilt nur für OpenClaw-Agenten; Hermes-Agenten behalten den Standard von Hermes",

@@ -57,6 +57,7 @@ export const assistantBrowserCopy = {
   liveOpenDescription:
     "Shows the agent browser's window live, wherever it is on the screen.",
   liveStatus: {
+    starting: "Starting the browser …",
     connecting: "Connecting …",
     live: "Live",
     stopped: "The browser is not running.",
@@ -99,6 +100,7 @@ export const assistantBrowserCopy = {
   liveKeyboard: "Keyboard input for the agent browser",
   liveKeyboardButton: "Keyboard",
   liveEscape: "Shift+Escape takes you out of the browser back to “Hand back”.",
+  liveStarting: "Starting …",
   liveStart: "Start browser",
   liveStop: "Stop browser",
   liveStopTitle: "Stop the browser?",

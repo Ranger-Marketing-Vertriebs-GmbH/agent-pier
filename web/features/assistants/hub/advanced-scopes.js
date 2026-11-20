@@ -44,7 +44,8 @@ export function advancedNotes(data) {
  * takes it does (its badge and whether it can be changed), and `pills` about the
  * other runtimes that are on and have agents: one `only` (`name` agents alone take
  * it; `other` agents keep their default) when some of them lack it, and a `restart`
- * per runtime whose agents restart to take a change.
+ * per runtime whose agents restart to take a change. With a `restart` pill, `name`
+ * is the first runtime's, whose agents the badge speaks of.
  */
 export function settingScope(data, setting) {
   const runtimes = data?.runtimes || [];
@@ -60,7 +61,10 @@ export function settingScope(data, setting) {
     } else if (entry.available && entry.apply === "restart")
       pills.push({ kind: "restart", name: runtime.shortName });
   }
-  return { taken, pills };
+  // Beside a pill that restarts another runtime's agents, the badge names whose it
+  // is ("Immediate for OpenClaw"), so the row does not read as both at once.
+  const named = main && pills.some((pill) => pill.kind === "restart");
+  return { taken, pills, ...(named && { name: main.shortName }) };
 }
 
 /**

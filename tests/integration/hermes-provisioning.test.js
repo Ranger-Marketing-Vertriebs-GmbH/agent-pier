@@ -148,6 +148,29 @@ test("the Hermes switch installs in the background and reports the installation"
   assert.equal(changes, 4);
 });
 
+test("the Hermes switch reports the installation's step while it runs", async (t) => {
+  const f = hermesInstallFixture(t);
+  // The real installation reports every step, in order (AGENTPIER-440 U3).
+  const steps = [];
+  const watched = createHermesSwitch({
+    dataDir: f.dataDir,
+    install: (options) =>
+      ensureHermesRuntime({
+        ...f.options,
+        ...options,
+        onStep: (step) => {
+          steps.push(step);
+          options.onStep(step);
+        },
+      }),
+    manifest: f.manifest,
+  });
+  assert.equal((await watched.enable()).installStep, null);
+  await watched.settled();
+  assert.deepEqual(steps, ["download", "python", "packages", "check", "tools"]);
+  assert.equal(watched.state().installStep, null);
+});
+
 test("a failed Hermes installation is announced with its error", async (t) => {
   const f = hermesInstallFixture(t);
   const hermes = createHermesSwitch({

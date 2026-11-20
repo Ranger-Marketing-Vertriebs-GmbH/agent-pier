@@ -204,8 +204,20 @@ export const hasAgentBrowser = (directory, manifest = hermesManifest) =>
   readJSON(path.join(hermesExecutables(directory).tools, "agent-browser.json"), null)
     ?.sha256 === manifest.agentBrowser.sha256;
 
+// The steps of a fresh installation in order, as `onStep` reports them (the owner's
+// install state shows "Step n of 5"): the downloads, Python, the Python packages
+// (the bulk of its ~540 MB), the identity check and the browser and PDF tools.
+export const HERMES_INSTALL_STEPS = Object.freeze([
+  "download",
+  "python",
+  "packages",
+  "check",
+  "tools",
+]);
+
 async function install({
   dataDir,
+  onStep = () => {},
   platform = process.platform,
   arch = process.arch,
   download = downloadFile,
@@ -279,6 +291,7 @@ async function install({
     });
   try {
     privateFolder(directory);
+    onStep("download");
     const uvBytes = await download(uvArchiveUrl(manifest, target));
     sha256(uvBytes, manifest.uvChecksums[target]);
     const sourceBytes = await download(manifest.archiveUrl);
@@ -312,7 +325,9 @@ async function install({
     }
     if (!String((await run(uv, ["--version"])).stdout).includes(manifest.uvVersion))
       throw failure("HERMES_INSTALLER_MISMATCH");
+    onStep("python");
     await run(uv, ["python", "install", "--no-bin", manifest.pythonVersion]);
+    onStep("packages");
     await run(
       uv,
       [
@@ -327,7 +342,9 @@ async function install({
     );
     executable(record.pythonPath);
     executable(record.hermesPath);
+    onStep("check");
     await hermesIdentityCheck(record, { scratch, execute, manifest });
+    onStep("tools");
     await installAgentBrowser(directory, { manifest, target, download, run, scratch });
     await installPdfium(directory, { manifest, target, download, run, scratch });
     writePrivate(receiptFile, {
