@@ -279,3 +279,24 @@ test("an unreachable server reads as such, not as a bare 'Not tested'", async ({
     "The server could not be reached",
   );
 });
+
+test("detected models go in one step and manual ones stay", async ({ page }) => {
+  await fixture(page);
+  await page.goto(baseURL + "/connections?section=models");
+  await page
+    .getByRole("button", { name: "Add provider connection", exact: true })
+    .click();
+  const dialog = accountDetail(page);
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(dialog.getByLabel("Context llama3:8b", { exact: true })).toBeVisible();
+  await dialog.getByLabel("Model ID", { exact: true }).fill("my-model");
+  await dialog.getByRole("button", { name: "Add model", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Remove all 2 detected models", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Context llama3:8b", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByLabel("Context my-model", { exact: true })).toBeVisible();
+});

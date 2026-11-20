@@ -154,6 +154,12 @@ test("Claude live header takes precedence over old receipts after shortcut switc
     currentModel("opencode", "┃ Build · Big Pickle OpenCode Zen"),
     "Big Pickle OpenCode Zen",
   );
+  // A thought's duration in the transcript is not the model (AGENTPIER-426).
+  assert.equal(
+    currentModel("opencode", "  ┃  Thought · 141ms\n\n  ┃ Build · gpt-6.2-sol Azure\n"),
+    "gpt-6.2-sol Azure",
+  );
+  assert.equal(currentModel("opencode", "  ┃  Thought · 1.2s\n"), null);
   assert.equal(
     currentModel("codex", "Switched to Plan mode\nSwitched to branch main"),
     null,

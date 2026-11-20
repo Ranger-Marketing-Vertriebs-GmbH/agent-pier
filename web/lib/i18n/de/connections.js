@@ -232,6 +232,10 @@ export const connectionCopy = {
     contextMissing: "Erforderlich",
     addModel: "Modell hinzufügen",
     removeModel: (id) => `${id} entfernen`,
+    removeDetected: (count) =>
+      count === 1
+        ? "Erkanntes Modell entfernen"
+        : `Alle ${count} erkannten Modelle entfernen`,
     azureHint: "Azure OpenAI: Trage deine Deployment-Namen als Modell-IDs ein.",
     noModels: "Noch keine Modelle. Teste die Verbindung oder füge ein Modell hinzu.",
     modelProblems: {

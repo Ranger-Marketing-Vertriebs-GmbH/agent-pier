@@ -3707,6 +3707,7 @@
   "connections:connectionCopy.endpoint.reasons.notFound": "de:9a32f7f41ea2 en:cc257538d703",
   "connections:connectionCopy.endpoint.reasons.timeout": "de:ef8fa255731e en:9718cc761cfd",
   "connections:connectionCopy.endpoint.reasons.tooLarge": "de:c3c6c0a88754 en:146835ea0bc8",
+  "connections:connectionCopy.endpoint.removeDetected": "de:15f9862d7bd2 en:dda063917394",
   "connections:connectionCopy.endpoint.removeModel": "de:a8e4a48b2eed en:811b40f8842a",
   "connections:connectionCopy.endpoint.routing.choiceUnavailable": "de:d760c2680055 en:f3b4bd481295",
   "connections:connectionCopy.endpoint.routing.choices.adapter": "de:0259ee1069ac en:874ab95ba6cb",

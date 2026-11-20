@@ -154,13 +154,20 @@ function promptReady(raw) {
   );
 }
 
+// A transcript line such as "Thought · 141ms" has the prompt footer's "Agent · model"
+// shape too; the footer is the last such line, and a duration is never a model.
+const duration = /^\d+(?:\.\d+)?\s*(?:ms|s|m|h)$/;
+function currentModel(raw) {
+  const found = [...plain(raw).matchAll(/┃\s+[^·\n]+·\s+([^\n┃]+)/g)]
+    .map((match) => match[1].trim())
+    .filter((value) => value && !duration.test(value));
+  return found.at(-1) || null;
+}
+
 export const modelPicker = {
   openKeys: [{ keys: ["C-x", "m"] }],
   parse: parsePicker,
-  current: (raw) =>
-    plain(raw)
-      .match(/┃\s+[^·\n]+·\s+([^\n┃]+)/)?.[1]
-      ?.trim() || null,
+  current: currentModel,
   promptReady,
   unsupported: () => false,
 };

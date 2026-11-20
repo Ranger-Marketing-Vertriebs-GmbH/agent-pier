@@ -144,6 +144,10 @@ test("OpenCode totals add reasoning and both cache counts and carry real cost", 
   assert.equal(partial.totalTokens, null);
   assert.equal(partial.outputTokens, null);
   assert.equal(partial.cost, null);
+  // No price configured: OpenCode reports 0 after real use, which is no known cost.
+  const unpriced = openCodeTotals({ cost: 0, tokens_input: 2000, tokens_output: 300 });
+  assert.equal(unpriced.cost, null);
+  assert.equal(unpriced.inputTokens, 2000);
 });
 
 test("subagent totals sum linked and workflow agents and keep prototype-like ids apart", () => {

@@ -6,7 +6,10 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
   const copy = connectionCopy.endpoint;
   const warnings = [
     ...new Set([
-      ...(result?.warnings || []),
+      // The truncation note lasts only while the draft still holds the capped list.
+      ...(result?.warnings || []).filter(
+        (warning) => warning !== "modelListTruncated" || draft.modelsTruncated,
+      ),
       ...(result && draft.modelsTruncated ? ["modelListTruncated"] : []),
     ]),
   ];
