@@ -1,5 +1,5 @@
-// Rules of the grant picker (docs/ui-guide.md#rows-and-controls), kept free of React so
-// tests/unit/grant-picker.test.js can check them directly.
+// Rules of the grant picker (docs/ui-guide.md#choosing-what-a-session-may-use), kept
+// free of React so tests/unit/grant-picker.test.js can check them directly.
 //
 // An entry is { id, name, sub?, group?, badge?, locked?, notes?, action? }: `sub` is the
 // monospace line, `group` a project or group label, `locked` marks an entry that is
@@ -25,6 +25,15 @@ export function setGrant(selected, id, on) {
 export const addGrants = (selected, ids) =>
   ids.reduce((next, id) => setGrant(next, id, true), [...selected]);
 
-/** The entries as AddPicker candidates: only id, name, sub and group. */
+/**
+ * The entries as AddPicker candidates: only id, name, sub and group. An entry without a
+ * group shows its badge there (an SSH access its SFTP marker), so the options keep it and
+ * typing it finds the entry.
+ */
 export const grantCandidates = (entries) =>
-  entries.map(({ id, name, sub, group }) => ({ id, name, sub, group }));
+  entries.map(({ id, name, sub, group, badge }) => ({
+    id,
+    name,
+    sub,
+    group: group ?? badge,
+  }));

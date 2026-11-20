@@ -1,4 +1,4 @@
-import { addGrant } from "../helpers/grant-picker.js";
+import { addGrant, grantOption } from "../helpers/grant-picker.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
@@ -320,6 +320,24 @@ test("launch selections are submitted and retained when launch fails", async ({
   expect(launches[0].sshAccessIds).toEqual(["ssh-one"]);
   await expect(accesses.getByText("Build server", { exact: true })).toBeVisible();
   expect(state.calls.filter((call) => call.method !== "GET")).toHaveLength(0);
+});
+
+test("the add field marks an SFTP access and finds it by typing sftp", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.accesses = [
+    state.access,
+    { ...state.access, id: "ssh-files", name: "File drop", type: "sftp" },
+  ];
+  await page.goto(baseURL);
+  await openNewSession(page);
+  await page.locator(".launch-extensions > summary").click();
+  const accesses = page.getByRole("group", { name: "SSH-Zugänge" });
+  const option = await grantOption(accesses, "SSH-Zugang hinzufügen", "sftp");
+  await expect(option).toHaveCount(1);
+  await expect(option).toContainText("File drop");
+  await expect(option.locator(".add-picker-meta")).toHaveText("SFTP");
 });
 
 test("creation waits for the initial list so a delayed response cannot erase the new public key", async ({
