@@ -8,6 +8,9 @@ const fields = [
   .map((selector) => `${selector}:not(:disabled)`)
   .join(", ");
 
+/** Touch screens, where a focused field would open the on-screen keyboard. */
+export const touchQuery = "(pointer: coarse), (hover: none)";
+
 function visible(element) {
   return element.getClientRects().length > 0;
 }
@@ -45,7 +48,7 @@ export default function useModalDialog() {
     dialog.showModal();
     // On touch screens a focused field opens the on-screen keyboard, so the dialog
     // itself takes focus there and fields wait for a tap.
-    const touch = window.matchMedia?.("(pointer: coarse), (hover: none)").matches;
+    const touch = window.matchMedia?.(touchQuery).matches;
     const target = touch
       ? null
       : [...dialog.querySelectorAll("[data-autofocus]")].find(

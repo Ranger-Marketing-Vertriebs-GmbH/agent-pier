@@ -112,6 +112,38 @@ test("stacked: the add field grants and the row's button removes", async ({ page
   await expect(granted).toContainText("allowed");
 });
 
+async function openDialog(page) {
+  await page.goto("/settings/components");
+  await page.getByRole("button", { name: "Open SSH accesses" }).click();
+  const dialog = page.getByRole("dialog", { name: "SSH accesses" });
+  await expect(dialog.locator(".grant-picker")).toHaveAttribute(
+    "data-arrangement",
+    "split",
+  );
+  return dialog;
+}
+
+test("dialog: autoFocus focuses the search of a picker that mounts late", async ({
+  page,
+}) => {
+  const dialog = await openDialog(page);
+  await expect(dialog).toHaveClass(/grant-dialog/);
+  await expect(
+    dialog.getByRole("searchbox", { name: "Search SSH accesses" }),
+  ).toBeFocused();
+});
+
+test.describe("touch screen", () => {
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+  test("dialog: autoFocus leaves the focus off the search field", async ({ page }) => {
+    const dialog = await openDialog(page);
+    await expect(
+      dialog.getByRole("searchbox", { name: "Search SSH accesses" }),
+    ).not.toBeFocused();
+  });
+});
+
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
