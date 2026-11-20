@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { statusView } from "../../server/features/craft/craft-mcp-tools.js";
 import { rebuildsFixture, until } from "../helpers/craft-rebuilds-fixture.js";
 
@@ -64,10 +65,16 @@ test("a busy Craft Anything is read once at a time, logged once and shown as not
   const calls = callLines(callLog, "call", before).length;
   const cancels = callLines(callLog, "cancel", before).length;
   assert.ok(calls >= 3 && cancels >= calls - 1, `${cancels} of ${calls} reads cancelled`);
-  // The page's activity read does not queue behind a busy child either.
-  const asked = Date.now();
-  await assert.rejects(f.rebuilds.activity(view.id), { status: 409 });
-  assert.ok(Date.now() - asked < 100, "refused at once");
+  // The page's activity read does not queue behind a busy child either: it is refused
+  // before any request reaches the child. A read that queued would also end in a 409,
+  // but with the read's timeout as its message, and would have used a request id.
+  const child = f.rebuilds.children.peek(view.accountId, view.mode);
+  const nextId = child.nextId;
+  await assert.rejects(f.rebuilds.activity(view.id), {
+    status: 409,
+    message: serverMessages.craft.rebuildNotAnswering,
+  });
+  assert.equal(child.nextId, nextId, "refused without a request to the child");
 
   fs.rmSync(busyFile);
   assert.ok(
