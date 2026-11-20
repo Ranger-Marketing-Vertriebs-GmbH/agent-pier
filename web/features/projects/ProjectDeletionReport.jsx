@@ -33,12 +33,9 @@ function blockerLines(blockers) {
   ];
 }
 
+// A session's processes are listed as that session among the blockers, never here.
 const knownLabel = (item) =>
-  item.known?.kind === "session"
-    ? copy.knownSession
-    : item.known?.kind === "agent-command"
-      ? copy.knownAgentCommand
-      : "";
+  item.known?.kind === "agent-command" ? copy.knownAgentCommand : "";
 
 /**
  * The preflight report in the delete dialog: a refusal, what blocks (running work

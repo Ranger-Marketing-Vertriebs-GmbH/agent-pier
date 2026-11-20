@@ -22,7 +22,6 @@ export const projectDeletionCopy = {
   blockerRebuild: (name) => `Craft-Rebuild ${name}`,
   processesTitle: "Andere Prozesse im Ordner",
   processLabel: (name, pid) => `${name} (PID ${pid})`,
-  knownSession: "Session in AgentPier",
   knownAgentCommand: "Befehl eines Agenten",
   endProcesses: "Ausgewählte beenden",
   processOther:

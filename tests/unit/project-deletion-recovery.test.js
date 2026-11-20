@@ -216,7 +216,7 @@ test("a failed session stop is not recorded as ended", async (t) => {
   };
   const report = await f.deletion.preflight(f.app);
   await f.deletion.endBlockers(
-    { path: f.app, token: report.token, processes: [{ pid: 7, startTime: "t7" }] },
+    { path: f.app, token: report.token, sessions: true },
     owner,
   );
   found.length = 0;
