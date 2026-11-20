@@ -404,3 +404,50 @@ test("the owner's other device holds control: take over here moves it", async ({
   await page.getByRole("button", { name: "Take over here" }).click();
   await expect.poll(() => commands.at(-1)).toEqual({ type: "take", move: true });
 });
+
+test.describe("phone takeover keyboard", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  // AGENTPIER-434: on an iPhone the keyboard opened and closed again at once, because
+  // the tap's click on the picture took the focus from the hidden keyboard field.
+  test("a tap keeps the keyboard field focused and typing reaches the page", async ({
+    page,
+  }) => {
+    const commands = await setup(page);
+    await page.goto(baseURL + "/agents/home/browser?takeover=1");
+    await expect(page.getByText("You control the browser.")).toBeVisible();
+    const picture = page.getByRole("img", { name: "Live view of Home's browser" });
+    const field = page.getByLabel("Keyboard input for the agent browser");
+    // Every finger lift on the picture cancels its default (the blurring click).
+    await picture.evaluate((img) => {
+      window.touchEnds = [];
+      img.addEventListener("touchend", (event) =>
+        setTimeout(() => window.touchEnds.push(event.defaultPrevented)),
+      );
+    });
+    const box = await picture.boundingBox();
+    await picture.tap({ position: { x: box.width / 2, y: box.height / 3 } });
+    await expect(field).toBeFocused();
+    await page.waitForTimeout(300);
+    await expect(field).toBeFocused();
+    // The field sits where the finger tapped, so the phone does not scroll to it.
+    const at = await field.boundingBox();
+    expect(Math.abs(at.y - (box.y + box.height / 3))).toBeLessThan(4);
+    await picture.tap({ position: { x: box.width / 4, y: box.height / 2 } });
+    await page.waitForTimeout(300);
+    await expect(field).toBeFocused();
+    expect(await page.evaluate(() => window.touchEnds)).toEqual([true, true]);
+    await page.keyboard.type("insta");
+    await expect
+      .poll(() =>
+        commands
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join(""),
+      )
+      .toBe("insta");
+    // Keyboard opens it explicitly, after focus went elsewhere.
+    await page.getByRole("button", { name: "Hand back" }).focus();
+    await page.getByRole("button", { name: "Keyboard", exact: true }).tap();
+    await expect(field).toBeFocused();
+  });
+});

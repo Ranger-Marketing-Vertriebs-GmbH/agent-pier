@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import useMobileLayout from "../../../lib/useMobileLayout.js";
 
 const buttonNames = ["left", "middle", "right"];
 // Keys the page needs as key events; characters arrive as text instead.
@@ -37,6 +38,11 @@ const clamp = (value) => Math.min(1, Math.max(0, value));
  * arrives as finished text. On a touch screen a tap clicks and a one-finger drag
  * scrolls; pinch zoom is off on the picture. Shift+Escape leaves the browser
  * (`onEscape`); every other key goes to the page.
+ * On a phone (iOS above all) the field must keep focus across taps: the keyboard opens
+ * only for a focus() inside the tap itself, and the tap's own click on the picture
+ * would blur the field and close it again. So the tap's touchend cancels that click
+ * and focuses the field there, the field moves to the tapped point (no scroll jump),
+ * and **Keyboard** (`keyboardButton`, phones only) opens it explicitly.
  */
 export default function BrowserScreen({
   image,
@@ -44,13 +50,27 @@ export default function BrowserScreen({
   controlling,
   input,
   keyboardLabel,
+  keyboardButton,
   onEscape,
 }) {
+  const phone = useMobileLayout();
   const picture = useRef(null);
   const field = useRef(null);
   const lastMove = useRef(0);
   const lastClick = useRef({ at: 0, x: 0, y: 0, count: 0 });
   const touch = useRef(null);
+  // Set on a finger's lift that clicked (not scrolled): its touchend focuses the field.
+  const tapped = useRef(false);
+  const focusField = () => field.current?.focus({ preventScroll: true });
+  // The field sits where the finger tapped, so the phone neither scrolls to it nor
+  // drops the keyboard for a field that is out of view.
+  const placeField = (event) => {
+    const element = field.current;
+    const box = picture.current?.getBoundingClientRect();
+    if (!element || !box) return;
+    element.style.left = `${Math.max(0, Math.min(box.width - 1, event.clientX - box.left))}px`;
+    element.style.top = `${Math.max(0, Math.min(box.height - 1, event.clientY - box.top))}px`;
+  };
   const position = (event) => {
     const box = picture.current.getBoundingClientRect();
     return {
@@ -92,14 +112,27 @@ export default function BrowserScreen({
       for (const action of ["down", "up"])
         input({ type: "key", action, key: key[0], code: key[1], modifiers: 0 });
     };
-    keyboard.value = sentinel;
+    // A finger's lift: its default (the emulated click on the picture) would take the
+    // focus from the field and close a phone's keyboard; a tap focuses it here, inside
+    // the gesture, which is when iOS opens the keyboard.
+    const touchEnd = (event) => {
+      if (event.cancelable) event.preventDefault();
+      if (tapped.current) {
+        tapped.current = false;
+        keyboard.focus({ preventScroll: true });
+      }
+    };
+    if (!keyboard.value) keyboard.value = sentinel;
     element.addEventListener("wheel", wheel, { passive: false });
+    element.addEventListener("touchend", touchEnd, { passive: false });
     keyboard.addEventListener("beforeinput", beforeInput);
     return () => {
       element.removeEventListener("wheel", wheel);
+      element.removeEventListener("touchend", touchEnd);
       keyboard.removeEventListener("beforeinput", beforeInput);
     };
-  }, [controlling, input, image]);
+    // A new frame keeps the field as it is: resetting it would break a composition.
+  }, [controlling, input]);
   if (!controlling) return <img src={image} alt={alt} />;
   const send = (action, event, at, clickCount) =>
     input({
@@ -120,7 +153,9 @@ export default function BrowserScreen({
   };
   const down = (event) => {
     event.preventDefault();
-    field.current?.focus({ preventScroll: true });
+    // A mouse focuses at once; a finger only once it tapped (up, touchend), so a
+    // scroll does not open a phone's keyboard.
+    if (event.pointerType !== "touch") focusField();
     try {
       event.currentTarget.setPointerCapture?.(event.pointerId);
     } catch {
@@ -167,6 +202,9 @@ export default function BrowserScreen({
       const finger = touch.current;
       touch.current = null;
       if (!finger || finger.scrolled) return;
+      placeField(event);
+      tapped.current = true;
+      focusField();
       const count = clickCountAt(at, Date.now());
       send("down", event, at, count);
       send("up", event, at, count);
@@ -233,6 +271,16 @@ export default function BrowserScreen({
           if (text) input({ type: "paste", text: text.slice(0, 4000) });
         }}
       />
+      {phone && keyboardButton && (
+        <button
+          type="button"
+          className="button secondary compact agent-browser-keyboard-button"
+          // Focused inside the tap, so the phone opens its keyboard.
+          onClick={focusField}
+        >
+          {keyboardButton}
+        </button>
+      )}
     </div>
   );
 }
