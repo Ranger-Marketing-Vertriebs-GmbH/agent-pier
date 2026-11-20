@@ -88,6 +88,11 @@
   padding: 4px 6px;
   overflow-wrap: anywhere;
 }
+/* A header word never breaks ("Herkunft"): the table scrolls sideways instead. */
+.endpoint-models th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 .endpoint-models input[type="number"] {
   width: 15ch;
   min-width: 0;

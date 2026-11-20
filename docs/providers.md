@@ -163,7 +163,12 @@ plus optional warnings. Paid endpoints may charge for the few tokens used. When 
 model list cannot be read because the key was refused (`auth`) or the server did not
 answer (`network`, `timeout`), protocols without a test model stay "Not tested" with
 that reason ("Not tested · Server not reachable or address not allowed"), so routes that
-worked before are not switched off.
+worked before are not switched off. A protocol that refused the minimal request with 400
+or 422 still counts as available and says so next to it (`rejectedRequest`); for Chat
+Completions the note goes away when the capability probe's `max_completion_tokens`
+request succeeds, as it does for Azure reasoning deployments that refuse `max_tokens`.
+An address with a placeholder left in angle brackets (`<resource>`) is refused with a
+message to replace it.
 
 **Changing the address.** An Anthropic URL that was derived from the OpenAI base URL
 follows a changed base URL, also on a saved connection; one entered or cleared by hand
@@ -203,7 +208,9 @@ its hint links straight to that model's context field
   Azure's model list names the resource's base models, not deployments: the test uses it
   only to check the key and address, says so, and adds none of them as models. _Automatic_
   tests your first deployment and never a base model; without a deployment the test asks
-  for one and probes nothing.
+  for one and probes nothing. A base URL without `/openai/v1` answers 404 everywhere;
+  the test then names the path (`basePath`) instead of a missing model and shows the
+  expected form.
 
 **Remove all detected models** below the table clears a long detected list (an Azure resource lists hundreds of base models) in one step and keeps the models you added by hand.
 

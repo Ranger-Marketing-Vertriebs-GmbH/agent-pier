@@ -16,3 +16,28 @@ test("labels connections with their provider", () => {
     assert.equal(connectionLabel({ name: "Legacy" }), "Legacy");
   }
 });
+
+test("an endpoint from a listed preset is named after it, as in the connection list", () => {
+  for (const [lang, custom] of [
+    ["de", "Eigener Endpunkt"],
+    ["en", "Custom endpoint"],
+  ]) {
+    setLanguage(lang);
+    assert.equal(
+      connectionLabel({
+        name: "azure test",
+        providerId: "endpoint",
+        endpoint: { preset: "azure" },
+      }),
+      "Azure OpenAI · azure test",
+    );
+    assert.equal(
+      connectionLabel({
+        name: "box",
+        providerId: "endpoint",
+        endpoint: { preset: "custom" },
+      }),
+      `${custom} · box`,
+    );
+  }
+});

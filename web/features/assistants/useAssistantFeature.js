@@ -53,10 +53,15 @@ function retry() {
   if (state.error === FEATURE_CHECK_FAILED) check();
 }
 async function setEnabled(enabled) {
+  const wasEnabled = state.enabled;
   publish({ saving: true });
   try {
     const feature = await assistantApi.setFeature(enabled);
     const next = { enabled: !!feature.enabled, error: feature.error || null };
+    // Switching agents on also starts the agent service, as "Start service" does;
+    // its state then arrives on the runtime topic. A failure shows there too.
+    if (enabled && next.enabled && !wasEnabled)
+      await assistantApi.operate("enable").catch(() => {});
     publish(next);
     // The server answers 200 with `enabled: false` when agents cannot start.
     return next;

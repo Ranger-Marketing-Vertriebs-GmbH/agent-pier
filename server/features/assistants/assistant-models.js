@@ -51,6 +51,10 @@ export class AssistantModels {
           id,
           name,
           providerId,
+          // The preset names the provider ("Azure OpenAI") as the connection list does.
+          ...(providerId === "endpoint" && connection.endpoint?.preset
+            ? { endpoint: { preset: connection.endpoint.preset } }
+            : {}),
           ...(providerId === "endpoint"
             ? endpointCapability(connection)
             : {

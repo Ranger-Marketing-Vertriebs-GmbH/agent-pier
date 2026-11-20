@@ -75,6 +75,8 @@ export function normalizeEndpointUrl(value, { optional = false } = {}) {
   if (optional && (value === null || value === undefined || value === "")) return null;
   if (typeof value !== "string" || value.length > 2048 || /[\x00-\x20]/.test(value))
     throw problem(messages.invalidEndpointUrl);
+  // A preset's template (https://<resource>.openai.azure.com/openai/v1) still unfilled.
+  if (/[<>]|%3c|%3e/i.test(value)) throw problem(messages.endpointUrlPlaceholder);
   let url;
   try {
     url = new URL(value);

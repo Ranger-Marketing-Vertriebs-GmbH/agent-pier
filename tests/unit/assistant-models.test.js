@@ -136,3 +136,29 @@ test("OpenRouter models the catalog lists with image input get it in their trans
   assert.equal(models.imageInput({ connectionId: "openclaw:a", modelId: "gpt" }), true);
   assert.equal(models.imageInput({ connectionId: "missing", modelId: "x" }), null);
 });
+
+test("an endpoint connection's capability carries its preset, never its address or key", () => {
+  const connection = {
+    id: "azure",
+    name: "azure test",
+    providerId: "endpoint",
+    hasSecret: true,
+    endpoint: {
+      preset: "azure",
+      openaiBaseUrl: "https://example.openai.azure.com/openai/v1",
+      authHeader: "api-key",
+      protocols: { chatCompletions: true },
+      models: [{ modelId: "deploy", label: "deploy", contextTokens: 128000 }],
+    },
+  };
+  const models = new AssistantModels({ connections: { list: () => [connection] } });
+  const [capability] = models.listCapabilities();
+  assert.deepEqual(capability.endpoint, { preset: "azure" });
+  // Only the preset is passed on: no address, header or key field.
+  const fields = (value) =>
+    value && typeof value === "object"
+      ? Object.entries(value).flatMap(([key, item]) => [key, ...fields(item)])
+      : [];
+  for (const field of ["openaiBaseUrl", "authHeader", "apiKey", "hasSecret"])
+    assert.equal(fields(capability).includes(field), false, field);
+});

@@ -186,6 +186,8 @@ export const connectionCopy = {
       network: "Server not reachable or address not allowed",
       tooLarge: "Response too large",
       aborted: "Cancelled",
+      rejectedRequest: "Minimal test request refused; the endpoint exists",
+      basePath: "Nothing found at this address; check the base URL path",
     },
     warnings: {
       ollamaContextUnknown:
@@ -193,8 +195,8 @@ export const connectionCopy = {
       modelIdSkipped:
         "Some model IDs could not be used (for example file paths). Start llama.cpp with --alias or add the model manually.",
       storedKeyNotUsed: "The saved key was not sent because the address changed.",
-      rejectedRequest:
-        "The server rejected the minimal test request but the endpoint exists.",
+      azureBasePath:
+        "Azure OpenAI base URLs end in /openai/v1, for example https://<resource>.openai.azure.com/openai/v1.",
       modelListTruncated:
         "A connection holds at most 200 models. Manual models are kept; some detected models were left out.",
       azureBaseModels:

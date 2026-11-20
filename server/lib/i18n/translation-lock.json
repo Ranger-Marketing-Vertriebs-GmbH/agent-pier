@@ -1529,6 +1529,7 @@
   "providers.endpointTestBusy": "de:5ae9ae505b7b en:5b42835402b6",
   "providers.endpointTestConnectionInvalid": "de:a5ff7f8a7ef7 en:7fe9f9d4bc54",
   "providers.endpointUrlNotAllowed": "de:6bf65c730d57 en:a1ee2483236b",
+  "providers.endpointUrlPlaceholder": "de:3ab1383b8203 en:616065fb4629",
   "providers.invalidAccessSelection": "de:488b0fc1d873 en:148656581d19",
   "providers.invalidApiKey": "de:e2d319621d74 en:d835bf0fa846",
   "providers.invalidConnectionFields": "de:76dafce6543e en:bc0205fa802f",
