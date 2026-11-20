@@ -110,7 +110,9 @@ label.list-row-main {
   font-size: 13px;
   color: #92949d;
   text-align: end;
-  overflow-wrap: anywhere;
+  /* Words such as "Sessions" stay whole; only a long token breaks. */
+  min-width: min(6em, 30%);
+  overflow-wrap: break-word;
 }
 .list-row-status {
   display: inline-flex;

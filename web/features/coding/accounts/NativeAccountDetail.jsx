@@ -177,6 +177,20 @@ export default function NativeAccountDetail({
             event.preventDefault();
             form.save();
           }}
+          // Two text fields and no submit button: browsers do not submit on Enter
+          // by themselves, so a field's Enter saves (as the save bar does).
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.defaultPrevented ||
+              event.nativeEvent.isComposing ||
+              event.target.tagName !== "INPUT" ||
+              event.target.type === "checkbox"
+            )
+              return;
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+          }}
         >
           <fieldset disabled={draft.saving}>
             <p className="field-description">{dialogCopy.profileIsolationDescription}</p>
@@ -246,7 +260,8 @@ export default function NativeAccountDetail({
             <p className="field-description">
               {legacy.providerId
                 ? providerCopy.keyHelp
-                : dialogCopy.nativeAuthenticationHelp}
+                : (dialogCopy.nativeAuthenticationHelp[values.tool] ??
+                  dialogCopy.nativeAuthenticationHelp.other)}
             </p>
             <div className="form-note">
               <Icon name="shield" />

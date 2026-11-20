@@ -81,6 +81,16 @@ test("the scanners recognise each kind of offender", () => {
     { "web/x.css": 2 },
   );
   assert.deepEqual(
+    rules.smallFontSizes(
+      scan(
+        "web/x.css",
+        'a{font:600 8px "DM Sans",sans-serif}b{font:10px/1.4 monospace}' +
+          "c{font:700 17px Manrope}d{font:inherit}e{font-weight:600}",
+      ),
+    ),
+    { "web/x.css": 2 },
+  );
+  assert.deepEqual(
     rules.mediaWidths(
       scan("web/x.css", "@media (max-width: 700px){}@media (max-width: 600px){}"),
     ),

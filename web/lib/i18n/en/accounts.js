@@ -7,8 +7,16 @@ export const accountDialogCopy = {
   apiKeyLabel: "API key (optional)",
   savedKeyPlaceholder: "Saved · enter to replace",
   nativeKeyPlaceholder: "Alternative to interactive sign-in",
-  nativeAuthenticationHelp:
-    "For OpenCode, the API key is used for OpenAI. Set up other providers using “Sign in”. Leave the field empty to keep a saved key.",
+  // By the account's CLI; "other" for a CLI without its own text.
+  nativeAuthenticationHelp: {
+    codex:
+      "For Codex, the API key is an OpenAI API key, an alternative to signing in. Leave the field empty to keep a saved key.",
+    claude:
+      "For Claude Code, the API key is an Anthropic API key, an alternative to signing in. Leave the field empty to keep a saved key.",
+    opencode:
+      "For OpenCode, the API key is used for OpenAI. Set up other providers using “Sign in”. Leave the field empty to keep a saved key.",
+    other: "Leave the field empty to keep a saved key.",
+  },
   formNote: "Credentials are stored locally only.",
 };
 export const accountsPageCopy = {

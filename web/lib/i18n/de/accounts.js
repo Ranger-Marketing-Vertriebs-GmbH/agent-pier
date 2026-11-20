@@ -7,8 +7,16 @@ export const accountDialogCopy = {
   apiKeyLabel: "API-Key (optional)",
   savedKeyPlaceholder: "Gespeichert · zum Ersetzen eingeben",
   nativeKeyPlaceholder: "Alternativ zur interaktiven Anmeldung",
-  nativeAuthenticationHelp:
-    "Bei OpenCode gilt der API-Key für OpenAI. Andere Anbieter richtest du über „Anmelden“ ein. Bei einem gespeicherten Key lässt ein leeres Feld den bisherigen Wert unverändert.",
+  nativeAuthenticationHelp: {
+    codex:
+      "Bei Codex ist der API-Key ein OpenAI-API-Key, eine Alternative zur Anmeldung. Bei einem gespeicherten Key lässt ein leeres Feld den bisherigen Wert unverändert.",
+    claude:
+      "Bei Claude Code ist der API-Key ein Anthropic-API-Key, eine Alternative zur Anmeldung. Bei einem gespeicherten Key lässt ein leeres Feld den bisherigen Wert unverändert.",
+    opencode:
+      "Bei OpenCode gilt der API-Key für OpenAI. Andere Anbieter richtest du über „Anmelden“ ein. Bei einem gespeicherten Key lässt ein leeres Feld den bisherigen Wert unverändert.",
+    other:
+      "Bei einem gespeicherten Key lässt ein leeres Feld den bisherigen Wert unverändert.",
+  },
   formNote: "Zugangsdaten werden nur lokal gespeichert.",
 };
 export const accountsPageCopy = {
