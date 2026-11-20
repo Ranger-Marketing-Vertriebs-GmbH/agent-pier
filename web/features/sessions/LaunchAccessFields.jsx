@@ -5,6 +5,7 @@ import { routeLabel } from "../provider-connections/route-label.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import { connectionProviderName } from "../provider-connections/provider-name.js";
 import { launchDialogCopy as launchCopy } from "../../lib/i18n/messages/sessions.js";
+import { isLocalAccount } from "./launch-preferences.js";
 export default function LaunchAccessFields({
   access,
   onAccessChange,
@@ -12,8 +13,14 @@ export default function LaunchAccessFields({
   sandbox = true,
 }) {
   const modelHelpId = useId(),
-    rememberedId = useId();
+    rememberedId = useId(),
+    localId = useId();
   const accessRemembered = access.accessRemembered && !taskProfileSelected;
+  // The host's own CLI login, not an account AgentPier manages.
+  const local = isLocalAccount(access.account);
+  const describedBy =
+    [accessRemembered && rememberedId, local && localId].filter(Boolean).join(" ") ||
+    undefined;
   const sandboxDisabled = !access.sandboxAvailable || taskProfileSelected;
   // A login the chosen sandbox cannot read: the session would start signed out.
   const hiddenLogin =
@@ -62,7 +69,7 @@ export default function LaunchAccessFields({
         {copy.access}
         <AnchoredSelect
           label={copy.access}
-          describedBy={accessRemembered ? rememberedId : undefined}
+          describedBy={describedBy}
           value={access.accessId}
           required
           onChange={onAccessChange}
@@ -110,20 +117,27 @@ export default function LaunchAccessFields({
       ) : access.account?.provider ? (
         <p className="field-description">{copy.legacyLaunch}</p>
       ) : (
-        <label>
-          {copy.nativeModel}
-          <input
-            aria-label={copy.nativeModel}
-            aria-describedby={modelHelpId}
-            value={access.nativeModelId}
-            onChange={(event) => access.setNativeModel(event.target.value)}
-            maxLength={160}
-            placeholder={copy.nativeDefault}
-          />
-          <small id={modelHelpId} className="field-description">
-            {copy.nativeModelHelp}
-          </small>
-        </label>
+        <>
+          {local && (
+            <p className="field-description" id={localId}>
+              {copy.localLaunch}
+            </p>
+          )}
+          <label>
+            {copy.nativeModel}
+            <input
+              aria-label={copy.nativeModel}
+              aria-describedby={modelHelpId}
+              value={access.nativeModelId}
+              onChange={(event) => access.setNativeModel(event.target.value)}
+              maxLength={160}
+              placeholder={copy.nativeDefault}
+            />
+            <small id={modelHelpId} className="field-description">
+              {copy.nativeModelHelp}
+            </small>
+          </label>
+        </>
       )}
       {sandboxFields}
     </>

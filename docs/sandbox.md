@@ -599,9 +599,15 @@ time; a remembered mode the CLI no longer offers falls back to the default (Code
 Claude Code and OpenCode Auto). It also remembers the CLI of the last plain launch and
 the account or provider connection per CLI: **New session** without a chosen CLI (for
 example from a project) starts on that CLI, and each CLI starts on its last access
-ahead of the configured default account. A CLI that is no longer installed or an
-access that was removed falls back to the first CLI and the default account. Launches
-with a task profile are not remembered.
+ahead of the configured default account. Without a configured default, the dialog
+prefers the first account AgentPier manages over the CLI's **Local** account, which runs
+with this computer's own CLI login and settings (`~/.claude`, `~/.codex`) and is marked
+as such; a remembered Local account counts only when you chose it yourself. A task
+profile on the Local account (the seeded profiles) preselects a managed account the same
+way. A CLI that is no longer installed or an access that was removed falls back to the
+first CLI and the default account. Launches with a task profile do not change the
+remembered CLI and access. The working folder of the last launch is remembered too and
+preselected unless the dialog opens for a project folder.
 
 ## Why the boundary is partial
 

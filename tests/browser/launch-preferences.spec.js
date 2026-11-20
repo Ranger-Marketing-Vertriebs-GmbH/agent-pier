@@ -10,13 +10,19 @@ const tools = ["codex", "claude", "opencode"].map((id) => ({
   installed: true,
   path: `/bin/${id}`,
 }));
-const account = (id, tool, name) => ({ id, tool, name, kind: "local", hasSecret: false });
+const account = (id, tool, name, kind = "local") => ({
+  id,
+  tool,
+  name,
+  kind,
+  hasSecret: false,
+});
 
 const hubPaths =
   /^\/api\/(repositories|memory\/projects|agentbus|pipeline-runs|pipelines)(\/|$)/;
-// The projects hub fixture with three CLIs, two Claude accounts (A is the
-// configured default) and a captured session launch.
-async function launchFixture(page) {
+// The projects hub fixture with three CLIs, the host's local logins, two managed
+// Claude accounts (A is the configured default) and a captured session launch.
+async function launchFixture(page, { defaultAccountIds = { claude: "claude-a" } } = {}) {
   const launches = [];
   await hubFixture(page, {
     intercept: async (route, url, method) => {
@@ -26,11 +32,12 @@ async function launchFixture(page) {
             tools,
             accounts: [
               account("local-codex", "codex", "Codex"),
-              account("claude-a", "claude", "Claude A"),
-              account("claude-b", "claude", "Claude B"),
+              account("local-claude", "claude", "Claude Code · Lokal"),
+              account("claude-a", "claude", "Claude A", "managed"),
+              account("claude-b", "claude", "Claude B", "managed"),
               account("local-opencode", "opencode", "OpenCode"),
             ],
-            defaultAccountIds: { claude: "claude-a" },
+            defaultAccountIds,
             sessions: [],
             home: "/work",
           },
@@ -144,4 +151,90 @@ test("an uninstalled or garbled memory keeps the first CLI and its default", asy
   await expect(field(page, "Connection")).toHaveValue("local-codex");
   await expect(cliHint(page)).toHaveCount(0);
   await expect(dialog.getByText("Preselected from your last session.")).toHaveCount(0);
+});
+
+const localHint =
+  "Nutzt die eigene CLI-Anmeldung und die Einstellungen dieses Computers (die CLI-Konfiguration im Home-Ordner), kein von AgentPier verwaltetes Konto.";
+
+test("a fresh browser prefers a managed account and remembers the folder", async ({
+  page,
+}) => {
+  const launches = await launchFixture(page, { defaultAccountIds: {} });
+  await page.goto(base);
+  await openNewSession(page);
+  const dialog = page.getByRole("dialog");
+  // Codex has only the host's own login: it is preselected and marked as such.
+  await expect(field(page, "Zugang")).toHaveValue("local-codex");
+  await expect(field(page, "Zugang")).toHaveAccessibleDescription(localHint);
+  await field(page, "CLI").selectOption("claude");
+  await expect(field(page, "Zugang")).toHaveValue("claude-a");
+  await expect(dialog.getByText(localHint)).toHaveCount(0);
+  await expect(field(page, "Arbeitsverzeichnis")).toHaveValue("/work");
+  await expect(field(page, "Arbeitsverzeichnis")).not.toHaveAccessibleDescription(
+    remembered,
+  );
+  await field(page, "Arbeitsverzeichnis").fill("/work/app");
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(launches[0]).toMatchObject({ accountId: "claude-a", cwd: "/work/app" });
+
+  await openNewSession(page);
+  await expect(field(page, "Arbeitsverzeichnis")).toHaveValue("/work/app");
+  await expect(field(page, "Arbeitsverzeichnis")).toHaveAccessibleDescription(remembered);
+  await expect(field(page, "Zugang")).toHaveValue("claude-a");
+  // The owner can still pick the local login, and that pick is kept.
+  await field(page, "Zugang").selectOption("local-claude");
+  await expect(field(page, "Zugang")).toHaveAccessibleDescription(localHint);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Session starten", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(launches[1]).toMatchObject({ accountId: "local-claude", cwd: "/work/app" });
+  await openNewSession(page);
+  await expect(field(page, "Zugang")).toHaveValue("local-claude");
+  await expect(field(page, "Zugang")).toHaveAccessibleDescription(
+    `${remembered} ${localHint}`,
+  );
+});
+
+test("a merely preselected local login and a task profile give way to a managed account", async ({
+  page,
+}) => {
+  // An earlier version remembered the local login it had preselected itself.
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "agentpier.launch-preferences",
+      JSON.stringify({ tool: "claude", access: { claude: "local-claude" } }),
+    ),
+  );
+  await page.route("**/api/pipeline-profiles", (route) =>
+    route.fulfill({
+      json: {
+        profiles: [
+          {
+            id: "review",
+            name: "Review",
+            enabled: true,
+            config: {
+              accountId: "local-claude",
+              cliTool: "claude",
+              models: { available: [""], default: "" },
+              prompts: { params: [] },
+              permissions: { mode: "plan" },
+            },
+          },
+        ],
+      },
+    }),
+  );
+  await launchFixture(page, { defaultAccountIds: {} });
+  await page.goto(base);
+  await openNewSession(page);
+  await expect(field(page, "CLI")).toHaveValue("claude");
+  await expect(field(page, "Zugang")).toHaveValue("claude-a");
+  await field(page, "Aufgabenprofil").selectOption("review");
+  await expect(field(page, "Zugang")).toHaveValue("claude-a");
+  await field(page, "Aufgabenprofil").selectOption("");
+  await expect(field(page, "Zugang")).toHaveValue("claude-a");
 });

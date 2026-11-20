@@ -50,6 +50,8 @@ export const connectionCopy = {
   noAccess: "No compatible connection",
   isolated:
     "This provider connection uses its own CLI profile. Sign-ins, MCP configuration and plugins from native accounts are not inherited.",
+  localLaunch:
+    "Uses this computer's own CLI login and settings (its home folder's CLI configuration), not an account managed by AgentPier.",
   legacyLaunch:
     "This existing provider binding uses its saved model. Use a shared provider connection to choose a model independently.",
   chooseAccess: "Please choose a compatible connection and an available model.",

@@ -190,7 +190,9 @@ npm start
    session, project, run, page, agent and action, also by its old name.
 3. Choose **+** in the sidebar's **Sessions** group (on a phone, **+ › Session** in the
    header), pick a CLI, an account and a project folder, and start. Next time the
-   dialog preselects the CLI and account you last started with. The native terminal
+   dialog preselects the CLI, account and folder you last started with. Without such a
+   choice it prefers an account AgentPier manages over the **Local** account, which
+   uses this computer's own CLI login and settings. The native terminal
    handles CLI logins and menus; the chat shows the saved conversation. While an
    account's sign-in session is still open, no other session of that account starts:
    the dialog names the sign-in session and offers **Stop the sign-in session**.
