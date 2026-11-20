@@ -2,6 +2,15 @@ import { TeamProvisioning } from "./team-provisioning.js";
 import { memberTerminal, TeamResults } from "./team-results.js";
 import { ownerTelegram } from "./team-coding.js";
 import { anyHostReady } from "./runtimes/runtime-for.js";
+// The lead's name, or "" when it cannot be read (never fails a dispatch).
+function leadNameOf(assistants, id) {
+  try {
+    return id ? assistants.store.getAssistant(id).name || "" : "";
+  } catch {
+    return "";
+  }
+}
+
 export class TeamScheduler {
   constructor({ teams, assistants, now = Date.now, mcp = null }) {
     Object.assign(this, { teams, assistants, now, mcp });
@@ -115,7 +124,10 @@ export class TeamScheduler {
       return;
     }
     teams.write(m, { phase: "admitting" });
-    const telegram = ownerTelegram(teams.find(m.teamId)?.origin);
+    const team = teams.find(m.teamId);
+    const telegram = ownerTelegram(team?.origin);
+    // The member's chat shows its assignment as its lead's (message-source.js).
+    const leadName = leadNameOf(a, team?.parentAssistantId);
     try {
       const sent = await a.send(
         m.conversationId,
@@ -124,6 +136,7 @@ export class TeamScheduler {
           kind: "team-member",
           teamId: m.teamId,
           memberId: id,
+          ...(leadName ? { leadName } : {}),
           ...(telegram ? { telegram } : {}),
         },
       );

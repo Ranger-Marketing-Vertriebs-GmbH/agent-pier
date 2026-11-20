@@ -200,3 +200,31 @@ test.describe("phone", () => {
     expect(overflow).toEqual([]);
   });
 });
+
+for (const [label, viewport] of [
+  ["desktop", { width: 1440, height: 1000 }],
+  ["phone", { width: 390, height: 844 }],
+]) {
+  test(`${label}: the goal sheet says what done means and the open steps`, async ({
+    page,
+  }) => {
+    // AGENTPIER-445: the sheet showed only the title.
+    await page.setViewportSize(viewport);
+    await chatFixture(page, {
+      history: {
+        messages,
+        requests: [],
+        stale: false,
+        goal: { ...goal, steps: "1. Watch the cut\n2. Note the jumps" },
+      },
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner");
+    await goalButton(page).click();
+    const sheet = goalSheet(page);
+    await expect(sheet.getByText("Done when")).toBeVisible();
+    await expect(sheet.getByText("The cut is reviewed")).toBeVisible();
+    await expect(sheet.getByText("Steps", { exact: true })).toBeVisible();
+    await expect(sheet.getByText(/1\. Watch the cut\s+2\. Note the jumps/)).toBeVisible();
+    await page.screenshot({ path: `.cache/work-goal-sheet-${label}.png` });
+  });
+}

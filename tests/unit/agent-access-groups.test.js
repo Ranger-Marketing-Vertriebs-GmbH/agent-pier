@@ -129,6 +129,24 @@ test("the overview summarises each tab from known data only", () => {
     capabilitySummary({ ...agent, capabilities: {}, shell: "off", skills: [] }),
     "Nothing switched on",
   );
+  // A task member runs with its lead's grants, as its Capabilities tab lists them
+  // (AGENTPIER-445: its Overview said "Nothing switched on").
+  assert.equal(
+    capabilitySummary({
+      ...agent,
+      teamMemberId: "m",
+      lifetime: "temporary",
+      capabilities: {},
+      shell: "off",
+      skills: [],
+      inherited: {
+        capabilities: { webSearch: true, memory: true },
+        shell: "off",
+        skills: [],
+      },
+    }),
+    "Memory · Web",
+  );
   assert.equal(accessSummary(null, agent), null);
   assert.equal(
     accessSummary(

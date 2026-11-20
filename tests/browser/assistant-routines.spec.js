@@ -48,7 +48,10 @@ async function setup(page) {
     } else if (path.includes("/routines/") && path.endsWith("/events")) {
       const event = route.request().postDataJSON();
       state.events.push(event);
-      body = { ...event, status: "unknown" };
+      // The server keeps the receipt with the routine (its lastEvent).
+      body = { ...event, status: state.eventStatus || "unknown" };
+      const item = state.routines.find((r) => r.id === path.split("/").at(-2));
+      if (item) item.lastEvent = body;
     } else if (path.includes("/routines/")) {
       const id = path.split("/").at(-1),
         item = state.routines.find((r) => r.id === id);
@@ -84,6 +87,13 @@ test("English routines create a daily prompt, pause and remove it", async ({ pag
   await panel.getByRole("button", { name: "Pause routine" }).click();
   await expect(panel.getByRole("button", { name: "Resume routine" })).toBeVisible();
   await panel.getByRole("button", { name: "Remove routine" }).click();
+  // Removing asks first (AGENTPIER-445); Cancel keeps it.
+  const dialog = page.getByRole("dialog", { name: "Remove routine “Meal plan”?" });
+  await expect(dialog).toContainText("It does not run again.");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(panel.getByRole("button", { name: /^Meal plan/ })).toBeVisible();
+  await panel.getByRole("button", { name: "Remove routine" }).click();
+  await dialog.getByRole("button", { name: "Remove routine" }).click();
   await expect(panel.getByText("No routines yet.")).toBeVisible();
 });
 test("event routines distinguish manual and coding events and show unknown delivery without replay", async ({
@@ -115,3 +125,39 @@ test("event routines distinguish manual and coding events and show unknown deliv
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
 });
+for (const [label, viewport] of [
+  ["desktop", { width: 1440, height: 1000 }],
+  ["phone", { width: 390, height: 844 }],
+]) {
+  test(`${label}: a daily routine runs once, and its "Run queued." goes when the run is done`, async ({
+    page,
+  }) => {
+    // AGENTPIER-445: daily routines had no "Run once", and the queued note stayed.
+    await page.setViewportSize(viewport);
+    const state = await setup(page);
+    state.eventStatus = "queued";
+    state.routines.push({
+      id: "routine-0",
+      name: "Daily ping",
+      prompt: "Say hello.",
+      trigger: { kind: "cron", expr: "0 9 * * *", tz: "Europe/Berlin" },
+      enabled: true,
+      revision: 1,
+      status: "ready",
+    });
+    await page.goto(baseURL + settingsPath("routines"));
+    const panel = page.getByRole("region", { name: "Routines" });
+    await panel.getByRole("button", { name: /^Daily ping/ }).click();
+    await panel.getByRole("button", { name: "Run once" }).click();
+    await expect(panel.getByText("Run queued.")).toBeVisible();
+    expect(state.events).toHaveLength(1);
+    await page.screenshot({ path: `.cache/routine-run-once-${label}.png` });
+    // The run completed: the server drops the receipt and the list follows.
+    delete state.routines[0].lastEvent;
+    await panel.getByRole("button", { name: "Pause routine" }).click();
+    await expect(panel.getByText("Run queued.")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(viewport.width);
+  });
+}

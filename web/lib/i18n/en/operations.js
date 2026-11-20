@@ -82,6 +82,13 @@ export const operationsCopy = {
   sourceSystem: "System",
   sourceMcp: "MCP",
   manageMcpAccess: "Review or revoke MCP access",
+  // An agent's browser upload, named in the activity log.
+  browserUpload: {
+    staged: "Browser upload: file staged",
+    uploaded: "Browser upload: file uploaded",
+    failed: "Browser upload: failed",
+  },
+  uploadSite: (site) => `to ${site}`,
   diagnostics: "Diagnostics",
   runChecks: "Run checks",
   scope: "Check scope",

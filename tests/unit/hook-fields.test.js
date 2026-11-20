@@ -106,7 +106,7 @@ test("hookAddress prefers Tailscale, then the network, then loopback", () => {
 test("curlSample is the documented one-line request", () => {
   assert.equal(
     curlSample("<secret>", "http://127.0.0.1:4380/hooks/h1"),
-    `curl -X POST -H "Authorization: Bearer <secret>" -H "Content-Type: application/json" -d '{"id":"1","message":"test"}' http://127.0.0.1:4380/hooks/h1`,
+    `curl -X POST -H "Authorization: Bearer <secret>" -H "Content-Type: application/json" -d '{"id":"test-'"$(date +%s)"'","message":"test"}' http://127.0.0.1:4380/hooks/h1`,
   );
 });
 

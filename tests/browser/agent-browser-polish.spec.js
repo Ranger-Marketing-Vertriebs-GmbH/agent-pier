@@ -108,3 +108,45 @@ test.describe("desktop header chips", () => {
     ).toBeHidden();
   });
 });
+
+// AGENTPIER-445: ⌘K found no hooks, reminders, check-ins, shell access or member
+// groups, and "Routines" only as a former name; AGENTPIER-440 U9: the browser entry's
+// letter followed the label's language.
+for (const [label, use] of [
+  ["desktop", {}],
+  ["phone", phone],
+]) {
+  test.describe(`${label} search`, () => {
+    test.use(use);
+
+    test("⌘K finds an agent's groups by their own names", async ({ page }) => {
+      await setup(page);
+      await page.route(
+        /\/api\/(?:ssh-accesses|mcp-servers|secrets|repositories|pipelines|pipeline-runs|memory\/projects|inbox)(?:\?.*)?$/,
+        (route) => route.fulfill({ json: [] }),
+      );
+      await page.goto(baseURL + "/agents/home/browser");
+      await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+      const mac = await page.evaluate(() => /mac/i.test(navigator.platform));
+      await page.keyboard.press(mac ? "Meta+k" : "Control+k");
+      const dialog = page.getByRole("dialog", { name: "Search" });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("combobox").fill("Home's browser");
+      await expect(
+        dialog
+          .getByRole("option", { name: /^Home's browser/ })
+          .locator(".command-palette-icon"),
+      ).toHaveText("H");
+      await dialog.getByRole("combobox").fill("Home hooks");
+      const hooks = dialog.getByRole("option", { name: /^Home · Hooks/ });
+      await expect(hooks).toBeVisible();
+      await dialog.getByRole("combobox").fill("Home routines");
+      const routines = dialog.getByRole("option", { name: /^Home · Routines/ });
+      await expect(routines).toBeVisible();
+      await expect(routines).not.toContainText("formerly");
+      await page.screenshot({ path: `.cache/agent-search-groups-${label}.png` });
+      await routines.click();
+      await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=automation$/);
+    });
+  });
+}

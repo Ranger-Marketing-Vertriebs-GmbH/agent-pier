@@ -196,6 +196,9 @@ export const assistantCopy = {
     pauseReminder: "Pause reminder",
     resumeReminder: "Resume reminder",
     removeReminder: "Remove reminder",
+    removeReminderTitle: (name) => `Remove reminder “${name}”?`,
+    removeReminderBody:
+      "It is not sent again. Reminders it already sent stay in the chat.",
     reviewReminder: "Mark as reviewed",
     reviewReminderHint:
       "It is unclear whether this reminder was created. It will not be created again automatically.",

@@ -6,7 +6,7 @@ import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { codingRoute, codingRoutePath } from "../coding/routes.js";
-import { auditActor } from "./audit-actor.js";
+import { auditActor, auditSummary } from "./audit-actor.js";
 export default function AuditPage({ route, navigate }) {
   const query = new URLSearchParams({ page: String(route.auditPage || 1) });
   for (const [field, name] of [
@@ -145,6 +145,7 @@ export default function AuditPage({ route, navigate }) {
             <time dateTime={event.createdAt}>{formatTimestamp(event.createdAt)}</time> ·{" "}
             {auditActor(event)}
           </p>
+          {auditSummary(event) && <p>{auditSummary(event)}</p>}
           <p>
             {event.resourceType}
             {event.resourceId && ` · ${event.resourceId}`}

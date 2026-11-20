@@ -176,3 +176,14 @@ test("a session's ask or tell shows its bare text as the session's turn", () => 
   });
   assert.equal(requestSource({ ...context, display: undefined }), null);
 });
+
+test("a temporary member's assignment is its lead's, not the owner's", () => {
+  // AGENTPIER-445: the assignment looked like the owner's own message.
+  assert.deepEqual(
+    requestSource({ kind: "team-member", teamId: "t", memberId: "m", leadName: "Ops" }),
+    { source: "lead", sender: { kind: "agent", name: "Ops" } },
+  );
+  // Assignments sent before the lead was named stay as they were.
+  assert.equal(requestSource({ kind: "team-member", teamId: "t", memberId: "m" }), null);
+  assert.equal(requestSource({ kind: "team-member", leadName: "" }), null);
+});

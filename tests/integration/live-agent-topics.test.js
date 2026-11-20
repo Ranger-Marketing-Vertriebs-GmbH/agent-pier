@@ -62,12 +62,13 @@ const reserve = (f, values = {}) =>
     ...values,
   });
 
-test("the ten agent detail topics are owner topics with an agent parameter", () => {
+test("the eleven agent detail topics are owner topics with an agent parameter", () => {
   assert.deepEqual(AGENT_DETAIL_TOPICS, [
     "agent.actions",
     "agent.coding-requests",
     "agent.channels",
     "agent.reminders",
+    "agent.routines",
     "agent.pinboard",
     "agent.senders",
     "agent.ssh-agent",
@@ -461,12 +462,16 @@ test("reminder writes signal their agent, a run result every agent", async (t) =
   await new Promise((resolve) => setImmediate(resolve));
   // A failed write may have changed the job half way: it signals too.
   // Her own reminder lists (me.reminders) follow the same writes.
+  // The routines share the reminders' writes and run results (AGENTPIER-445).
   assert.deepEqual(signals, [
     "agent.reminders:a1",
+    "agent.routines:a1",
     "me.reminders:a1",
     "agent.reminders:a2",
+    "agent.routines:a2",
     "me.reminders:a2",
     "agent.reminders:*",
+    "agent.routines:*",
     "me.reminders:*",
   ]);
   failing = true;
@@ -491,6 +496,7 @@ test("exactly the topics that read through owner privacy are reset by it", async
     "agent.memory",
     "agent.pinboard",
     "agent.reminders",
+    "agent.routines",
     "agent.wiki",
   ]);
 });
@@ -506,7 +512,7 @@ test("a user's released reminders signal their agents' reminder topics", async (
     changed() {},
   };
   await retireReleased({ assistants, live }, [{ id: "a" }]);
-  assert.deepEqual(signals, ["agent.reminders:a", "me.reminders:a"]);
+  assert.deepEqual(signals, ["agent.reminders:a", "agent.routines:a", "me.reminders:a"]);
 });
 
 test("a channel write reads only its agent's channel and reminder topics", async (t) => {

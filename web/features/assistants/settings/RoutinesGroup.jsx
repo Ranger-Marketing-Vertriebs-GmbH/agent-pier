@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import Icon from "../../../components/Icon.jsx";
@@ -8,6 +9,7 @@ import { formatTimestamp } from "../../../lib/i18n/index.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { routineCopy as copy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 import { routineApi } from "../routine-api.js";
 import RoutineRuns from "./RoutineRuns.jsx";
 
@@ -30,17 +32,21 @@ const stateOf = (item) =>
 
 /**
  * Routines whose results go to the agent's chat with a push notification, and to a
- * `paired` Telegram chat where switched on; every action applies at once.
+ * `paired` Telegram chat where switched on; every action applies at once. The list
+ * follows the live topic `agent.routines`, so a run's result replaces its "Run
+ * queued." without a reload (AGENTPIER-445).
  */
 export default function RoutinesGroup({ assistantId, paired = false }) {
   const id = useId();
-  const [items, setItems] = useState([]),
-    [busy, setBusy] = useState(false),
+  const topic = useLiveTopic(assistantId ? `agent.routines:${assistantId}` : null);
+  const { refresh: refreshTopic } = topic;
+  const items = topic.data?.routines || [];
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [creating, setCreating] = useState(false),
     [open, setOpen] = useState(null),
     [editing, setEditing] = useState(null),
-    [events, setEvents] = useState({});
+    [removing, setRemoving] = useState(null);
   const [name, setName] = useState(""),
     [prompt, setPrompt] = useState(""),
     [trigger, setTrigger] = useState("daily"),
@@ -49,26 +55,19 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
     [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone),
     [telegram, setTelegram] = useState(false);
   const alive = useRef(true),
-    generation = useRef(0),
     identity = useRef(crypto.randomUUID()),
     eventIds = useRef(new Map());
   const refresh = useCallback(async () => {
-    const request = ++generation.current;
-    const result = await routineApi.list(assistantId);
-    if (alive.current && request === generation.current) setItems(result.routines || []);
-  }, [assistantId]);
+    await refreshTopic();
+  }, [refreshTopic]);
   useEffect(() => {
     alive.current = true;
-    refresh().catch((e) => {
-      if (alive.current) setError(e.message);
-    });
     return () => {
       alive.current = false;
     };
-  }, [refresh]);
+  }, []);
   async function act(operation) {
     if (busy) return false;
-    ++generation.current;
     setBusy(true);
     setError("");
     try {
@@ -133,7 +132,6 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
     eventIds.current.set(item.id, eventId);
     const receipt = await routineApi.trigger(assistantId, item.id, { eventId });
     if (receipt.status !== "unknown") eventIds.current.delete(item.id);
-    if (alive.current) setEvents((old) => ({ ...old, [item.id]: receipt.status }));
   }
   return (
     <section id="agent-routines" aria-labelledby={id}>
@@ -148,7 +146,7 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
       >
         {copy.title}
       </GroupLabel>
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || topic.error} />
       {creating && (
         <form
           className="list-card agent-fields"
@@ -250,7 +248,8 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
       <ListCard labelledBy={id}>
         {!items.length && <p className="agent-row-note">{copy.empty}</p>}
         {items.map((item) => {
-          const event = events[item.id] || item.lastEvent?.status;
+          // The server's last receipt, gone once a later run completed.
+          const event = item.lastEvent?.status;
           return (
             <React.Fragment key={item.id}>
               <div className="list-row two-line">
@@ -414,7 +413,8 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                         {item.enabled ? copy.pause : copy.resume}
                       </button>
                     )}
-                    {item.trigger?.kind === "event" && (
+                    {/* Every active routine runs once on request, a daily one too. */}
+                    {item.status === "ready" && (
                       <button
                         className="button secondary"
                         disabled={busy || !item.enabled || event === "unknown"}
@@ -426,7 +426,7 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                     <button
                       className="button secondary"
                       disabled={busy}
-                      onClick={() => act(() => routineApi.remove(assistantId, item.id))}
+                      onClick={() => setRemoving(item)}
                     >
                       {copy.remove}
                     </button>
@@ -438,6 +438,20 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
           );
         })}
       </ListCard>
+      {removing && (
+        <ConfirmDialog
+          title={copy.removeTitle(removing.name || copy.unknownName)}
+          body={copy.removeBody}
+          confirmLabel={copy.remove}
+          destructive
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
+            const item = removing;
+            setRemoving(null);
+            await act(() => routineApi.remove(assistantId, item.id));
+          }}
+        />
+      )}
     </section>
   );
 }

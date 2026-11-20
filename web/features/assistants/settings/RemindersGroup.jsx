@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import Icon from "../../../components/Icon.jsx";
@@ -50,7 +51,8 @@ export default function RemindersGroup({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [creating, setCreating] = useState(false),
-    [open, setOpen] = useState(null);
+    [open, setOpen] = useState(null),
+    [removing, setRemoving] = useState(null);
   const [name, setName] = useState(""),
     [message, setMessage] = useState(""),
     [repeat, setRepeat] = useState("once"),
@@ -326,7 +328,7 @@ export default function RemindersGroup({
                     <button
                       className="button secondary"
                       disabled={busy}
-                      onClick={() => act(() => api.remove(assistantId, item.id))}
+                      onClick={() => setRemoving(item)}
                     >
                       {copy.removeReminder}
                     </button>
@@ -365,6 +367,21 @@ export default function RemindersGroup({
           </React.Fragment>
         ))}
       </ListCard>
+      {/* A removed reminder is gone for good: asked first (AGENTPIER-445). */}
+      {removing && (
+        <ConfirmDialog
+          title={copy.removeReminderTitle(removing.name || copy.reminders)}
+          body={copy.removeReminderBody}
+          confirmLabel={copy.removeReminder}
+          destructive
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
+            const item = removing;
+            setRemoving(null);
+            await act(() => api.remove(assistantId, item.id));
+          }}
+        />
+      )}
     </section>
   );
 }

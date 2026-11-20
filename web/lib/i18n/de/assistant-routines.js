@@ -16,6 +16,8 @@ export const routineCopy = {
   pause: "Routine pausieren",
   resume: "Routine fortsetzen",
   remove: "Routine entfernen",
+  removeTitle: (name) => `Routine „${name}“ entfernen?`,
+  removeBody: "Sie läuft nicht mehr. Bereits gelieferte Ergebnisse bleiben im Chat.",
   run: "Einmal ausführen",
   empty: "Noch keine Routinen.",
   unknownName: "Routine",

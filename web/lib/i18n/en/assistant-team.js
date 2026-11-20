@@ -34,7 +34,7 @@ export const assistantTeamCopy = {
     suggest:
       "The agent offers to involve a matching member in one sentence and waits for your yes. Your yes counts as your request.",
     autonomous:
-      "The agent asks members and delegates suitable tasks on its own, within a limit per turn and hour. Its own tasks may change the member's workspace; shell, SSH, project folders, GitHub and new teams keep their usual approvals.",
+      "The agent asks members and delegates suitable tasks on its own; only many actions in a short time stop it, so that no loop runs away. Its own tasks may change the member's workspace; shell, SSH, project folders, GitHub and new teams keep their usual approvals.",
   },
   memberShellSsh: "Team members may use shell and SSH",
   memberShellSshHint:

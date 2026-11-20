@@ -487,7 +487,10 @@ permanently** ([Archive and delete](#archive-and-delete)). Each tab keeps its ow
 draft and save bar; leaving with unsaved changes asks first. A temporary team member
 shows Overview, Identity, Capabilities and Access; an agent of users has no Team tab.
 Old links with `tab=profile`, `tab=work`, `tab=routines` or `tab=telegram` open the
-matching new tab.
+matching new tab. The search (⌘K or Ctrl+K) finds each tab as "<agent> · <tab>",
+and the groups people look for by name as "<agent> · Routines", "· Reminders", "·
+Hooks", "· Check in on its own", "· Shell access" and "· Member groups" (also
+"Groups"), each opening the tab that holds it.
 
 Beside the tabs on wide screens (on a phone at the end of **Overview**), **Agent
 service** names the agent's **Runtime** with its version, such as "OpenClaw
@@ -507,7 +510,7 @@ On a phone: [Overview tab](screenshots/agent-settings-phone.png).
 **Waiting for your approval** and **Actions and coding tasks** (everything the agent
 proposed and what waits for your decision, see
 [agent workflows](assistant-workflows.md)); **At a glance**, one read-only row per tab
-that opens it; **Chat attachments** ([attachments](#attachments)); for a team member
+that opens it (a task member's **Capabilities** row names what its lead granted); **Chat attachments** ([attachments](#attachments)); for a team member
 the member group (where it came from, its history, **Stop member**, **Keep as permanent
 agent**); and **Manage** with **Duplicate**, **Archive** or **Restore** and, once
 archived, **Delete permanently**. At the end sits **Danger zone** with **Restart main
@@ -644,7 +647,8 @@ A switch with fresh chats also has the new model review the agent's memory; see
   for that agent's browser alone (up to 8 GiB, removed after six hours, when AgentPier
   restarts or when the agent loses the browser); files outside those folders stay
   refused, and every upload is recorded in the activity log with the agent, project,
-  path, size and the website the agent says it uploads to. The agent uploads without
+  path, size and the website the agent says it uploads to; the entry reads "Browser
+  upload: file uploaded · <path> · to <site>". The agent uploads without
   asking you, so a page could try to talk it into uploading a file it may read: switch
   on the browser only for agents whose folders you would share that way. See
   [browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders).
@@ -1308,7 +1312,8 @@ A lead also talks to its members directly:
 
 - It can **ask** any of its members a question and **delegate** a task to any member,
   permanent or temporary (not archived). The answer comes back to the lead, and to Telegram when the request came
-  from there. The member's chat shows the request as "from <lead>".
+  from there. The member's chat shows the request as "from <lead>", and a temporary
+  member's assignment too.
 - **These questions and tasks run without an approval prompt.** The member works with
   its own capabilities: a member with full shell access or bound MCP servers uses them
   without asking; a member whose shell is set to approval still asks you before each
@@ -1680,7 +1685,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   "Scheduled · <name>". You can also ask for one in the chat; one asked for in
   Telegram is sent there too.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
-  a linked coding run that completed); **Run once** starts one now. A member's lead can
+  a linked coding run that completed); **Run once** starts one now, a daily one too
+  (its schedule stays). "Run queued." shows until that run completes or fails; the
+  list follows the runs live. **Remove routine** and **Remove reminder** ask first. A member's lead can
   set routines up for it too ([routines a lead sets up](#routines-a-lead-sets-up-for-its-members)). A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
   shell and MCP servers, as far as they are switched on) but cannot schedule. It
@@ -1778,7 +1785,8 @@ own **Enabled** switch is off.
 
 - **+ Add** asks for a name and the **Sender** (the system that calls it, for example
   Uptime Kuma; the agent sees this name). **Create hook** shows the secret once,
-  with a sample `curl` request. Copy it then: AgentPier keeps only a fingerprint and
+  with a sample `curl` request whose event id is new on every run (`test-` and the
+  time), so trying it twice is not refused as a duplicate. Copy it then: AgentPier keeps only a fingerprint and
   never shows it again.
 - A hook's row opens its details: the name, sender and an **Instruction** (what the
   agent should do with an event), and **What a run may use**: **Notify** (a push notice

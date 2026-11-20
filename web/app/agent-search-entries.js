@@ -4,6 +4,12 @@
 import { agentLifecycleCopy } from "../lib/i18n/messages/agent-lifecycle.js";
 import { assistantAttachmentsCopy } from "../lib/i18n/messages/assistant-attachments.js";
 import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.js";
+import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { assistantProactivityCopy } from "../lib/i18n/messages/assistant-proactivity.js";
+import { assistantShellCopy } from "../lib/i18n/messages/assistant-shell.js";
+import { hookCopy } from "../lib/i18n/messages/assistant-hooks.js";
+import { leadRequestCopy } from "../lib/i18n/messages/lead-requests.js";
+import { routineCopy } from "../lib/i18n/messages/assistant-routines.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
 import {
   agentPageAllowed,
@@ -52,6 +58,27 @@ const pageTabs = {
   "telegram-connection": "channels",
 };
 
+// The groups inside an agent's tabs that people search by their own names
+// (AGENTPIER-445): [id, tab, label, applies(agent), old names]. Each opens its tab,
+// where the group shows under that name.
+// The owner's own agents and permanent members: a temporary member's groups are its
+// lead's to set.
+const ownAgent = (agent) => !agent.userAccess && isPersonal(agent);
+const agentGroups = [
+  ["routines", "automation", () => routineCopy.title, ownAgent],
+  ["reminders", "automation", () => assistantCopy.personal.reminders, ownAgent],
+  ["hooks", "automation", () => hookCopy.title, ownAgent],
+  ["check-ins", "automation", () => assistantProactivityCopy.heartbeat, () => true],
+  ["shell", "capabilities", () => assistantShellCopy.title, ownAgent],
+  [
+    "member-groups",
+    "team",
+    () => searchCopy.agentGroups.memberGroups,
+    () => true,
+    [() => leadRequestCopy.groups.title],
+  ],
+];
+
 /** "Ops-Wache · Zugriffe" and its subpages, for every agent that is not archived. */
 export function agentEntries(agents) {
   const root = bilingual(text.agents);
@@ -96,6 +123,19 @@ export function agentEntries(agents) {
         agentsOnly: true,
         aliases: (tabAliases[tab] || []).map((key) => named(oldTabs[key])),
       });
+    for (const [group, tab, label, applies, old = []] of agentGroups) {
+      if (!tabs.includes(tab) || !applies(agent)) continue;
+      const own = bilingual(label);
+      entries.push({
+        id: `agent:${agent.id}:group:${group}`,
+        group: "agents",
+        label: named(own),
+        path: join(root, name, tabLabels[tab], own),
+        target: { route: agentRoute(agent.id, tab) },
+        agentsOnly: true,
+        aliases: old.map((key) => named(bilingual(key))),
+      });
+    }
     const pinboard = pinboardEntry(agent, name, root, { bilingual, join, named });
     if (pinboard) entries.push(pinboard);
     const browser = browserEntry(agent, name, root, { bilingual, join, named });
