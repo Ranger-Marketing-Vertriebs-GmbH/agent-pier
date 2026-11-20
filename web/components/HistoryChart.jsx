@@ -195,29 +195,33 @@ export default function HistoryChart({
       <p className="visually-hidden" aria-live="polite">
         {keyboard && tooltipText}
       </p>
-      <table className="visually-hidden" aria-labelledby={`${id}-caption`}>
-        <caption id={`${id}-caption`}>{label}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{timeLabel}</th>
-            {series.map((item) => (
-              <th key={item.id} scope="col">
-                {item.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.slice(-5).map((entry) => (
-            <tr key={entry.t}>
-              <th scope="row">{formatTime(entry.t)}</th>
+      {/* A hidden wrapper, not a hidden table: a table never gets narrower than its
+          content, and would widen the page on a phone. */}
+      <div className="visually-hidden">
+        <table aria-labelledby={`${id}-caption`}>
+          <caption id={`${id}-caption`}>{label}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{timeLabel}</th>
               {series.map((item) => (
-                <td key={item.id}>{formatValue(entry[item.field])}</td>
+                <th key={item.id} scope="col">
+                  {item.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {shown.slice(-5).map((entry) => (
+              <tr key={entry.t}>
+                <th scope="row">{formatTime(entry.t)}</th>
+                {series.map((item) => (
+                  <td key={item.id}>{formatValue(entry[item.field])}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {footer}
     </figure>
   );

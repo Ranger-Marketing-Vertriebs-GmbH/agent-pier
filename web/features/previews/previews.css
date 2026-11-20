@@ -29,3 +29,7 @@
   max-height: 30dvh;
   overflow: auto;
 }
+/* Five-digit ports in full, also at the 16px of phones (NumberRow is 64px). */
+.preview-settings .list-row input.list-row-number {
+  width: calc(5ch + 32px);
+}
