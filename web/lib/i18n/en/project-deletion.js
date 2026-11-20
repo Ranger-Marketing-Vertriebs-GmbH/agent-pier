@@ -40,6 +40,12 @@ export const projectDeletionCopy = {
   accessUsers: (names) => `Users of these agents: ${names}`,
   accessNote: "Their access to the project ends with it.",
   folderMissing: "Folder missing",
+  // Why "Start session" is off, by projectState().
+  launchBlocked: {
+    missing: "The folder no longer exists, so no session can start in it.",
+    unavailable: "The folder's drive is not available, so no session can start in it.",
+    deleting: "The folder is being deleted, so no session can start in it.",
+  },
   driveUnavailable: "Drive not available",
   deleting: "Deleting …",
   deletionFailed: "Deletion failed — Retry",

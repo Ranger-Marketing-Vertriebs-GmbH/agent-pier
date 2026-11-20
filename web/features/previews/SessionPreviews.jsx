@@ -19,7 +19,7 @@ export default function SessionPreviews({ sessionId }) {
     <details className="session-previews">
       <summary>{copy.title}</summary>
       <section className="session-previews-panel" aria-label={copy.title}>
-        <PreviewRows previews={previews} onStop={() => written()} />
+        <PreviewRows previews={previews} serve={data?.serve} onStop={() => written()} />
       </section>
     </details>
   );

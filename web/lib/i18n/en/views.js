@@ -21,5 +21,10 @@ export const viewsCopy = {
   disconnected: "Disconnected",
   shownInView: "Shown in this view",
   full: "The view is full (at most 6 panes).",
+  // Why a pane edge takes no drop (drop-rules.js dropRefusal).
+  refusals: {
+    full: "The view is full (at most 6 panes).",
+    small: "Too little room here for another pane.",
+  },
   removeStale: "Remove from view",
 };

@@ -21,6 +21,10 @@ export const viewsCopy = {
   agentsOff: "Agenten sind ausgeschaltet",
   disconnected: "Getrennt",
   shownInView: "In dieser Ansicht",
+  refusals: {
+    full: "Die Ansicht ist voll (höchstens 6 Bereiche).",
+    small: "Zu wenig Platz für einen weiteren Bereich hier.",
+  },
   full: "Die Ansicht ist voll (höchstens 6 Bereiche).",
   removeStale: "Aus der Ansicht nehmen",
 };

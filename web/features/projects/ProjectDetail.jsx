@@ -26,7 +26,12 @@ import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
 import ProjectTickets from "./ProjectTickets.jsx";
 import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
-import { canDelete, deleteLabel } from "./project-deletion.js";
+import {
+  canDelete,
+  deleteLabel,
+  launchBlocked,
+  launchBlockedId,
+} from "./project-deletion.js";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
@@ -71,7 +76,9 @@ export default function ProjectDetail({
   const deletable = Boolean(onDelete) && canDelete(project);
   const sessions = projectSessions(allSessions, project);
   const credential = credentials.find((item) => item.id === project.credentialId);
-  const branch = sessions.find((session) => session.branch)?.branch || "";
+  // The folder's checked-out branch; a session's branch only while git is not read.
+  const branch =
+    project.branch || sessions.find((session) => session.branch)?.branch || "";
   const tab = route.projectTab || "overview";
   const meta = [
     project.remote ? remoteShort(project.remote) : copy.localOnly,
@@ -148,6 +155,9 @@ export default function ProjectDetail({
         type="button"
         className="button primary"
         aria-label={repositoriesPageCopy.buttonAriaLabel(project.name)}
+        // A folder that is gone or being deleted starts nothing; the notice says why.
+        disabled={Boolean(launchBlocked(project))}
+        aria-describedby={launchBlocked(project) ? launchBlockedId(project) : undefined}
         onClick={() => onLaunch(project.path)}
       >
         <Icon name="terminal" size={16} />

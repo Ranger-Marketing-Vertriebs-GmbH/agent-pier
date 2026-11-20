@@ -4,14 +4,15 @@ import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import api from "../../lib/api.js";
 import { previewCopy as copy } from "../../lib/i18n/messages/previews.js";
-import { previewHref } from "./preview-links.js";
+import { loopbackUnderTailscale, previewHref } from "./preview-links.js";
 
 /**
  * Previews as rows: label, "Port <target>" (plus the owner's name when `ownerName`
  * gives one), an Open preview link in a new tab and, with `onStop`, a Stop button.
- * `onStop(preview)` runs after the server closed the preview.
+ * `onStop(preview)` runs after the server closed the preview. `serve` (GET /api/previews)
+ * adds a hint when the links cannot open from this address.
  */
-export default function PreviewRows({ previews, onStop, ownerName, label }) {
+export default function PreviewRows({ previews, onStop, ownerName, label, serve }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const stop = async (preview) => {
@@ -29,6 +30,11 @@ export default function PreviewRows({ previews, onStop, ownerName, label }) {
   return (
     <>
       <ErrorMessage error={error} />
+      {loopbackUnderTailscale(serve) && (
+        <p className="field-description" role="note">
+          {copy.loopbackTailscale}
+        </p>
+      )}
       <ListCard label={label || copy.title}>
         {previews.map((preview) => (
           <ListRow

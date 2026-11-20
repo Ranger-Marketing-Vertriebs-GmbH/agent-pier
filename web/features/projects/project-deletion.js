@@ -14,6 +14,14 @@ export function projectState(project) {
   return null;
 }
 
+/** Why no session can start in the project's folder, or "" when one can. */
+export function launchBlocked(project) {
+  return copy.launchBlocked[projectState(project)] || "";
+}
+
+/** The id of the note that gives launchBlocked() beside the project's state. */
+export const launchBlockedId = (project) => `project-launch-blocked-${project.id}`;
+
 /** "Delete project …", or "Remove from AgentPier …" for a folder that is gone. */
 export function deleteLabel(project) {
   return project?.folder === "missing" ? copy.removeAction : copy.deleteAction;

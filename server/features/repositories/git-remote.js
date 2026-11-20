@@ -22,10 +22,10 @@ export function publicRemote(value) {
 }
 
 /**
- * Reads `git remote get-url origin` for listed project folders. Read-only, local
- * (no network), bounded by a short timeout, at most `concurrency` git processes at a
- * time, and cached per folder for a few seconds. Missing git, a folder that is no
- * repository or has no origin all read as "".
+ * Reads `git remote get-url origin` and the checked-out branch of listed project
+ * folders. Read-only, local (no network), bounded by a short timeout, at most
+ * `concurrency` git processes at a time, and cached per folder for a few seconds.
+ * Missing git, a folder that is no repository or has no origin all read as "".
  */
 export class GitRemotes {
   constructor({
@@ -41,14 +41,27 @@ export class GitRemotes {
     this.waiting = [];
   }
   read(cwd) {
+    return this.cached(cwd, "remote", () => this.lookup(cwd));
+  }
+  /** The checked-out branch of the folder, or "" (detached, no repository, no git). */
+  readBranch(cwd) {
+    return this.cached(cwd, "branch", () =>
+      this.run(cwd, ["symbolic-ref", "--short", "-q", "HEAD"], (stdout) => {
+        const branch = stdout.split("\n")[0].trim();
+        return /[\x00-\x1f\x7f]/.test(branch) ? "" : branch.slice(0, 200);
+      }),
+    );
+  }
+  cached(cwd, kind, lookup) {
     if (typeof cwd !== "string" || !path.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd))
       return Promise.resolve("");
-    const cached = this.cache.get(cwd);
+    const id = `${kind}\0${cwd}`;
+    const cached = this.cache.get(id);
     if (cached && cached.until > this.now()) return cached.value;
     for (const [key, item] of this.cache)
       if (item.until <= this.now()) this.cache.delete(key);
-    const value = this.limited(() => this.lookup(cwd));
-    this.cache.set(cwd, { value, until: this.now() + this.ttlMs });
+    const value = this.limited(lookup);
+    this.cache.set(id, { value, until: this.now() + this.ttlMs });
     return value;
   }
   async limited(task) {
@@ -65,6 +78,11 @@ export class GitRemotes {
     }
   }
   lookup(cwd) {
+    return this.run(cwd, ["remote", "get-url", "origin"], (stdout) =>
+      publicRemote(stdout.split("\n")[0]),
+    );
+  }
+  run(cwd, args, parse) {
     const env = {
       PATH: process.env.PATH,
       HOME: cwd,
@@ -75,18 +93,19 @@ export class GitRemotes {
     return new Promise((resolve) => {
       execFile(
         this.git,
-        safeGitArgs(["-C", cwd, "remote", "get-url", "origin"]),
+        safeGitArgs(["-C", cwd, ...args]),
         { env, timeout: this.timeoutMs, maxBuffer: 16384, encoding: "utf8" },
-        (error, stdout) => resolve(error ? "" : publicRemote(stdout.split("\n")[0])),
+        (error, stdout) => resolve(error ? "" : parse(stdout)),
       );
     });
   }
-  /** Adds the live `remote` of each item's folder under `key`. */
+  /** Adds the live `remote` and `branch` of each item's folder under `key`. */
   async annotate(items, key) {
     return Promise.all(
       (items || []).map(async (item) => ({
         ...item,
         remote: await this.read(item[key]),
+        branch: await this.readBranch(item[key]),
       })),
     );
   }

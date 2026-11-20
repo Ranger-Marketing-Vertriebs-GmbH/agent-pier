@@ -4,7 +4,8 @@ import { requestNavigation } from "../../lib/navigation-guard.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import useAssistants from "../assistants/useAssistants.js";
 import { draggedPayload, hasPayload, writePayload } from "./drag-payload.js";
-import { dropResult, hoverItemOf, itemForPayload } from "./drop-rules.js";
+import { viewsCopy } from "../../lib/i18n/messages/views.js";
+import { dropRefusal, dropResult, hoverItemOf, itemForPayload } from "./drop-rules.js";
 import { MAX_PANES, dropItem, findPane, itemKey, paneCount } from "./split-tree.js";
 import { useViews } from "./views-context.js";
 
@@ -109,10 +110,28 @@ export default function useViewDrop({ view, stageSize, sessions }) {
     );
   };
 
+  // Why a hovered edge takes no drop, shown on the pane instead of a silent refusal.
+  const refusalOn = (key) => (side, data) => {
+    const payload = draggedPayload(data);
+    if (!payload) return "";
+    const item = payload.pane ? null : (hoverItemOf(payload, latest.current) ?? NEW_PANE);
+    const reason = dropRefusal({
+      layout: latest.current.layout,
+      viewId,
+      payload,
+      item,
+      key,
+      side,
+      stageSize: latest.current.stageSize,
+    });
+    return reason ? viewsCopy.refusals[reason] : "";
+  };
+
   // The options of the zone on pane `key` (see `usePaneZone`).
   const zoneFor = (key) => ({
     accepts: hasPayload,
     allowed: allowedOn(key),
+    refusal: refusalOn(key),
     onDrop: (side, data) => drop(draggedPayload(data), key, side),
   });
 

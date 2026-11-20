@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  dropRefusal,
   dropResult,
   hoverItemOf,
   itemForPayload,
@@ -50,6 +51,10 @@ test("an edge drop that would not fit the stage is refused, the centre still rep
   };
   assert.equal(dropResult({ ...base, side: "right" }), two);
   assert.equal(dropResult({ ...base, side: "bottom" }), two);
+  // The refusal is named, so the pane can say why instead of ignoring the drop.
+  assert.equal(dropRefusal({ ...base, side: "right" }), "small");
+  assert.equal(dropRefusal({ ...base, side: "center" }), "");
+  assert.equal(dropRefusal({ ...base, stageSize: big, side: "right" }), "");
   assert.deepEqual(
     dropResult({ ...base, side: "center" }),
     split("row", pane("s1"), pane("s3")),
@@ -76,6 +81,7 @@ test("an edge drop past six panes is refused", () => {
   };
   assert.equal(dropResult({ ...base, side: "right" }), six);
   assert.notEqual(dropResult({ ...base, side: "center" }), six);
+  assert.equal(dropRefusal({ ...base, side: "right" }), "full");
 });
 
 test("a pane from another view is refused; one of this view moves", () => {

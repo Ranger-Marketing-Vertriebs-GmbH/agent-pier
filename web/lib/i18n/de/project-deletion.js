@@ -45,6 +45,12 @@ export const projectDeletionCopy = {
   accessUsers: (names) => `Benutzer dieser Agenten: ${names}`,
   accessNote: "Ihr Zugriff auf das Projekt endet mit ihm.",
   folderMissing: "Ordner fehlt",
+  launchBlocked: {
+    missing: "Der Ordner existiert nicht mehr, deshalb kann darin keine Session starten.",
+    unavailable:
+      "Das Laufwerk des Ordners ist nicht verfügbar, deshalb kann darin keine Session starten.",
+    deleting: "Der Ordner wird gelöscht, deshalb kann darin keine Session starten.",
+  },
   driveUnavailable: "Laufwerk nicht verfügbar",
   deleting: "Wird gelöscht …",
   deletionFailed: "Löschen fehlgeschlagen — Wiederholen",
