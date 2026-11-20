@@ -1,4 +1,5 @@
 import { cliDriver } from "../clis/drivers.js";
+import { redactSecrets } from "../../lib/secret-redaction.js";
 
 const count = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : undefined);
 const message = (value) => (typeof value === "string" ? value.slice(0, 2000) : undefined);
@@ -30,13 +31,17 @@ export function reduceNativeEvent(tool, previous, event) {
       event.error?.data?.statusCode ?? event.error?.code ?? event.api_error_status;
     if (typeof errorCode === "number" || typeof errorCode === "string")
       state.errorCode = errorCode;
-    state.error =
+    // Claude's failed result carries its text in `result`; its subtype may still
+    // say "success", so it names the failure only when no text exists and never as
+    // "success".
+    const text =
       message(event.error?.data?.message) ||
       message(event.error?.message) ||
       message(event.message) ||
       message(event.errors?.join("; ")) ||
-      message(event.subtype) ||
-      "The native CLI reported an error.";
+      message(typeof event.result === "string" ? event.result.trim() : undefined) ||
+      (event.subtype !== "success" ? message(event.subtype) : undefined);
+    state.error = text ? redactSecrets(text) : "The native CLI reported an error.";
     return state;
   }
   // OpenCode reports usage and completion per step, the others once per turn.

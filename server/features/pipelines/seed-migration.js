@@ -1,4 +1,9 @@
-import { previousSeedRoles, seedPipelines, seedProfiles } from "./profile-seeds.js";
+import {
+  SEED_CLI,
+  previousSeedRoles,
+  seedPipelines,
+  seedProfiles,
+} from "./profile-seeds.js";
 
 /** Raised whenever a seed role text changes; stored seeds then get the new text once. */
 export const SEED_REVISION = 3;
@@ -30,6 +35,32 @@ const pipelineProfileIds = (pipeline) =>
   );
 
 /**
+ * The Claude account new seed profiles use, as New session preselects one: the
+ * configured default account, then the first managed account, then Local.
+ */
+export function seedAccountId(accounts, defaultAccountIds = {}) {
+  let list = [];
+  try {
+    list = accounts?.list?.() || [];
+  } catch {
+    /* Seeds then use the Local account. */
+  }
+  const native = (account) =>
+    account.tool === SEED_CLI &&
+    ["local", "managed"].includes(account.kind) &&
+    !account.provider &&
+    !account.internal;
+  const preferred = list.find(
+    (account) => account.id === defaultAccountIds?.[SEED_CLI] && native(account),
+  );
+  return (
+    preferred?.id ||
+    list.find((account) => account.kind === "managed" && native(account))?.id ||
+    `local-${SEED_CLI}`
+  );
+}
+
+/**
  * Brings the built-in profiles and pipelines of a definitions document up to date,
  * once per seed: a seed that is not in `seedsApplied` yet is added unless an item of
  * its key already exists, and is recorded either way, so a seed the owner deleted never
@@ -38,14 +69,14 @@ const pipelineProfileIds = (pipeline) =>
  * earlier version seeded gets the current text; an edited role stays as it is.
  * Mutates `state` and returns whether anything changed.
  */
-export function applySeeds(state, now) {
+export function applySeeds(state, now, accountId) {
   const before = JSON.stringify([state.seedsApplied, state.seedRevision]);
   let changed = false;
   // Documents written before seeds were tracked got the first seeds with them.
   const applied = new Set(
     Array.isArray(state.seedsApplied) ? state.seedsApplied : FIRST_SEEDS,
   );
-  const profiles = seedProfiles(now);
+  const profiles = seedProfiles(now, accountId);
   for (const seed of profiles) {
     const key = `profile:${seed.seedKey}`;
     if (applied.has(key)) continue;

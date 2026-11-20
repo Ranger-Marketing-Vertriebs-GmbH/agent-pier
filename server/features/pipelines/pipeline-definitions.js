@@ -10,7 +10,7 @@ import {
   profileConnection,
   validateVerification,
 } from "./profile-validation.js";
-import { applySeeds } from "./seed-migration.js";
+import { applySeeds, seedAccountId } from "./seed-migration.js";
 import { defaultRisk, validateRisk } from "./risk-rules.js";
 import { storedTokenBudget, tokenBudgetValue } from "./run-budget.js";
 import { storedQueueSettings, validateQueueSettings } from "./queue-policy.js";
@@ -26,7 +26,7 @@ function copy(value) {
 
 /** One atomic document for small editable definitions; execution history has its own store. */
 export class PipelineDefinitions {
-  constructor({ dataDir, accounts }) {
+  constructor({ dataDir, accounts, defaultAccountIds = () => ({}) }) {
     this.file = path.join(dataDir, "pipelines", "definitions.json");
     this.accounts = accounts;
     this.state = readJSON(this.file, null);
@@ -55,7 +55,9 @@ export class PipelineDefinitions {
     // Seeds added or reworded since this document was written reach it once.
     // Profiles saved with a permission mode their CLI no longer accepts move on once.
     const migrated = migratePermissionModes(this.state.profiles);
-    if (applySeeds(this.state, new Date().toISOString()) || migrated)
+    // New seed profiles run on the account New session would preselect.
+    const seedAccount = seedAccountId(accounts, defaultAccountIds());
+    if (applySeeds(this.state, new Date().toISOString(), seedAccount) || migrated)
       writePrivate(this.file, this.state);
   }
   commit(next) {

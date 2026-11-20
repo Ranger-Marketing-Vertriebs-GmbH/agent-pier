@@ -136,7 +136,10 @@ export const previousSeedRoles = {
   ],
 };
 
-export function seedProfiles(now) {
+// The CLI every built-in profile runs.
+export const SEED_CLI = "claude";
+
+export function seedProfiles(now, accountId = `local-${SEED_CLI}`) {
   return seeds.map(([key, name, phaseKey, role, autonomous]) => ({
     id: `seed-${key}`,
     name,
@@ -148,8 +151,8 @@ export function seedProfiles(now) {
     createdAt: now,
     updatedAt: now,
     config: {
-      accountId: "local-claude",
-      cliTool: "claude",
+      accountId,
+      cliTool: SEED_CLI,
       models: { available: [""], default: "" },
       prompts: {
         role,

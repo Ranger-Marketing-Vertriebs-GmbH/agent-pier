@@ -142,6 +142,8 @@ export const pipelines = Object.freeze({
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",
   // The argument is native CLI output and keeps its original language.
   nativeTurnFailedWith: (error) => `The native stage turn ended unsuccessfully: ${error}`,
+  nativeTurnSignInFailed: (error) =>
+    `The stage's CLI is not signed in: ${error} Sign the account in again under CLIs and extensions › Accounts, or pick another account in the task profile.`,
   verdictMissing: "The stage did not provide a fresh verdict.",
   pullRequestPublishFailed:
     "The run branch or pull request could not be published. Retry the PR action.",

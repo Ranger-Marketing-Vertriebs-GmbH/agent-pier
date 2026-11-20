@@ -164,6 +164,9 @@ export const pipelines = Object.freeze({
   // Das Argument ist native CLI-Ausgabe und bleibt in ihrer Originalsprache.
   nativeTurnFailedWith: (error) =>
     `Der native Turn der Stufe ist nicht erfolgreich beendet worden: ${error}`,
+  // Das Argument ist native CLI-Ausgabe und bleibt in ihrer Originalsprache.
+  nativeTurnSignInFailed: (error) =>
+    `Die CLI der Stufe ist nicht angemeldet: ${error} Bitte den Account unter CLIs & Erweiterungen › Accounts erneut anmelden oder im Aufgabenprofil einen anderen Account wählen.`,
   verdictMissing: "Die Stufe hat kein frisches Ergebnis geliefert.",
   pullRequestPublishFailed:
     "Der Branch des Laufs oder der Pull Request konnte nicht veröffentlicht werden. Bitte die PR-Aktion wiederholen.",
