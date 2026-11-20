@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../lib/api.js";
+import { useLiveSignal } from "../../lib/live/useLiveTopic.js";
 
 // With a search term results come by relevance unless `sort` is "newest"; without
 // one they always come newest first.
@@ -18,6 +19,12 @@ export default function useProjectMemory({
     [projectError, setProjectError] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0),
     [loading, setLoading] = useState(false);
+  // A write by a session, an agent or another tab: read the project and the page
+  // again (memory.changed, pushed over the live channel).
+  const changed = useLiveSignal(projectId ? `memory.changed:${projectId}` : null);
+  useEffect(() => {
+    if (changed) setRefreshVersion((value) => value + 1);
+  }, [changed]);
   useEffect(() => {
     const controller = new AbortController();
     api("/memory/projects", "GET", undefined, controller.signal)
