@@ -18,6 +18,7 @@ import { contractTimeout } from "../helpers/contract-timeout.js";
 import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import {
   collectEvents,
+  contractAgent,
   endsRun,
   hermesSandbox,
   hermesSkip,
@@ -231,7 +232,7 @@ test(
       ]),
     );
     assert.equal(seen.model.provider, "custom");
-    assert.deepEqual(seen.names, ["default"], "only Hermes's own default exists");
+    assert.deepEqual(seen.names, ["agentpier"], "Hermes's own default never appears");
     // What Hermes would make of a written preset with one unknown provider and one
     // slot without a model: the slot without a model is dropped and the empty list
     // filled with Hermes's built-in providers; the unknown one does not resolve, so
@@ -412,6 +413,141 @@ test(
     // Hermes left AgentPier's sections as written, so the next apply changes nothing.
     assert.deepEqual(sections(), written);
     seen.unsubscribe();
+    await stop();
+    assert.deepEqual(await strayAfterStop(dirs), []);
+  },
+);
+
+// A raw turn of the stored session `stored` on `client`: its `message.complete`.
+async function rawTurn(client, stored, text, submission) {
+  const { session_id: sid } = await client.call("session.resume", {
+    session_id: stored,
+    omit_messages: true,
+  });
+  const done = new Promise((resolve) => {
+    const off = client.subscribe((params) => {
+      if (params.session_id !== sid || params.type !== "message.complete") return;
+      off();
+      resolve(params.payload);
+    });
+  });
+  await client.call("prompt.submit", {
+    session_id: sid,
+    text,
+    submission_id: submission,
+  });
+  return done;
+}
+
+// Hermes's own preset (hermes_cli/config_defaults.py) names these slots.
+const builtInSlots = /openai-codex|openrouter|deepseek|claude-opus/;
+
+test(
+  "without advisors Hermes knows only AgentPier's closed preset",
+  options,
+  async (t) => {
+    const { seen, check } = await hermesHome(t, "closed", (dirs) =>
+      compiled(dirs, [
+        { connectionId: "c-or", modelId: "openai/gpt-x", unavailable: "provider" },
+        { connectionId: "c-lab", modelId: "lab-model", unavailable: "provider" },
+      ]),
+    );
+    assert.doesNotMatch(check, /✗|⚠/, check);
+    assert.equal(seen.model.provider, "custom");
+    assert.deepEqual(seen.names, ["agentpier"]);
+    assert.equal(seen.default, "agentpier");
+    assert.equal(seen.preset.enabled, false);
+    const slots = [...seen.preset.reference_models, seen.preset.aggregator];
+    assert.deepEqual(
+      [...new Set(slots.map((slot) => slot.provider))],
+      ["custom:agentpier-closed"],
+    );
+    assert.doesNotMatch(JSON.stringify(seen.preset), builtInSlots);
+    for (const slot of seen.slots)
+      assert.deepEqual(slot, {
+        provider: "custom:agentpier-closed",
+        base_url: "http://127.0.0.1:9/v1",
+        own_key: false,
+      });
+  },
+);
+
+test(
+  "a chat still on Mixture of Agents after the advisors go reaches no other model",
+  options,
+  async (t) => {
+    const main = await startFakeModel();
+    const advisor = await startFakeModel();
+    t.after(() => main.close());
+    t.after(() => advisor.close());
+    const dirs = hermesSandbox(t);
+    const agentId = "hermes-closed";
+    const stored = [{ connectionId: "c-adv", modelId: "fake-advisor" }];
+    const extra = {
+      runtime: "hermes",
+      runtimeOptions: { hermes: { mixture: { advisors: stored } } },
+    };
+    const inputs = {
+      optionConnections: [
+        resolved(
+          "c-adv",
+          "fake-advisor",
+          endpoint(advisor.baseUrl, "advisor-key", "fake-advisor"),
+        ),
+      ],
+    };
+    const model = { baseUrl: main.baseUrl };
+    const { runtime, supervisor, agent, stop } = await startHermes(t, dirs, {
+      agentId,
+      model,
+      extra,
+      inputs,
+    });
+    // A chat an older AgentPier created: Hermes froze its route, `provider: moa`.
+    const created = await supervisor.client.call("session.create", {
+      request_id: "frozen-moa",
+      title: "Frozen",
+    });
+    const session = created.stored_session_id || created.session_id;
+    const advised = () =>
+      advisor.requests.filter((r) => r.url.endsWith("/chat/completions")).length;
+    const first = await rawTurn(supervisor.client, session, "hello advisors", "r1");
+    assert.equal(first.status, "complete", JSON.stringify(first));
+    const once = advised();
+    assert.ok(once >= 1, "the advisor ran while it was set");
+    // The owner removes the advisor.
+    stored.length = 0;
+    await runtime.config.apply({
+      desired: contractAgent(agentId, model, { shell: "approval", ...extra }, inputs),
+    });
+    const log = path.join(agent.hermesHome, "logs", "agent.log");
+    const before = fs.readFileSync(log, "utf8").length;
+    const asked = main.requests.length;
+    // The turn ends only after Hermes gave up on the closed address (minutes of
+    // retries): what it called first is enough.
+    const second = rawTurn(supervisor.client, session, "Say OK.", "r2");
+    const called = /Auxiliary moa_aggregator: using|MoA reference model/;
+    const deadline = Date.now() + 120000;
+    let after = "";
+    while (!called.test(after) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      after = fs.readFileSync(log, "utf8").slice(before);
+    }
+    second.catch(() => {});
+    t.diagnostic(
+      after
+        .split("\n")
+        .filter((line) => /moa|MoA/.test(line))
+        .join("\n"),
+    );
+    assert.match(after, called, "the stale chat ran its preset");
+    // No advisor ran, and nothing of Hermes's own preset was even resolved.
+    assert.equal(advised(), once);
+    assert.doesNotMatch(after, builtInSlots, after);
+    assert.match(after, /moa_aggregator: using custom \(none\)/);
+    // Whatever answered was the agent's own model, at its own endpoint.
+    for (const request of main.requests.slice(asked))
+      assert.equal(request.headers.authorization, "Bearer contract-key");
     await stop();
     assert.deepEqual(await strayAfterStop(dirs), []);
   },

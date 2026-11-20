@@ -26,21 +26,33 @@ import {
 //   (hermes_cli/moa_config.py `_normalize_preset`, `_clean_slot`), and a provider it
 //   cannot resolve is called bare (`_slot_runtime`). The owner's conversation must
 //   never reach a provider the owner did not choose: checkedPreset refuses any slot
-//   but AgentPier's named providers with a model, and without one usable advisor no
-//   preset is written at all.
+//   but AgentPier's named providers with a model.
+// - Hermes reads the preset from config.yaml at every MoA call, also for a session
+//   that still runs `model.provider: moa` from when it was created (agent/moa_loop.py
+//   `_resolve_preset_cached`, `build_moa_facade`). Without a `moa` section the
+//   built-in defaults apply (hermes_cli/config_defaults.py: preset `default` with
+//   openai-codex gpt-5.5, OpenRouter deepseek and an OpenRouter Claude aggregator),
+//   and a preset name it does not find falls back to that default preset. So the
+//   section is never left out: without advisors AgentPier writes a closed preset
+//   (closedPreset), disabled, whose only slot is a local address nothing answers on;
+//   an explicit `presets` map replaces the built-in one whole (hermes_cli/
+//   moa_config.py `apply_user_moa_presets`).
 // - A slot's call carries only base_url, api_key and api_mode of its entry, no
 //   headers, while `model.extra_headers` would go with every auxiliary call, so
 //   neither the aggregator nor an advisor may need a key header of its own.
 
 export const presetName = "agentpier";
 const modelProvider = "agentpier-model";
+// The closed preset's only provider: the discard port on loopback, without a key.
+const closedProvider = "agentpier-closed";
+export const closedUrl = "http://127.0.0.1:9/v1";
 const advisorProvider = (n) => `agentpier-advisor-${n}`;
 /** The .env name of advisor `n`'s key: an AUXILIARY_*_API_KEY Hermes hides. */
 export const advisorKeyEnv = (n) => `AUXILIARY_AGENTPIER_ADVISOR_${n}_API_KEY`;
 // Every advisor key name the compiler owns in .env (home-merge.js mergeEnv).
 export const mixtureEnvOwned = "AUXILIARY_AGENTPIER_ADVISOR_*";
 // AgentPier's own entries of `providers:`, removed with the mixture.
-const ownedProviders = [modelProvider, ...[1, 2, 3].map(advisorProvider)];
+const ownedProviders = [modelProvider, closedProvider, ...[1, 2, 3].map(advisorProvider)];
 const named = (provider) => `custom:${provider}`;
 
 // How long one advisor may take, in seconds. Hermes's own default is 900 s
@@ -57,6 +69,28 @@ export const mixturePreset = (references, aggregator) => ({
   reference_timeout: referenceTimeoutS,
   reference_models: references,
   aggregator,
+});
+
+/**
+ * The preset written while the agent has no Mixture of Agents: disabled, so a session
+ * still on `provider: moa` calls its aggregator alone (agent/moa_loop.py `create`),
+ * and that aggregator is the closed provider, so such a turn fails instead of reaching
+ * any model. Its one advisor slot keeps Hermes from filling the list with its own.
+ */
+export const closedPreset = () => ({
+  ...mixturePreset([{ provider: named(closedProvider), model: "none" }], {
+    provider: named(closedProvider),
+    model: "none",
+  }),
+  enabled: false,
+});
+
+/** The `moa` section with `preset` as AgentPier's only and default preset. */
+const moaSection = (preset) => ({
+  default_preset: presetName,
+  active_preset: "",
+  save_traces: false,
+  presets: { [presetName]: preset },
 });
 
 /**
@@ -106,9 +140,9 @@ function aggregatorEntry(model) {
   return slotEntry(provider, keyEnv);
 }
 
-// Removal of AgentPier's part of a mixture written earlier: the preset, its entries
-// of `providers:`, and that section when only AgentPier's entries are left in it.
-function removal(existing) {
+// The removal of AgentPier's part of `providers:` written earlier (all of the section
+// when only AgentPier's entries are in it), with the `moa` section put in its place.
+function removal(existing, moa) {
   let config = {};
   try {
     config = readHermesConfig(existing);
@@ -120,6 +154,17 @@ function removal(existing) {
     providers && typeof providers === "object"
       ? Object.keys(providers).filter((name) => !ownedProviders.includes(name))
       : [];
+  if (moa)
+    return [
+      ...ownedProviders
+        .filter((name) => name !== closedProvider)
+        .map((name) => [["providers", name], undefined]),
+      [
+        ["providers", closedProvider],
+        { base_url: closedUrl, api_mode: "chat_completions" },
+      ],
+      [["moa"], moa],
+    ];
   return [
     [["moa"], undefined],
     ...(providers && typeof providers === "object" && !others.length
@@ -135,7 +180,8 @@ function removal(existing) {
  * aggregator Hermes reaches as a named provider: `section` is `provider: moa` with
  * every other key the agent's model needs kept, `config` the named providers and the
  * preset, `env` the advisors' keys. Otherwise `section` is unchanged and `config`
- * removes what an earlier mixture wrote. `unsupported`: "mixtureAdvisor" when a stored
+ * removes the advisors an earlier mixture wrote and puts the closed preset in place
+ * (closedPreset); a model Hermes cannot use (no `section`) only loses the mixture. `unsupported`: "mixtureAdvisor" when a stored
  * advisor is left out, "mixture" when advisors are stored but the aggregator cannot
  * act. `existing` is the home's config.yaml as found. Pure.
  */
@@ -143,7 +189,7 @@ export function mixtureHome(agent, section, existing) {
   const stored = agent.runtimeOptions?.mixture?.advisors || [];
   const off = (unsupported = []) => ({
     section,
-    config: removal(existing),
+    config: removal(existing, section && moaSection(closedPreset())),
     env: {},
     unsupported,
   });
@@ -190,14 +236,7 @@ export function mixtureHome(agent, section, existing) {
         .filter((name) => !all[name])
         .map((name) => [["providers", name], undefined]),
       ...Object.entries(all).map(([name, entry]) => [["providers", name], entry]),
-      [
-        ["moa"],
-        {
-          default_preset: presetName,
-          save_traces: false,
-          presets: { [presetName]: preset },
-        },
-      ],
+      [["moa"], moaSection(preset)],
     ],
     env,
     unsupported: leftOut,

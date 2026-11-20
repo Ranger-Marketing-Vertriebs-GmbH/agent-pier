@@ -10,6 +10,26 @@ model:
   default: anthropic/claude-x
   api_mode: chat_completions
   supports_vision: true
+providers:
+  agentpier-closed:
+    base_url: http://127.0.0.1:9/v1
+    api_mode: chat_completions
+moa:
+  default_preset: agentpier
+  active_preset: ""
+  save_traces: false
+  presets:
+    agentpier:
+      enabled: false
+      fanout: user_turn
+      degraded_reference_policy: loud
+      reference_timeout: 120
+      reference_models:
+        - provider: custom:agentpier-closed
+          model: none
+      aggregator:
+        provider: custom:agentpier-closed
+        model: none
 agent:
   disabled_toolsets:
     - browser

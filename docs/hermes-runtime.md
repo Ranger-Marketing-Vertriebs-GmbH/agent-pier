@@ -151,7 +151,7 @@ connectionId, modelId }`, [ADR 0007](adr/0007-runtime-descriptor.md#9-per-agent-
 | `providers.agentpier-model`             | the agent's own model: `base_url`, `api_mode: chat_completions`, `key_env` as its model's                                                                                                       |
 | `providers.agentpier-advisor-<n>`       | advisor `n`: `base_url`, `api_mode: chat_completions`, `key_env: AUXILIARY_AGENTPIER_ADVISOR_<N>_API_KEY`                                                                                       |
 | `moa.presets.agentpier`                 | `reference_models` (`custom:agentpier-advisor-<n>`), `aggregator` (`custom:agentpier-model`), `fanout: user_turn`, `degraded_reference_policy: loud`, `reference_timeout: 120`, `enabled: true` |
-| `moa.default_preset`, `moa.save_traces` | `agentpier`, `false`                                                                                                                                                                            |
+| `moa.default_preset`, `moa.save_traces` | `agentpier`, `false` (`moa.active_preset` empty)                                                                                                                                                |
 
 `n` is the advisor's position in the stored list, so an advisor left out keeps the
 others' numbers. Each key goes into the home's `.env` like the agent's own key; Hermes
@@ -172,12 +172,31 @@ provider or model is dropped and an empty list is filled with Hermes's built-in
 and a provider it cannot resolve is called bare. The owner's conversation must never
 reach a provider the owner did not choose, so `checkedPreset` refuses any slot but
 AgentPier's named providers with a model. An advisor whose connection cannot be one
-(deleted, without its key, a ChatGPT login) is left out and the settings say so; with
-none left, or an agent model Hermes cannot reach as a named provider (a ChatGPT login,
-a key header), no preset is written and the home is exactly an agent's without
-advisors. Removing the advisors removes the preset, AgentPier's provider entries and
-their keys. `hermes-mixture-contract.test.js` reads the compiled home with Hermes's own
-loader and normaliser.
+(deleted, without its key, a ChatGPT login) is left out and the settings say so.
+
+The `moa` section is never left out. Hermes reads the preset from `config.yaml` at every
+Mixture of Agents call, also for a chat that still runs `model.provider: moa` from
+before (`agent/moa_loop.py` `_resolve_preset_cached`, `build_moa_facade`). Without a
+section the built-in defaults apply (`hermes_cli/config_defaults.py`: preset `default`
+with openai-codex `gpt-5.5`, OpenRouter `deepseek/deepseek-v4-pro` and an OpenRouter
+`anthropic/claude-opus-4.8` aggregator), and a preset name Hermes does not find falls
+back to that default (AGENTPIER-437). So an agent without advisors, with none left, or
+whose own model Hermes cannot reach as a named provider (a ChatGPT login, a key header)
+gets the **closed preset**:
+
+| Key                          | Value                                                                                         |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `providers.agentpier-closed` | `base_url: http://127.0.0.1:9/v1` (the discard port), `api_mode: chat_completions`, no key    |
+| `moa.presets.agentpier`      | `enabled: false`, one advisor slot and the aggregator, both `custom:agentpier-closed`, `none` |
+| `moa.default_preset`         | `agentpier`; the explicit `presets` map replaces Hermes's own (`apply_user_moa_presets`)      |
+
+A disabled preset calls its aggregator alone, so a chat still on `provider: moa` fails
+its turn at the closed address instead of reaching any model.
+Removing the advisors removes AgentPier's advisor entries and their keys and writes the
+closed preset. `hermes-mixture-contract.test.js` reads the compiled home with Hermes's
+own loader and normaliser, and runs a turn of a chat frozen on `provider: moa` after
+its advisors were removed: no advisor runs and no slot of Hermes's own preset is
+resolved.
 
 What the advisors see (`agent/moa_loop.py` `_reference_messages`): a fixed advisor
 prompt and the chat's user and assistant text, tool calls inline as text and tool
@@ -218,7 +237,8 @@ of the run. Auxiliary tasks (titles, compression) run on the aggregator.
   agent uses as an advisor counts as a change of a connection the agent uses. A real
   turn leaves the `moa` and `providers` sections as AgentPier wrote them
   (`hermes-mixture-contract.test.js`), so the next apply changes nothing.
-- **Downgrade:** an AgentPier from before Mixture of Agents neither writes nor removes
+- **Downgrade:** an AgentPier from before the closed preset removes `moa` at its next
+  apply and leaves `providers.agentpier-closed`, which nothing uses then. An AgentPier from before Mixture of Agents neither writes nor removes
   `moa`, `providers.agentpier-*` or the `AUXILIARY_AGENTPIER_ADVISOR_*` keys, so they stay in the agent's home: the older compile writes the agent's own model again, but a gateway `/moa` turn still runs the preset with the advisors' keys.
   Remove the agent's advisors and let the agent apply before you downgrade. Otherwise
   remove `moa`, the `providers.agentpier-*` entries and the advisor keys from that
