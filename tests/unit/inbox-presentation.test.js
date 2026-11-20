@@ -44,3 +44,19 @@ test("an email's kind names a forward, its attachments and the original's HTML",
     setLanguage("de");
   }
 });
+
+test("a gate's context names the pipeline, the project and the task", () => {
+  setLanguage("en");
+  try {
+    const context = itemContext({
+      type: "gate",
+      kind: "gate",
+      title: "Review",
+      source: { name: "W5 tiny", project: "shop" },
+      task: "Add a vegetarian filter",
+    });
+    assert.match(context, /W5 tiny · shop · Add a vegetarian filter$/);
+  } finally {
+    setLanguage("de");
+  }
+});

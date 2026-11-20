@@ -41,6 +41,7 @@ export function itemContext(item) {
   const parts = [item.title && kind !== item.title ? kind : copy.types[item.type]];
   if (item.source?.name) parts.push(item.source.name);
   if (item.source?.project) parts.push(item.source.project);
+  if (item.task) parts.push(item.task);
   return parts.filter(Boolean).join(" · ");
 }
 

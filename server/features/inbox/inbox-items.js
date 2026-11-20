@@ -113,9 +113,16 @@ export function gateItem(run) {
       kind: "pipeline",
       id: run.id,
       name: run.pipelineName || run.pipelineId || "",
-      project: folder(run.workingDir || run.cwd),
+      // The project's folder: the run's own worktree is named after its id.
+      project: folder(run.cwd || run.workingDir),
     },
     title: node ? node.profileSnapshot?.name || node.label || node.kind || node.id : "",
+    // What the run works on: the first line of its task.
+    task: text(
+      String(run.task || "")
+        .trim()
+        .split("\n", 1)[0],
+    ),
     stage: node?.id || null,
     // A stage held at the token budget may not have started yet.
     createdAt:

@@ -94,6 +94,7 @@ export const pipelineCopy = {
   modelsHelp: "Ein Modell pro Zeile. Eine leere Zeile verwendet den Account-Standard.",
   role: "Rollenanweisung",
   kickoff: "Startanweisung",
+  kickoffRequired: "Startanweisung (erforderlich)",
   parameters: "Parameter",
   addParameter: "Parameter hinzufügen",
   paramKey: (n) => `Parameterschlüssel ${n}`,
@@ -306,6 +307,7 @@ export const pipelineCopy = {
   budgetGateHelp: (used, budget) =>
     `Die Turns des Laufs haben ${used} Tokens gemeldet, mehr als sein Budget von ${budget}. Laufende Turns wurden nicht abgebrochen; der nächste Turn startet, sobald du das Budget erhöhst.`,
   newTokenBudget: "Neues Token-Budget",
+  stepperRange: (min, max) => `Von ${min} bis ${max}.`,
   budgetRange: (min, max) => `Gib eine ganze Zahl von ${min} bis ${max} ein.`,
   attempts: "Ausführungsverlauf",
   verdict: "Ergebnis",
@@ -319,6 +321,8 @@ export const pipelineCopy = {
   noArtifacts: "Keine Dateien gemeldet.",
   emptyDiff: "Keine Änderungen gemeldet.",
   truncated: "Ausgabe gekürzt.",
+  noOutput: (code) =>
+    Number.isInteger(code) ? `Keine Ausgabe (Exit-Code ${code}).` : "Keine Ausgabe.",
   reviewChanges: "Änderungen prüfen",
   reviewNotes: (n) => (n === 1 ? "1 offener Kommentar" : `${n} offene Kommentare`),
   reviewNotesSent: (n) =>

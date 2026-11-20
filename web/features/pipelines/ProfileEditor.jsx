@@ -221,7 +221,7 @@ export default function ProfileEditor({
             />
           </label>
           <label>
-            {copy.kickoff}
+            {config.run.autonomous ? copy.kickoffRequired : copy.kickoff}
             <textarea
               rows={4}
               required={config.run.autonomous}

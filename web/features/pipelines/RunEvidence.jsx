@@ -20,7 +20,8 @@ export function useEvidence(runId, node) {
   const [pane, setPane] = useState(null);
   const action = useAsyncAction();
   const base = `/pipeline-runs/${encodeURIComponent(runId)}/nodes/${encodeURIComponent(node.id)}`;
-  const open = (suffix, title, field) =>
+  // `empty` replaces an empty text (a verification step that printed nothing).
+  const open = (suffix, title, field, empty = "") =>
     action.run(async () => {
       const result = await api(base + suffix);
       // A stage's diff opens in the shared renderer, read-only; other evidence is text.
@@ -28,6 +29,7 @@ export function useEvidence(runId, node) {
       setPane({
         title,
         text: result[field] || "",
+        empty,
         truncated: result.truncated,
         changed: result.changed === true,
       });
@@ -38,14 +40,19 @@ export function useEvidence(runId, node) {
       const logs = [];
       for (const index of steps.keys())
         logs.push(await api(`${base}/verify-logs/${index}`));
+      const silent = (index) => copy.noOutput(steps[index].exitCode);
       setPane({
         title: copy.logs,
         text:
           steps.length === 1
             ? logs[0].log || ""
             : logs
-                .map((result, index) => `── ${steps[index].name} ──\n${result.log || ""}`)
+                .map(
+                  (result, index) =>
+                    `── ${steps[index].name} ──\n${result.log || silent(index)}`,
+                )
                 .join("\n\n"),
+        empty: silent(0),
         truncated: logs.some((result) => result.truncated),
       });
     });
@@ -75,7 +82,11 @@ export function useEvidence(runId, node) {
             />
           ) : (
             <>
-              <pre className="pipeline-evidence">{pane.text}</pre>
+              {pane.text || !pane.empty ? (
+                <pre className="pipeline-evidence">{pane.text}</pre>
+              ) : (
+                <p>{pane.empty}</p>
+              )}
               {pane.truncated && <p>{copy.truncated}</p>}
             </>
           )}
@@ -127,7 +138,14 @@ export function VerificationSteps({ evidence, node }) {
         className="button secondary compact"
         aria-label={copy.stepLog(step.name)}
         disabled={evidence.busy}
-        onClick={() => evidence.open("/verify-logs/" + index, copy.logs, "log")}
+        onClick={() =>
+          evidence.open(
+            "/verify-logs/" + index,
+            copy.logs,
+            "log",
+            copy.noOutput(step.exitCode),
+          )
+        }
       >
         {copy.logs}
       </button>
