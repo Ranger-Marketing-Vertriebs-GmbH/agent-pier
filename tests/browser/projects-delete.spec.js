@@ -228,6 +228,26 @@ test("the Folder missing filter shows the stale projects", async ({ page }) => {
   await expect(list).toHaveCount(2);
 });
 
+test("a missing folder offers no Start session and says why", async ({ page }) => {
+  await deletionFixture(page, {
+    projects: [
+      row("m1", "agent-pier", { cwd: "/work/agent-pier", branch: "main" }),
+      row("m2", "notes", { folder: "missing" }),
+    ],
+  });
+  await page.goto(base + "/projects");
+  await page.getByRole("button", { name: /^notes/ }).click();
+  const start = page.locator(".project-card-primary .button.primary");
+  await expect(start).toBeDisabled();
+  await expect(start).toHaveAccessibleDescription(
+    "The folder no longer exists, so no session can start in it.",
+  );
+  // A present repository shows its own checked-out branch, without any session.
+  await page.getByRole("button", { name: /^agent-pier/ }).click();
+  await expect(page.locator(".project-card-primary .button.primary")).toBeEnabled();
+  await expect(page.getByText("main", { exact: true }).first()).toBeVisible();
+});
+
 test("a failed deletion shows Retry", async ({ page }) => {
   const { log } = await deletionFixture(page, {
     deletions: [{ path: "/work/notes", state: "failed", error: "EACCES" }],

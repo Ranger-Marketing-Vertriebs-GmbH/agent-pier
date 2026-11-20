@@ -284,10 +284,12 @@ for (const language of ["en", "de"]) {
       await dragOver(paneOf(page, S1), "center", seventh);
       await expect(overlay(page, S1)).toHaveAttribute("data-side", "center");
       await expect(overlay(page, S1)).toHaveText(t.full);
+      // An edge takes no seventh pane and says why.
       await dragOver(paneOf(page, S1), "right", seventh);
-      await expect(overlay(page, S1)).toHaveCount(0);
+      await expect(overlay(page, S1)).not.toHaveAttribute("data-side");
+      await expect(overlay(page, S1)).toHaveText(t.full);
       await dragOver(paneOf(page, S1), "left", seventh);
-      await expect(overlay(page, S1)).toHaveCount(0);
+      await expect(overlay(page, S1)).toHaveText(t.full);
       await dropOn(paneOf(page, S1), "right", seventh);
       // Moving a pane adds none: no "full" label.
       await dragOver(
@@ -555,7 +557,8 @@ test("a real drag from the sidebar onto a full view offers only the centre", asy
   await expect(overlay(page, S1)).toHaveAttribute("data-side", "center");
   await expect(overlay(page, S1)).toHaveText(text.en.full);
   await page.mouse.move(...(await pointAt(paneOf(page, S1), "right")), { steps: 8 });
-  await expect(overlay(page, S1)).toHaveCount(0);
+  await expect(overlay(page, S1)).not.toHaveAttribute("data-side");
+  await expect(overlay(page, S1)).toHaveText(text.en.full);
   await page.mouse.up();
   await expect(page.locator(".split-pane")).toHaveCount(6);
   expect(layoutWrites(controls)).toEqual([]);

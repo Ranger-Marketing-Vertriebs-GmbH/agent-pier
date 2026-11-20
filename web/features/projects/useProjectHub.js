@@ -30,7 +30,7 @@ function noteFolder(project, row) {
 const holds = (folder, path) =>
   path !== folder && path.startsWith(folder === "/" ? "/" : `${folder}/`);
 
-// The server reads each folder's git remote live (`remote`); the URL a repository
+// The server reads each folder's git remote and branch live (`remote`, `branch`); the URL a repository
 // was cloned from (`url`) only stands in while no live remote is known. Every project
 // carries `folder` ("present", "missing", "unavailable") and `deletion` (null or
 // `{ state, error }`), from its rows or else from `deletions` by folder; a project
@@ -43,6 +43,10 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
   const add = (project) => {
     entries.push(project);
     if (project.path) byPath.set(project.path, project);
+  };
+  // The checked-out branch, read live with the remote: the first source naming one.
+  const liveBranch = (project, branch) => {
+    if (branch && !project.branch) project.branch = branch;
   };
   const liveRemote = (project, remote) => {
     if (!remote || live.has(project)) return;
@@ -68,6 +72,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
     noteFolder(project, memory);
     add(project);
     liveRemote(project, memory.remote);
+    liveBranch(project, memory.branch);
   }
   for (const repository of repositories || []) {
     const path = normalizePath(repository.path);
@@ -95,6 +100,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
       );
     noteFolder(project, repository);
     liveRemote(project, repository.remote);
+    liveBranch(project, repository.branch);
   }
   for (const bus of busProjects || []) {
     const path = normalizePath(bus.cwd);
@@ -119,6 +125,7 @@ export function mergeProjects({ repositories, memoryProjects, busProjects, delet
       );
     noteFolder(project, bus);
     liveRemote(project, bus.remote);
+    liveBranch(project, bus.branch);
   }
   const recorded = new Map(
     (deletions || []).map((item) => [normalizePath(item.path), item]),

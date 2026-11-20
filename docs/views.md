@@ -54,7 +54,8 @@ pane when it would replace it:
 
 Drag the divider between two panes to resize them. Dividers keep the split ratio between
 15 % and 85 % and stop where a pane would get smaller than 280 × 220 px, so a terminal
-always keeps at least 20 columns and 5 rows.
+always keeps at least 20 columns and 5 rows. An edge drop that would make a pane smaller
+than that, or add a seventh pane, is refused: the pane says why while you hover it.
 
 Adding, moving and replacing panes works only by drag and drop for now; there is no
 keyboard-only way to do it yet. The pane menu (**Open alone**) and the **×** button work

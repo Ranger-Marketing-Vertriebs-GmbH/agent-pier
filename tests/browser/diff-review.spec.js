@@ -138,3 +138,23 @@ test.describe("on a phone", () => {
     expect(box.x + box.width).toBeLessThanOrEqual(390);
   });
 });
+
+test("a resolved comment shows its first line as Markdown, not its syntax", async ({
+  page,
+}) => {
+  await open(page);
+  await selectLine(page, 4);
+  await editable(page).getByRole("button", { name: "Comment on line 12" }).click();
+  await editable(page)
+    .getByLabel("Comment (Markdown)")
+    .fill("Please say **line two** instead\nand more");
+  await page.keyboard.press("Control+Enter");
+  const note = editable(page).locator(".diff-thread", { hasText: "line two" });
+  await note.getByRole("button", { name: "Resolve" }).click();
+  const summary = editable(page)
+    .locator(".diff-thread.is-resolved .diff-thread-summary")
+    .filter({ hasText: "line two" });
+  await expect(summary).toHaveText("Please say line two instead");
+  await expect(summary.locator("strong")).toHaveText("line two");
+  expect((await summary.boundingBox()).height).toBeLessThan(30);
+});

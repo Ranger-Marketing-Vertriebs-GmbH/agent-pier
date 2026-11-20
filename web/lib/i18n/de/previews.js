@@ -2,6 +2,8 @@ export const previewCopy = {
   title: "Vorschauen",
   open: "Vorschau öffnen",
   stop: "Beenden",
+  loopbackTailscale:
+    "Du hast AgentPier unter der eigenen Adresse dieses Rechners geöffnet, während Tailscale die Vorschauen bereitstellt. Diese Links öffnen sich hier deshalb nicht. Öffne AgentPier über seine Tailscale-Adresse, um sie zu nutzen.",
   port: (port) => `Port ${port}`,
   description:
     "Coding-Sessions und Agenten können dir ihren laufenden Dev-Server zeigen. Jede Vorschau bekommt einen eigenen Port aus dem Bereich unten, unter derselben Adresse wie AgentPier. Nur du kannst sie öffnen.",

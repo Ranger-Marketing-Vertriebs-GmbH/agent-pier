@@ -54,6 +54,22 @@ export async function itemForPayload(
 }
 
 /**
+ * Why dropping `payload` on the pane `key` at `side` is refused: "full" past MAX_PANES,
+ * "small" when the new split would not fit `stageSize`, or "" (allowed, or a pane of
+ * another view, which is not ours to explain).
+ */
+export function dropRefusal({ layout, viewId, payload, item, key, side, stageSize }) {
+  if (payload.pane && payload.pane.viewId !== viewId) return "";
+  const next = payload.pane
+    ? movePane(layout, payload.pane.key, key, side)
+    : dropItem(layout, item, key, side);
+  if (next === layout || side === "center") return "";
+  if (paneCount(next) > MAX_PANES) return "full";
+  if (stageSize && !fits(next, stageSize, MIN_PANE, SPLIT_GAP)) return "small";
+  return "";
+}
+
+/**
  * The layout after dropping `payload` on the pane `key` at `side` (`item`: what an item
  * or agent payload lands as), or `layout` itself when the drop changes nothing or is
  * refused: a pane of another view, or an edge drop that would exceed MAX_PANES or not

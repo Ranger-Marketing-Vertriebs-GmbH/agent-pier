@@ -4,7 +4,13 @@ import StatusChip from "../../components/StatusChip.jsx";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { projectDeletionCopy as copy } from "../../lib/i18n/messages/project-deletion.js";
-import { canRetry, failureText, projectState } from "./project-deletion.js";
+import {
+  canRetry,
+  failureText,
+  launchBlocked,
+  launchBlockedId,
+  projectState,
+} from "./project-deletion.js";
 
 const chips = {
   missing: { tone: "neutral", label: () => copy.folderMissing },
@@ -36,6 +42,11 @@ export default function ProjectDeletionNotice({ project }) {
   return (
     <div className="project-deletion-notice">
       <ProjectStateChip project={project} pill />
+      {launchBlocked(project) && (
+        <p className="project-deletion-reason" id={launchBlockedId(project)}>
+          {launchBlocked(project)}
+        </p>
+      )}
       {state === "failed" && (
         <p className="project-deletion-reason">
           {failureText((project.deletion ?? project.deletionAbove).error)}

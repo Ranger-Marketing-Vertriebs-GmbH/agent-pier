@@ -141,3 +141,19 @@ setTimeout(() => { fs.appendFileSync(${JSON.stringify(log)}, "-"); process.stdou
   }
   assert.equal(peak, 2);
 });
+
+test("a repository reports its checked-out branch, a plain folder none", async (t) => {
+  const root = folder(t);
+  const cwd = repository(root, "work", "https://github.com/acme/work.git");
+  execFileSync("git", ["-C", cwd, "checkout", "-q", "-b", "feature/x"]);
+  const plain = path.join(root, "plain");
+  fs.mkdirSync(plain);
+  const remotes = new GitRemotes();
+  assert.equal(await remotes.readBranch(cwd), "feature/x");
+  assert.equal(await remotes.readBranch(plain), "");
+  const listed = await remotes.annotate([{ cwd }, { cwd: plain }], "cwd");
+  assert.deepEqual(
+    listed.map((item) => item.branch),
+    ["feature/x", ""],
+  );
+});

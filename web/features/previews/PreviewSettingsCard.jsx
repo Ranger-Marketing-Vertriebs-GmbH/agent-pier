@@ -147,6 +147,7 @@ export default function PreviewSettingsCard({ locked = false }) {
         <PreviewRows
           previews={data.previews}
           label={copy.activeTitle}
+          serve={data.serve}
           onStop={() => written()}
         />
       )}

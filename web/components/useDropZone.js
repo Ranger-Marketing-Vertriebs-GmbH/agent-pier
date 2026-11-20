@@ -18,10 +18,19 @@ export function dropDecision({ types, accepts, allowed, sideFor, rect, x, y, dat
  * Drop zones on a pane edge or centre. `rectOf(element)` names the element whose box
  * the sides divide (default: the element with the handlers). Drags that `accepts`
  * rejects are left alone (no preventDefault), so other drop handlers on the same
- * element keep working.
+ * element keep working. `refusal(side, data)` names why a refused side takes no drop;
+ * the zone keeps it in `refused` while the drag stays there.
  */
-export default function useDropZone({ accepts, allowed, sideFor, rectOf, onDrop }) {
+export default function useDropZone({
+  accepts,
+  allowed,
+  sideFor,
+  rectOf,
+  onDrop,
+  refusal,
+}) {
   const [side, setSide] = useState(null);
+  const [refused, setRefused] = useState("");
 
   const decide = (event) => {
     const types = event.dataTransfer?.types;
@@ -49,21 +58,32 @@ export default function useDropZone({ accepts, allowed, sideFor, rectOf, onDrop 
       event.dataTransfer.dropEffect = "move";
     }
     setSide(next);
+    setRefused(next || !refusal ? "" : refusal(sideUnder(event), event.dataTransfer));
+  };
+  const sideUnder = (event) => {
+    const rect = (
+      rectOf ? rectOf(event.currentTarget) : event.currentTarget
+    ).getBoundingClientRect();
+    const under = sideAt(rect, event.clientX, event.clientY);
+    return sideFor ? sideFor(under) : under;
   };
 
   return {
     side,
+    refused,
     handlers: {
       onDragEnter: over,
       onDragOver: over,
       onDragLeave: (event) => {
         if (event.currentTarget.contains(event.relatedTarget)) return;
         setSide(null);
+        setRefused("");
       },
       onDrop: (event) => {
         const next = decide(event);
         if (next === undefined) return;
         setSide(null);
+        setRefused("");
         if (!next) return;
         event.preventDefault();
         onDrop(next, event.dataTransfer);

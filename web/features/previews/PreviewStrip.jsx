@@ -17,7 +17,7 @@ export default function PreviewStrip({ conversationId }) {
   if (!conversationId || !previews.length) return null;
   return (
     <section className="agent-preview-strip" aria-label={copy.title}>
-      <PreviewRows previews={previews} onStop={() => written()} />
+      <PreviewRows previews={previews} serve={data?.serve} onStop={() => written()} />
     </section>
   );
 }

@@ -8,3 +8,14 @@ export function previewHref(preview, location = window.location) {
     : location.hostname;
   return `${location.protocol}//${host}:${preview.slot}${preview.path || "/"}`;
 }
+
+const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+/**
+ * True when AgentPier is open at this computer's own address while Tailscale Serve
+ * carries the previews (`serve` of GET /api/previews): the preview links then point at
+ * slots whose local listeners sit 1000 ports higher, so they do not open.
+ */
+export function loopbackUnderTailscale(serve, location = window.location) {
+  return Boolean(serve && !serve.skipped && loopbackHosts.has(location.hostname));
+}

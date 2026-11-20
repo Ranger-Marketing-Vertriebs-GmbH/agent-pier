@@ -46,6 +46,7 @@ function PaneDropTarget({ drop, paneKey, children }) {
       <DropZoneOverlay
         side={zone.side}
         label={drop.full && drop.adding ? viewsCopy.full : undefined}
+        refused={zone.refused}
       />
     </div>
   );

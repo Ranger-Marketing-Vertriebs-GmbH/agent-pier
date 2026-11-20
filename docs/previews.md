@@ -106,7 +106,8 @@ registered, opening a preview fails with `PREVIEW_UNAVAILABLE`.
 
 In Tailscale mode the **Open preview** link assumes AgentPier itself is opened through its
 Tailscale address. If you open AgentPier at `127.0.0.1` while Tailscale is active, the link
-points at `<slot>`, whose local listener is at `<slot+1000>`.
+points at `<slot>`, whose local listener is at `<slot+1000>`; the preview lists then say so
+and ask you to open AgentPier through its Tailscale address.
 
 ## Sign-in and isolation
 

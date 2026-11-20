@@ -38,6 +38,15 @@ function DeleteConfirm({ onCancel, onConfirm }) {
 }
 
 const firstLine = (body) => body.trim().split("\n", 1)[0];
+// The collapsed line renders its Markdown inline: emphasis and code, never **syntax**,
+// and no block (heading, list, quote) breaks the single line.
+const inlineBlock = ({ node: _node, ordered: _ordered, ...props }) => <span {...props} />;
+const inlineMarkdown = Object.fromEntries(
+  ["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote"].map((tag) => [
+    tag,
+    inlineBlock,
+  ]),
+);
 
 // One comment: open with its body and actions, resolved as one collapsed line, and
 // with the stored excerpt when its line is gone (outdated).
@@ -93,7 +102,11 @@ export default function CommentThread({
   if (resolved) {
     return (
       <div ref={root} className="diff-thread is-resolved">
-        <span className="diff-thread-summary">{firstLine(comment.body)}</span>
+        <span className="diff-thread-summary">
+          <ChatMarkdown components={inlineMarkdown}>
+            {firstLine(comment.body)}
+          </ChatMarkdown>
+        </span>
         {marks}
         {!readOnly && (
           <button

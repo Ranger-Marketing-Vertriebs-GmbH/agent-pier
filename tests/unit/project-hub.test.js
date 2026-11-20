@@ -114,6 +114,19 @@ test("the live git remote wins over the remote stored at clone time", () => {
   });
 });
 
+test("a project carries its folder's live branch from any source", () => {
+  const projects = mergeProjects({
+    repositories: [{ id: "r1", name: "app", path: "/w/app", branch: "main" }],
+    memoryProjects: [
+      { id: "m1", name: "lab", cwd: "/w/lab", branch: "" },
+      { id: "m2", name: "app", cwd: "/w/app", branch: "" },
+    ],
+    busProjects: [{ id: "b1", cwd: "/w/lab", branch: "feature/x" }],
+  });
+  const branch = Object.fromEntries(projects.map((p) => [p.path, p.branch || ""]));
+  assert.deepEqual(branch, { "/w/app": "main", "/w/lab": "feature/x" });
+});
+
 test("missing sources and a root folder are tolerated", () => {
   const projects = mergeProjects({
     repositories: undefined,
