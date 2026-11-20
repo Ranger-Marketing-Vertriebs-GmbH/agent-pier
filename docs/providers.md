@@ -198,6 +198,15 @@ its hint links straight to that model's context field
 
 Model changes inside a running endpoint session require a reload.
 
+**Agents.** Agents (OpenClaw) do not use the CLI routes or the adapter. A connection
+with a key and **Responses** ticked runs them on the Responses API, which Azure OpenAI
+reasoning deployments need: on Chat Completions they refuse function tools together
+with `reasoning_effort`. Other connections, and every keyless one, run agents on Chat
+Completions. Of the adapter options, agents take the output limit field, stream usage
+and a refused reasoning effort on Chat Completions, and the cache key and a refused
+reasoning effort on Responses. See
+[assistant-model-connections.md](assistant-model-connections.md).
+
 **Launch.** Claude Code needs 2.1.193 or later for custom model contexts (AgentPier
 starts no release older than its general [minimum](cli-updates.md#minimum-cli-versions)); AgentPier sets
 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` for endpoint launches. Codex receives a

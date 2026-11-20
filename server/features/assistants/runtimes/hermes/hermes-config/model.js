@@ -29,6 +29,15 @@ export const modelEnvNames = Object.freeze([
 ]);
 
 export const openRouterUrl = "https://openrouter.ai/api/v1";
+
+/**
+ * Whether Hermes can reach a connection's provider (assistant-models.js) over Chat
+ * Completions. OpenClaw runs a keyed endpoint that offers Responses on Responses
+ * (assistant-provider-endpoint.js nativeApi); every endpoint agents may use also
+ * offers Chat Completions at the same base URL, which Hermes keeps.
+ */
+export const speaksChatCompletions = (provider) =>
+  provider?.api === "openai-completions" || provider?.api === "openai-responses";
 const reference = (name) => `\${${name}}`;
 
 // Request headers for an endpoint that takes its key in another header than
@@ -48,8 +57,9 @@ function keyHeaders(provider) {
  * account, "modelProtocol" for a transport other than Chat Completions. Pure.
  *
  * Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's
- * and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio, …) is a
- * Chat Completions endpoint (assistant-provider-endpoint.js), compiled as
+ * and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio, …) offers
+ * Chat Completions (assistant-provider-endpoint.js), even where OpenClaw runs it on
+ * Responses (speaksChatCompletions), and is compiled as
  * `provider: custom` with `api_mode: chat_completions`; the explicit mode keeps
  * Hermes from switching an api.openai.com or `/anthropic` URL to another wire
  * protocol (agent/agent_init.py `_resolve_api_mode`, `_finalize_routing`). The
@@ -90,7 +100,7 @@ function baseSection(connection, modelProxy) {
   if (connection?.chatgpt) return chatgptSection(connection.chatgpt, modelProxy);
   const provider = connection?.provider;
   if (!provider) return { unsupported: "modelAccount" };
-  if (provider.api !== "openai-completions") return { unsupported: "modelProtocol" };
+  if (!speaksChatCompletions(provider)) return { unsupported: "modelProtocol" };
   const [model] = provider.models || [];
   if (!model?.id) return { unsupported: "modelProtocol" };
   if (provider.baseUrl === openRouterUrl)

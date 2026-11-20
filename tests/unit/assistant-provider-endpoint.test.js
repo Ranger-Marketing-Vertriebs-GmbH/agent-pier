@@ -307,3 +307,102 @@ test("an endpoint names the models that still need a context size", (t) => {
   const usable = models.listCapabilities().find((item) => item.id === ready.id);
   assert.equal("contextMissing" in usable, false);
 });
+
+// Azure reasoning deployments refuse function tools together with `reasoning_effort` on
+// Chat Completions and point to Responses (AGENTPIER-425). The pinned runtime gives a
+// synthetic key only to keyless local Chat Completions providers.
+const azure = (overrides = {}) =>
+  endpoint("azure", {
+    openaiBaseUrl: "https://fixture.openai.azure.com/openai/v1",
+    authHeader: "api-key",
+    protocols: { messages: false, responses: true, chatCompletions: true },
+    models: [{ modelId: "gpt-6.2-sol", source: "manual", contextTokens: 200000 }],
+    ...overrides,
+  });
+function leasedProvider(models, connectionId, modelId) {
+  const lease = models.resolve({ connectionId, modelId });
+  lease.release();
+  return lease.provider;
+}
+test("a keyed connection that offers Responses runs agents on Responses", (t) => {
+  const { connections, models } = fixture(t);
+  const c = create(
+    connections,
+    azure({
+      adapterCapabilities: {
+        chatCompletions: { maxTokensField: "max_completion_tokens", streamUsage: false },
+        responses: { promptCacheKey: true },
+      },
+    }),
+    "private-azure-fixture",
+  );
+  const provider = leasedProvider(models, c.id, "gpt-6.2-sol");
+  assert.equal(provider.api, "openai-responses");
+  assert.equal(provider.baseUrl, "https://fixture.openai.azure.com/openai/v1");
+  assert.equal(provider.apiKey, "private-azure-fixture");
+  assert.equal(provider.authHeader, false);
+  assert.deepEqual(provider.headers, {
+    authorization: "",
+    "api-key": "private-azure-fixture",
+  });
+  // Responses always sends max_output_tokens; the Chat Completions options do not apply.
+  assert.deepEqual(provider.models, [
+    {
+      id: "gpt-6.2-sol",
+      name: "gpt-6.2-sol",
+      contextWindow: 200000,
+      maxTokens: 32000,
+      compat: { supportsPromptCacheKey: true },
+    },
+  ]);
+});
+test("a Responses endpoint that refused reasoning gets a model without reasoning", (t) => {
+  const { connections, models } = fixture(t);
+  const c = create(
+    connections,
+    azure({ adapterCapabilities: { responses: { reasoningEffort: false } } }),
+    "private-azure-fixture",
+  );
+  const [model] = leasedProvider(models, c.id, "gpt-6.2-sol").models;
+  assert.equal(model.reasoning, false);
+  assert.equal(model.compat, undefined);
+});
+test("keyless and Chat-only connections stay on Chat Completions", (t) => {
+  const { connections, models } = fixture(t);
+  const keyless = create(
+    connections,
+    endpoint("ollama", {
+      protocols: { messages: false, responses: true, chatCompletions: true },
+    }),
+  );
+  assert.equal(
+    leasedProvider(models, keyless.id, "local/model:latest").api,
+    "openai-completions",
+  );
+  const chatOnly = create(
+    connections,
+    azure({
+      protocols: { messages: false, responses: false, chatCompletions: true },
+      adapterCapabilities: {
+        chatCompletions: { maxTokensField: "max_completion_tokens" },
+      },
+    }),
+    "private-azure-fixture",
+  );
+  const provider = leasedProvider(models, chatOnly.id, "gpt-6.2-sol");
+  assert.equal(provider.api, "openai-completions");
+  assert.deepEqual(provider.models[0].compat, {
+    maxTokensField: "max_completion_tokens",
+  });
+});
+test("a Chat Completions endpoint that refused reasoning_effort never gets it", (t) => {
+  const { connections, models } = fixture(t);
+  const c = create(
+    connections,
+    endpoint("custom", {
+      adapterCapabilities: { chatCompletions: { reasoningEffort: false } },
+    }),
+  );
+  const [model] = leasedProvider(models, c.id, "local/model:latest").models;
+  assert.deepEqual(model.compat, { supportsReasoningEffort: false });
+});

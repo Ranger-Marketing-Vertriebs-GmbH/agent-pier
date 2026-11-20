@@ -103,6 +103,14 @@ test("a text-only agent reads with the owner's fallback, its key in .env alone",
     },
   });
   assert.equal(tools(header).pdf.fallback.keyHeader, "api-key");
+  // A connection OpenClaw reaches over Responses also offers Chat Completions.
+  const responses = home(withModel(base, ["text"]), {
+    pdfFallback: {
+      ...visionFallback,
+      provider: endpoint(["image"], "fallback-key", { api: "openai-responses" }),
+    },
+  });
+  assert.deepEqual(tools(responses).pdf.fallback, tools(text).pdf.fallback);
   const other = home(withModel(base, ["text"]), {
     pdfFallback: { provider: endpoint([], "k3", { api: "anthropic-messages" }) },
   });

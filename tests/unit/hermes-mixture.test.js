@@ -136,6 +136,20 @@ test("two advisors compile into named providers, a preset and provider moa", () 
   assert.deepEqual(reasons(compiled), []);
 });
 
+test("an advisor OpenClaw reaches over Responses compiles as Chat Completions", () => {
+  const responses = [
+    twoResolved[0],
+    resolved(
+      "c-lab",
+      "lab-model",
+      endpoint("lab", "sk-lab", { api: "openai-responses" }),
+    ),
+  ];
+  const compiled = home(profile(two), responses);
+  assert.deepEqual(compiled.files, home(profile(two), twoResolved).files);
+  assert.deepEqual(reasons(compiled), []);
+});
+
 test("an OpenRouter agent model is the aggregator with its own key name", () => {
   const model = {
     ref: "ap-c1/x/y",
@@ -181,7 +195,7 @@ test("an advisor that is not available is left out, keeping the others' numbers"
   // A ChatGPT login, another protocol or a key in its own header never advises.
   for (const provider of [
     undefined,
-    { ...endpoint("x"), api: "openai-responses" },
+    { ...endpoint("x"), api: "anthropic-messages" },
     { ...endpoint("x"), authHeader: false, headers: { "api-key": "k" } },
   ]) {
     const left = home(profile([two[0]]), [{ ...twoResolved[0], provider }]);

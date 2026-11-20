@@ -29,8 +29,8 @@ export function endpointCapability(connection) {
     return { available: false, reason: "unsupportedAuthentication", models: [] };
   if (!hasSecret && !localAuthentication(endpoint.openaiBaseUrl))
     return { available: false, reason: "credentialsRequired", models: [] };
-  // Connections validate this catalog. The native runtime uses Chat Completions
-  // directly, independently of the connection's per-CLI routing choices.
+  // Connections validate this catalog. The native runtime picks its own protocol
+  // (nativeApi), independently of the connection's per-CLI routing choices.
   const models = endpoint.models.flatMap(
     ({ modelId, label, contextTokens, outputTokens }) =>
       // OpenClaw 2026.10.3 rejects model context windows below 4,000 tokens.
@@ -60,18 +60,42 @@ export function endpointCapability(connection) {
     models,
   };
 }
-// The runtime calls Chat Completions directly, so only the owner's explicit Chat
-// Completions adapter choices with a native equivalent apply; routing, think-tag
+/**
+ * The pinned runtime's request adapter for an agent on this connection. A connection
+ * that offers Responses and sends a key runs on Responses: Azure reasoning deployments
+ * refuse function tools together with `reasoning_effort` on Chat Completions and point
+ * to Responses, which carries both. Chat Completions stays the fallback, and the only
+ * choice without a key: the runtime's synthetic local key covers keyless local
+ * `openai-completions` providers only (model-auth-provider-config).
+ */
+function nativeApi(endpoint, apiKey) {
+  return apiKey && endpoint.protocols?.responses === true
+    ? "openai-responses"
+    : "openai-completions";
+}
+// The owner's explicit adapter choices (or the connection test's proposals) for the
+// protocol the runtime calls, where it has a native equivalent; routing, think-tag
 // extraction and other protocols' options belong to the CLI adapter path.
-function nativeCompat(endpoint) {
-  const chat = endpoint.adapterCapabilities?.chatCompletions || {};
+function nativeCompat(endpoint, api) {
+  const options = endpoint.adapterCapabilities || {};
+  if (api === "openai-responses") {
+    // Responses always sends `max_output_tokens`; no token field to choose.
+    const responses = options.responses || {};
+    return responses.promptCacheKey === true ? { supportsPromptCacheKey: true } : {};
+  }
+  const chat = options.chatCompletions || {};
   return {
     ...(chat.maxTokensField ? { maxTokensField: chat.maxTokensField } : {}),
     ...(typeof chat.streamUsage === "boolean"
       ? { supportsUsageInStreaming: chat.streamUsage }
       : {}),
+    ...(chat.reasoningEffort === false ? { supportsReasoningEffort: false } : {}),
   };
 }
+// The runtime's Responses adapter sends `reasoning` only to a reasoning model.
+const refusesReasoning = (endpoint, api) =>
+  api === "openai-responses" &&
+  endpoint.adapterCapabilities?.responses?.reasoningEffort === false;
 export function assistantEndpointProvider(connection, modelId, apiKey) {
   const capability = endpointCapability(connection);
   const model = capability.models.find((model) => model.modelId === modelId);
@@ -79,10 +103,11 @@ export function assistantEndpointProvider(connection, modelId, apiKey) {
   const { openaiBaseUrl: baseUrl, authHeader } = connection.endpoint;
   if (connection.hasSecret && !apiKey) throw assistantProblem("provider");
   const images = connection.endpoint.models.find((m) => m.modelId === modelId)?.images;
-  const compat = nativeCompat(connection.endpoint);
+  const api = nativeApi(connection.endpoint, apiKey);
+  const compat = nativeCompat(connection.endpoint, api);
   return {
     baseUrl,
-    api: "openai-completions",
+    api,
     ...(apiKey ? { apiKey } : {}),
     // request.auth alone leaves the SDK's Bearer credential intact. An empty
     // Authorization override suppresses that credential; the pinned SDK accepts
@@ -101,6 +126,7 @@ export function assistantEndpointProvider(connection, modelId, apiKey) {
         maxTokens: model.outputTokens,
         // The runtime treats a missing input list as text-only.
         ...(images === true ? { input: ["text", "image"] } : {}),
+        ...(refusesReasoning(connection.endpoint, api) ? { reasoning: false } : {}),
         ...(Object.keys(compat).length ? { compat } : {}),
       },
     ],
