@@ -26,7 +26,7 @@ export const secretsCopy = {
   launchHint:
     "Geheimnisse des eigenen Projekts der Session sind immer dabei. Die Session findet ihre Geheimnisse in einer Datei außerhalb des Checkouts und kann ihre Werte lesen.",
   launchSummary: (count) => `${count} ${count === 1 ? "Geheimnis" : "Geheimnisse"}`,
-  grantType: "Secret",
+  grantType: "Geheimnis",
   errors: {
     SECRET_NAME_TAKEN: "Ein Geheimnis mit diesem Namen existiert bereits.",
     SECRET_LIMIT: "Es sind höchstens 200 Geheimnisse möglich.",

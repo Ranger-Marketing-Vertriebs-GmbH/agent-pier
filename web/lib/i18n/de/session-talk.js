@@ -25,9 +25,9 @@ export const sessionTalkCopy = {
   dialog: {
     title: "Agentenzugriff",
     summary: "Wähle die Agenten, mit denen diese Session sprechen darf.",
-    hint: "Agenten, die du hier ankreuzt, dürfen dieser Session schreiben, und die Session darf sie fragen und ihnen etwas mitteilen. Der Zugriff endet, wenn die Session stoppt.",
+    hint: "Agenten, die du hier erlaubst, dürfen dieser Session schreiben, und die Session darf sie fragen und ihnen etwas mitteilen. Der Zugriff endet, wenn die Session stoppt.",
     projectHint:
-      "Agenten mit „Sessions dürfen sprechen“ für das Projekt dieser Session sind schon angekreuzt; das änderst du im Tab Zugriff des Agenten.",
+      "Agenten mit „Sessions dürfen sprechen“ für das Projekt dieser Session sind schon erlaubt; das änderst du im Tab Zugriff des Agenten.",
     viaProject: "über das Projekt",
     grantType: "Agent",
     listLabel: "Agenten",
@@ -44,7 +44,7 @@ export const sessionTalkCopy = {
   // Die Agentenauswahl im Dialog für eine neue Session.
   launch: {
     title: "Agenten",
-    hint: "Die Session darf die angekreuzten Agenten fragen und ihnen etwas mitteilen, und sie dürfen ihr schreiben, bis sie stoppt.",
+    hint: "Die Session darf die hinzugefügten Agenten fragen und ihnen etwas mitteilen, und sie dürfen ihr schreiben, bis sie stoppt.",
     summary: (count) => `${count} ${count === 1 ? "Agent" : "Agenten"}`,
     grantType: "Agent",
   },
