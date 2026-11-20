@@ -1,6 +1,7 @@
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
+import { menuPlacement, scrollClip } from "./anchored-select-placement.js";
 export default function AnchoredSelect({
   id: selectId,
   label,
@@ -19,6 +20,7 @@ export default function AnchoredSelect({
     select = useRef(null),
     list = useRef(null),
     search = useRef(null),
+    layer = useRef(null),
     touch = useRef(false),
     typeahead = useRef({
       text: "",
@@ -30,6 +32,9 @@ export default function AnchoredSelect({
     [placement, setPlacement] = useState({
       above: false,
       height: 240,
+      top: 0,
+      left: 0,
+      width: 0,
     });
   const selected = Math.max(
     0,
@@ -65,6 +70,10 @@ export default function AnchoredSelect({
     setOpen(true);
     if (!touch.current) select.current?.focus({ preventScroll: true });
   }
+  // The menu lives in a fixed layer outside the field (see the render), so "inside"
+  // means the field or the menu.
+  const inside = (node) =>
+    Boolean(node && (root.current?.contains(node) || layer.current?.contains(node)));
   function choose(index) {
     const option = options[index];
     if (!option || option.disabled) return;
@@ -82,23 +91,31 @@ export default function AnchoredSelect({
   useLayoutEffect(() => {
     if (!open) return;
     const measure = () => {
-      const field = select.current.getBoundingClientRect(),
-        dialog = root.current.closest("dialog")?.getBoundingClientRect();
-      const viewport = window.visualViewport,
-        top = Math.max(viewport?.offsetTop || 0, dialog?.top || 0) + 8,
-        bottom =
-          Math.min(
-            (viewport?.offsetTop || 0) + (viewport?.height || innerHeight),
-            dialog?.bottom || innerHeight,
-          ) - 8;
-      const up = field.top - top,
-        down = bottom - field.bottom,
-        above = down < 180 && up > down;
-      const scale = field.height / select.current.offsetHeight || 1;
-      setPlacement({
-        above,
-        height: Math.max(0, Math.min(260, (above ? up : down) - 6) / scale),
-      });
+      if (!select.current || !layer.current) return;
+      const field = select.current.getBoundingClientRect();
+      // A field scrolled out of its scroll container closes the menu instead of
+      // leaving it floating over the page.
+      const clip = scrollClip(root.current);
+      if (field.bottom <= clip.top || field.top >= clip.bottom) {
+        setOpen(false);
+        return;
+      }
+      const dialog = root.current.closest("dialog")?.getBoundingClientRect(),
+        origin = layer.current.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      setPlacement(
+        menuPlacement({
+          field,
+          origin,
+          scale: origin.width / 100 || 1,
+          top: Math.max(viewport?.offsetTop || 0, dialog?.top || 0) + 8,
+          bottom:
+            Math.min(
+              (viewport?.offsetTop || 0) + (viewport?.height || innerHeight),
+              dialog?.bottom || innerHeight,
+            ) - 8,
+        }),
+      );
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -106,7 +123,7 @@ export default function AnchoredSelect({
     const dialog = root.current.closest("dialog");
     if (dialog) observer.observe(dialog);
     const outside = (event) => {
-      if (!root.current?.contains(event.target)) setOpen(false);
+      if (!inside(event.target)) setOpen(false);
     };
     document.addEventListener("pointerdown", outside, true);
     window.addEventListener("scroll", measure, true);
@@ -199,6 +216,7 @@ export default function AnchoredSelect({
       // The field stays visible above the on-screen keyboard while its search has
       // focus; the options then open where there is room (lib/keyboard-inset.js).
       data-keyboard-reveal=""
+      data-keyboard-reveal-id={id}
       onPointerDownCapture={(event) => {
         touch.current = event.pointerType === "touch";
       }}
@@ -206,7 +224,7 @@ export default function AnchoredSelect({
         // iOS blurs without a target while it finishes a tap; a tap outside
         // closes the menu through its pointerdown instead.
         if (touch.current && !event.relatedTarget) return;
-        if (!root.current?.contains(event.relatedTarget)) setOpen(false);
+        if (!inside(event.relatedTarget)) setOpen(false);
       }}
     >
       <select
@@ -250,102 +268,113 @@ export default function AnchoredSelect({
           </option>
         ))}
       </select>
-      {open && (
-        <div
-          ref={searchLabel ? undefined : list}
-          id={searchLabel ? undefined : id}
-          role={searchLabel ? undefined : "listbox"}
-          aria-label={searchLabel ? undefined : commonCopy.selectOptionsLabel(label)}
-          className={`anchored-options ${placement.above ? "above" : ""} ${searchLabel ? "searchable" : ""}`}
-          style={{
-            maxHeight: placement.height,
-          }}
-        >
-          {searchLabel && (
-            <div className="anchored-search">
-              <input
-                ref={search}
-                type="search"
-                role="combobox"
-                aria-label={searchLabel}
-                aria-expanded="true"
-                aria-controls={id}
-                aria-autocomplete="list"
-                aria-activedescendant={
-                  enabledIndices.includes(active) ? `${id}-${active}` : undefined
+      {open &&
+        // A fixed layer in the dialog (top layer) or the page: no scroll container or
+        // card clips the menu, and it stacks above sticky bars (--z-dropdown).
+        createPortal(
+          <div ref={layer} className="anchored-layer" data-keyboard-reveal-for={id}>
+            <div
+              ref={searchLabel ? undefined : list}
+              id={searchLabel ? undefined : id}
+              role={searchLabel ? undefined : "listbox"}
+              aria-label={searchLabel ? undefined : commonCopy.selectOptionsLabel(label)}
+              className={`anchored-options ${placement.above ? "above" : ""} ${searchLabel ? "searchable" : ""}`}
+              style={{
+                maxHeight: placement.height,
+                top: placement.top,
+                left: placement.left,
+                width: placement.width,
+              }}
+            >
+              {searchLabel && (
+                <div className="anchored-search">
+                  <input
+                    ref={search}
+                    type="search"
+                    role="combobox"
+                    aria-label={searchLabel}
+                    aria-expanded="true"
+                    aria-controls={id}
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      enabledIndices.includes(active) ? `${id}-${active}` : undefined
+                    }
+                    value={query}
+                    placeholder={searchLabel}
+                    // A filter, not a form field: no contact or password autofill.
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="search"
+                    onChange={(event) => {
+                      onQuery(event.target.value);
+                      setActive(-1);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setOpen(false);
+                        select.current?.focus({ preventScroll: true });
+                      } else if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (enabledIndices.includes(active)) choose(active);
+                      } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+                        event.preventDefault();
+                        setActive((index) => nextActive(index, event.key));
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              <div
+                className={searchLabel ? "anchored-search-results" : undefined}
+                ref={searchLabel ? list : undefined}
+                id={searchLabel ? id : undefined}
+                role={searchLabel ? "listbox" : undefined}
+                aria-label={
+                  searchLabel ? commonCopy.selectOptionsLabel(label) : undefined
                 }
-                value={query}
-                placeholder={searchLabel}
-                // A filter, not a form field: no contact or password autofill.
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                enterKeyHint="search"
-                onChange={(event) => {
-                  onQuery(event.target.value);
-                  setActive(-1);
-                }}
-                onKeyDown={(event) => {
-                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setOpen(false);
-                    select.current?.focus({ preventScroll: true });
-                  } else if (event.key === "Enter") {
-                    event.preventDefault();
-                    if (enabledIndices.includes(active)) choose(active);
-                  } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
-                    event.preventDefault();
-                    setActive((index) => nextActive(index, event.key));
-                  }
-                }}
-              />
+              >
+                {visibleIndices.map((index) => {
+                  const option = options[index];
+                  return (
+                    <button
+                      type="button"
+                      role="option"
+                      id={`${id}-${index}`}
+                      data-index={index}
+                      tabIndex={-1}
+                      key={option.value}
+                      disabled={option.disabled}
+                      aria-selected={option.value === value}
+                      className={active === index ? "active" : ""}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onPointerMove={() => {
+                        if (!option.disabled) setActive(index);
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        choose(index);
+                      }}
+                    >
+                      {option.label}
+                      {option.value === value && <span aria-hidden="true">✓</span>}
+                    </button>
+                  );
+                })}
+                {searchLabel && !visibleIndices.length && (
+                  <p className="field-description" role="status">
+                    {noMatches}
+                  </p>
+                )}
+              </div>
             </div>
-          )}
-          <div
-            className={searchLabel ? "anchored-search-results" : undefined}
-            ref={searchLabel ? list : undefined}
-            id={searchLabel ? id : undefined}
-            role={searchLabel ? "listbox" : undefined}
-            aria-label={searchLabel ? commonCopy.selectOptionsLabel(label) : undefined}
-          >
-            {visibleIndices.map((index) => {
-              const option = options[index];
-              return (
-                <button
-                  type="button"
-                  role="option"
-                  id={`${id}-${index}`}
-                  data-index={index}
-                  tabIndex={-1}
-                  key={option.value}
-                  disabled={option.disabled}
-                  aria-selected={option.value === value}
-                  className={active === index ? "active" : ""}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onPointerMove={() => {
-                    if (!option.disabled) setActive(index);
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    choose(index);
-                  }}
-                >
-                  {option.label}
-                  {option.value === value && <span aria-hidden="true">✓</span>}
-                </button>
-              );
-            })}
-            {searchLabel && !visibleIndices.length && (
-              <p className="field-description" role="status">
-                {noMatches}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+          </div>,
+          root.current?.closest("dialog") || document.body,
+        )}
     </div>
   );
 }
