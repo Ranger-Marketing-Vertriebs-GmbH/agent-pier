@@ -72,8 +72,36 @@ export function toolFileChanges(name, raw, metadata = {}) {
     ? { fileChanges: files }
     : {};
 }
-export function codexFileChanges(changes) {
-  if (!Array.isArray(changes) || changes.length > 30) return {};
+/**
+ * A Codex file change's `changes` as a list of `{ path, kind, diff }`. The app-server
+ * sends that list; a rollout's `FileChange` item (Codex 0.169) keeps an object keyed
+ * by path instead, with `{ type: "update", unified_diff, move_path }` or
+ * `{ type: "add" | "delete", content }` (AGENTPIER-404).
+ */
+export function codexChangeList(changes) {
+  if (Array.isArray(changes)) return changes;
+  if (!changes || typeof changes !== "object") return [];
+  return Object.entries(changes).map(([path, value]) => {
+    const item = object(value);
+    const type = typeof item.type === "string" ? item.type : "update";
+    const movePath = typeof item.move_path === "string" ? item.move_path : null;
+    return {
+      path,
+      kind: movePath ? { type, move_path: movePath } : type,
+      diff:
+        type === "update"
+          ? typeof item.unified_diff === "string"
+            ? item.unified_diff
+            : ""
+          : typeof item.content === "string"
+            ? item.content
+            : "",
+    };
+  });
+}
+export function codexFileChanges(raw) {
+  const changes = codexChangeList(raw);
+  if (!changes.length || changes.length > 30) return {};
   const files = changes.map((item) => {
     const kind = typeof item?.kind === "string" ? item.kind : item?.kind?.type;
     if (kind === "add" || kind === "delete")
@@ -99,4 +127,17 @@ export function codexFileChanges(changes) {
     JSON.stringify(files).length <= MAX_CHANGE_CHARS * 2
     ? { fileChanges: files }
     : {};
+}
+
+/** A Codex file change row: its raw text (path and diff per file) and parsed changes. */
+export function codexFileChangeRow(raw) {
+  const text = codexChangeList(raw)
+    .map((change) =>
+      [change?.path, change?.diff]
+        .filter((part) => typeof part === "string" && part)
+        .join("\n\n"),
+    )
+    .filter(Boolean)
+    .join("\n\n");
+  return { text, ...codexFileChanges(raw) };
 }

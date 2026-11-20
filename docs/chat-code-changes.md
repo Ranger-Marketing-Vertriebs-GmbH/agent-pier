@@ -13,7 +13,11 @@ existing tool activity disclosure. Raw arguments and output remain available.
   evidence instead of treating result metadata as a successful change.
 - Codex app-server file updates supply unified patches, while additions and deletions
   supply full contents. `kind.move_path` identifies renames; the known app-server
-  `Moved to:` suffix is removed only when it matches that structured path. Rollout
+  `Moved to:` suffix is removed only when it matches that structured path. A rollout's
+  `FileChange` item (read from the rollout's tail while the history API lags) keeps
+  `changes` as an object keyed by path, with `{type: "update", unified_diff, move_path}`
+  or `{type: "add" | "delete", content}`; it is converted to the app-server list first
+  (`codexChangeList`), so those rows show their diffs too. Rollout
   function/freeform `apply_patch` calls retain excerpt rows and their result status.
 
 The model carries path, operation, provenance, rows and counts for the represented

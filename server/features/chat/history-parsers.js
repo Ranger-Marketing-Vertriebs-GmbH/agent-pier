@@ -7,7 +7,7 @@ import { codexUserShellRows } from "./codex-user-shell.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
 import { openCodeErrorMessage } from "./opencode-error-message.js";
-import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
+import { toolFileChanges, codexFileChangeRow } from "./tool-file-changes.js";
 import {
   claudeConversationRecord,
   claudeVisibleRecord,
@@ -335,18 +335,14 @@ export function normalizeCodex(thread) {
             typeof item.exitCode === "number" && item.exitCode !== 0,
           ),
         });
-      if (item.type === "fileChange")
-        add(
-          "tool",
-          list(item.changes)
-            .map((change) => join(string(change?.path), string(change?.diff)))
-            .join("\n\n"),
-          {
-            toolName: "File change",
-            ...codexFileChanges(item.changes),
-            status: toolStatus(item.status),
-          },
-        );
+      if (item.type === "fileChange") {
+        const { text: changed, ...files } = codexFileChangeRow(item.changes);
+        add("tool", changed, {
+          toolName: "File change",
+          ...files,
+          status: toolStatus(item.status),
+        });
+      }
       if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") {
         const status = toolStatus(
           item.status,
