@@ -1963,7 +1963,10 @@ An archived chat shows the hint without actions. Server details:
 ## When the connection is lost
 
 While AgentPier cannot be reached, the sidebar keeps the last known agents, their team
-members and teams, and says "Connection lost. Showing the last known agents." An agent
+members and teams, and says "Connection lost. Showing the last known agents." The agent
+service's state then shows as "Unknown while offline" (also on **Agents › All agents ›
+Readiness**) instead of the last known "Ready". A live channel that gave up its socket
+and reads the list over HTTP instead counts as connected as long as those reads work. An agent
 chat you opened before shows its last loaded messages with "Connection interrupted.
 Your draft is preserved; history will refresh when connected." Sending stays off until
 the connection is back; the typed text stays in the composer. When AgentPier answers

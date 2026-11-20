@@ -35,6 +35,13 @@ const toData = (next) => ({
 // Lazily loaded owner of the agent data: the live `agent.list` topic (the list with
 // the runtime status). It renders nothing and publishes into the always-mounted
 // gate, so toggling it never remounts the app.
+// The runtime as shown while its state cannot be known: availability and sync
+// "unknown", the version and the rest as last seen.
+const unknownRuntime = (runtime) => ({
+  ...runtime,
+  availability: "unknown",
+  sync: "unknown",
+});
 export default function AssistantsHost({ publishState }) {
   // The list this login last saw on this device (agent-list-cache.js): shown, as last
   // known, until AgentPier answers, so a page opened without a connection lists it.
@@ -72,6 +79,8 @@ export default function AssistantsHost({ publishState }) {
       // The list last shown, and whether the live channel was connected.
       shown = null,
       linked = false,
+      // Whether the last REST read of the list or the runtime succeeded.
+      readWorks = false,
       // The list to keep on the device, written once it rested for SAVE_DELAY_MS.
       unsaved = null,
       timer = null;
@@ -86,12 +95,18 @@ export default function AssistantsHost({ publishState }) {
     const read = async (path, signal) => {
       try {
         const value = await api(path, "GET", undefined, signal);
-        if (alive) setReachable(true);
+        readWorks = true;
+        if (alive) {
+          setReachable(true);
+          if (client.status().fallback) setConnected(true);
+        }
         return value;
       } catch (e) {
         if (alive && !signal?.aborted) {
-          if (connectionLost(e)) setReachable(false);
-          else setError(e.message);
+          if (connectionLost(e)) {
+            readWorks = false;
+            setReachable(false);
+          } else setError(e.message);
         }
         throw e;
       }
@@ -104,8 +119,10 @@ export default function AssistantsHost({ publishState }) {
       report: ({ data, connected: live }) => {
         if (!alive) return;
         // Disconnected once the channel gave up for now and the list is polled
-        // (LiveClient fallback), not for each reconnect that follows a dropped socket.
-        setConnected(live || !client.status().fallback);
+        // (LiveClient fallback), not for each reconnect that follows a dropped socket,
+        // and only while those polls fail too: REST reads that work keep the list
+        // current, so that is no lost connection (AGENTPIER-423).
+        setConnected(live || !client.status().fallback || readWorks);
         // A new connection reaches AgentPier.
         if (live && !linked) setReachable(true);
         linked = live;
@@ -148,10 +165,13 @@ export default function AssistantsHost({ publishState }) {
       window.removeEventListener("online", online);
     };
   }, []);
+  // Without AgentPier (or before its first answer) the service's state is unknown:
+  // the kept or last runtime would claim "Ready" for a service nobody can reach.
+  const unsure = !reachable || restored;
   const value = useMemo(
     () => ({
       ...data,
-      runtime,
+      runtime: unsure ? unknownRuntime(runtime) : runtime,
       error,
       connected,
       offline: !reachable,
@@ -160,7 +180,7 @@ export default function AssistantsHost({ publishState }) {
       drafts: sharedDrafts,
       refresh,
     }),
-    [data, runtime, error, connected, reachable, restored, histories, refresh],
+    [data, runtime, unsure, error, connected, reachable, restored, histories, refresh],
   );
   useEffect(() => publishState(value), [value, publishState]);
   useEffect(() => () => publishState(null), [publishState]);

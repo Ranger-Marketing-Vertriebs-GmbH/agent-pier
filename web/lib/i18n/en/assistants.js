@@ -464,6 +464,7 @@ export const assistantCopy = {
   retry: "Refresh",
   future: "Telegram, voice and teams are the next integration steps.",
   status: {
+    unknown: "Unknown while offline",
     connectionMissing: "Provider connection missing",
     disabled: "Stopped",
     installing: "Installing",

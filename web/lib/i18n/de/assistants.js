@@ -478,6 +478,7 @@ export const assistantCopy = {
   retry: "Aktualisieren",
   future: "Telegram, Sprache und Teams folgen als nächste Integrationsschritte.",
   status: {
+    unknown: "Unbekannt, solange offline",
     connectionMissing: "Zugang fehlt",
     disabled: "Gestoppt",
     installing: "Wird installiert",

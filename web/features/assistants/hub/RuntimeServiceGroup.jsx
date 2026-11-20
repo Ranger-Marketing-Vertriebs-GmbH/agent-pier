@@ -11,7 +11,7 @@ import PendingRestartNotice from "../PendingRestartNotice.jsx";
 import useAssistants from "../useAssistants.js";
 
 const transitions = ["installing", "starting", "stopping", "reconnecting"];
-const tones = { ready: "ok", failed: "error", disabled: "idle" };
+const tones = { ready: "ok", failed: "error", disabled: "idle", unknown: "idle" };
 export const serviceTone = (availability) => tones[availability] ?? "pending";
 
 /** Start, restart or stop the agent service; the shared list refreshes afterwards. */
