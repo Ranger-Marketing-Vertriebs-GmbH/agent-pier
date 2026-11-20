@@ -4,6 +4,7 @@ import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { decideExec } from "./exec-decisions.js";
 import { commandHash, rememberedCommands } from "./exec-remembered.js";
+import { requestFailed, waiterEnd } from "./exec-waiters.js";
 import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
 import {
@@ -67,6 +68,10 @@ export class ExecApprovals {
     hub.on("exec.approval.resolved", (p) =>
       this.guard("RESOLVE", () => this.resolved(p)),
     );
+    hub.on("agent", (p) => {
+      const end = waiterEnd(p);
+      if (end) this.guard("WAITER", () => this.waitEnded(end));
+    });
     hub.onReady(() => this.guard("RESYNC", () => this.resync()));
   }
   get runtime() {
@@ -371,6 +376,47 @@ export class ExecApprovals {
       // reads as declined (agent-hook-runs.js timedOutOnApproval).
       !record && !p.resolvedBy,
     );
+  }
+  /**
+   * The exec tool stopped waiting for approval `id` (exec-waiters.js). A request the
+   * Gateway still lists, or one the tool reports failed, can no longer run: its
+   * action fails and the owner is told to ask again. A decision being sent owns
+   * the end of its wait.
+   */
+  async waitEnded({ id, failed }) {
+    const action = this.w.store.byKey(execOperationKey(id));
+    if (!action || this.deciding.has(id) || this.ownProcessAction(action)) return;
+    if (action.state === "completed" && failed) return this.ranNothing(action);
+    if (action.state !== "awaiting_approval") return;
+    if (!failed) {
+      // A decision or an expiry ends the request on the Gateway first; its event
+      // or the next resync finishes the action.
+      const connection = hostConnection(this.runtime);
+      if (!this.live(connection)) return;
+      const listed = await this.approvals(connection).list();
+      if (!(Array.isArray(listed) ? listed : []).some((i) => i?.id === id)) return;
+    }
+    const current = this.w.store.get(action.id);
+    if (current.state !== "awaiting_approval" || this.deciding.has(id)) return;
+    this.ended.set(id, this.now());
+    const next = this.w.store.patch(action.id, {
+      state: "failed",
+      result: { reason: requestFailed },
+    });
+    this.w.a.changed?.();
+    notifyAction(this.w, next, "result");
+    // Nothing waits for the Gateway's request any more.
+    await this.deny(id, action.payload, "REQUEST_FAILED");
+  }
+  // An allow the Gateway accepted after the tool's wait had failed ran nothing.
+  ranNothing(action) {
+    if (action.result?.decision === "deny") return;
+    const next = this.w.store.patch(action.id, {
+      state: "failed",
+      result: { ...action.result, reason: requestFailed },
+    });
+    this.w.a.changed?.();
+    notifyAction(this.w, next, "failed");
   }
   // Without history: a restart resolves as "approval-scope-closed" (verified live),
   // an expiry at or after the expiry time; anything else was declined.

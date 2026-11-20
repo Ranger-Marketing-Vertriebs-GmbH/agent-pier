@@ -4675,6 +4675,17 @@ allow** and **Deny**.
   `exec.approval.list` and `approval.history`. A Gateway restart cancels pending
   requests; their actions end as cancelled, never stay waiting, and a late
   decision answers 409. The command does not run.
+- OpenClaw's exec tool can stop waiting for an approval the Gateway still lists
+  (`approval-request-failed`, for example when its wait call fails while the
+  Gateway adopts a new configuration); an allow sent afterwards is accepted but runs
+  nothing. AgentPier follows the end of the tool's wait (the agent lifecycle phase
+  `approval-resolved`) and the tool's report of a failed request
+  (`exec-waiters.js`): a request still listed, or reported failed, ends its action
+  as failed with `result.reason: "request-failed"`, AgentPier denies the leftover
+  request on the Gateway, and the owner is told in the action history and in
+  Telegram that the command did not run and to ask the agent again. A late
+  decision answers 409. An allow already sent when the failure report arrives is
+  recorded as failed too, never as completed.
 
 ### Always allow
 

@@ -1,6 +1,7 @@
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
+import { requestFailed } from "./exec-waiters.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { notifySftp } from "./agent-sftp-notifications.js";
 import { mailMessages, mailNotes, notifyMail } from "./mail/agent-mail-notifications.js";
@@ -152,6 +153,8 @@ function execAllowAlwaysNote(p, m) {
 }
 // The decision that took effect: a withheld allow-always without an entry ran once.
 function execOutcome(action, m) {
+  // The exec tool stopped waiting for the approval (exec-waiters.js).
+  if (action.result?.reason === requestFailed) return m.execRequestFailed;
   if (action.state !== "completed")
     return m.execStates[action.state] || m.execStates.unknown;
   const allowlist = action.result?.allowlist;

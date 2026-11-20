@@ -72,6 +72,8 @@ export const assistantShellCopy = {
   removeNow: "Remove now",
   exec: {
     history: "Shell command",
+    requestFailed:
+      "The command did not run: the agent stopped waiting for this approval. Ask the agent to request it again.",
     title: "Shell command awaiting approval",
     agent: "Agent",
     folder: "Folder",

@@ -54,6 +54,7 @@ export const assistants = {
     failed: "Approval failed; review in AgentPier",
     unknown: "Outcome unknown; review in AgentPier",
   },
+  execRequestFailed: "The command did not run: the agent stopped waiting. Ask it again.",
   sshApproval: "SSH command awaiting approval",
   sshAgent: (name) => `Agent: ${name}`,
   sshRequestedBy: (name) => `Requested by ${name}`,
