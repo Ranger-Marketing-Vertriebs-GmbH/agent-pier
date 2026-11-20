@@ -50,6 +50,8 @@ export const connectionCopy = {
   noAccess: "Kein kompatibler Zugang",
   isolated:
     "Dieser Provider-Zugang verwendet ein eigenes CLI-Profil. Anmeldungen, MCP-Konfiguration und Plugins nativer Accounts werden nicht übernommen.",
+  localLaunch:
+    "Nutzt die eigene CLI-Anmeldung und die Einstellungen dieses Computers (die CLI-Konfiguration im Home-Ordner), kein von AgentPier verwaltetes Konto.",
   legacyLaunch:
     "Diese bestehende Anbieterbindung verwendet ihr gespeichertes Modell. Für eine unabhängige Modellwahl einen zentralen Provider-Zugang verwenden.",
   chooseAccess: "Bitte einen kompatiblen Zugang und ein verfügbares Modell wählen.",

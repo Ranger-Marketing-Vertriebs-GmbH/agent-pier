@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import useConnectionModels from "../providers/useConnectionModels.js";
 import api from "../../lib/api.js";
-import { preferredLaunchAccess, rememberedLaunchTool } from "./launch-preferences.js";
+import {
+  preferredLaunchAccess,
+  profileLaunchAccess,
+  rememberedLaunchTool,
+} from "./launch-preferences.js";
 export function launchAccesses(state, tool) {
   return {
     accounts: state.accounts.filter((account) => account.tool === tool),
@@ -20,10 +24,9 @@ function initialChoice(state, tools, initialTool, initialProfile) {
     return {
       tool,
       toolRemembered: false,
-      accessId: initialProfile.config.providerConnectionId
-        ? `provider:${initialProfile.config.providerConnectionId}`
-        : initialProfile.config.accountId,
+      accessId: profileLaunchAccess(state, initialProfile.config),
       accessRemembered: false,
+      accessPicked: false,
     };
   const access = preferredLaunchAccess(state, tool);
   return {
@@ -31,6 +34,7 @@ function initialChoice(state, tools, initialTool, initialProfile) {
     toolRemembered: Boolean(remembered) && !explicit,
     accessId: access.accessId,
     accessRemembered: access.remembered,
+    accessPicked: access.picked,
   };
 }
 export default function useLaunchAccess(state, initialTool, initialProfile) {
@@ -42,6 +46,8 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     [toolRemembered, setToolRemembered] = useState(start.toolRemembered),
     [accessId, setAccess] = useState(start.accessId),
     [accessRemembered, setAccessRemembered] = useState(start.accessRemembered),
+    // The owner chose this access in the dialog (or chose it last time and kept it).
+    [accessPicked, setAccessPicked] = useState(start.accessPicked),
     [modelId, setModel] = useState(initialProfile?.config.models.default || ""),
     [nativeModelId, setNativeModel] = useState(
       initialProfile?.config.models.default || "",
@@ -80,11 +86,14 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     setTool(value);
     setAccess(preferred.accessId);
     setAccessRemembered(preferred.remembered);
+    setAccessPicked(preferred.picked);
     resetModel();
   }
-  function chooseAccess(value) {
+  // `picked` is false when the dialog itself preselects, e.g. for a task profile.
+  function chooseAccess(value, picked = true) {
     setAccess(value);
     setAccessRemembered(false);
+    setAccessPicked(picked);
     resetModel();
   }
   const ready = Boolean(
@@ -96,6 +105,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     tool,
     toolRemembered,
     accessRemembered,
+    accessPicked,
     accounts,
     connections,
     account,

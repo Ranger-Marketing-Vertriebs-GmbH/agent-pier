@@ -30,7 +30,12 @@ import {
   rememberedLaunchMode,
   unattendedLaunchMode,
 } from "./launch-modes.js";
-import { rememberLaunchChoice } from "./launch-preferences.js";
+import {
+  profileLaunchAccess,
+  rememberLaunchChoice,
+  rememberLaunchFolder,
+  rememberedLaunchFolder,
+} from "./launch-preferences.js";
 import { launchModeCopy, profileModeName } from "./launch-mode-copy.js";
 import { ticketStartCopy } from "../../lib/i18n/messages/tickets.js";
 import { startRefusal, ticketStartPath } from "../projects/ticket-list.js";
@@ -75,11 +80,7 @@ export default function LaunchDialog({
     access.setNonoProfile(null);
     access.chooseTool(selected?.config.cliTool || access.tool);
     if (selected) {
-      access.chooseAccess(
-        selected.config.providerConnectionId
-          ? `provider:${selected.config.providerConnectionId}`
-          : selected.config.accountId,
-      );
+      access.chooseAccess(profileLaunchAccess(launchState, selected.config), false);
       access.setModel(selected.config.models.default);
       access.setNativeModel(selected.config.models.default);
     }
@@ -104,7 +105,12 @@ export default function LaunchDialog({
     setLaunchMode(mode);
     setModeRemembered(remembered);
   }
-  const [cwd, setCwd] = useState(initialCwd || state.defaultCwd || state.home || ""),
+  // An explicit folder (a project's "new session") wins; otherwise the folder of
+  // the last launch, then the configured default folder.
+  const [rememberedCwd] = useState(() => (initialCwd ? null : rememberedLaunchFolder()));
+  const [cwd, setCwd] = useState(
+      initialCwd || rememberedCwd || state.defaultCwd || state.home || "",
+    ),
     [browse, setBrowse] = useState(false),
     [name, setName] = useState(initialProfile?.name || ""),
     [launchMode, setLaunchMode] = useState(() =>
@@ -127,6 +133,7 @@ export default function LaunchDialog({
     [signIn, setSignIn] = useState(null);
   const selectedTool = access.tool;
   const cliRemembered = access.toolRemembered && !profileId;
+  const cwdRemembered = Boolean(rememberedCwd) && cwd === rememberedCwd;
   const coding = selectedTool !== "shell";
   const agentsEnabled = useAssistantFeature().enabled === true;
   const agentChoice = agentsEnabled && isCodingCli(selectedTool) && !profileId;
@@ -203,7 +210,9 @@ export default function LaunchDialog({
                   if (startRefusal(error) === "started") setAgain(true);
                   throw error;
                 });
-                rememberLaunchChoice(access.tool, access.accessId);
+                rememberLaunchChoice(access.tool, access.accessId, {
+                  picked: access.accessPicked,
+                });
                 rememberLaunchMode(access.tool, launchMode);
                 return created(result.session);
               }
@@ -237,7 +246,11 @@ export default function LaunchDialog({
                 setSignIn(signInOf(error));
                 throw error;
               });
-              if (!profile) rememberLaunchChoice(access.tool, access.accessId);
+              if (!profile)
+                rememberLaunchChoice(access.tool, access.accessId, {
+                  picked: access.accessPicked,
+                });
+              rememberLaunchFolder(cwd);
               if (!profile && coding) rememberLaunchMode(access.tool, launchMode);
               await created(result.session || result);
             }}
@@ -301,6 +314,9 @@ export default function LaunchDialog({
                     <div className="input-action">
                       <input
                         aria-label={commonCopy.workingDirectory}
+                        aria-describedby={
+                          cwdRemembered ? "launch-cwd-remembered" : undefined
+                        }
                         value={cwd}
                         required
                         onChange={(e) => setCwd(e.target.value)}
@@ -316,6 +332,11 @@ export default function LaunchDialog({
                       </button>
                     </div>
                   </label>
+                )}
+                {!ticket && cwdRemembered && (
+                  <p className="field-description" id="launch-cwd-remembered">
+                    {copy.rememberedFromLastSession}
+                  </p>
                 )}
                 <label>
                   {copy.sessionNameLabel}

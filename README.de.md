@@ -217,7 +217,10 @@ npm start
    Seite, jeden Agenten und jede Aktion, auch unter ihrem alten Namen.
 3. Wähle **+** in der Gruppe **Sessions** der Seitenleiste (am Handy **+ › Session** in
    der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Beim
-   nächsten Mal wählt der Dialog die zuletzt gestartete CLI und ihren Account vor. Das
+   nächsten Mal wählt der Dialog die zuletzt gestartete CLI, ihren Account und den
+   Ordner vor. Ohne solche Wahl bevorzugt er einen von AgentPier verwalteten Account vor
+   dem Account **Lokal**, der die eigene CLI-Anmeldung und die Einstellungen dieses
+   Computers nutzt. Das
    native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt den
    gespeicherten Verlauf. Solange die Anmelde-Session eines Accounts offen ist, startet
    keine andere Session dieses Accounts: Der Dialog nennt die Anmelde-Session und bietet
