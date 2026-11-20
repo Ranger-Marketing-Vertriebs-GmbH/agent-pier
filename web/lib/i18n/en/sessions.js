@@ -24,6 +24,8 @@ export const launchDialogCopy = {
     "Auto evaluates actions using Claude’s safety checks. Availability depends on version, model and account policies; approval prompts may still appear.",
   claudeBypassDescription:
     "Claude runs every command and change without asking. Use it only in trusted projects, ideally with a sandbox profile. Applies only to this new session.",
+  stopSignIn: "Stop the sign-in session",
+  stoppingSignIn: "Stopping the sign-in session …",
   rememberedFromLastSession: "Preselected from your last session.",
   opencodeAutoDescription:
     "Auto approves permission requests automatically. Explicit denials remain active. Applies only to this new session.",

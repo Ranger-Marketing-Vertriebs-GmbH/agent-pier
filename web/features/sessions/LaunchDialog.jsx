@@ -11,6 +11,7 @@ import { secretsCopy } from "../../lib/i18n/messages/secrets.js";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
 import CliVersionNotice from "../tools/CliVersionNotice.jsx";
+import StopSignIn, { signInOf } from "./StopSignIn.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { launchDialogCopy as copy } from "../../lib/i18n/messages/sessions.js";
@@ -121,7 +122,9 @@ export default function LaunchDialog({
     [secretIds, setSecretIds] = useState([]),
     // Agents the session may talk to (coding CLIs only); a task-profile launch takes none.
     [agentAccessIds, setAgentAccessIds] = useState([]),
-    [refused, setRefused] = useState(null);
+    [refused, setRefused] = useState(null),
+    // The account's open sign-in session that refused the start (SESSION_LOGIN_OPEN).
+    [signIn, setSignIn] = useState(null);
   const selectedTool = access.tool;
   const cliRemembered = access.toolRemembered && !profileId;
   const coding = selectedTool !== "shell";
@@ -190,6 +193,7 @@ export default function LaunchDialog({
                   session: name.trim() ? { ...session, name: name.trim() } : session,
                 }).catch((error) => {
                   if (error.updateRequired) setRefused(error.updateRequired);
+                  setSignIn(signInOf(error));
                   // Already started elsewhere: the next submit starts it again.
                   if (startRefusal(error) === "started") setAgain(true);
                   throw error;
@@ -225,6 +229,7 @@ export default function LaunchDialog({
               ).catch((error) => {
                 // An outdated CLI keeps the dialog open with its update action.
                 if (error.updateRequired) setRefused(error.updateRequired);
+                setSignIn(signInOf(error));
                 throw error;
               });
               if (!profile) rememberLaunchChoice(access.tool, access.accessId);
@@ -282,6 +287,9 @@ export default function LaunchDialog({
                   refused={refused}
                   update={update}
                 />
+                {signIn && (
+                  <StopSignIn sessionId={signIn} onStopped={() => setSignIn(null)} />
+                )}
                 {!ticket && (
                   <label>
                     {commonCopy.workingDirectory}

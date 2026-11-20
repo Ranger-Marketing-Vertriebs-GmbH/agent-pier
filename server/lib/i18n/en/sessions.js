@@ -27,6 +27,10 @@ export const sessions = Object.freeze({
     "Too many requests for the sandbox profiles. Please try again in a minute.",
   loginNameSuffix: " · Sign-in",
   sessionLimitReached: "At most 30 sessions at a time. Please stop a session first.",
+  loginSessionOpen: (name) =>
+    `The sign-in session "${name}" of this account is still open. Finish or stop it before starting a session.`,
+  loginStarting:
+    "A sign-in for this account is starting. Wait for it to finish, then start the session.",
   stopBeforeLogin: "Please stop this account's running sessions before a new sign-in.",
   invalidAdapterConfiguration: "The session's adapter configuration is invalid.",
   invalidNativeBinding: "Invalid native session binding.",

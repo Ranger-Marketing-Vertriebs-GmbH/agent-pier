@@ -1829,6 +1829,8 @@
   "sessions.invalidWorkingDirectory": "de:c5fa3451d0c6 en:82d273323e47",
   "sessions.loginModelPickerUnavailable": "de:10341eb5403b en:3321f299e9cc",
   "sessions.loginNameSuffix": "de:0a95591746f1 en:3d87dac99628",
+  "sessions.loginSessionOpen": "de:7ea2304a7d3a en:ffc569e80955",
+  "sessions.loginStarting": "de:e39275f37e75 en:61d6611aebde",
   "sessions.nativeBindingAlreadyExists": "de:83c4a4f5ed07 en:97167a7da5c0",
   "sessions.nativeModelNativeOnly": "de:c0f53d061390 en:b0970474b3fe",
   "sessions.nativeProcessAlreadyBound": "de:cba9c4aeb158 en:9379f0bc5982",

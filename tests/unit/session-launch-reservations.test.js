@@ -105,3 +105,25 @@ test("a refused endpoint target stops the launch before the command is built", a
   assert.equal(built, false);
   assert.equal(f.sessions.length, 0);
 });
+
+test("a session start blocked by an open sign-in names it and how to go on", async () => {
+  const f = fixture();
+  f.sessions.push({
+    id: "login-1",
+    status: "running",
+    accountId: "account",
+    purpose: "login",
+    name: "Codex · Sign-in",
+  });
+  await assert.rejects(f.launch({}), (error) => {
+    assert.equal(error.status, 409);
+    assert.equal(error.code, "SESSION_LOGIN_OPEN");
+    assert.equal(error.sessionId, "login-1");
+    assert.match(error.message, /Codex · Sign-in/);
+    assert.doesNotMatch(error.message, /vor einer neuen Anmeldung/);
+    return true;
+  });
+  // A new sign-in while sessions run keeps its own message.
+  f.sessions[0].purpose = undefined;
+  await assert.rejects(f.launch({}, true), /vor einer neuen Anmeldung/);
+});
