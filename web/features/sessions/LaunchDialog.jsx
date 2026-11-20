@@ -31,7 +31,7 @@ import {
   unattendedLaunchMode,
 } from "./launch-modes.js";
 import { rememberLaunchChoice } from "./launch-preferences.js";
-import { launchModeCopy } from "./launch-mode-copy.js";
+import { launchModeCopy, profileModeName } from "./launch-mode-copy.js";
 import { ticketStartCopy } from "../../lib/i18n/messages/tickets.js";
 import { startRefusal, ticketStartPath } from "../projects/ticket-list.js";
 import { isCodingCli } from "../../../server/features/clis/catalog.js";
@@ -133,7 +133,12 @@ export default function LaunchDialog({
   const agentIds = agentChoice ? agentAccessIds : [];
   const modeDescription =
     launchMode === "profile"
-      ? copy.profileModeDescription(profile?.config.permissions.mode || "")
+      ? copy.profileModeDescription(
+          profileModeName(
+            profile?.config.cliTool,
+            profile?.config.permissions.mode || "",
+          ),
+        )
       : launchMode === "default"
         ? copy.nativeModeDescription
         : modeCopy(selectedTool, launchMode)[1];
@@ -401,7 +406,12 @@ export default function LaunchDialog({
                           ? [
                               {
                                 value: "profile",
-                                label: copy.profileMode(profile.config.permissions.mode),
+                                label: copy.profileMode(
+                                  profileModeName(
+                                    profile.config.cliTool,
+                                    profile.config.permissions.mode,
+                                  ),
+                                ),
                               },
                             ]
                           : []),

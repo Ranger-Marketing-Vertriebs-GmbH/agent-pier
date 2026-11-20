@@ -1,4 +1,5 @@
 import React from "react";
+import { profileModeName } from "../sessions/launch-mode-copy.js";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { changeProfileAccount, permissionModes } from "./profile-draft.js";
@@ -56,7 +57,7 @@ export default function ProfileExecutionFields({
             onChange={(value) => patchConfig({ permissions: { mode: value } })}
             options={(permissionModes[config.cliTool] || []).map((value) => ({
               value,
-              label: value,
+              label: profileModeName(config.cliTool, value),
             }))}
           />
         </label>

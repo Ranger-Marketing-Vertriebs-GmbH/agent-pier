@@ -214,7 +214,14 @@ export function validateProfile(body, accounts) {
   };
 }
 
-export function renderProfilePrompt(profile, values = {}, model) {
+// `kickoff: false` leaves the kickoff out: an autonomous profile started as a session
+// of its own has no stage or task for its pipeline kickoff (native-driver.js).
+export function renderProfilePrompt(
+  profile,
+  values = {},
+  model,
+  { kickoff: withKickoff = true } = {},
+) {
   const config = profile.config;
   if (!values || typeof values !== "object" || Array.isArray(values))
     throw problem(serverMessages.pipelineProfiles.invalidParameters);
@@ -239,7 +246,7 @@ export function renderProfilePrompt(profile, values = {}, model) {
     (match, key) => (keys.has(key) ? (values[key] ?? "") : match),
   );
   return boundedText(
-    [config.prompts.role, kickoff].filter(Boolean).join("\n\n"),
+    [config.prompts.role, withKickoff ? kickoff : ""].filter(Boolean).join("\n\n"),
     serverMessages.pipelineProfiles.invalidRenderedPrompt,
     64000,
   );

@@ -174,3 +174,20 @@ test("switching from Claude to Codex without a mode override uses Codex permissi
   });
   assert.ok(f.captured().command.args.includes('approval_policy="on-request"'));
 });
+
+// An autonomous (pipeline) profile started as a session of its own has no stage and no
+// task: its pipeline kickoff ("Complete your assigned stage for the supplied task.")
+// would ask for one that does not exist (AGENTPIER-406). Only its role is sent.
+test("an autonomous profile started on its own sends its role without the kickoff", async () => {
+  const f = fixture();
+  f.profile.config.run.autonomous = true;
+  f.profile.config.prompts = {
+    role: "Review carefully",
+    kickoff: "Complete your assigned stage for the supplied task.",
+    params: [],
+  };
+  await f.launch({ cwd: "/fixture/project" });
+  const args = f.captured().command.args;
+  assert.equal(args.at(-1), "Review carefully");
+  assert.doesNotMatch(args.join(" "), /assigned stage/);
+});
