@@ -111,6 +111,27 @@ test("an accepted push shows Accepted by CLI and keeps it after a reload", async
   await expect(badge).toHaveText("✓Accepted by CLI");
 });
 
+test("an acceptance that follows the native row still shows Accepted by CLI", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await fixture(page);
+  await sendMessage(page, "Row before the event");
+  await expect(status(page)).toContainText("Sent to TUI");
+  // Claude Code writes the transcript row about when the mod reports the prompt.
+  state.messages = [
+    { id: "row", role: "user", text: "Row before the event", timestamp: Date.now() },
+  ];
+  state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  state.receipt = { status: "accepted", acceptedAt: Date.now() };
+  await liveStub.changed(topic);
+  const badge = page.locator(".chat-native-delivery");
+  await expect(badge).toHaveText("✓Accepted by CLI");
+  await page.reload();
+  await expect(badge).toHaveText("✓Accepted by CLI");
+});
+
 test("an accepted command shows handed over briefly and keeps its message", async ({
   page,
   liveStub,

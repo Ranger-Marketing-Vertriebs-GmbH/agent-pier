@@ -1,0 +1,92 @@
+{
+  "note": "Recorded from Claude Code 2.1.329 with the agentpier-bridge mod against tests/helpers/anthropic-mock.js (disposable HOME, private tmux socket). Each entry is one message pasted and submitted with Enter at ms 0: the mod's prompt reports as the server received them (ms after Enter, the mod's own `at` dropped since the server dates a report itself) and, where it was watched, when Claude Code wrote the message's transcript row. `hookSeconds` is a settings UserPromptSubmit hook that sleeps that long, as AgentPier's own activity hooks run for every prompt: the mod reports a prompt only once the hooks ran, about when the transcript row is written.",
+  "cli": "2.1.329",
+  "messages": [
+    {
+      "label": "short",
+      "text": "hi",
+      "hookSeconds": 1,
+      "reports": [
+        { "ms": 1277, "event": { "type": "turn.start", "turn": "T1" } },
+        {
+          "ms": 1277,
+          "event": { "type": "prompt.accepted", "images": [], "queued": false }
+        }
+      ],
+      "transcriptMs": 1302
+    },
+    {
+      "label": "question",
+      "text": "hast du die tickets auch geschlossen?",
+      "hookSeconds": 1,
+      "reports": [
+        { "ms": 1264, "event": { "type": "turn.start", "turn": "T2" } },
+        {
+          "ms": 1264,
+          "event": { "type": "prompt.accepted", "images": [], "queued": false }
+        }
+      ],
+      "transcriptMs": 1265
+    },
+    {
+      "label": "steer at the turn's end",
+      "text": "steer end",
+      "hookSeconds": 1,
+      "reports": [
+        {
+          "ms": 1269,
+          "event": { "type": "prompt.accepted", "images": [], "queued": true }
+        }
+      ],
+      "transcriptMs": 1480
+    },
+    {
+      "label": "umlauts",
+      "text": "Kannst du das prüfen? Grüße äöü ß?",
+      "hookSeconds": 0,
+      "reports": [
+        { "ms": 118, "event": { "type": "turn.start", "turn": "T3" } },
+        {
+          "ms": 118,
+          "event": { "type": "prompt.accepted", "images": [], "queued": false }
+        }
+      ]
+    },
+    {
+      "label": "multi-line",
+      "text": "line one\nline two\n\nline four",
+      "hookSeconds": 0,
+      "reports": [
+        { "ms": 117, "event": { "type": "turn.start", "turn": "T4" } },
+        {
+          "ms": 117,
+          "event": { "type": "prompt.accepted", "images": [], "queued": false }
+        }
+      ]
+    },
+    {
+      "label": "image",
+      "text": "pic.png",
+      "image": true,
+      "hookSeconds": 0,
+      "reports": [
+        { "ms": 116, "event": { "type": "turn.start", "turn": "T5" } },
+        {
+          "ms": 116,
+          "event": { "type": "prompt.accepted", "images": ["pic.png"], "queued": false }
+        }
+      ]
+    },
+    {
+      "label": "steer in a running turn",
+      "text": "steer in the middle",
+      "hookSeconds": 0,
+      "reports": [
+        {
+          "ms": 124,
+          "event": { "type": "prompt.accepted", "images": [], "queued": true }
+        }
+      ]
+    }
+  ]
+}

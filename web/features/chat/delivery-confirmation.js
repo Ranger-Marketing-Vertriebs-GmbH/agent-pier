@@ -131,12 +131,13 @@ export function nextDeliveryChange(items, now) {
 }
 
 /**
- * Whether a live change re-reads `item`: an unconfirmed handoff without a
- * transcript row, until a minute after its ask. The server's later pushes of
- * a read item still apply.
+ * Whether a live change re-reads `item`: an unconfirmed handoff, until a minute
+ * after its ask. Its transcript row is no answer: the CLI writes it about when it
+ * reports the prompt (after its prompt hooks), so the row often reaches the chat
+ * before the server's acceptance, which must still be read.
  */
 export function rereadable(item, now) {
-  if (!awaitsConfirmation(item) || item.matchedMessageId) return false;
+  if (!awaitsConfirmation(item)) return false;
   const since = elapsed(item.handedOffAt, now);
   return since !== null && since < ASK_AFTER_MS + REREAD_AFTER_ASK_MS;
 }

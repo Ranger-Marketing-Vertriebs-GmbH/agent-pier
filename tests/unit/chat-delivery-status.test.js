@@ -110,7 +110,8 @@ test("a live change re-reads a silent handoff until a minute after its ask", () 
   assert.equal(rereadable(item, ASK_AFTER_MS), true);
   assert.equal(rereadable(item, ASK_AFTER_MS + REREAD_AFTER_ASK_MS - 1), true);
   assert.equal(rereadable(item, ASK_AFTER_MS + REREAD_AFTER_ASK_MS), false);
-  assert.equal(rereadable({ ...item, matchedMessageId: "row" }, 0), false);
+  // The transcript row and the acceptance arrive together: a matched row is no answer.
+  assert.equal(rereadable({ ...item, matchedMessageId: "row" }, 0), true);
   assert.equal(rereadable({ ...item, confirmation: "text" }, 0), false);
 });
 
