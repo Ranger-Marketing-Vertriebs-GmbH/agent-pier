@@ -13,11 +13,14 @@ never reaches an agent of a restricted user.
   the **Coding sessions** switch; removing the project removes it. In **Projects ›
   <project> › Agents**, ticking **Sessions may talk** also ticks **May start coding
   sessions in this project** (the project grant) if it was not on yet.
-- **Session grant.** In a running session, open **Agent access** and tick the agents
-  that session may talk to. The new-session dialog has the same choice under
-  **Agents**. It is offered for coding CLIs only, not for launches from a task profile.
-  A session grant ends when the session stops or is removed and survives **Reload &
-  resume**. Agents ticked through their project show as "via project".
+- **Session grant.** In a running session, open **Agent access**: search the agents on
+  the left and check the ones that session may talk to; the list on the right shows
+  the allowed agents, each with a remove button (on a phone, the allowed list ends in
+  an **Add agent** field). The new-session dialog has the same choice under
+  **Agents**: the allowed agents and an **Add agent** field below them. It is offered
+  for coding CLIs only, not for launches from a task profile. A session grant ends
+  when the session stops or is removed and survives **Reload & resume**. Agents
+  allowed through their project show as "via project" and cannot be removed there.
 - **Standing guidance.** Only an agent with at least one project grant for talking gets
   a short section about session turns in its instructions. An agent reached only through
   session grants gets none: each session turn carries its own framing (see below).
