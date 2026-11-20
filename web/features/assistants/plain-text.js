@@ -13,11 +13,16 @@ export function plainText(markdown = "") {
     .replace(/```[^\n]*\n?/g, "")
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
-  return stripTags(text)
-    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
-    .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, (row) => (/-/.test(row) ? "" : row))
-    .replace(/\|/g, " ")
-    .replace(/(\*\*|__|\*|_|~~|`)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    stripTags(text)
+      .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+      .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, (row) => (/-/.test(row) ? "" : row))
+      .replace(/\|/g, " ")
+      .replace(/(\*\*|\*|~~|`)/g, "")
+      // An underscore inside a word (agentpier_share_file) is part of it; only emphasis
+      // underscores at a word's edge go.
+      .replace(/(?<![\p{L}\p{N}])_+|_+(?![\p{L}\p{N}])/gu, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }

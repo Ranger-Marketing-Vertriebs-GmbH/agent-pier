@@ -17,3 +17,11 @@ test("nested and overlapping tags are stripped to a fixed point", () => {
   assert.equal(plainText("<<b>b>alert(1)</b>"), "b>alert(1)");
   assert.equal(plainText("a <scr<b>ipt>b"), "a ipt>b");
 });
+
+test("underscores inside a word stay, emphasis underscores go", () => {
+  assert.equal(
+    plainText("Call `agentpier_share_file` with _care_ and __force__"),
+    "Call agentpier_share_file with care and force",
+  );
+  assert.equal(plainText("MAX_PANES is 6"), "MAX_PANES is 6");
+});

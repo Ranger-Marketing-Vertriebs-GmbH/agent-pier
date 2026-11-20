@@ -64,6 +64,9 @@ const templateOf = (preview) => ({
  * side sheets and step changes keep it; leaving asks while it holds changes. Creating
  * runs the plan of wizard-creation.js and shows each step's result; then the chat.
  */
+const firstProblem = (draft) =>
+  wizardSteps.map((s) => stepProblem(s, draft)).find(Boolean) || null;
+
 export default function AgentWizard({ route, navigate }) {
   const { assistants, models = [], policies = {}, runtime } = useAssistants();
   const initial = useMemo(() => emptyDraft(browserTimeZone()), []);
@@ -74,7 +77,8 @@ export default function AgentWizard({ route, navigate }) {
   const set = (patch) => setDraft((old) => ({ ...old, ...patch }));
   const [step, setStep] = useState("start");
   const [reached, setReached] = useState(0);
-  const [problem, setProblem] = useState("");
+  // The shown problem: its key and whether it came from checking every step (Create).
+  const [problem, setProblem] = useState(null);
   const [startError, setStartError] = useState("");
   const [picking, setPicking] = useState(false);
   const [users, setUsers] = useState([]);
@@ -176,15 +180,17 @@ export default function AgentWizard({ route, navigate }) {
     stays: staysInWizard,
   });
   const index = wizardSteps.indexOf(step);
+  // A shown problem follows the draft: fixed, it goes; another one takes its place.
+  const current = problem ? (problem.all ? firstProblem(d) : stepProblem(step, d)) : null;
   const go = (next) => {
-    setProblem("");
+    setProblem(null);
     setStep(next);
     setReached((n) => Math.max(n, wizardSteps.indexOf(next)));
     queueMicrotask(() => document.getElementById("agent-wizard-step-title")?.focus());
   };
   const next = () => {
     const found = stepProblem(step, d);
-    if (found) return setProblem(copy.problems[found]);
+    if (found) return setProblem({ key: found, all: false });
     go(wizardSteps[index + 1]);
   };
   const openChat = async (agent) => {
@@ -197,8 +203,8 @@ export default function AgentWizard({ route, navigate }) {
     }
   };
   const create = async () => {
-    const found = wizardSteps.map((s) => stepProblem(s, d)).find(Boolean);
-    if (found) return setProblem(copy.problems[found]);
+    const found = firstProblem(d);
+    if (found) return setProblem({ key: found, all: true });
     setCreateError("");
     const outcome = await creation.start(forUserAgent(d, runtimeInfo));
     if (outcome.results.create?.status !== "done") {
@@ -348,7 +354,7 @@ export default function AgentWizard({ route, navigate }) {
       bar={bar}
     >
       {content}
-      <ErrorMessage error={problem || createError} />
+      <ErrorMessage error={(current && copy.problems[current]) || createError} />
       {picking && (
         <TemplatePicker onUse={applyTemplate} onClose={() => setPicking(false)} />
       )}

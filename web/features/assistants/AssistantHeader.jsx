@@ -38,6 +38,7 @@ export default function AssistantHeader({
   actions,
   statusExtra = null,
   pane = null,
+  disconnected = false,
 }) {
   const menu = useRowMenu();
   const { runtime, models, activity = {} } = useAssistants();
@@ -50,6 +51,7 @@ export default function AssistantHeader({
     member,
     copy,
     compacting,
+    disconnected,
   });
   const missing = status.tone === "missing";
   const dotOnly = useMobileLayout() && Boolean(statusExtra) && !missing;

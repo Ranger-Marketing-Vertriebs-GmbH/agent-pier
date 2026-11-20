@@ -1968,7 +1968,8 @@ service's state then shows as "Unknown while offline" (also on **Agents › All 
 Readiness**) instead of the last known "Ready". A live channel that gave up its socket
 and reads the list over HTTP instead counts as connected as long as those reads work. An agent
 chat you opened before shows its last loaded messages with "Connection interrupted.
-Your draft is preserved; history will refresh when connected." Sending stays off until
+Your draft is preserved; history will refresh when connected.", and its header says
+"Connection interrupted" instead of "Ready" (an archived agent's says "Archived"). Sending stays off until
 the connection is back; the typed text stays in the composer. When AgentPier answers
 again, the list and the open chat refresh by themselves, also after a restart that
 first refused the agent list. An agent page, "Manage all agents" or a session that

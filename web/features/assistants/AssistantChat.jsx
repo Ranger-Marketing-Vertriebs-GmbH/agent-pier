@@ -403,6 +403,7 @@ export default function AssistantChat({
         attempt={active ? shownAttempt : null}
         member={member}
         compacting={compacting}
+        disconnected={!connected || offline}
         history={history}
         onStopped={refresh}
         talk={talk}

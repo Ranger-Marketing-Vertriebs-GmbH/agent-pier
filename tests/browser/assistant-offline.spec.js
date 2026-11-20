@@ -106,6 +106,10 @@ test("agents, team members and cached chats stay visible while offline and refre
   await expect(page.getByText("We can plan dinner together.")).toBeVisible();
   await expect(page.getByText(hint)).toBeVisible();
   await expect(page.getByText("Failed to fetch")).toHaveCount(0);
+  // The header agrees with the notice instead of saying "Ready".
+  await expect(page.locator(".assistant-header-status")).toContainText(
+    "Connection interrupted",
+  );
   const field = page.getByLabel("Message", { exact: true });
   await field.fill("Add a vegetarian option");
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();

@@ -69,7 +69,7 @@ export default function RuntimeServiceGroup() {
               disabled={busy || transitions.includes(availability)}
               onClick={() => operate(ready ? "restart" : "enable")}
             >
-              {ready ? copy.restart : copy.enable}
+              {ready ? copy.restart : copy.start}
             </button>
             {availability !== "disabled" && (
               <button

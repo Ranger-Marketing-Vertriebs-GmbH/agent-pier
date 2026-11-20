@@ -45,6 +45,7 @@ export default function AgentChatTop({
   longChat,
   strips,
   pinboard,
+  disconnected = false,
 }) {
   const phone = useMobileLayout();
   const compact = phone || Boolean(pane);
@@ -134,6 +135,7 @@ export default function AgentChatTop({
         attempt={attempt}
         member={member}
         compacting={compacting}
+        disconnected={disconnected}
         pane={pane}
         actions={actions}
         statusExtra={

@@ -480,6 +480,8 @@ export const assistantCopy = {
   status: {
     unknown: "Unbekannt, solange offline",
     connectionMissing: "Zugang fehlt",
+    archived: "Archiviert",
+    disconnected: "Verbindung unterbrochen",
     disabled: "Gestoppt",
     installing: "Wird installiert",
     starting: "Startet",
