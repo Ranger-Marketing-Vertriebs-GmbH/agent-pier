@@ -493,3 +493,18 @@ test("native chat selects the code block text when copying fails", async ({ page
     'const mode = mobile ? "reader" : "terminal";',
   );
 });
+
+test("on a phone the copy button sits above the code, never over it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  await page.goto(base + "/sessions/chat-demo/chat");
+  const block = page.locator(".code-block").filter({ hasText: "const mode" });
+  const button = await block
+    .getByRole("button", { name: "Code kopieren", exact: true })
+    .boundingBox();
+  const code = await block.locator("pre").boundingBox();
+  expect(button.y + button.height).toBeLessThanOrEqual(code.y);
+  expect(button.x + button.width).toBeLessThanOrEqual(code.x + code.width + 1);
+});

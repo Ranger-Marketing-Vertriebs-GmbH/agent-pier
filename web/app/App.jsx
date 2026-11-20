@@ -184,14 +184,17 @@ function Application() {
   const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];
   const installed = state.tools.filter((t) => t.installed).length;
-  // An update names its tool, as the update dialog expects (AppDialogs.jsx).
+  // An update names its tool, as the update dialog expects (AppDialogs.jsx); a
+  // launch from a session starts a new one with its CLI in its folder.
   const act = (type, item) =>
     type === "update"
       ? update(item)
-      : setModal({
-          type,
-          item,
-        });
+      : type === "launch"
+        ? setModal({ type, tool: item.tool, cwd: item.cwd })
+        : setModal({
+            type,
+            item,
+          });
   const content = (
     <AppSearch
       navigate={openRoute}

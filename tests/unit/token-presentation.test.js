@@ -4,6 +4,7 @@ import { setLanguage } from "../../web/lib/i18n/index.js";
 import {
   formatTokens,
   formatUsd,
+  formatCredits,
   formatDuration,
   windowLabel,
   usageSummary,
@@ -170,4 +171,20 @@ test("limit windows past their reset and buckets left empty are hidden", () => {
     ],
   );
   assert.deepEqual(currentBuckets(null, now), []);
+});
+
+test("a credits balance is a localized number, not the CLI's raw decimal string", (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  setLanguage("de", { persist: false });
+  assert.equal(formatCredits("60363.7510000000"), "60.363,75");
+  assert.equal(formatCredits("12"), "12");
+  setLanguage("en", { persist: false });
+  assert.equal(formatCredits("60363.7510000000"), "60,363.75");
+  assert.equal(formatCredits("12.50"), "12.50");
+  assert.equal(formatCredits("0.004"), "0.00");
+  // Anything that is not a plain decimal stays as the CLI sent it.
+  assert.equal(formatCredits("unknown"), "unknown");
+  assert.equal(formatCredits("1e400"), "1e400");
+  assert.equal(formatCredits(""), null);
+  assert.equal(formatCredits(null), null);
 });

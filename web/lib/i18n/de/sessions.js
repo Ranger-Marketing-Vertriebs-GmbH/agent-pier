@@ -153,6 +153,10 @@ export const sessionReloadCopy = {
   unsupported: "Diese Session kann nicht neu geladen werden.",
   unverified:
     "Die native Unterhaltung ist noch nicht verifiziert. Der laufende Prozess bleibt unverändert.",
+  unverifiedStopped:
+    "Diese Session ist beendet und ihre native Unterhaltung konnte nicht verifiziert werden, daher lässt sie sich nicht fortsetzen. Starte eine neue Session im selben Ordner oder entferne diese.",
+  startNew: "Neue Session in diesem Ordner",
+  remove: "Session entfernen",
   failed:
     "Neuladen fehlgeschlagen. Du kannst es mit derselben Unterhaltung erneut versuchen.",
   requestFailed:

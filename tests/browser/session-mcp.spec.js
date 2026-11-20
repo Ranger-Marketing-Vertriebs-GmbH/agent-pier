@@ -97,13 +97,24 @@ for (const language of ["de", "en"])
           },
         }),
       );
-      let revocations = 0;
+      let revocations = 0,
+        grants = 0;
       await page.route("**/api/sessions/fixture-session/mcp", (route) => {
+        if (route.request().method() === "POST") {
+          grants++;
+          session.agentpierTools.regranted = true;
+          return route.fulfill({ json: session });
+        }
         expect(route.request().method()).toBe("DELETE");
         revocations++;
         session.agentpierTools.enabled = false;
         return route.fulfill({ json: session });
       });
+      await page.route("**/api/sessions/fixture-session/reload", (route) =>
+        route.fulfill({
+          json: { eligible: true, nativeId: "native", state: "idle", activity: "idle" },
+        }),
+      );
       await page.goto(baseURL + "/sessions/fixture-session");
       await page
         .getByRole("button", {
@@ -136,8 +147,51 @@ for (const language of ["de", "en"])
           exact: true,
         })
         .click();
+      // Revoking asks first; Cancel keeps the access.
+      const confirm = page.getByRole("dialog", {
+        name: english
+          ? 'Revoke AgentPier tools for "Composer"?'
+          : "AgentPier-Tools für „Composer“ widerrufen?",
+      });
+      await expect(confirm).toBeVisible();
+      await confirm
+        .getByRole("button", { name: english ? "Cancel" : "Abbrechen", exact: true })
+        .click();
+      expect(revocations).toBe(0);
+      await dialog
+        .getByRole("button", {
+          name: english ? "Revoke access" : "Zugriff widerrufen",
+          exact: true,
+        })
+        .click();
+      await confirm
+        .getByRole("button", {
+          name: english ? "Revoke now" : "Jetzt widerrufen",
+          exact: true,
+        })
+        .click();
       await expect(
         dialog.getByText(english ? "Revoked" : "Widerrufen", { exact: true }),
       ).toBeVisible();
       expect(revocations).toBe(1);
+      // Granted again, the tools return with the next Reload & resume.
+      await dialog
+        .getByRole("button", {
+          name: english ? "Grant again" : "Erneut erteilen",
+          exact: true,
+        })
+        .click();
+      await expect(
+        dialog.getByText(english ? "Granted again" : "Erneut erteilt", { exact: true }),
+      ).toBeVisible();
+      expect(grants).toBe(1);
+      await dialog
+        .getByRole("button", {
+          name: english ? "Reload & resume" : "Neu laden & fortsetzen",
+          exact: true,
+        })
+        .click();
+      await expect(page.getByRole("dialog")).toContainText(
+        english ? "Wait until idle" : "Auf Leerlauf warten",
+      );
     });

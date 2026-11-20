@@ -113,22 +113,43 @@ function savePreferences(next) {
  * Called after a successful plain launch, so a rejected attempt is not remembered.
  * `picked` says the owner chose this access in the dialog.
  */
-export function rememberLaunchChoice(tool, accessId, { picked = false } = {}) {
+export function rememberLaunchChoice(
+  tool,
+  accessId,
+  { picked = false, modelId = "" } = {},
+) {
   if (typeof tool !== "string" || !tool) return;
   const saved = readPreferences();
   const access = isRecord(saved.access) ? { ...saved.access } : {};
   const picks = isRecord(saved.picked) ? { ...saved.picked } : {};
+  const models = isRecord(saved.models) ? { ...saved.models } : {};
   if (typeof accessId === "string" && accessId) {
     access[tool] = accessId;
     if (picked) picks[tool] = true;
     else delete picks[tool];
+    // A provider connection's model, per CLI and connection.
+    if (accessId.startsWith("provider:") && typeof modelId === "string" && modelId)
+      models[modelKey(tool, accessId)] = modelId;
   }
   savePreferences({
     ...(typeof saved.cwd === "string" ? { cwd: saved.cwd } : {}),
     tool,
     access,
     picked: picks,
+    ...(Object.keys(models).length ? { models } : {}),
   });
+}
+
+const modelKey = (tool, accessId) => `${tool} ${accessId}`;
+
+/** The model last launched with this CLI on this provider connection, or "". */
+export function rememberedLaunchModel(tool, accessId) {
+  if (typeof accessId !== "string" || !accessId.startsWith("provider:")) return "";
+  const models = readPreferences().models;
+  const key = modelKey(tool, accessId);
+  return isRecord(models) && Object.hasOwn(models, key) && typeof models[key] === "string"
+    ? models[key]
+    : "";
 }
 
 /** The folder of the last successful launch, or null. */

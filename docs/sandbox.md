@@ -607,7 +607,9 @@ profile on the Local account (the seeded profiles) preselects a managed account 
 way. A CLI that is no longer installed or an access that was removed falls back to the
 first CLI and the default account. Launches with a task profile do not change the
 remembered CLI and access. The working folder of the last launch is remembered too and
-preselected unless the dialog opens for a project folder.
+preselected unless the dialog opens for a project folder, and so is the model last
+launched with each provider connection. Until a connection has a model, the dialog says
+that one is needed to start.
 
 ## Why the boundary is partial
 

@@ -1,7 +1,7 @@
 import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React, { useRef } from "react";
 import Message from "./ChatMessage.jsx";
-import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { toolDisplayName } from "./presentation.js";
 import ActivityGroup from "../../components/ActivityGroup.jsx";
 import { toolSummary } from "../../components/activity-group.js";
 import "./tool-groups.css";
@@ -78,7 +78,7 @@ export default function ChatTranscript({
         data-message-id={group.tools[0].id}
         count={group.tools.length}
         summary={toolSummary(
-          group.tools.map((message) => message.toolName || copy.chatToolLabel),
+          group.tools.map((message) => toolDisplayName(message.toolName)),
         )}
         failed={failed}
         running={running}

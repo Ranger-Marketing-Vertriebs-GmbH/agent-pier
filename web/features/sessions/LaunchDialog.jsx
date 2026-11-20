@@ -212,6 +212,7 @@ export default function LaunchDialog({
                 });
                 rememberLaunchChoice(access.tool, access.accessId, {
                   picked: access.accessPicked,
+                  modelId: access.modelId,
                 });
                 rememberLaunchMode(access.tool, launchMode);
                 return created(result.session);
@@ -249,6 +250,7 @@ export default function LaunchDialog({
               if (!profile)
                 rememberLaunchChoice(access.tool, access.accessId, {
                   picked: access.accessPicked,
+                  modelId: access.modelId,
                 });
               rememberLaunchFolder(cwd);
               if (!profile && coding) rememberLaunchMode(access.tool, launchMode);

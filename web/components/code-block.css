@@ -51,3 +51,21 @@
     height: 36px;
   }
 }
+/* On a phone a code line scrolls sideways under a floating button, so the button
+   sits in its own row above the code instead. */
+@media (max-width: 700px) {
+  .code-block {
+    display: flex;
+    flex-direction: column;
+  }
+  .code-block > .code-block-pre {
+    padding-right: 16px;
+    min-height: 0;
+  }
+  .code-block-copy {
+    position: static;
+    order: -1;
+    align-self: flex-end;
+    margin-bottom: 4px;
+  }
+}

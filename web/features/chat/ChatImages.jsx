@@ -5,7 +5,7 @@ import ImageViewer from "../../components/ImageViewer.jsx";
 function imageURL(sessionId, id) {
   return `/api/sessions/${encodeURIComponent(sessionId)}/chat/images/${id}`;
 }
-function Thumbnail({ image, sessionId, open }) {
+function Thumbnail({ image, sessionId, open, fileName }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -46,7 +46,9 @@ function Thumbnail({ image, sessionId, open }) {
         )}
       </button>
       <figcaption>
-        <code className="chat-image-path">{image.path}</code>
+        <code className="chat-image-path" title={fileName ? image.path : undefined}>
+          {fileName ? image.path.split("/").at(-1) : image.path}
+        </code>
         {failed && (
           <button
             className="chat-image-retry"
@@ -64,8 +66,14 @@ function Thumbnail({ image, sessionId, open }) {
   );
 }
 // User attachments are capped at eight on the server; tool rows pass their own
-// limit because a tool result may carry more images.
-export default function ChatImages({ images = [], sessionId, limit = 8 }) {
+// limit because a tool result may carry more images. `fileName` captions an image
+// with its file name instead of its path (a user's own attachment in the data folder).
+export default function ChatImages({
+  images = [],
+  sessionId,
+  limit = 8,
+  fileName = false,
+}) {
   const [selected, setSelected] = useState(null);
   const visible = images
     .filter(
@@ -83,6 +91,7 @@ export default function ChatImages({ images = [], sessionId, limit = 8 }) {
             image={image}
             sessionId={sessionId}
             open={setSelected}
+            fileName={fileName}
           />
         ))}
       </div>

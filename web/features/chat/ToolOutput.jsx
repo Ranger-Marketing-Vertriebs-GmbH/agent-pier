@@ -9,9 +9,11 @@ import React, {
 } from "react";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { outputPreview, toolBlocks } from "./tool-output.js";
+import { shellStreamLabel } from "./presentation.js";
 import "./tool-output.css";
 const ToolCode = lazy(() => import("./ToolCode.jsx"));
-export default function ToolOutput({ text, toolName, fromEnd = false }) {
+// `shell` marks a shell-output row, whose block labels are its stream names.
+export default function ToolOutput({ text, toolName, fromEnd = false, shell = false }) {
   const [limit, setLimit] = useState(8);
   const id = useId();
   const content = useRef(null);
@@ -40,7 +42,11 @@ export default function ToolOutput({ text, toolName, fromEnd = false }) {
         <div ref={content}>
           {preview.blocks.map((block, index) => (
             <div className="tool-output-block" key={index}>
-              {block.label && <div className="tool-output-label">{block.label}</div>}
+              {block.label && (
+                <div className="tool-output-label">
+                  {shell ? shellStreamLabel(block.label) : block.label}
+                </div>
+              )}
               <pre>
                 <Suspense fallback={<code>{block.text}</code>}>
                   <ToolCode text={block.text} language={block.language} />

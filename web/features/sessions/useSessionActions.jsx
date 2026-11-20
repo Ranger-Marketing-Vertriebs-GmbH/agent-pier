@@ -140,7 +140,19 @@ export default function useSessionActions({ session, action, reloadable, openTer
     <>
       {mcpSession === sessionIdentity && session.agentpierTools && (
         <Suspense fallback={<p role="status">{mcpCopy.loading}</p>}>
-          <SessionMcpDialog session={session} close={() => setMcpSession(null)} />
+          <SessionMcpDialog
+            session={session}
+            close={() => setMcpSession(null)}
+            openReload={
+              reloadable
+                ? () => {
+                    setMcpSession(null);
+                    setSwitchAccount(false);
+                    setReloadSession(sessionIdentity);
+                  }
+                : undefined
+            }
+          />
         </Suspense>
       )}
       {sshSession === sessionIdentity && running && !session.pipeline?.headless && (
@@ -177,6 +189,14 @@ export default function useSessionActions({ session, action, reloadable, openTer
             close={() => setReloadSession(null)}
             pending={pendingReload}
             switchAccount={switchAccount}
+            startNew={() => {
+              setReloadSession(null);
+              action("launch", session);
+            }}
+            remove={() => {
+              setReloadSession(null);
+              action("remove", session);
+            }}
             openTerminal={() => {
               setReloadSession(null);
               openTerminal();

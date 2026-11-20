@@ -16,7 +16,7 @@ import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
 export function createReloadLifecycle(services) {
   async function prepareReload(session, nativeId, targetAccountId) {
     const { accounts, history, tools, models } = services;
-    if (session.agentpierTools?.enabled)
+    if (session.agentpierTools?.enabled || session.agentpierTools?.regranted)
       services.sessionMcp?.validate(session.agentpierTools.selection);
     const content = await history.readReloadContext(session, nativeId);
     const switching = targetAccountId && targetAccountId !== session.accountId;
@@ -215,9 +215,11 @@ export function createReloadLifecycle(services) {
           if (services.sessionMcp)
             launch = await services.sessionMcp.prepare({
               ...input(),
-              selection: session.agentpierTools?.enabled
-                ? session.agentpierTools.selection
-                : false,
+              // Tools granted again after a revocation come back here.
+              selection:
+                session.agentpierTools?.enabled || session.agentpierTools?.regranted
+                  ? session.agentpierTools.selection
+                  : false,
             });
           launch = await bindings.prepare(input());
           launch = await requests.prepare(input());

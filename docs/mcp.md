@@ -129,8 +129,12 @@ pipeline cannot obtain it by adding launch parameters, so internal start rights
 are not automatically inherited by its workers.
 
 The session toolbar's **AgentPier tools** button shows permissions and access status
-and allows immediate revocation. Grants have no time limit while the session is
-running. Access ends when the session stops, is removed or its owner revokes it.
+and allows immediate revocation after a confirmation. Grants have no time limit while
+the session is running. Access ends when the session stops, is removed or its owner
+revokes it. A revoked grant can be restored with **Grant again**
+(`POST /api/sessions/:id/mcp`): the session keeps its original selection, the dialog
+shows **Granted again**, and the tools return with the next **Reload & resume**,
+which starts the CLI's tool bridge with a fresh credential.
 Reloading a session with access still enabled rotates its credential while retaining
 run ownership. Existing grants with a legacy expiry also follow this session
 lifecycle; updating AgentPier restores access for running sessions without a CLI

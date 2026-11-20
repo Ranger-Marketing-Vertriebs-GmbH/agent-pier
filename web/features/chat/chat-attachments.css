@@ -69,3 +69,11 @@
 .chat-upload-pending > button {
   flex-shrink: 0;
 }
+/* A sent user row lists its attachments as chips below the text. */
+.chat-message-attachments {
+  margin-top: 0.5rem;
+}
+.chat-message-attachments .chat-attachment-chip {
+  min-width: 0;
+  max-width: 100%;
+}

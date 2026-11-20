@@ -239,6 +239,32 @@ export class SessionMcp {
       return session;
     });
   }
+  /**
+   * Grants revoked tools again with the session's own selection. The running CLI's
+   * bridge holds the revoked credential, so access returns with the next Reload &
+   * resume, which prepares a fresh one (`regranted` marks the wait).
+   */
+  async restore(id) {
+    return this.services.sessions.serial(async () => {
+      const session = await this.services.sessions.metadata(id);
+      const tools = session.agentpierTools;
+      const marker = path.join(capabilityDirectory(this.dataDir, id), "revoked.json");
+      if (!tools?.selection || tools.enabled || !fs.existsSync(marker))
+        throw problem(serverMessages.mcp.sessionToolsNotRevoked, 409);
+      this.validate(tools.selection);
+      fs.rmSync(marker, { force: true });
+      session.agentpierTools = { ...tools, enabled: false, regranted: true };
+      await this.services.sessions.save(session);
+      this.services.audit.append({
+        action: "mcp.restored",
+        resourceType: "session",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+      });
+      return session;
+    });
+  }
   async start() {
     const directory = path.dirname(this.socketPath);
     privatePath(directory, "/tmp");
