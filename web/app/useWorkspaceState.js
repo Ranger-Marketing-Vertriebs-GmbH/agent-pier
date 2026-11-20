@@ -7,6 +7,7 @@ import useLiveTopic from "../lib/live/useLiveTopic.js";
 import { workspaceStateView } from "./workspace-state-view.js";
 import { createRefreshRetry } from "./refresh-retry.js";
 import { readWorkspaceState, saveWorkspaceState } from "./workspace-state-cache.js";
+import { useLocalizedNames } from "../lib/server-names.js";
 
 const empty = {
   tools: [],
@@ -61,7 +62,9 @@ export default function useWorkspaceState() {
       throw err;
     }
   }, [attempt, retry]);
-  const { data, failure, loading } = workspaceStateView(live, read);
+  const view = workspaceStateView(live, read);
+  const { failure, loading } = view;
+  const data = useLocalizedNames(view.data);
   useEffect(() => {
     if (Array.isArray(data?.sessions))
       retainCachedChats(new Set(data.sessions.map(chatCacheKey)));

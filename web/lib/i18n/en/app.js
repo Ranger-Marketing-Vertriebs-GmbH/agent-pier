@@ -33,7 +33,8 @@ export const sidebarCopy = {
   newAgentItem: "Agent",
   brandAriaLabel: "AgentPier home",
   brandLabel: "AgentPier",
-  localBadge: "LOCAL",
+  // The badge beside the brand: how this AgentPier is reached (access-mode.js).
+  badges: { local: "LOCAL", tailscale: "TAILNET", network: "NETWORK" },
   ariaLabel: "Main navigation",
   collapseSidebar: "Collapse navigation",
   expandSidebar: "Expand navigation",

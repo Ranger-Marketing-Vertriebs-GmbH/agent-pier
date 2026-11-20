@@ -69,6 +69,7 @@ test("the state has the shape of GET /api/state", async () => {
     home: "/home/owner",
     defaultCwd: "/home/owner",
     remoteUrl: null,
+    access: { network: false, tailscale: false, users: 0 },
     readStartedAt: 1000,
   });
 });

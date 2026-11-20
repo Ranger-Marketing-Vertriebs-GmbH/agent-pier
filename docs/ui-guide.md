@@ -361,7 +361,7 @@ The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).
 
 - **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)** on macOS or **Search (Ctrl+K)** elsewhere, **Menu**), brand
-  with the LOCAL badge, **Inbox**, the **Views** group (only wider than 1150 px), the
+  with the LOCAL, TAILNET or NETWORK badge (how AgentPier is reached), **Inbox**, the **Views** group (only wider than 1150 px), the
   **Agents** group, the **Sessions** group and the host status. It belongs to agents and sessions; never add a permanent list of
   areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
   (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs

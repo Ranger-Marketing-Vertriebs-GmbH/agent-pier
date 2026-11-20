@@ -176,6 +176,9 @@ export class AccountStore {
       ...[...TOOLS, SHELL].map((t) => ({
         id: `local-${t.id}`,
         name: serverMessages.accounts.localAccountName(t.name),
+        // The browser renders the name in its own language (web/lib/server-names.js).
+        nameKey: "accounts.localAccountName",
+        nameArgs: [t.name],
         tool: t.id,
         kind: "local",
         hasSecret: false,

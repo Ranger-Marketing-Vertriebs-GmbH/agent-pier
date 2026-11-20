@@ -180,9 +180,13 @@ export function createSessionLifecycle(services) {
     );
     // The folder the session starts in, after the default and `~` are resolved.
     services.deletionGuard?.refuse(cwd);
+    // A name AgentPier makes up carries its message key, so the browser shows it in
+    // its own language (web/lib/server-names.js); a name the owner typed has none.
+    const nameMessage =
+      !body.name && login ? { key: "sessions.loginName", args: [account.name] } : null;
     const name = nameValue(
       body.name ||
-        `${account.name}${login ? serverMessages.sessions.loginNameSuffix : ""}`,
+        (nameMessage ? serverMessages.sessions.loginName(account.name) : account.name),
     );
     const binaries = Object.fromEntries(
       tools()
@@ -340,6 +344,7 @@ export function createSessionLifecycle(services) {
         ...(trusted.startedBy ? { startedBy: trusted.startedBy } : {}),
         ...(trusted.ticket ? { ticket: trusted.ticket } : {}),
         ...(login ? { purpose: "login" } : {}),
+        ...(nameMessage ? { nameMessage } : {}),
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
       if (agentIds.length) services.sessionAgentGrants.set(session, agentIds);

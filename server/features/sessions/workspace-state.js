@@ -14,6 +14,32 @@ import { SessionProjects } from "./session-projects.js";
 import { publicSession } from "./session-public.js";
 
 /**
+ * Who can reach this AgentPier, for the start page's footer and the sidebar badge:
+ * through the network or the tailnet, and how many other users may sign in. The
+ * modes change with a restart; a user write signals the state (live-wiring.js).
+ */
+export function accessView(services) {
+  let running = null;
+  try {
+    running = services.effectiveConfig?.() ?? null;
+  } catch {
+    running = null;
+  }
+  const config = running || services.config || {};
+  let users = 0;
+  try {
+    users = (services.users?.list() || []).filter((user) => !user.disabled).length;
+  } catch {
+    users = 0;
+  }
+  return {
+    network: Boolean(config.network?.enabled),
+    tailscale: Boolean(config.remoteUrl),
+    users,
+  };
+}
+
+/**
  * `read({ fresh })` returns the current state (`fresh` detects the slow parts again);
  * `invalidateSlow()` makes the next read detect them again; `offerSessions(list,
  * listedAt)` hands over a session list just read elsewhere (the 2.5 s collect, with
@@ -124,6 +150,7 @@ export function createWorkspaceState(
         home: config.home,
         ...preferences.get(),
         remoteUrl: config.remoteUrl || null,
+        access: accessView(services),
         readStartedAt,
       };
     },

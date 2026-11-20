@@ -27,7 +27,8 @@ export const sessions = Object.freeze({
     "Das Sandbox-Profil ist bei Starts mit Aufgabenprofil nicht verfügbar.",
   sandboxProfilesRateLimited:
     "Zu viele Abfragen der Sandbox-Profile. Bitte in einer Minute erneut versuchen.",
-  loginNameSuffix: " · Anmeldung",
+  // A sign-in session's name; the browser renders it in its own language (nameKey).
+  loginName: (accountName) => `${accountName} · Anmeldung`,
   sessionLimitReached:
     "Maximal 30 Sessions gleichzeitig. Bitte zuerst eine Session beenden.",
   loginSessionOpen: (name) =>
