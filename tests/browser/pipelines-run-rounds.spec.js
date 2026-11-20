@@ -236,3 +236,57 @@ test("the run view tells resumed from fresh repairs and shows their tokens", asy
   await expect(log).toContainText("Codex ran out of room in the model's context window.");
   await expect(log).toContainText("Start · New session (context exhausted)");
 });
+
+// A return the owner started (return-to-stage.js) is no loop round of the pipeline: it
+// has no maximum and counts on its own (AGENTPIER-428).
+test("an owner's return reads as such, without a round maximum", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.nodes.push({ ...run.nodes[0], id: "stage-two", status: "passed" });
+  run.nodes[0] = {
+    ...run.nodes[0],
+    status: "running",
+    loop: {
+      edge: "owner:stage-two->stage-one",
+      fromNodeId: "stage-two",
+      iteration: 1,
+      owner: true,
+    },
+  };
+  run.status = "running";
+  run.currentNodeId = run.nodes[0].id;
+  run.loopRounds = [
+    {
+      edge: "stage-two->stage-one",
+      round: 1,
+      fromNodeId: "stage-two",
+      toNodeId: "stage-one",
+      at: "2026-09-07T12:10:00Z",
+      stages: [
+        { nodeId: "stage-two", result: "fail", summary: "x", findings: [], reports: [] },
+      ],
+    },
+    {
+      edge: "owner:stage-two->stage-one",
+      round: 1,
+      owner: true,
+      fromNodeId: "stage-two",
+      toNodeId: "stage-one",
+      at: "2026-09-07T12:30:00Z",
+      operatorNote: "Please rename the flag.",
+      stages: [
+        { nodeId: "stage-two", result: "fail", summary: "x", findings: [], reports: [] },
+      ],
+    },
+  ];
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  const rounds = page.locator(".run-rounds > li");
+  await expect(rounds).toHaveCount(2);
+  await expect(rounds.nth(0)).toContainText("Round 1");
+  await expect(rounds.nth(1)).toContainText("Returned by you · 1");
+  await expect(rounds.nth(1)).not.toContainText("Round 1");
+  await expect(page.locator("body")).not.toContainText("undefined");
+  await expect(page.getByText(/Returned by you · 1/).first()).toBeVisible();
+});
