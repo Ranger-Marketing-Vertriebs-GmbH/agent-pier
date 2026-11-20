@@ -62,6 +62,8 @@ test("Zugänge lists its eight categories; each lists its entries with usage", a
     /^Secrets/,
     /^GitHub connections/,
     /^Ticket sources/,
+    // Not a category: the link to CLIs › Accounts closes the column.
+    /^CLI accounts/,
   ]);
   // Model access is the first category: provider connections and ChatGPT.
   await expect(
