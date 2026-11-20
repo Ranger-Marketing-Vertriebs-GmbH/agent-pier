@@ -275,8 +275,18 @@ export class HermesRoutineDeliveries {
     intervalMs = 15000,
     timers = globalThis,
     zone,
+    successors = null,
   }) {
-    Object.assign(this, { supervisor, file, token, post, intervalMs, timers, zone });
+    Object.assign(this, {
+      supervisor,
+      file,
+      token,
+      post,
+      intervalMs,
+      timers,
+      zone,
+      successors,
+    });
     this.client = null;
     this.timer = null;
     this.running = null;
@@ -390,8 +400,10 @@ export class HermesRoutineDeliveries {
   noteOf(job, text) {
     const meta = job[metaField] || {};
     if (meta.delivery?.kind !== "chat" || meta.target?.kind !== "chat") return null;
-    const session = storedIdOf(this.supervisor.agentId, meta.target.sessionKey);
-    if (!session || !text.trim() || text.trim() === agentPierSilent) return null;
+    const first = storedIdOf(this.supervisor.agentId, meta.target.sessionKey);
+    if (!first || !text.trim() || text.trim() === agentPierSilent) return null;
+    // A chat moved to a successor (hermes-session-successors.js) reads it there.
+    const session = this.successors?.current(first) ?? first;
     // The label Hermes gives a cron delivery it mirrors into a chat.
     return {
       session,

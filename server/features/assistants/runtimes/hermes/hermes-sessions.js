@@ -13,6 +13,20 @@ import { hermesError } from "./hermes-rpc-client.js";
 import { refused } from "./hermes-approval-queue.js";
 import { sessionKeyOf, storedIdOf } from "./hermes-run-state.js";
 import {
+  attach,
+  chainOf,
+  followReasoning,
+  isFrozen,
+  known,
+  missing,
+  moveToSuccessor,
+  mutate,
+  mutateEarlier,
+  noteSuccessor,
+  transcript,
+} from "./hermes-session-link.js";
+import { agentSessionSuccessors } from "./hermes-session-successors.js";
+import {
   titlePrompt,
   titleSystemPrompt,
   titleTimeoutMs,
@@ -23,8 +37,6 @@ import {
 // Hermes answers with the session it created first.
 const createBudgetMs = 60000;
 const minAttemptMs = 5000;
-// session.resume attaches the session and reads its state.
-const resumeTimeoutMs = 60000;
 // The fixed request timeout of Hermes's one-shot call (agent/oneshot.py
 // `run_oneshot`, `timeout=60.0`), which llm.oneshot does not let a caller raise: it
 // passes the value explicitly, so `auxiliary.<task>.timeout` does not apply either.
@@ -37,23 +49,6 @@ const oneshotTimeoutMs = 60000;
 // review's budget), so the dream's 8000 leave room for Hermes's retry.
 const reviewTimeoutMs = (maxTokens) =>
   Math.ceil((oneshotTimeoutMs * Math.max(maxTokens, 4000)) / 4000) + 5000;
-
-// Attaches in flight per connection, so two calls for one key share one attach.
-const attaching = new WeakMap();
-// The reasoning level each session attached to a connection runs at (session id →
-// Hermes's `info.reasoning_effort`, "" for its default; null: unknown).
-const levels = new WeakMap();
-const levelsOf = (client) => {
-  let known = levels.get(client);
-  if (!known) levels.set(client, (known = new Map()));
-  return known;
-};
-const levelOf = (snapshot) =>
-  typeof snapshot?.info?.reasoning_effort === "string"
-    ? snapshot.info.reasoning_effort
-    : null;
-
-const missing = (error) => error?.answered === true && error.reason === "not_found";
 
 /**
  * The sessions sub-port (agent-runtime.js) over the session store of Hermes's
@@ -73,102 +68,28 @@ const missing = (error) => error?.answered === true && error.reason === "not_fou
  * (hermes-connection.js).
  *
  * `reasoning()` answers the thinking level the agent's home names now
- * (hermes-config/advanced.js homeReasoning; undefined: unknown). Hermes freezes a
- * session's level when it creates it, so before a turn a session at another level
- * takes the home's again (session.mutate `reasoning` reset): the owner's Thinking
- * level reaches existing chats at their next turn.
+ * (hermes-config/advanced.js homeReasoning; undefined: unknown). Before a turn a
+ * session at another level takes the home's again (session.mutate `reasoning`
+ * reset): the owner's Thinking level reaches existing chats at their next turn.
+ *
+ * Every session is created following the agent's config.yaml
+ * (`follow_profile_config`), so a model, connection, advisor or key change reaches it
+ * at its next turn; a session an older AgentPier created frozen moves to a following
+ * successor before its next turn, its transcript kept (hermes-session-successors.js,
+ * kept per agent in `successors`).
  */
-export function hermesSessions(supervisor, { reasoning = () => undefined } = {}) {
+export function hermesSessions(
+  supervisor,
+  { reasoning = () => undefined, successors = agentSessionSuccessors(supervisor) } = {},
+) {
   // The turns AgentPier submitted, shared by every view (hermes-turns.js).
   const turns = new HermesTurns();
   // The last context size read per session key, beyond one connection (contextOf).
   const sizes = new Map();
   return boundPort(
-    (current) => sessionsOver(current, turns, sizes, supervisor, reasoning),
+    (current) => sessionsOver(current, turns, sizes, supervisor, reasoning, successors),
     supervisor,
   );
-}
-
-// Gives session `sid` (`key`) the home's thinking level (`wanted`) before its next
-// turn when it runs another; a refusal (a turn under way) retries at the next turn.
-async function followReasoning(link, key, sid, wanted) {
-  if (typeof wanted !== "string") return;
-  const known = levelsOf(link.client);
-  if (known.get(sid) === wanted) return;
-  try {
-    await mutate(link, key, "reasoning", { effort: null }, { fenced: true });
-    known.set(sid, wanted);
-  } catch {
-    /* The turn runs at the level it has; the next one tries again. */
-  }
-}
-
-// Attaches the session behind `key` to this connection; resolves its session id.
-async function attach(link, key) {
-  const stored = storedIdOf(link.agentId, key);
-  if (!stored) throw refused("unknown session key");
-  const known = link.runs.sidOf(key);
-  if (known) return known;
-  let pending = attaching.get(link.client);
-  if (!pending) attaching.set(link.client, (pending = new Map()));
-  if (!pending.has(key))
-    pending.set(
-      key,
-      link.client
-        .call(
-          "session.resume",
-          { session_id: stored, omit_messages: true },
-          { timeoutMs: resumeTimeoutMs },
-        )
-        .then((snapshot) => {
-          if (typeof snapshot?.session_id !== "string") throw hermesError("RPC_FAILED");
-          link.runs.bind(key, snapshot.session_id, snapshot);
-          levelsOf(link.client).set(snapshot.session_id, levelOf(snapshot));
-          // Questions still waiting in the session are asked again here.
-          link.approvals.reopened(snapshot.session_id, snapshot.prompts);
-          link.questions.reopened(snapshot.session_id, snapshot.prompts);
-          return snapshot.session_id;
-        })
-        .finally(() => pending.delete(key)),
-    );
-  return pending.get(key);
-}
-
-/**
- * A revision-fenced edit of the session behind `key` (session.mutate): attached
- * first, so its fences are known; a refusal for an older revision or generation is
- * repeated once with the fences it names, under the same request id.
- */
-async function mutate(link, key, operation, payload, options = {}) {
-  const sid = await attach(link, key);
-  const requestId = `${operation}-${randomUUID()}`;
-  for (let attempt = 0; ; attempt++) {
-    const { revision, generation } = link.runs.fences(sid);
-    try {
-      const receipt = await link.client.call(
-        "session.mutate",
-        {
-          session_id: sid,
-          request_id: requestId,
-          expected_revision: revision,
-          ...(options.fenced ? { expected_generation: generation } : {}),
-          operation,
-          payload,
-        },
-        options,
-      );
-      link.runs.fenced(sid, receipt);
-      return receipt;
-    } catch (error) {
-      if (
-        attempt > 0 ||
-        error?.code !== "CONFLICT" ||
-        error.reason === "admission_conflict"
-      )
-        throw error;
-      link.runs.fenced(sid, error.fences);
-    }
-  }
 }
 
 const describeRow = (link, key, row, sid) => ({
@@ -254,13 +175,6 @@ const titleOf = (text) =>
     ?.replace(/^["'“”]+|["'“”.]+$/g, "")
     .slice(0, 120) || "";
 
-// The stored transcript of `key`: readable without attaching.
-async function transcript(link, key, options) {
-  const stored = storedIdOf(link.agentId, key);
-  if (!stored) throw refused("unknown session key");
-  return link.client.call("session.history", { session_id: stored }, options);
-}
-
 // How full the context of the session's last model call was, in OpenClaw's
 // `sessionInfo` terms (conversations.js longContext): `session.stats`
 // (gateway/session_usage.py) of the agent the gateway keeps for a session attached
@@ -313,10 +227,11 @@ function sessionsOver(
   sizes = new Map(),
   supervisor = null,
   reasoning = () => undefined,
+  successors = null,
 ) {
   let homes;
   const own = () => (homes ??= homesOf(supervisor));
-  const reach = async () => reachable(current());
+  const reach = async () => ({ ...reachable(current()), successors });
   return {
     async create({ agentId, label, idempotencyKey }, options = {}) {
       const link = await reach();
@@ -325,6 +240,8 @@ function sessionsOver(
       const params = {
         request_id: idempotencyKey || randomUUID(),
         ...(label ? { title: String(label) } : {}),
+        // The model, its providers and keys come from config.yaml at every turn.
+        follow_profile_config: true,
       };
       const deadline = now() + budgetMs;
       let created;
@@ -345,7 +262,7 @@ function sessionsOver(
       const key = sessionKeyOf(link.agentId, created.stored_session_id || sid);
       // The create attached the session to this connection.
       link.runs.bind(key, sid, created);
-      levelsOf(link.client).set(sid, levelOf(created));
+      known(link, sid, created);
       link.runs.titled(key, params.title);
       return { key };
     },
@@ -359,8 +276,13 @@ function sessionsOver(
       const text = typeof turn?.message === "string" ? turn.message : "";
       const images = supervisor?.nativeImages === true ? inlineImages(turn) : [];
       for (let attempt = 0; ; attempt++) {
-        const sid = await attach(link, key);
-        if (attempt === 0) await followReasoning(link, key, sid, reasoning());
+        let sid = await attach(link, key);
+        if (attempt === 0) {
+          // A session Hermes froze runs no turn of AgentPier's anymore.
+          if (isFrozen(link, sid) && successors) sid = await moveToSuccessor(link, key);
+          else if (successors) await noteSuccessor(link, key);
+          await followReasoning(link, key, sid, reasoning());
+        }
         // Staged before the run is known: a staging failure submitted nothing.
         let attachments;
         try {
@@ -514,10 +436,15 @@ function sessionsOver(
           deleteTranscript === false
             ? await mutate(link, key, "archive", { archived: true })
             : await mutate(link, key, "delete", {}, { fenced: true });
+        // The sessions the chat ran in before its successor go the same way.
+        if (deleteTranscript === false)
+          await mutateEarlier(link, key, "archive", { archived: true });
+        else await mutateEarlier(link, key, "delete", {}, { fenced: true });
         if (deleteTranscript !== false) {
           link.runs.unbind(key);
           turns.forget(key);
           sizes.delete(key);
+          successors?.forget(chainOf(link, key).first);
         }
         return receipt;
       } catch (error) {
@@ -536,6 +463,7 @@ function sessionsOver(
         if (missing(error)) return "missing";
         throw error;
       }
+      await mutateEarlier(link, key, "archive", { archived: false }).catch(() => {});
       return "open";
     },
     // Hermes refuses no turn of an archived session, so no refused turn goes again.

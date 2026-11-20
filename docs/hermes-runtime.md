@@ -138,6 +138,42 @@ input, a ChatGPT login) sets `agent.image_input_mode: native` and
 lookup does not know a custom endpoint's models and may miss an OpenRouter model
 (`agent/image_routing.py`). Any other model gets no mode: Hermes's own lookup decides.
 
+### Chats follow the agent's settings
+
+Hermes freezes a session's policy when it creates it (`gateway/session_policy.py`
+`build_policy`): the model route, its providers and their keys. Resuming a session
+refreshes its toolsets, MCP servers, terminal and reasoning default, never its route
+(`gateway/session_policy_refresh.py`), and a key that changed in `config.yaml` since
+the session started ends every turn with `launch_credentials_unavailable … changed in
+config.yaml since this session started`
+(`gateway/session_policy_credentials.py` `recover_config_secrets`). So a model or
+connection switch broke the existing chats, the main chat included, and a new or
+removed advisor never reached them (AGENTPIER-438).
+
+AgentPier creates every chat with `follow_profile_config: true`, the flag of Hermes's
+own Bot Chat. Such a session re-reads `model`, `providers`, `custom_providers`,
+`fallback_providers`, `fallback_model`, `model_aliases` and `platform_toolsets`
+from the home's `config.yaml` at every turn, keys included, and never checks the keys
+it froze for those sections (`FOLLOW_SECTIONS`, `LocalSessionPolicy.effective`). A
+model, connection, advisor or key change therefore reaches every chat at its next
+turn, with no **Restart main chat**.
+
+A chat an older AgentPier created stays frozen, and Hermes has no edit that makes it
+follow (it adopts only a chat titled "Bot Chat"). Before such a chat's next turn
+AgentPier moves it to a new following session, its successor
+(`hermes-session-successors.js`): `session.create` with `follow_profile_config`,
+request id `agentpier-successor-<old session>` and the title `<title> (<last 8
+characters of the old session id>)`. The successor starts with an internal note
+(`agentpier.note`) that carries the conversation so far: the owner's and the agent's
+text, newest kept, at most 24,000 characters. The chat keeps its key, so routines,
+Telegram and the chat list need nothing new. Its history is the old session's rows
+followed by the successor's, deleting or archiving the chat does the same to both,
+and a routine's note goes to the successor. The chain is kept in
+`agentpier-session-successors.json` in the agent's HERMES_HOME. A chat moves once; the
+agent sees the earlier conversation only through the note, not as its own turns.
+`hermes-session-policy-contract.test.js` switches the connection of an existing
+chat, adds an advisor to one and moves a frozen one, on the pinned Hermes.
+
 ### Mixture of Agents
 
 An agent's **Mixture of Agents** ([agents](agents.md#capabilities)) is stored as its
@@ -191,7 +227,8 @@ gets the **closed preset**:
 | `moa.default_preset`         | `agentpier`; the explicit `presets` map replaces Hermes's own (`apply_user_moa_presets`)      |
 
 A disabled preset calls its aggregator alone, so a chat still on `provider: moa` fails
-its turn at the closed address instead of reaching any model.
+its turn at the closed address instead of reaching any model; AgentPier's chats follow
+the agent's model at their next turn anyway ([chats follow the agent's settings](#chats-follow-the-agents-settings)).
 Removing the advisors removes AgentPier's advisor entries and their keys and writes the
 closed preset. `hermes-mixture-contract.test.js` reads the compiled home with Hermes's
 own loader and normaliser, and runs a turn of a chat frozen on `provider: moa` after
@@ -678,14 +715,14 @@ agents**; both texts take the runtimes' names from the server, so the page itsel
 names no runtime. Hermes describes no advanced setting of its own yet; one would
 show as a row under **Hermes Agent** on the same page.
 
-| Setting              | Hermes                   | Notes                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Thinking level       | `agent.reasoning_effort` | Hermes freezes a chat's level when it creates the chat (`gateway/session_policy.py`); AgentPier gives an existing chat the new level before its next turn (`session.mutate` `reasoning` reset), so a change needs no restart. New chats and routine runs read it at once. **Off** is `none`; **Adaptive** has no Hermes level and leaves Hermes's default (it thinks adaptively anyway). |
-| Time zone            | `HERMES_TIMEZONE`        | The processes' environment, which `hermes_time` reads before `config.yaml`: the agent's clock and its cron. A change restarts the agent; routines keep their own zone ([Routines](#routines)).                                                                                                                                                                                           |
-| Time limit per task  | none                     | `agent.run_budget_seconds` only adds a wrap-up notice at 80 % and never stops the task.                                                                                                                                                                                                                                                                                                  |
-| Image quality        | none                     | Attached images go to the model as they are; tool images are scaled to a fixed byte budget.                                                                                                                                                                                                                                                                                              |
-| Maximum image size   | none                     | Tool images are scaled to a fixed 1568 px (`tools/vision_tools.py`).                                                                                                                                                                                                                                                                                                                     |
-| Media file retention | none                     | Hermes sweeps its media caches after a fixed 24 hours (`MEDIA_CACHE_MAX_AGE_HOURS`).                                                                                                                                                                                                                                                                                                     |
+| Setting              | Hermes                   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thinking level       | `agent.reasoning_effort` | A chat reads the level from `config.yaml` at each turn ([chats follow the agent's settings](#chats-follow-the-agents-settings)), and AgentPier resets a level a chat pinned before its next turn (`session.mutate` `reasoning` reset), so a change needs no restart. New chats and routine runs read it at once. **Off** is `none`; **Adaptive** has no Hermes level and leaves Hermes's default (it thinks adaptively anyway). |
+| Time zone            | `HERMES_TIMEZONE`        | The processes' environment, which `hermes_time` reads before `config.yaml`: the agent's clock and its cron. A change restarts the agent; routines keep their own zone ([Routines](#routines)).                                                                                                                                                                                                                                  |
+| Time limit per task  | none                     | `agent.run_budget_seconds` only adds a wrap-up notice at 80 % and never stops the task.                                                                                                                                                                                                                                                                                                                                         |
+| Image quality        | none                     | Attached images go to the model as they are; tool images are scaled to a fixed byte budget.                                                                                                                                                                                                                                                                                                                                     |
+| Maximum image size   | none                     | Tool images are scaled to a fixed 1568 px (`tools/vision_tools.py`).                                                                                                                                                                                                                                                                                                                                                            |
+| Media file retention | none                     | Hermes sweeps its media caches after a fixed 24 hours (`MEDIA_CACHE_MAX_AGE_HOURS`).                                                                                                                                                                                                                                                                                                                                            |
 
 Each start and apply writes `agent.reasoning_effort` from the stored value and starts
 the processes with `HERMES_TIMEZONE`; without a value the key is removed or the variable
@@ -1238,26 +1275,26 @@ talks to the gateway's session store over the RPC bridge: newline-delimited JSON
 adapter (`hermes-sessions.js`, `hermes-run-state.js`, `hermes-approval-queue.js`)
 relies on these:
 
-| Purpose           | Gateway method or event                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------------- |
-| Create a chat     | `session.create { request_id, title }`: idempotent by `request_id`; titles are unique     |
-| Attach a chat     | `session.resume { session_id, omit_messages }`: needed before a turn, after every restart |
-| Find a chat       | `session.list { title }`                                                                  |
-| Run a turn        | `prompt.submit { session_id, text, submission_id, attachments? }`: answers `admission_id` |
-| Attach images     | `image.attach_bytes { session_id, content_base64, ext }` → `{ path, mime }` before submit |
-| Stop a turn       | `session.interrupt { session_id, execution_generation }`; `prompt.cancel` while queued    |
-| Read a transcript | `session.history { session_id }`                                                          |
-| Compress, archive | `session.mutate { operation, payload, request_id, expected_revision, … }`                 |
-| Delete            | `session.mutate` with `delete` and `expected_generation`                                  |
-| Title a chat      | `llm.oneshot` with the `title_generation` task                                            |
-| Review memory     | `llm.oneshot` with the `memory_review` task, no `session_id`                              |
-| Turn frames       | `message.start`, `message.delta`, `tool.*`, `message.complete`, each with `admission_id`  |
-| Approvals         | `approval.request` → `approval.respond`; `approval.settled`, `approval.cancelled`         |
-| Routines          | `agentpier.http` (the bridge) → `/api/cron/jobs…`; the event `cron.changed`               |
-| Routine results   | `agentpier.note` (the bridge): a note row in the target chat's history                    |
-| Context size      | `session.stats { session_id }`: `last_prompt_tokens`, `context_length`                    |
-| Questions         | `clarify.request` → `clarify.respond`; `clarify.settled`, `approval.cancelled`            |
-| Sudo, secrets     | the `sudo` and `secret` requests, declined at once with `{ value: "" }`                   |
+| Purpose           | Gateway method or event                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Create a chat     | `session.create { request_id, title, follow_profile_config: true }`: idempotent by `request_id`; titles are unique |
+| Attach a chat     | `session.resume { session_id, omit_messages }`: needed before a turn, after every restart                          |
+| Find a chat       | `session.list { title }`                                                                                           |
+| Run a turn        | `prompt.submit { session_id, text, submission_id, attachments? }`: answers `admission_id`                          |
+| Attach images     | `image.attach_bytes { session_id, content_base64, ext }` → `{ path, mime }` before submit                          |
+| Stop a turn       | `session.interrupt { session_id, execution_generation }`; `prompt.cancel` while queued                             |
+| Read a transcript | `session.history { session_id }`                                                                                   |
+| Compress, archive | `session.mutate { operation, payload, request_id, expected_revision, … }`                                          |
+| Delete            | `session.mutate` with `delete` and `expected_generation`                                                           |
+| Title a chat      | `llm.oneshot` with the `title_generation` task                                                                     |
+| Review memory     | `llm.oneshot` with the `memory_review` task, no `session_id`                                                       |
+| Turn frames       | `message.start`, `message.delta`, `tool.*`, `message.complete`, each with `admission_id`                           |
+| Approvals         | `approval.request` → `approval.respond`; `approval.settled`, `approval.cancelled`                                  |
+| Routines          | `agentpier.http` (the bridge) → `/api/cron/jobs…`; the event `cron.changed`                                        |
+| Routine results   | `agentpier.note` (the bridge): a note row in the target chat's history                                             |
+| Context size      | `session.stats { session_id }`: `last_prompt_tokens`, `context_length`                                             |
+| Questions         | `clarify.request` → `clarify.respond`; `clarify.settled`, `approval.cancelled`                                     |
+| Sudo, secrets     | the `sudo` and `secret` requests, declined at once with `{ value: "" }`                                            |
 
 After a model switch with fresh chats, AgentPier reviews the agent's `MEMORY.md` and
 `USER.md` on its new model (`memory-review.js`) with one `llm.oneshot` call: the
