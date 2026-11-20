@@ -204,7 +204,9 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   where it is, so no on-screen keyboard opens.
 - **Stacked** (phones, and at every width with `stacked`, for a picker that is one
   section of a larger form such as the new-session dialog): the allowed list card ends
-  in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed".
+  in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed". An entry
+  without `group` shows its `badge` in the options instead, so "SFTP" stays visible and
+  searchable.
 - `locked` marks an entry the session has anyway (from the project): it counts as
   allowed, its checkbox is checked and disabled and its row has no remove button.
   `action` (`{ label, onClick }`) adds a text button to the allowed row. An allowed row

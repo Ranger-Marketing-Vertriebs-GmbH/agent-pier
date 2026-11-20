@@ -53,3 +53,11 @@ test("grantCandidates keeps only the AddPicker fields", () => {
     { id: "c", name: "C", sub: "u@c:22", group: "g" },
   ]);
 });
+
+test("grantCandidates shows a badge as the group when the entry has none", () => {
+  const sftp = { id: "s", name: "S", sub: "u@s:22", badge: "SFTP", locked: true };
+  assert.deepEqual(grantCandidates([sftp, { ...sftp, group: "g" }]), [
+    { id: "s", name: "S", sub: "u@s:22", group: "SFTP" },
+    { id: "s", name: "S", sub: "u@s:22", group: "g" },
+  ]);
+});
