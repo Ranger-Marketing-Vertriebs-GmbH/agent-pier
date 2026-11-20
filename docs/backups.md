@@ -226,8 +226,9 @@ for agents without the `ap-<id>` form, a work folder of its own (`workspaces/`).
   `auth.json`. Without them a restored agent gets its keys back with its next
   configuration apply; until then the restore reports the agents as needing login.
 - Private content, sealed with **Include history** and a passphrase: everything
-  else of a home (session databases such as `state.db`, memories, routine output,
-  pairing and platform state), the agent's HOME and its own work folder.
+  else of a home (session databases such as `state.db`, the chats' session successors
+  in `agentpier-session-successors.json`, memories, routine output, pairing and
+  platform state), the agent's HOME and its own work folder.
 - The agent's browser profile (`home/<runtime agent>/agentpier-browser/user-data`)
   goes only sealed, like OpenClaw's agent profiles below.
 - Never archived: the installations (`runtimes/`), `logs/`, `tmp/`, uv's cache, the

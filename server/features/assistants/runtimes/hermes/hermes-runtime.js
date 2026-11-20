@@ -4,6 +4,7 @@ import { hermesDescriptor } from "./descriptor.js";
 import { HermesSupervisor } from "./hermes-supervisor.js";
 import { createHermesHost } from "./hermes-host.js";
 import { hermesSessions } from "./hermes-sessions.js";
+import { agentSessionSuccessors } from "./hermes-session-successors.js";
 import { hermesEvents } from "./hermes-events.js";
 import { hermesApprovals } from "./hermes-approvals.js";
 import { hermesAgentFiles } from "./hermes-files.js";
@@ -201,9 +202,13 @@ export function createHermesRuntime({
   });
   const agentId = supervisor.agentId;
   const zoneNow = () => zone;
+  // The chats moved from a frozen session to a following one (hermes-sessions.js),
+  // whose routine notes go to the session the chat runs in now.
+  const successors = agentSessionSuccessors(supervisor);
   const deliveries = hermesDeliveries(supervisor, {
     dataDir: options.dataDir,
     zone: zoneNow,
+    successors,
   });
   host.subscribe(() => deliveries.follow(host.ready() ? supervisor.client : null));
   const ready = () => {
@@ -236,6 +241,7 @@ export function createHermesRuntime({
     host,
     sessions: hermesSessions(supervisor, {
       reasoning: () => homeReasoning(supervisor.agentPaths().hermesHome),
+      successors,
     }),
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
