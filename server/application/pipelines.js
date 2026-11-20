@@ -16,6 +16,7 @@ export async function createPipelineServices(services) {
   const pipelineDefinitions = new PipelineDefinitions({
     dataDir: config.dataDir,
     accounts,
+    defaultAccountIds: () => services.preferences?.get().defaultAccountIds || {},
   });
   const pipelineDriver = new NativePipelineDriver({
     dataDir: config.dataDir,

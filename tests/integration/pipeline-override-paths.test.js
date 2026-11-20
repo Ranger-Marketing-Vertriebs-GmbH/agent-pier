@@ -263,6 +263,21 @@ test("a failed native turn shows the native error in its detail", async (t) => {
   );
 });
 
+test("a stage whose CLI is not signed in names the sign-in in its detail", async (t) => {
+  const f = fixture(t);
+  const r = await start(f);
+  await f.end(undefined, {
+    status: "failed",
+    exitCode: 1,
+    isError: true,
+    error: "Not logged in · Please run /login",
+  });
+  assert.equal(
+    f.engine.get(r.id).nodes[0].failDetail,
+    serverMessages.pipelines.nativeTurnSignInFailed("Not logged in · Please run /login"),
+  );
+});
+
 test("runs stored with the former stage-timeout reason keep their recovery actions", async (t) => {
   const f = fixture(t);
   const r = await start(f);

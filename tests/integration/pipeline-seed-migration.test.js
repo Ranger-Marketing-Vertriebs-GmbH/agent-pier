@@ -212,3 +212,40 @@ test("a release candidate's tracked seeds get later wording once the revision mo
   assert.equal(profileOf(store, "ux-reviewer").description, current["ux-reviewer"]);
   assert.equal(read(dir).seedRevision, SEED_REVISION);
 });
+
+test("new seed profiles prefer the default, then a managed Claude account over Local", async (t) => {
+  const managed = [
+    { id: "local-claude", tool: "claude", kind: "local" },
+    { id: "work", tool: "claude", kind: "managed" },
+    { id: "team", tool: "claude", kind: "managed" },
+    { id: "api", tool: "claude", kind: "managed", provider: { id: "x" } },
+    { id: "codex", tool: "codex", kind: "managed" },
+  ];
+  const withAccounts = (list) => ({
+    list: () => list,
+    get: (id) => list.find((a) => a.id === id) || accounts.get(id),
+  });
+  const accountOf = (dir) =>
+    new Set(read(dir).profiles.map((profile) => profile.config.accountId));
+  let dir = await dataDir(t);
+  new PipelineDefinitions({ dataDir: dir, accounts: withAccounts(managed) });
+  assert.deepEqual(accountOf(dir), new Set(["work"]));
+  dir = await dataDir(t);
+  new PipelineDefinitions({
+    dataDir: dir,
+    accounts: withAccounts(managed),
+    defaultAccountIds: () => ({ claude: "team" }),
+  });
+  assert.deepEqual(accountOf(dir), new Set(["team"]));
+  // A Local default stays Local; without managed accounts the seeds use Local too.
+  dir = await dataDir(t);
+  new PipelineDefinitions({
+    dataDir: dir,
+    accounts: withAccounts(managed),
+    defaultAccountIds: () => ({ claude: "local-claude" }),
+  });
+  assert.deepEqual(accountOf(dir), new Set(["local-claude"]));
+  dir = await dataDir(t);
+  open(dir);
+  assert.deepEqual(accountOf(dir), new Set(["local-claude"]));
+});

@@ -29,6 +29,7 @@ import { RESUMED_REPAIR, contextExhausted, sessionKey } from "./loop-session.js"
 import { launchGroup } from "./parallel-group.js";
 import { loopBack, resumeFallback } from "./loop-back.js";
 import { aggregateUsage, verificationFailure } from "./turn-results.js";
+import { nativeFailureText } from "./native-failure.js";
 import { budgetExceeded, holdMember, holdTurn } from "./run-budget.js";
 import {
   activeNode,
@@ -320,10 +321,7 @@ export async function applyOutcome(
       run,
       node,
       "session-error",
-      outcome.observationError ||
-        (outcome.error
-          ? serverMessages.pipelines.nativeTurnFailedWith(outcome.error)
-          : serverMessages.pipelines.nativeTurnFailed),
+      outcome.observationError || nativeFailureText(outcome),
     );
     return;
   }
