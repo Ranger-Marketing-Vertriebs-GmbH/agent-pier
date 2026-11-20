@@ -3,6 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { answerHookBrowser, hookBrowserScreen } from "./codex-hook-browser.js";
 
 // This local TUI screen is not an app-server approval request. Never infer it
 // from conversation prose: require the complete cleared startup view.
@@ -132,8 +133,11 @@ export async function answerHookTrust(broker, entry, choice) {
       broker.entries.get(entry.id) !== entry
     )
       throw problem(copy.stale, 409);
+    // "Review hooks" (or /hooks) opened the browser: answer the card there.
+    const raw = await control.screen();
+    if (hookBrowserScreen(raw)) return answerHookBrowser(broker, entry, choice, control);
     const target = choice === "trust" ? 2 : 3;
-    let screen = hookTrustScreen(await control.screen());
+    let screen = hookTrustScreen(raw);
     if (!screen || screen.count !== entry.hookCount) throw problem(copy.stale, 409);
     // Select with native navigation, then re-inspect before the explicit Enter.
     if (screen.selected !== target)
