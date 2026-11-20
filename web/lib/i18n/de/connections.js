@@ -213,6 +213,8 @@ export const connectionCopy = {
       `Basis-URL aus der Deployment-URL übernommen. Das Deployment ${name} wurde als Modell hinzugefügt; trage unten seine Kontextgröße ein.`,
     notListed:
       "Die Modellliste konnte nicht gelesen werden. Bisher erkannte und manuelle Modelle bleiben erhalten.",
+    notListedNetwork:
+      "Der Server war nicht erreichbar, deshalb wurde nichts getestet. Prüfe die Adresse und ob der Server läuft.",
     notListedAuth:
       "Anmeldung fehlgeschlagen (401/403): Der Server hat den API-Key abgelehnt. Prüfe den Key und den Header.",
     models: "Modelle",

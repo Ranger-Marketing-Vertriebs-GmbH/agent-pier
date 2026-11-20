@@ -159,7 +159,16 @@ key again or remove it. A test with changed origins does not send the saved key.
 protocol (90 s each, 180 s in total). Only one test runs at a time. The result is a
 proposal; nothing is saved until you save the connection. Failures carry a fixed reason
 (for example `auth`, `notFound`, `modelNotFound`, `invalidResponse`, `network`, `http`)
-plus optional warnings. Paid endpoints may charge for the few tokens used.
+plus optional warnings. Paid endpoints may charge for the few tokens used. When the
+model list cannot be read because the key was refused (`auth`) or the server did not
+answer (`network`, `timeout`), protocols without a test model stay "Not tested" with
+that reason ("Not tested · Server not reachable or address not allowed"), so routes that
+worked before are not switched off.
+
+**Changing the address.** An Anthropic URL that was derived from the OpenAI base URL
+follows a changed base URL, also on a saved connection; one entered or cleared by hand
+stays. Models detected on the old server leave the list when the origin changes and
+come back if you type the old address again; manual models stay.
 
 _Automatic_ as test model tests the first manually entered model, then a saved manual
 model, and only then the first listed one. Only a protocol the server answered as missing

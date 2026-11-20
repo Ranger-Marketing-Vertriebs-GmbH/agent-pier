@@ -77,8 +77,13 @@ export function initialEndpoint(connection, preset = "ollama") {
         images: model.images ?? null,
       })),
       ...adapterFields(connection.endpoint),
-      // A saved (or deliberately cleared) Anthropic URL is never overwritten.
-      anthropicAuto: false,
+      // A saved Anthropic URL that is the one derived from the OpenAI URL follows it;
+      // one set or cleared by hand is never overwritten (AGENTPIER-398).
+      anthropicAuto:
+        connection.endpoint.preset !== "azure" &&
+        Boolean(connection.endpoint.anthropicBaseUrl) &&
+        connection.endpoint.anthropicBaseUrl ===
+          suggestAnthropicUrl(connection.endpoint.openaiBaseUrl || ""),
     };
   return {
     preset,
@@ -126,21 +131,42 @@ export const withoutTest = (draft) => ({
 export const suggestAnthropicUrl = (url) =>
   url.trim().replace(/\/+$/, "").replace(/\/v1$/, "");
 
-// Keeps the Anthropic URL derived from the OpenAI URL until the user edits it.
-export const withOpenaiUrl = (draft, value) => ({
-  ...draft,
-  openaiBaseUrl: value,
-  ...(draft.anthropicAuto !== false
-    ? { anthropicBaseUrl: suggestAnthropicUrl(value) }
-    : {}),
-});
-
 const origin = (url) => {
   try {
     return new URL(url).origin;
   } catch {
     return url;
   }
+};
+
+/**
+ * Keeps the Anthropic URL derived from the OpenAI URL until the user edits it. Models
+ * detected on one server do not belong to another: a new origin leaves them out
+ * (draft-only `parkedModels`, so typing the old address again brings them back);
+ * manual models stay.
+ */
+export const withOpenaiUrl = (draft, value) => {
+  const next = {
+    ...draft,
+    openaiBaseUrl: value,
+    ...(draft.anthropicAuto !== false
+      ? { anthropicBaseUrl: suggestAnthropicUrl(value) }
+      : {}),
+  };
+  const [before, after] = [origin(draft.openaiBaseUrl || ""), origin(value)];
+  if (before === after) return next;
+  const detected = draft.models.filter((model) => model.source === "detected");
+  const manual = draft.models.filter((model) => model.source !== "detected");
+  const parked = detected.length
+    ? { origin: before, models: detected }
+    : draft.parkedModels || null;
+  const restored =
+    draft.parkedModels?.origin === after
+      ? draft.parkedModels.models.filter(
+          (model) => !manual.some((item) => item.modelId === model.modelId),
+        )
+      : [];
+  return { ...next, models: [...restored, ...manual], parkedModels: parked };
 };
 
 // Mirrors the server's endpointOrigins: the sorted set of non-empty origins.

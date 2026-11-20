@@ -3669,6 +3669,7 @@
   "connections:connectionCopy.endpoint.noProtocol": "de:50d11a7b843c en:28cc76e69a23",
   "connections:connectionCopy.endpoint.notListed": "de:ce61808fe2fc en:55b6774f8eb9",
   "connections:connectionCopy.endpoint.notListedAuth": "de:8fa2e63988bb en:2236f41f65c2",
+  "connections:connectionCopy.endpoint.notListedNetwork": "de:8601fd92d7f2 en:bba84e31d46c",
   "connections:connectionCopy.endpoint.openaiBaseUrl": "de:6d752b0477c5 en:42b0eef58eb8",
   "connections:connectionCopy.endpoint.openaiHelp": "de:9c1bd1ac6594 en:3f3895b95503",
   "connections:connectionCopy.endpoint.output": "de:0277c5e62e49 en:3cf01f146372",

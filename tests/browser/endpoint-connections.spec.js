@@ -178,13 +178,16 @@ test("changing the address after a test discards the stale test result", async (
     .fill("http://gpu.example:11434/v1");
   await expect(status).toHaveCount(0);
   await expect(dialog.getByText(/does not report the loaded context/)).toHaveCount(0);
-  await dialog.getByLabel("Context llama3:8b", { exact: true }).fill("8192");
+  // Models detected on the old server leave with its address (AGENTPIER-398).
+  await expect(dialog.getByLabel("Context llama3:8b", { exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
   expect(created.endpoint.openaiBaseUrl).toBe("http://gpu.example:11434/v1");
+  expect(created.endpoint.anthropicBaseUrl).toBe("http://gpu.example:11434");
+  expect(created.endpoint.models.filter((m) => m.source === "detected")).toEqual([]);
   expect(created.endpoint.lastTest).toBeNull();
   // Protocol choices from the test stay as the user left them.
   expect(created.endpoint.protocols).toEqual({
@@ -223,4 +226,34 @@ test("a rejected API key reads as an authentication failure", async ({ page }) =
   );
   // An untested protocol keeps its setting instead of being switched off.
   await expect(dialog.getByRole("checkbox", { name: /Chat Completions/ })).toBeChecked();
+});
+
+test("an unreachable server reads as such, not as a bare 'Not tested'", async ({
+  page,
+}) => {
+  const controls = await fixture(page);
+  controls.endpointProposal = {
+    models: [],
+    listed: false,
+    listReason: "network",
+    protocols: { messages: "skipped", responses: "skipped", chatCompletions: "skipped" },
+    reasons: { messages: "network", responses: "network", chatCompletions: "network" },
+    probeModelId: null,
+    warnings: [],
+  };
+  await page.goto(baseURL + "/connections?section=models");
+  await page
+    .getByRole("button", { name: "Add provider connection", exact: true })
+    .click();
+  const dialog = accountDetail(page);
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
+  await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(
+    dialog.getByText("Not tested · Server not reachable or address not allowed"),
+  ).toHaveCount(3);
+  await expect(dialog.getByRole("alert")).toContainText(
+    "The server could not be reached",
+  );
 });

@@ -45,7 +45,11 @@ export default function EndpointTestResult({ draft, setDraft, result }) {
       })}
       {result && !result.listed && (
         <p className="field-description" role={result.listReason ? "alert" : undefined}>
-          {result.listReason === "auth" ? copy.notListedAuth : copy.notListed}
+          {result.listReason === "auth"
+            ? copy.notListedAuth
+            : ["network", "timeout"].includes(result.listReason)
+              ? copy.notListedNetwork
+              : copy.notListed}
         </p>
       )}
       {warnings.map((warning) => (

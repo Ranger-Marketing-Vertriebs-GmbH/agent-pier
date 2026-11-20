@@ -213,6 +213,8 @@ export const connectionCopy = {
       `Base URL taken from the deployment URL. Deployment ${name} was added as a model; enter its context size below.`,
     notListed:
       "The model list could not be read. Previously detected and manual models are kept.",
+    notListedNetwork:
+      "The server could not be reached, so nothing was tested. Check the address and that the server is running.",
     notListedAuth:
       "Authentication failed (401/403): the server rejected the API key. Check the key and the header.",
     models: "Models",
