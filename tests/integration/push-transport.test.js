@@ -287,6 +287,36 @@ test("an Apple-style 403 BadJwtToken refusal is stored as a translated last fail
     assert.equal(JSON.stringify(service.status()).includes(secret), false);
 });
 
+test("the service's own web-push VAPID keypair signs a push that decrypts and verifies", async (t) => {
+  const material = keys();
+  const deliveries = [];
+  const { send } = await fixture(t, async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    deliveries.push({ headers: req.headers, body: Buffer.concat(chunks) });
+    res.writeHead(201).end();
+  });
+  const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-push-own-vapid-"));
+  const service = new NotificationService({ dataDir, send });
+  t.after(async () => {
+    await service.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+  const { publicKey } = service.status();
+  assert.equal(Buffer.from(publicKey, "base64url").length, 65, "uncompressed P-256");
+  const { subscription } = await service.subscribe({
+    deviceId: "iphone-home-screen",
+    label: "iPhone",
+    subscription: material.subscription,
+  });
+  assert.deepEqual(await service.test(subscription.id), { sent: true });
+  assert.equal(deliveries.length, 1);
+  const [delivery] = deliveries;
+  assert.equal(delivery.headers["content-encoding"], "aes128gcm");
+  assert.equal(typeof decrypt(delivery.body, material.receiver, material.auth), "object");
+  checkVapid(delivery.headers.authorization, publicKey);
+});
+
 test("push refuses redirects without a second HTTPS request", async (t) => {
   const material = keys();
   const { send, calls } = await fixture(t, (_req, res) =>

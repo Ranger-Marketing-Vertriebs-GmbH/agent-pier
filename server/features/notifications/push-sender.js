@@ -1,5 +1,5 @@
 import https from "node:https";
-import webpush from "web-push";
+import { generateRequestDetails } from "web-push";
 import { pushLookup } from "./push-network.js";
 import { pushSubscription, pushMessage } from "./push-validation.js";
 import { pushRefusalReason } from "./push-failure.js";
@@ -30,7 +30,7 @@ export function createPushSender({ request = https.request } = {}) {
   const active = new Set();
   const send = async (subscription, payload, vapid) => {
     const { TTL, urgency } = deliveryOptions(payload?.kind);
-    const prepared = webpush.generateRequestDetails(
+    const prepared = generateRequestDetails(
       pushSubscription(subscription),
       pushMessage(payload),
       {

@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import webpush from "web-push";
+import { generateVAPIDKeys } from "web-push";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem, nameValue } from "../../lib/storage.js";
 import { pushId, pushSubscription, pushEvent } from "./push-validation.js";
@@ -118,7 +118,7 @@ export class NotificationService {
     const existing = this.db
       .prepare("SELECT value FROM settings WHERE key='vapid'")
       .get();
-    this.vapid = existing ? JSON.parse(existing.value) : webpush.generateVAPIDKeys();
+    this.vapid = existing ? JSON.parse(existing.value) : generateVAPIDKeys();
     if (!existing)
       this.db
         .prepare("INSERT INTO settings VALUES('vapid',?)")
