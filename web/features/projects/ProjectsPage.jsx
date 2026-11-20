@@ -217,6 +217,7 @@ export default function ProjectsPage({
       busProjects={hub.busProjects}
       busVersion={hub.busVersion}
       busNote={hub.busNote}
+      busNoteKey={hub.busNoteKey}
       busError={hub.errors.agentbus}
       home={home}
       attention={projectAttention(hub.attention, item.memoryId)}

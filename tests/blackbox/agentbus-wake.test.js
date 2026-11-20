@@ -55,7 +55,7 @@ test(
         return { id: "native-before", source: "native-process" };
       },
     };
-    assert.match(await send("Before replacement"), /dauerhaft gespeichert/);
+    assert.match(await send("Before replacement"), /stored durably/);
     await f.bus.broker.drainWakes();
     assert.deepEqual(wakes()[0].slice(0, 3), ["queue", "--thread", "native-before"]);
 
@@ -80,7 +80,7 @@ test(
     await entered;
     hostRegister(f, recipient, "native-after");
     release();
-    assert.match(await pending, /dauerhaft gespeichert/);
+    assert.match(await pending, /stored durably/);
     await f.bus.broker.drainWakes();
     assert.equal(
       wakes().length,
@@ -97,7 +97,7 @@ test(
       id: "native-after",
       source: "native-process",
     });
-    assert.match(await send("After fresh proof"), /dauerhaft gespeichert/);
+    assert.match(await send("After fresh proof"), /stored durably/);
     await f.bus.broker.drainWakes();
     assert.deepEqual(wakes()[1].slice(0, 3), ["queue", "--thread", "native-after"]);
   },
@@ -205,7 +205,7 @@ test("broker close cancels a pending Claude socket connection and prevents late 
       to: target.key,
       text: "Persist before connect",
     }),
-    /dauerhaft gespeichert/,
+    /stored durably/,
   );
   await entered;
   let timer;

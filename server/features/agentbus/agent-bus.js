@@ -25,6 +25,15 @@ import { agentBusPluginName, agentBusServerName } from "./agentbus-names.js";
 const adapters = fileURLToPath(new URL("./", import.meta.url));
 
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
+// Why a running session has not joined the bus yet: German text for logs and older
+// clients, and a stable key the browser translates.
+function registrationPending(tool) {
+  const key =
+    isCodingCli(tool) && cliDefinition(tool).capabilities.hookTrust
+      ? "codexRegistrationPending"
+      : "nativeRegistrationPending";
+  return { reason: serverMessages.agentbus[key], reasonKey: `agentbus.${key}` };
+}
 
 export class AgentBus {
   constructor({
@@ -247,13 +256,7 @@ export class AgentBus {
         registered,
         ...(reloadRequired ? { reasonCode: "AGENTBUS_RELOAD_REQUIRED" } : {}),
         ...(session.status === "running" && !registered && !reloadRequired
-          ? {
-              reason:
-                isCodingCli(session.tool) &&
-                cliDefinition(session.tool).capabilities.hookTrust
-                  ? serverMessages.agentbus.codexRegistrationPending
-                  : serverMessages.agentbus.nativeRegistrationPending,
-            }
+          ? registrationPending(session.tool)
           : {}),
       });
     }
@@ -261,7 +264,9 @@ export class AgentBus {
       bundled: true,
       version: VERSION,
       projects: [...projects.values()],
+      // German text for logs and older clients; browsers translate by noteKey.
       note: serverMessages.agentbus.overviewNotice,
+      noteKey: "agentbus.overviewNotice",
     };
   }
   async discard({ id, projectId }) {
@@ -354,6 +359,7 @@ export class AgentBus {
       ...(truncated
         ? {
             note: serverMessages.agentbus.historyScanLimit,
+            noteKey: "agentbus.historyScanLimit",
           }
         : {}),
     };

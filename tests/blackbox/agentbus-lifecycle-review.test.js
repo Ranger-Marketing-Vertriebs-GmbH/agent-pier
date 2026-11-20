@@ -135,3 +135,17 @@ test("AgentBus permission drift cannot block session shutdown and reconciliation
   fs.chmodSync(busRoot, 0o700);
   assert.equal(fs.existsSync(path.join(busRoot, session.id)), false);
 });
+
+test("the overview names its notice and pending registrations with stable keys", async (t) => {
+  const f = await busFixture(t);
+  const codex = await f.prepare("waiting-codex", "codex"),
+    opencode = await f.prepare("waiting-opencode");
+  const overview = await f.bus.list();
+  assert.equal(overview.noteKey, "agentbus.overviewNotice");
+  const rows = overview.projects[0].sessions;
+  const byId = (id) => rows.find((row) => row.id === id);
+  assert.equal(byId(codex.id).registered, false);
+  assert.equal(byId(codex.id).reasonKey, "agentbus.codexRegistrationPending");
+  assert.equal(byId(opencode.id).reasonKey, "agentbus.nativeRegistrationPending");
+  assert.ok(byId(codex.id).reason);
+});

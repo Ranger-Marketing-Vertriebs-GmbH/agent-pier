@@ -65,7 +65,7 @@ async function claudeWake(t, senderTool, senderSession) {
       to: target.key,
       text: "Reply for an idle Claude session",
     }),
-    /dauerhaft gespeichert/,
+    /stored durably/,
   );
   await f.bus.broker.drainWakes();
   const lines = payload.trim().split("\n").map(JSON.parse);

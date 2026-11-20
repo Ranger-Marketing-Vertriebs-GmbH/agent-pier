@@ -4,6 +4,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { messageLogCopy as copy } from "../../lib/i18n/messages/agentbus.js";
 import React, { useEffect } from "react";
 import { Pagination } from "../../components/Pagination.jsx";
+import { serverText } from "../../lib/server-messages.js";
 import useAgentBusMessages from "./useAgentBusMessages.js";
 export default function MessageLog({ project, page, onPage, onTotal = () => {} }) {
   const { error, retry, data, paging } = useAgentBusMessages({
@@ -44,7 +45,9 @@ export default function MessageLog({ project, page, onPage, onTotal = () => {} }
                 {copy.sectionHeadingLabel}
               </span>
             </div>
-            {data.note && <p className="field-description">{data.note}</p>}
+            {data.note && (
+              <p className="field-description">{serverText(data.note, data.noteKey)}</p>
+            )}
             <div className="agentbus-message-list">
               {data.items.length ? (
                 data.items.map((message) => (

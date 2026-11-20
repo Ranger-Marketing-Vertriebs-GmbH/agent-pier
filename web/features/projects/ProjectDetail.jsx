@@ -56,6 +56,7 @@ export default function ProjectDetail({
   busProjects,
   busVersion,
   busNote,
+  busNoteKey,
   busError,
   home,
   attention,
@@ -199,6 +200,7 @@ export default function ProjectDetail({
           busProjects={busProjects}
           busVersion={busVersion}
           busNote={busNote}
+          busNoteKey={busNoteKey}
           busError={busError}
           reloadBus={reloadHub}
           route={route}

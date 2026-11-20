@@ -81,7 +81,7 @@ test("bundled AgentBus status groups this project's sessions without consuming i
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: "Codex Review" }) });
   await expect(
-    codexSession.getByText("Wartet auf CLI-Anmeldung", { exact: true }),
+    codexSession.getByText("Wartet auf Registrierung", { exact: true }),
   ).toBeVisible();
   await expect(
     codexSession.getByText("Wartet auf nativen Hook.", { exact: true }),
@@ -217,11 +217,73 @@ test.describe("English AgentBus status", () => {
         exact: true,
       }),
     ).toBeVisible();
-    await expect(session).not.toContainText("Waiting for CLI sign-in");
+    await expect(session).not.toContainText("Waiting for registration");
     await expect(session).not.toContainText("Diese Session");
     await page.screenshot({
       path: `.cache/review-fixes/agentbus-reload-required-${browserName}.png`,
       fullPage: true,
     });
   });
+
+  for (const [width, height] of [
+    [1280, 800],
+    [390, 844],
+  ])
+    test(`server notes and registration reasons are English at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await page.route("**/api/**", async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === "/api/state")
+          return route.fulfill({
+            json: { accounts: [], tools: [], sessions: [], home: "/fixture" },
+          });
+        if (url.pathname === "/api/agentbus")
+          return route.fulfill({
+            json: {
+              bundled: true,
+              version: "0.1.0",
+              note: "Nur aktivierte AgentPier-Sessions im selben Projekt tauschen Nachrichten aus. Diese Übersicht liest keine Nachrichten und markiert nichts als gelesen. Codex kann eine native Prüfung neuer Hooks verlangen.",
+              noteKey: "agentbus.overviewNotice",
+              projects: [
+                {
+                  id: "demo",
+                  name: "Website",
+                  cwd: "/fixture/Website",
+                  sessions: [
+                    {
+                      id: "pending",
+                      name: "Codex Review",
+                      tool: "codex",
+                      status: "running",
+                      registered: false,
+                      pending: 0,
+                      reason:
+                        "Noch nicht registriert. Falls Codex Hooks zur Prüfung meldet, /hooks öffnen und die AgentBus-Hooks prüfen.",
+                      reasonKey: "agentbus.codexRegistrationPending",
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        return route.fulfill({ json: {} });
+      });
+      await page.goto(`${base}/projects/demo?tab=agentbus`);
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      await expect(
+        page.getByText(/^Only enabled AgentPier sessions in the same project/),
+      ).toBeVisible();
+      const session = page
+        .getByRole("article")
+        .filter({ has: page.getByRole("heading", { name: "Codex Review" }) });
+      await expect(
+        session.getByText("Waiting for registration", { exact: true }),
+      ).toBeVisible();
+      await expect(session.getByText(/^Not registered yet\. If Codex/)).toBeVisible();
+      await expect(page.locator("main")).not.toContainText("Nur aktivierte");
+      await expect(session).not.toContainText("Noch nicht");
+      await expect(session).not.toContainText("sign-in");
+    });
 });

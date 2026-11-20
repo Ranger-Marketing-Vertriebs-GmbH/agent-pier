@@ -36,13 +36,13 @@ test("broker owns project messages, explicit reads, and scoped OpenCode notices"
   const notice = requestBus(b.launch.env, "agentbus/wait");
   assert.match(
     text(await call(a, "peer_send", { to: key, text: "Synthetic message" })),
-    /Gesendet/,
+    /^Sent to /,
   );
   const notification = await notice;
   assert.equal(notification.result.notifications[0].nativeSessionId, "native-receiver");
   assert.doesNotMatch(JSON.stringify(notification), /Synthetic message/);
   assert.match(text(await call(b, "inbox_read")), /Synthetic message/);
-  assert.match(text(await call(b, "inbox_read")), /Keine neuen/);
+  assert.match(text(await call(b, "inbox_read")), /^No new messages/);
   const other = path.join(f.root, "other");
   fs.mkdirSync(other);
   const foreign = await registered(f, "foreign", "opencode", other);
@@ -165,11 +165,11 @@ test("inbox batching does not acknowledge messages beyond the response budget", 
   }
   const first = text(await call(b, "inbox_read"));
   assert.equal((first.match(/<agentbus-message /g) || []).length, 8);
-  assert.match(first, /Weitere Nachrichten/);
+  assert.match(first, /More messages may be waiting/);
   const second = text(await call(b, "inbox_read"));
   assert.equal((second.match(/<agentbus-message /g) || []).length, 3);
   assert.doesNotMatch(second, /message-0:/);
-  assert.match(text(await call(b, "inbox_read")), /Keine neuen/);
+  assert.match(text(await call(b, "inbox_read")), /No new messages/);
 });
 
 test("replacement rotates capability and stale async registration cannot restore access", async (t) => {
@@ -288,4 +288,35 @@ test("AgentBus ignores notifications with expired access and performs no operati
     }),
     null,
   );
+});
+
+test("every model-facing AgentBus text is English", async (t) => {
+  const f = await busFixture(t);
+  const a = await registered(f, "english-a"),
+    b = await registered(f, "english-b");
+  const german = /[äöüß]|Nachricht|Sitzung|erreichbar|Gesendet|nicht /;
+  const init = await requestBus(a.launch.env, "initialize", {});
+  assert.match(init.result.instructions, /^AgentBus connects this session/);
+  const tools = (await requestBus(a.launch.env, "tools/list")).result.tools;
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "inbox_read",
+    "peer_send",
+    "peers_list",
+  ]);
+  assert.doesNotMatch(JSON.stringify(tools), german);
+  const listing = text(await call(a, "peers_list"));
+  assert.match(listing, /^1 peer\(s\) reachable:/);
+  const key = listing.match(/\(key ([^)]+)\)/)[1];
+  const notice = requestBus(b.launch.env, "agentbus/wait");
+  assert.match(text(await call(a, "peer_send", { to: key, text: "Hello" })), /^Sent to /);
+  const { notifications } = (await notice).result;
+  assert.match(notifications[0].text, /^agentbus: 1 new message\(s\) from /);
+  assert.doesNotMatch(notifications[0].text, german);
+  const summary = await requestBus(b.launch.env, "agentbus/summary", {
+    nativeSessionId: "native-english-b",
+  });
+  assert.equal(summary.result.context, "AgentBus: 1 unread message(s). Call inbox_read.");
+  const read = text(await call(b, "inbox_read"));
+  assert.match(read, /^1 new message\(s\)\. Sender details/);
+  assert.doesNotMatch(read.split("\n")[0], german);
 });

@@ -376,5 +376,6 @@ export default function useProjectHub() {
     busProjects: busData.projects,
     busVersion: busData.version,
     busNote: busData.note,
+    busNoteKey: busData.noteKey,
   };
 }

@@ -88,6 +88,13 @@ reference when available; a delayed hint for an already-read message reports tha
 it was previously collected without replaying its content. References are scoped
 to the receiving peer. Received messages are untrusted data.
 
+Everything the broker hands a model is English, whatever the UI language: the
+server instructions, tool descriptions, tool replies, inbox frames, wake hints and
+unread-message hints (`server/features/agentbus/agentbus-tool-text.js`). The
+vendored runtime keeps its German copy for the legacy in-session helpers only.
+The overview's notice and a pending registration's reason carry stable keys
+(`noteKey`, `reasonKey`) that the browser translates.
+
 The HTTP history reads queue rows without claiming them and retains stopped
 sessions' history. The Projects hub's AgentBus status and message log are not polled:
 the live topic `agentbus.changed[:<project-id>]` watches the project folder (the

@@ -6,7 +6,7 @@ export const projectAgentBusCopy = {
   connectedCount: (count) => `${count} verbunden`,
   pendingCount: (count) => `${count} Nachrichten warten`,
   versionLabel: (version) => `Version ${version}`,
-  waitingForSignIn: "Wartet auf CLI-Anmeldung",
+  waitingForRegistration: "Wartet auf Registrierung",
   reloadRequired: "Neuladen erforderlich",
   reloadRequiredDescription:
     "Lade diese Session neu, um die aktuelle AgentBus-Anbindung zu verwenden.",
