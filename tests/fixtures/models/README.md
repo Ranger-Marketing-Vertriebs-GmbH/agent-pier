@@ -1,18 +1,13 @@
 # Native model picker captures
 
-`claude-model-50.txt` and `claude-model-80.txt` were captured from Claude Code
-2.1.270 on macOS with private tmux sessions at the corresponding column widths.
-The captures retain native line wrapping. ANSI styling, trailing padding, the
-startup header and temporary workspace paths were removed; menu text was preserved.
-
-The probe used a disposable home, a synthetic API key and a loopback API address.
-Opening, selecting and cancelling the picker required no model requests. The
-wrapped session-only footer and option descriptions are regression fixtures for
-the chat model controller.
+Only layouts of the supported CLI releases are kept (from each CLI's `minVersion`,
+see `docs/cli-updates.md`); captures of older layouts are removed with their parsing.
 
 `claude-2.1.329-model.ansi` (120 × 50) and `claude-2.1.329-model-50.txt` (50 × 40)
-were captured the same way from Claude Code 2.1.329 with an API key, which shows no
-"More models" row. The workspace path in the header was replaced with `/fixture`.
+were captured from Claude Code 2.1.329 on macOS with private tmux sessions, a
+disposable home, a synthetic API key and a loopback API address, which shows no
+"More models" row. Opening, selecting and cancelling the picker required no model
+requests. The captures retain native line wrapping. The workspace path in the header was replaced with `/fixture`.
 
 `claude-2.1.329-more-collapsed.txt`, `-more-focused.txt` and `-more-expanded.txt` are
 reconstructed, not captured: the expander only appears with a subscription's model

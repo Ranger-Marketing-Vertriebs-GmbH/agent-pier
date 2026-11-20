@@ -30,8 +30,6 @@ export const providers = Object.freeze({
   responsesAccessZaiCodexOnly: "Responses access applies only to Z.ai with Codex.",
   claudeVersionUnverified:
     "The Claude Code version could not be verified. Retry the launch; if this persists, check that the CLI responds to --version.",
-  claudeVersionTooOld:
-    "Custom model context configuration requires Claude Code 2.1.193 or later. Update the CLI before launching this model.",
   contextLimitUnverified:
     "This model has no verified context limit. Refresh the catalog before launching it in Claude Code.",
   managedConfigInvalid:
@@ -61,6 +59,4 @@ export const providers = Object.freeze({
     "The endpoint address changed. Enter the API key again or remove it.",
   endpointTestBusy: "Another endpoint test is running. Try again shortly.",
   endpointTestConnectionInvalid: "Only custom endpoint connections can be tested.",
-  endpointClaudeCustomHeaderVersion:
-    "Custom auth headers require Claude Code 2.1.227 or later. Update the CLI or use the default header.",
 });

@@ -22,10 +22,10 @@ for (const language of ["de", "en"]) {
       status: "running",
     };
     const menu = await fs.readFile(
-      new URL("../fixtures/models/claude-model-50.txt", import.meta.url),
+      new URL("../fixtures/models/claude-2.1.329-model-50.txt", import.meta.url),
       "utf8",
     );
-    let current = "Sonnet 4.6";
+    let current = "Opus 5.5";
     const idle = () =>
       `Claude Code\n${current} · API Usage Billing\n❯ native draft\n? for shortcuts`;
     let screen = idle();
@@ -40,12 +40,12 @@ for (const language of ["de", "en"]) {
             keys: async (input) => {
               keys.push(input);
               if (input.join() === "M-p") screen = menu;
-              else if (input.join() === "Up")
+              else if (input.join() === "Down,Down,Down,Down")
                 screen = menu
                   .replace("    5. Haiku", "  ❯ 5. Haiku")
-                  .replace("  ❯ 6.", "    6.");
+                  .replace("  ❯ 1.", "    1.");
               else if (input.join() === "s") {
-                current = "Haiku 4.5";
+                current = "Haiku 5.5";
                 screen = idle();
               } else if (input.join() === "Escape") screen = idle();
               else throw new Error("Unexpected native control input");
@@ -109,7 +109,7 @@ for (const language of ["de", "en"]) {
       dialog.getByRole("button", { name: "Haiku", exact: true }),
     ).toBeVisible();
     await expect(
-      dialog.getByText("Newer version available · select Sonnet for Sonnet 5", {
+      dialog.getByText("Use the default model (currently Opus 5.5)", {
         exact: true,
       }),
     ).toBeVisible();
@@ -125,10 +125,10 @@ for (const language of ["de", "en"]) {
     });
     await dialog.getByRole("button", { name: "Haiku", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(trigger).toContainText("Haiku 4.5");
+    await expect(trigger).toContainText("Haiku 5.5");
     await expect(draft).toHaveValue("Keep my draft");
     await expect(page).toHaveURL(/\/chat$/);
-    expect(keys).toEqual([["M-p"], ["Up"], ["s"]]);
+    expect(keys).toEqual([["M-p"], ["Down", "Down", "Down", "Down"], ["s"]]);
     await trigger.click();
     await dialog
       .getByRole("button", {

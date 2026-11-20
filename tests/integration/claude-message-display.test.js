@@ -7,14 +7,9 @@ import { Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   NativeSessionBinding,
-  MESSAGE_DISPLAY_VERSION,
   hookPush,
   runNativeSessionHook,
 } from "../../server/features/sessions/native-session-binding.js";
-import {
-  MINIMUM_CLI_VERSIONS,
-  atLeast,
-} from "../../server/features/tools/cli-version.js";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { RequestBroker } from "../../server/features/requests/request-broker.js";
 import { ReplyStreams } from "../../server/features/chat/reply-streams.js";
@@ -163,7 +158,7 @@ test("hook payloads map to pushes; sub-agent text stays out", () => {
   );
 });
 
-test("the MessageDisplay hook is installed only for a Claude Code that has it", async (t) => {
+test("the MessageDisplay hook is installed only for a Claude Code of known version", async (t) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "display-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const cwd = path.join(root, "project");
@@ -188,12 +183,8 @@ test("the MessageDisplay hook is installed only for a Claude Code that has it", 
     "never blocks the TUI",
   );
   assert.match(hooks.hooks.MessageDisplay[0].hooks[0].command, /--record/);
-  assert.equal(await stream("old", "2.1.151"), undefined);
   assert.equal(await stream("unknown", undefined), undefined);
-  assert.ok(
-    atLeast(MINIMUM_CLI_VERSIONS.claude, MESSAGE_DISPLAY_VERSION),
-    "every managed Claude Code AgentPier starts has the event",
-  );
+  assert.equal(await stream("unread", "unknown"), undefined);
   await bindings.discard("current");
   assert.equal(
     fs.existsSync(path.join(bindings.directory, "current.claude-stream")),

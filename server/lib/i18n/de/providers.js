@@ -37,8 +37,6 @@ export const providers = Object.freeze({
   responsesAccessZaiCodexOnly: "Der Responses-Zugriff gilt nur für Z.ai mit Codex.",
   claudeVersionUnverified:
     "Die Version von Claude Code konnte nicht geprüft werden. Bitte den Start wiederholen; falls das Problem bleibt, prüfen, ob das CLI auf --version antwortet.",
-  claudeVersionTooOld:
-    "Eine eigene Kontextkonfiguration für Modelle erfordert Claude Code 2.1.193 oder neuer. Bitte das CLI vor dem Start dieses Modells aktualisieren.",
   contextLimitUnverified:
     "Für dieses Modell ist keine geprüfte Kontextgrenze bekannt. Bitte den Katalog aktualisieren, bevor es in Claude Code gestartet wird.",
   managedConfigInvalid:
@@ -71,6 +69,4 @@ export const providers = Object.freeze({
     "Ein anderer Endpunkt-Test läuft gerade. Versuche es gleich noch einmal.",
   endpointTestConnectionInvalid:
     "Nur eigene Endpunkt-Verbindungen können getestet werden.",
-  endpointClaudeCustomHeaderVersion:
-    "Eigene Auth-Header erfordern Claude Code 2.1.227 oder neuer. Aktualisiere die CLI oder nutze den Standard-Header.",
 });

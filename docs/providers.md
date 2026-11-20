@@ -150,7 +150,7 @@ needs `https`. AgentPier checks the resolved address when testing and before lau
 CLI resolves the host again when it connects.
 
 **API key.** Optional. It is sent as `Authorization: Bearer <key>` unless an auth header
-name is set under _Advanced_ (for example `api-key`; Claude Code 2.1.227 or later). The
+name is set under _Advanced_ (for example `api-key`). The
 key is bound to the connection's origins (scheme, host and port of both base URLs).
 Changing any of them while a key is saved is rejected with HTTP 409 until you enter the
 key again or remove it. A test with changed origins does not send the saved key.
@@ -218,8 +218,8 @@ and a refused reasoning effort on Chat Completions, and the cache key and a refu
 reasoning effort on Responses. See
 [assistant-model-connections.md](assistant-model-connections.md).
 
-**Launch.** Claude Code needs 2.1.193 or later for custom model contexts (AgentPier
-starts no release older than its general [minimum](cli-updates.md#minimum-cli-versions)); AgentPier sets
+**Launch.** Custom model contexts need a Claude Code whose version AgentPier could read
+(every release from its [minimum](cli-updates.md#minimum-cli-versions) supports them); AgentPier sets
 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` for endpoint launches. Codex receives a
 provider named after the connection. Keys reach the CLI only through the child
 environment.
@@ -277,7 +277,7 @@ Context metadata separates the provider headline (`contextTokens`), routing limi
 
 Codex with Z.ai uses the provider's 1,048,576-token metadata. OpenRouter Codex retains native catalog discovery and authentication while pinning `model_context_window` to the smaller validated model and routing limit, or the sole known limit. This startup override reports `contextStatus: "configured"` and requires a new session for model changes. If both limits are unknown, AgentPier leaves the native context window unchanged. OpenCode receives validated limits for the selected model without replacing its provider adapter. When a routing limit is smaller than a headline limit, the configured budget uses the smaller value.
 
-Claude models retain native model handling; a supported 1M selection uses the `[1m]` modifier. AgentPier does not disable compaction to force arbitrary windows on recognized Claude models. Non-Claude model IDs use the documented custom-window correction and require Claude Code 2.1.193 or later. The configured window remains a local assumption: it does not increase server capacity. Claude's output budget is conservatively capped at 32,000 tokens or the provider's smaller output limit.
+Claude models retain native model handling; a supported 1M selection uses the `[1m]` modifier. AgentPier does not disable compaction to force arbitrary windows on recognized Claude models. Non-Claude model IDs use the documented custom-window correction and require a Claude Code whose version AgentPier could read. The configured window remains a local assumption: it does not increase server capacity. Claude's output budget is conservatively capped at 32,000 tokens or the provider's smaller output limit.
 
 Claude role aliases and subagents are pinned to the selected provider model. GLM mappings are labeled with their actual model name. Anthropic does not support non-Claude models, although Z.ai and OpenRouter document these integrations. Sessions with a process-level context override report `modelChangeRequiresRestart: true`; select the new provider model when starting another session so its budget follows the model. Legacy profiles can also change their saved account model.
 

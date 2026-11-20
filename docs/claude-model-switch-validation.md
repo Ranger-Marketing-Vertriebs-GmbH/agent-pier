@@ -1,6 +1,9 @@
 # Chat model switching
 
-Validated on 2026-09-13 with Claude Code 2.1.270 and tmux 3.7c on macOS ARM64.
+First validated on 2026-09-13 with Claude Code 2.1.270 and tmux 3.7c on macOS ARM64;
+the picker layout of that release is no longer supported (see
+[minimum CLI versions](cli-updates.md#minimum-cli-versions)), and the fixtures now use
+the Claude Code 2.1.329 captures described below.
 
 A disposable application and private tmux server reproduced two failures:
 
@@ -35,7 +38,9 @@ adjust`) and a `/fast` hint sit below the options, and the footer starts with th
 session-only key: `s to use this session only · Enter to save · Esc to cancel`.
 AgentPier did not recognise that footer, so the chat showed "the CLI is waiting for
 another selection" without models. A footer without the session-only key would save
-the default and stays undriven.
+the default and stays undriven. Claude Code 2.1.329 is the minimum AgentPier supports,
+so the older footer (`Enter to set as default · s to use this session only · Esc to
+cancel`) is no longer read.
 
 Subscription accounts also see an unnumbered `▸ More models` row after the first
 models. Enter on it toggles the list (`▾ More models`); the hidden models follow it,

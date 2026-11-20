@@ -1,4 +1,5 @@
-// Synthetic frames modeled on Claude Code 2.1.270 onboarding screens.
+// Synthetic frames modeled on Claude Code onboarding screens (2.1.270 and later; the
+// theme rows follow 2.1.329, unnumbered with the check mark before the label).
 const rule = (width) => "─".repeat(width);
 const link = (label) =>
   `]8;id=zaxmda;https://code.claude.com/docs/en/security\\${label}]8;;\\`;
@@ -22,9 +23,7 @@ ${
 ${themeLabels
   .map(
     (label, index) =>
-      ` ${index + 1 === selected ? "[36m❯" : " "} ${index + 1}. ${label}${
-        index === 1 ? " ✔" : ""
-      }[39m`,
+      ` ${index + 1 === selected ? "[36m❯" : " "} ${index === 1 ? "✔ " : "  "}${label}[39m`,
   )
   .join("\n")}
  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌

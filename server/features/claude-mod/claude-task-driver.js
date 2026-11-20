@@ -1,5 +1,4 @@
-import { atLeast } from "../tools/cli-version.js";
-import { CLAUDE_TASK_STOP_VERSION } from "./claude-mod-launch.js";
+import { isCliVersion } from "../tools/cli-version.js";
 
 // Longer than the stop service's own 10 s, so a late answer still settles the stop.
 const STOP_TIMEOUT_MS = 15000;
@@ -7,15 +6,15 @@ const STOP_TIMEOUT_MS = 15000;
 /**
  * The Claude Code driver of TaskControl (task-control.js): a stop runs as the
  * bridge mod's `task.stop` command (`$.tool.call` TaskStop inside Claude Code). It
- * needs this launch's mod polling for commands from Claude Code
- * CLAUDE_TASK_STOP_VERSION or newer: the version its polls name, else its hello's.
+ * needs this launch's mod polling for commands and a read Claude Code version (the
+ * one its polls name, else its hello's); every supported release has TaskStop.
  * `commands` is ClaudeModCommands, `mod` the ClaudeModBridge that holds the hello's.
  */
 export function claudeTaskDriver({ commands, mod }) {
   return {
     connected: (session) =>
       commands.connected(session.id) &&
-      atLeast(commands.cli(session.id) ?? mod.cli(session.id), CLAUDE_TASK_STOP_VERSION),
+      isCliVersion(commands.cli(session.id) ?? mod.cli(session.id)),
     // Shells of the main loop and subagents alike; TaskStop knows both by id.
     canStop: (session, task) => task.kind === "agent" || task.kind === "shell",
     stop(session, task) {

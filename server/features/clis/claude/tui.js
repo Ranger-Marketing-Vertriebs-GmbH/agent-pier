@@ -199,7 +199,7 @@ function parsePicker(raw) {
   const { lines, start, kind, footer } = screen;
   let selectKey = "Enter";
   if (/s to use this session only/i.test(footer)) selectKey = "s";
-  if (/set as default|enter to save/i.test(footer) && selectKey !== "s") return null;
+  if (/enter to save/i.test(footer) && selectKey !== "s") return null;
   // The expander has the focus: Enter opens or closes it, no model is selected.
   if (/enter to (?:expand|collapse)/i.test(footer)) return null;
   const {
@@ -214,8 +214,8 @@ function parsePicker(raw) {
   if (more)
     for (const [index, option] of options.entries())
       option.position = index < more.position ? index : index + 1;
-  // Claude Code 2.1.322 names the current row by its family alone ("Sonnet ✔") and
-  // starts the row's description with the model ("Sonnet 5.5 · Efficient …").
+  // Claude Code names the current row by its family alone ("Sonnet ✔") and starts
+  // the row's description with the model ("Sonnet 5.5 · Efficient …").
   const described = options
     .find((option) => option.current)
     ?.description.match(leadingLabel)?.[1];
@@ -238,7 +238,7 @@ function unsupportedPicker(raw) {
   return (
     title >= 0 &&
     !!footer &&
-    /set as default|enter to save/i.test(footer) &&
+    /enter to save/i.test(footer) &&
     !/s to use this session only/i.test(footer)
   );
 }

@@ -71,14 +71,14 @@ test("a new Claude family reloads with the id its name gives", () => {
   }
 });
 
-// The picker of Claude Code 2.1.322: the current row names the family alone and
-// starts its description with the model.
+// The picker of Claude Code: the current row names the family alone and starts its
+// description with the model.
 const picker = (family, model) =>
   [
     "❯ /model",
     "─".repeat(100),
     "  Select model",
-    "  Switch between Claude models. Your pick becomes the default for new sessions.",
+    "  Your pick is the default for new sessions. For other models, use --model.",
     "",
     "    1. Default (recommended)  Use the default model (currently Opus 5.5) · $4/$20 per Mtok",
     "    2. Opus                   Opus 5.5 · Best for everyday, complex tasks · $4/$20 per Mtok",
@@ -87,7 +87,7 @@ const picker = (family, model) =>
     "",
     "  ◐ Medium effort (default) ←/→ to adjust",
     "",
-    "  Enter to set as default · s to use this session only · Esc to cancel",
+    "  s to use this session only · Enter to save · Esc to cancel",
   ].join("\n");
 
 test("the picker names the current model of any family, with its version", () => {

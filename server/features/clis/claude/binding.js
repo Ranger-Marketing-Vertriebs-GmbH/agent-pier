@@ -7,23 +7,19 @@ import {
   recordClaudeInterrupt,
 } from "../../sessions/native-session-activity.js";
 
-// Claude Code added the MessageDisplay hook event in this release.
-export const MESSAGE_DISPLAY_VERSION = "2.1.152";
-
 /** A missing session id in a hook payload is an error. */
 export const idOptional = false;
 
 /**
  * Passes `--session-id <id>` unless the launch resumes or names one, and adds three
  * plugins below `directory`, each with its own `--plugin-dir`: `<id>.claude` (identity
- * hooks), `<id>.claude-activity` (asynchronous activity hooks) and, from
- * MESSAGE_DISPLAY_VERSION on (`atLeast(cliVersion, minimum)`), `<id>.claude-stream`
- * (live reply text). Every hook runs `script --record`; `ensureDir`, `write(file,
+ * hooks), `<id>.claude-activity` (asynchronous activity hooks) and, when the version
+ * was read (`isCliVersion(cliVersion)`), `<id>.claude-stream` (live reply text). Every hook runs `script --record`; `ensureDir`, `write(file,
  * value)` and `quote(value)` come from the caller.
  */
 export function addHooks(
   launch,
-  { id, directory: root, script, cliVersion, atLeast, ensureDir, write, quote },
+  { id, directory: root, script, cliVersion, isCliVersion, ensureDir, write, quote },
 ) {
   const { args } = launch;
   const hook = {
@@ -72,10 +68,10 @@ export function addHooks(
     },
   });
   args.push("--plugin-dir", activity);
-  // Live reply text, in a plugin of its own: a release without MessageDisplay
-  // must not lose the hooks above, and an unknown version keeps today's chat.
-  // Asynchronous, so the TUI never waits for AgentPier to show a line.
-  if (atLeast(cliVersion, MESSAGE_DISPLAY_VERSION)) {
+  // Live reply text (MessageDisplay, which every supported Claude Code has), in a
+  // plugin of its own: a rejected event must not lose the hooks above, and an
+  // unknown version keeps today's chat. Asynchronous, so the TUI never waits.
+  if (isCliVersion(cliVersion)) {
     const stream = path.join(root, `${id}.claude-stream`);
     ensureDir(path.join(stream, ".claude-plugin"));
     ensureDir(path.join(stream, "hooks"));

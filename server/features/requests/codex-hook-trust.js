@@ -16,9 +16,8 @@ export function hookTrustScreen(raw) {
     /^Hooks need review (\d+) hooks? (?:is|are) new or changed\. Hooks can run outside the sandbox/,
   );
   if (!match) return null;
-  // Codex 0.160 shortened the footer to "enter confirm · esc skip".
   const choices = compact.match(
-    /([› ]*)1\. Review hooks ([› ]*)2\. Trust all and continue ([› ]*)3\. Continue without trusting \(hooks won't run\) (?:Press enter to confirm or esc to go back|enter confirm · esc skip)$/,
+    /([› ]*)1\. Review hooks ([› ]*)2\. Trust all and continue ([› ]*)3\. Continue without trusting \(hooks won't run\) enter confirm · esc skip$/,
   );
   if (!choices) return null;
   const selected = [1, 2, 3].filter((i) => choices[i].includes("›"));
