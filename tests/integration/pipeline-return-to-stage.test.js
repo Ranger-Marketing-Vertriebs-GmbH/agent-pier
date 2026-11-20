@@ -101,6 +101,8 @@ test("the round is recorded but no loop limit counts it", async (t) => {
   assert.equal(round.toNodeId, "review");
   assert.equal(round.edge, "owner:approve->review");
   assert.equal(round.round, 1);
+  // The run view labels it as the owner's return, not as a loop round (AGENTPIER-428).
+  assert.equal(round.owner, true);
   assert.equal(saved.nodes[1].loop.maxIterations, undefined);
   assert.equal(saved.nodes[1].loop.owner, true);
   assert.doesNotMatch(f.launches.at(-1).prompt, /Repair round \d+ of/);

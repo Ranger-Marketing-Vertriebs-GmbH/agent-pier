@@ -17,6 +17,7 @@ export const pipelineCopy = {
   },
   rounds: "Rounds",
   roundNumber: (number) => `Round ${number}`,
+  ownerReturn: (number) => `Returned by you · ${number}`,
   roundPath: (from, to) => `${from} → ${to}`,
   roundAnswers: { fixed: "Fixed", "not-fixed": "Not fixed", disputed: "Disputed" },
   roundUnanswered: "Not answered",

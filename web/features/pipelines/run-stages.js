@@ -51,7 +51,9 @@ export function stageStatus(run, node) {
   const status = isVerifying(run, node)
     ? copy.verificationRunning
     : nodeStatusLabel(effectiveNodeStatus(run, node));
-  return node.loop
+  // A return the owner started has no maximum and counts on its own (AGENTPIER-428).
+  if (node.loop?.owner) return `${status} · ${copy.ownerReturn(node.loop.iteration)}`;
+  return node.loop && Number.isInteger(node.loop.maxIterations)
     ? `${status} · ${node.loop.iteration} / ${node.loop.maxIterations}`
     : status;
 }

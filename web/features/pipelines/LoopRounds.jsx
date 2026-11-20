@@ -30,6 +30,12 @@ function roundRepair(run, round) {
     : session;
 }
 
+// A return the owner started counts on its own, beside the pipeline's loop rounds.
+// Rounds saved before `owner` existed carry only their "owner:" edge key.
+const ownerRound = (round) =>
+  round.owner === true ||
+  (typeof round.edge === "string" && round.edge.startsWith("owner:"));
+
 // Answer counts of a repair turn, e.g. "Fixed 2 · Disputed 1".
 function answerCounts(responses) {
   const counts = new Map();
@@ -93,7 +99,11 @@ export default function LoopRounds({ run }) {
                 label={failed ? copy.fail : copy.pass}
                 className="run-dot"
               />
-              <strong>{copy.roundNumber(round.round)}</strong>
+              <strong>
+                {ownerRound(round)
+                  ? copy.ownerReturn(round.round)
+                  : copy.roundNumber(round.round)}
+              </strong>
               <span>{copy.roundPath(name(round.fromNodeId), name(round.toNodeId))}</span>
               <span>{`${copy.findings} · ${findings.length}`}</span>
               {answers && <span>{answers}</span>}

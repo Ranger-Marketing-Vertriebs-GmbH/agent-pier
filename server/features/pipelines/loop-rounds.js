@@ -105,6 +105,8 @@ export function recordRound(
     at: at || new Date().toISOString(),
     stages,
     ...(operatorNote ? { operatorNote } : {}),
+    // A return the owner started (return-to-stage.js), not a loop edge of the pipeline.
+    ...(key.startsWith("owner:") ? { owner: true } : {}),
   };
   const rounds = [...(run.loopRounds || []), round];
   const ofEdge = rounds.filter((r) => r.edge === key);
