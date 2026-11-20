@@ -123,3 +123,25 @@ test("⌘K's Agent access opens the dialog of that running session", async ({ pa
   await expect(dialog(page).getByRole("heading", { name: "Agent access" })).toBeVisible();
   await expect(dialog(page).getByText("Can ask agents", { exact: true })).toBeVisible();
 });
+
+test("the Agent access dialog lists the allowed agents beside the search", async ({
+  page,
+  liveStub,
+}) => {
+  await talkFixture(page);
+  await page.goto(baseURL + "/sessions/deploy/chat");
+  await openAccess(page);
+  await liveStub.waitForSubscribe("session.agent-access:deploy");
+  const access = dialog(page);
+  const search = access.getByRole("searchbox", { name: "Search Agents" });
+  await expect(search).toBeFocused();
+  await search.fill("plan");
+  await expect(access.getByRole("checkbox")).toHaveCount(1);
+  await access.getByRole("checkbox", { name: /Planner/ }).check();
+  await expect(access.getByText("via project", { exact: true })).toBeVisible();
+  await expect(
+    access.getByRole("button", { name: "Remove Network Architect" }),
+  ).toHaveCount(0);
+  await access.getByRole("button", { name: "Remove Planner" }).click();
+  await expect(access.getByRole("button", { name: "Remove Planner" })).toHaveCount(0);
+});

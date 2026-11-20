@@ -28,6 +28,8 @@ export const sessionTalkCopy = {
     projectHint:
       "Agents with “Sessions may talk” for this session's project are ticked already; change that in the agent's Access tab.",
     viaProject: "via project",
+    grantType: "Agent",
+    listLabel: "Agents",
     empty: "No agents yet. Create one under Agents.",
     loading: "Loading agents …",
     busy: "Saving …",

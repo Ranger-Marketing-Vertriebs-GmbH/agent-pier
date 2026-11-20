@@ -29,6 +29,8 @@ export const sessionTalkCopy = {
     projectHint:
       "Agenten mit „Sessions dürfen sprechen“ für das Projekt dieser Session sind schon angekreuzt; das änderst du im Tab Zugriff des Agenten.",
     viaProject: "über das Projekt",
+    grantType: "Agent",
+    listLabel: "Agenten",
     empty: "Noch keine Agenten. Lege einen unter Agenten an.",
     loading: "Agenten werden geladen …",
     busy: "Wird gespeichert …",
