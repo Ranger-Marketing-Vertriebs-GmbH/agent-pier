@@ -14,6 +14,37 @@ export function runWorktreeRoot(cwd) {
   return parts.slice(0, index).join(path.sep) || path.sep;
 }
 
+/**
+ * The main work tree of a worktree folder (AGENTPIER-444): the project root of a
+ * pipeline run or agent coding session worktree (`<project>/.agentpier-worktrees/…`),
+ * or the main work tree a linked Git worktree's `.git` file points to
+ * (`gitdir: <main>/.git/worktrees/<name>`). Null for any other folder. Reads no
+ * more than that one file, so it suits repairs of stored rows. A main work tree that
+ * no longer exists is no answer: such a row stays as it is.
+ */
+export function mainWorkTree(cwd) {
+  if (typeof cwd !== "string" || !path.isAbsolute(cwd)) return null;
+  const fenced = runWorktreeRoot(cwd);
+  // A project whose folder is gone keeps its row as it is.
+  if (fenced) {
+    const root = realpath(fenced);
+    return root && fs.statSync(root).isDirectory() ? root : null;
+  }
+  let text;
+  try {
+    text = fs.readFileSync(path.join(cwd, ".git"), "utf8");
+  } catch {
+    return null;
+  }
+  const gitdir = /^gitdir:\s*(.+)$/m.exec(text)?.[1]?.trim();
+  if (!gitdir) return null;
+  const parts = path.resolve(cwd, gitdir).split(path.sep);
+  const at = parts.lastIndexOf("worktrees");
+  if (at < 2 || parts[at - 1] !== ".git") return null;
+  const main = realpath(parts.slice(0, at - 1).join(path.sep) || path.sep);
+  return main && main !== cwd && fs.statSync(main).isDirectory() ? main : null;
+}
+
 function realpath(value) {
   try {
     return fs.realpathSync(value);

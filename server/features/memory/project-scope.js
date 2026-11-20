@@ -63,6 +63,13 @@ export function projectId([kind, place, dev, ino], { known = true } = {}) {
   }
   return id;
 }
+const isFolder = (folder) => {
+  try {
+    return fs.statSync(folder).isDirectory();
+  } catch {
+    return false;
+  }
+};
 /** The canonical path of a project folder; refuses invalid and missing folders. */
 function canonicalFolder(cwd) {
   if (typeof cwd !== "string" || !path.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd))
@@ -126,6 +133,11 @@ export async function projectScope(cwd, options = {}) {
     common = fs.realpathSync(values[0]);
     root = fs.realpathSync(values[1]);
     kind = "git";
+    // A linked worktree (an agent's or a pipeline run's included) belongs to the
+    // project of its main work tree, whose `.git` folder is the common directory:
+    // it takes that project's name and folder, not the worktree's (AGENTPIER-444).
+    const main = path.dirname(common);
+    if (path.basename(common) === ".git" && main !== root && isFolder(main)) root = main;
   } catch (error) {
     if (error.status) throw error;
     if (error.killed || error.code === "ETIMEDOUT")
