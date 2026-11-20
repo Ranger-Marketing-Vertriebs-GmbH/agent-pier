@@ -5,6 +5,7 @@ import { readJSON, writePrivate, problem, nameValue } from "../../lib/storage.js
 import { stageProfiles, validateGraph } from "./graph-validation.js";
 import {
   boundedText,
+  migratePermissionModes,
   validateProfile,
   profileConnection,
   validateVerification,
@@ -52,7 +53,9 @@ export class PipelineDefinitions {
     // Definitions written before run queues existed have no queue settings.
     if (!this.state.queue || typeof this.state.queue !== "object") this.state.queue = {};
     // Seeds added or reworded since this document was written reach it once.
-    if (applySeeds(this.state, new Date().toISOString()))
+    // Profiles saved with a permission mode their CLI no longer accepts move on once.
+    const migrated = migratePermissionModes(this.state.profiles);
+    if (applySeeds(this.state, new Date().toISOString()) || migrated)
       writePrivate(this.file, this.state);
   }
   commit(next) {
