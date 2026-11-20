@@ -4,6 +4,11 @@ export const connectionsAreaCopy = {
   title: "Zugänge",
   intro:
     "Einmal anlegen, überall freigeben. Welcher Agent was nutzt, steht bei jedem Eintrag.",
+  cliAccounts: {
+    group: "Anderswo",
+    label: "CLI-Accounts",
+    where: "CLIs & Erweiterungen",
+  },
   categoriesLabel: "Kategorien",
   sections: {
     models: "Modell-Zugänge",

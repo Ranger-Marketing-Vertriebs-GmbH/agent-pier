@@ -3,6 +3,11 @@
 export const connectionsAreaCopy = {
   title: "Connections",
   intro: "Create once, grant everywhere. Which agent uses what is shown with each entry.",
+  cliAccounts: {
+    group: "Elsewhere",
+    label: "CLI accounts",
+    where: "CLIs and extensions",
+  },
   categoriesLabel: "Categories",
   sections: {
     models: "Model access",

@@ -2,7 +2,7 @@
 
 Configure shared OpenRouter or Z.ai access once, then choose the CLI and model for each new session. Native accounts remain specific to their CLI, and existing account-bound provider configurations remain supported.
 
-Provider connections and **ChatGPT for agents** live under **Connections › Model access**; native CLI accounts under **CLIs and extensions › Accounts**. Both open from the sidebar **Menu** (group **Set up**), and each entry lists who uses it under **Used by**. Old `/accounts?section=models` and `/accounts?section=cli` links open these pages. A model access whose key is missing or whose sign-in expired counts as a problem in **Connections**.
+Provider connections and **ChatGPT for agents** live under **Connections › Model access**; native CLI accounts under **CLIs and extensions › Accounts**; the **CLI accounts** link below the categories of **Connections** leads there, and its back arrow returns. Both open from the sidebar **Menu** (group **Set up**), and each entry lists who uses it under **Used by**. Old `/accounts?section=models` and `/accounts?section=cli` links open these pages. A model access whose key is missing or whose sign-in expired counts as a problem in **Connections**.
 
 A native Claude Code, Codex or OpenCode account without a stored key shows its CLI sign-in state, which AgentPier asks the CLI for (`claude auth status`, `codex login status`, `opencode auth list`). The server checks it every 30 s while a visible page shows the account, once for all open tabs, and at once when a login session of the account starts or ends or an account is changed in AgentPier; a sign-in or sign-out made outside AgentPier appears within 30 s ([Live channel](architecture.md#live-channel)).
 
