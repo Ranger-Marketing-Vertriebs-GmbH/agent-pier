@@ -109,3 +109,18 @@ test("every settings group inside a page has a search entry (en and de)", () => 
     );
   }
 });
+
+test("every routed page of an agent has a search entry", () => {
+  // An agent's own pages: its settings tabs, pinboard and (while on) its browser.
+  const agent = { id: "ops", name: "Ops", capabilities: { browser: true } };
+  const own = buildSearchIndex({ agents: [agent], agentsEnabled: true });
+  const ownPaths = new Set(
+    own.filter((entry) => entry.target.route).map((e) => routePath(e.target.route)),
+  );
+  for (const path of [
+    "/agents/ops/settings",
+    "/agents/ops/pinboard",
+    "/agents/ops/browser",
+  ])
+    assert.ok(ownPaths.has(path), path);
+});

@@ -43,6 +43,7 @@ export default function TranscriptItem({
   focusedNote,
   mentions,
   removeShared,
+  takeover = null,
 }) {
   return activity ? (
     <RemoteActivityGroup messages={activity} />
@@ -119,6 +120,7 @@ export default function TranscriptItem({
       shared={m.shared === true}
       unavailable={m.unavailable === true}
       removeShared={removeShared}
+      takeover={takeover}
     />
   );
 }

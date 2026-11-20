@@ -10,6 +10,8 @@ import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
 import { assistantBrowserCopy } from "../../lib/i18n/messages/assistant-browser.js";
 import { shellLevel } from "./shell-level.js";
 import BrowserPreview from "./browser/BrowserPreview.jsx";
+import { browserOffered, browserRoute } from "./browser/browser-entry.js";
+import RouteLink from "./RouteLink.jsx";
 import "./assistant-shell.css";
 import "./assistant-pane.css";
 import StatusDot from "../../components/StatusDot.jsx";
@@ -23,6 +25,9 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 // `statusExtra` (the agent chat's chat selector) takes the place of "· <model>"; on a
 // phone it takes the status word's place too, and the dot alone (labelled with that
 // word) shows the status.
+// While the agent's browser runs, its live preview opens it; otherwise, while the
+// browser capability is on, **Browser** does (labelled on a computer, an icon on a
+// phone, an entry of ⋯ in a pane), and the page offers to start it.
 export default function AssistantHeader({
   assistant,
   variant,
@@ -63,6 +68,9 @@ export default function AssistantHeader({
   const Heading = pane ? "h2" : "h1";
   const openSettings = () =>
     navigate({ view: "agents", assistantId: assistant.id, agentSettings: true });
+  const browserEntry =
+    !settings && !assistant.browserRunning && browserOffered(assistant);
+  const browserLabel = assistantBrowserCopy.entryOpen(assistant.name);
   return (
     <>
       <header
@@ -139,6 +147,18 @@ export default function AssistantHeader({
         {!settings && assistant.browserRunning && (
           <BrowserPreview assistant={assistant} navigate={navigate} />
         )}
+        {browserEntry && !pane && (
+          <RouteLink
+            className="assistant-header-settings agent-chat-browser"
+            route={browserRoute(assistant.id)}
+            navigate={navigate}
+            aria-label={browserLabel}
+            title={browserLabel}
+          >
+            <Icon name="globe" />
+            <span>{assistantBrowserCopy.entry}</span>
+          </RouteLink>
+        )}
         {actions}
         {!settings && !pane && (
           <button
@@ -168,6 +188,15 @@ export default function AssistantHeader({
               state={menu}
               items={[
                 ...pane.menuItems,
+                ...(browserEntry
+                  ? [
+                      {
+                        id: "browser",
+                        label: browserLabel,
+                        run: () => navigate(browserRoute(assistant.id)),
+                      },
+                    ]
+                  : []),
                 { id: "settings", label: copy.settingsTab, run: openSettings },
               ]}
             />

@@ -50,6 +50,9 @@ export const assistantBrowserCopy = {
     "Changes to the browser installation or global network access apply after the agent service restarts. Running work is not interrupted: while an agent is busy, the restart is refused.",
   restartConfirm: "Restart",
   liveTitle: "Browser",
+  entry: "Browser",
+  entryOpen: (name) => `Open ${name}'s browser`,
+  entrySearch: (name) => `${name}'s browser`,
   liveOpen: "Open live view",
   liveOpenDescription:
     "Shows the agent browser's window live, wherever it is on the screen.",

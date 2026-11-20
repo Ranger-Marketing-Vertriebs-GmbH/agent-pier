@@ -56,6 +56,9 @@ const paths = {
     "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
   // A push pin: an agent's pinboard.
   pin: "M9 3h6m-1 0v6l3 4H7l3-4V3m2 10v8",
+  // A globe: an agent's own browser.
+  globe:
+    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z",
   star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z",
 };
 // Every icon name, for the component gallery (Settings › Development › Components).

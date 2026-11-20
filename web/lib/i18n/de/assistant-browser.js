@@ -50,6 +50,9 @@ export const assistantBrowserCopy = {
     "Änderungen an der Browserinstallation oder am globalen Netzwerkzugriff gelten nach einem Neustart des Agent-Dienstes. Laufende Arbeit wird nicht unterbrochen: Ist ein Agent beschäftigt, wird der Neustart abgelehnt.",
   restartConfirm: "Neu starten",
   liveTitle: "Browser",
+  entry: "Browser",
+  entryOpen: (name) => `Browser von ${name} öffnen`,
+  entrySearch: (name) => `Browser von ${name}`,
   liveOpen: "Live-Ansicht öffnen",
   liveOpenDescription:
     "Zeigt das Fenster des Agenten-Browsers live, wo auch immer es auf dem Bildschirm liegt.",

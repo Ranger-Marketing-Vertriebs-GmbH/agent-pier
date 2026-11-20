@@ -2596,9 +2596,11 @@ audited as `setting.rolled-back` with outcome `failure`.
 ### Live view
 
 The owner watches an agent's own browser at `/agents/<id>/browser` (**Open live view**
-in the agent browser settings, or the live preview in the chat header while the
-browser runs). It is view only for now; the transport carries owner commands, so a
-later takeover can send input the same way.
+in the agent browser settings, the live preview in the chat header while the browser
+runs, otherwise **Browser** there while the browser capability is on, and the ⌘K entry
+"<agent>'s browser"; `browser-entry.js` decides). A stopped browser shows **Start
+browser**, which starts it through the socket's `start` command (owner only). The
+same socket carries the takeover's input ([Takeover](#takeover)).
 
 - `browser-live-view.js` keeps one upstream screencast per agent, shared by every
   viewer. It asks the Gateway through `browser.request` for `GET /` (does the
@@ -2665,7 +2667,15 @@ sign in, solve a check or search, and **Hand back** returns it.
   Other devices see "You are controlling this browser on another device" and can
   **Take over here**, which moves the lease; other tabs of the same session share it.
   A chat preview never takes over or sends input. Opened with `?takeover=1`, the
-  live view takes over once the picture is live and then drops the parameter.
+  live view starts a stopped browser, takes over once the picture is live and then
+  drops the parameter.
+- Take-over requests: an owner's agent with the browser is told in its managed
+  instructions (`assistant-bootstrap.js`, "Browser sign-ins") to ask for a sign-in or
+  check with the link `[Take over my browser](agentpier:browser-takeover)`. The
+  owner's chat lets only that `agentpier:` link through its URL check and shows it as
+  a button to `/agents/<id>/browser?takeover=1` (`TakeoverLink.jsx`); anywhere else
+  it is plain text. There is no take-over tool: the agent's browser calls are refused
+  while the owner holds it, as below.
 - While the owner holds it, the tool guard refuses the agent's browser calls with
   "The owner is using this browser right now … Wait until the owner hands it back"
   (`ownerControl`). While a user holds her own agent's browser the refusal says "Your
@@ -2702,7 +2712,10 @@ sign in, solve a check or search, and **Hand back** returns it.
   shortcuts, go as key events. A phone keyboard's Backspace and Enter arrive as
   `beforeinput` (Android reports key 229) and are sent as keys as well. A tap is a
   click and a one-finger drag scrolls (as wheel events); pinch zoom is off on the
-  picture. Shift+Escape leaves the browser and focuses **Hand back**; every other key
+  picture. On a phone a tap focuses the field inside the gesture (its `pointerup` and
+  `touchend`), moves it to the tapped point and cancels the touch's emulated click,
+  which would blur the field and close iOS's keyboard at once; a new frame leaves
+  the field alone. **Keyboard** under the picture (phones) focuses it explicitly. Shift+Escape leaves the browser and focuses **Hand back**; every other key
   goes to the page.
 - While the owner holds the browser, a tab it opens (an OAuth popup) is shown at once.
 - Not in the picture: the browser's own windows (file pickers, HTTP sign-in dialogs,

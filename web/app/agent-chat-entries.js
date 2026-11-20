@@ -1,8 +1,13 @@
-// ⌘K entries of the owner's agent chat: the agent's pinboard and the chat's own
-// actions (the Chats sheet's New chat, Summarize now and Archived chats).
+// ⌘K entries of the owner's agent chat: the agent's pinboard and browser, and the
+// chat's own actions (the Chats sheet's New chat, Summarize now and Archived chats).
 import { agentChatsCopy } from "../lib/i18n/messages/agent-chats.js";
 import { agentPinboardCopy } from "../lib/i18n/messages/agent-pinboard.js";
+import { assistantBrowserCopy } from "../lib/i18n/messages/assistant-browser.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
+import {
+  browserOffered,
+  browserRoute,
+} from "../features/assistants/browser/browser-entry.js";
 
 /**
  * "<agent> · Pinboard" (alias "Pinned files"); none on a user's own agent, which has no
@@ -19,6 +24,29 @@ export function pinboardEntry(agent, name, root, { bilingual, join, named }) {
     target: { route: { view: "agents", assistantId: agent.id, pinboard: true } },
     agentsOnly: true,
     aliases: [named(bilingual(() => agentPinboardCopy.search.alias))],
+  };
+}
+
+/**
+ * "<agent>'s browser" ("Browser von <agent>"), while its browser capability is on,
+ * running or not (browser-entry.js); the page starts it. Alias: the settings' "Open
+ * live view". `helpers` as for pinboardEntry.
+ */
+export function browserEntry(agent, name, root, { bilingual, join, named }) {
+  if (!browserOffered(agent)) return null;
+  const label = bilingual(() => assistantBrowserCopy.entrySearch(name.en));
+  return {
+    id: `agent:${agent.id}:browser`,
+    group: "agents",
+    label,
+    path: join(
+      root,
+      name,
+      bilingual(() => assistantBrowserCopy.entry),
+    ),
+    target: { route: browserRoute(agent.id) },
+    agentsOnly: true,
+    aliases: [named(bilingual(() => assistantBrowserCopy.liveOpen))],
   };
 }
 
