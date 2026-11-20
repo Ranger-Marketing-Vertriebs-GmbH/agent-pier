@@ -1,9 +1,11 @@
 const valid = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
+// The tabs of the pipelines page; the ⌘K index has an entry for each.
+export const pipelineTabs = ["runs", "definitions", "profiles", "verification", "queue"];
+const tabPattern = new RegExp(
+  `^/pipelines(?:/(${pipelineTabs.join("|")})(?:/([^/]+))?)?$`,
+);
 export function readPipelineRoute(pathname, search) {
-  const match =
-    /^\/pipelines(?:\/(runs|definitions|profiles|verification|queue)(?:\/([^/]+))?)?$/.exec(
-      pathname,
-    );
+  const match = tabPattern.exec(pathname);
   if (!match) return null;
   if (match[2] && !valid.test(match[2])) return { view: "missing" };
   const query = new URLSearchParams(search),

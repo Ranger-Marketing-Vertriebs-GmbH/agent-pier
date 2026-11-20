@@ -2,6 +2,7 @@ import React, {
   lazy,
   Suspense,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -18,8 +19,11 @@ import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
 import { isMacPlatform, opensSearch } from "./search-shortcut.js";
 import { readRecent, rememberRecent } from "../features/quick-open/recent-items.js";
+import { LoginContext } from "../features/login/LoginContext.js";
+import { useViews } from "../features/views/views-context.js";
+import { requestNavigation } from "../lib/navigation-guard.js";
 // The page actions of the chat on screen (AgentChatTop).
-const chatActions = ["chat-new", "chat-summarise"];
+const chatActions = ["chat-new", "chat-summarise", "chat-archived"];
 const SearchDialog = lazy(() => import("./SearchDialog.jsx"));
 
 // Connection names load on the first open and again when an open finds them older
@@ -50,6 +54,8 @@ export default function AppSearch({
   const { enabled: agentsEnabled } = useAssistantFeature();
   const { assistants, conversations } = useAssistants();
   const [recent, setRecent] = useState(() => readRecent("owner"));
+  const auth = useContext(LoginContext);
+  const views = useViews()?.views;
   const show = useCallback(() => setOpen(true), []);
   const context = useMemo(() => ({ open: show }), [show]);
   useEffect(() => {
@@ -91,17 +97,31 @@ export default function AppSearch({
     setOpen(false);
     if (target.session) {
       const session = workspace?.sessions?.find((item) => item.id === target.session);
+      // Background tasks show in the chat tab.
+      if (target.mode)
+        return navigate({
+          view: "workspace",
+          sessionId: target.session,
+          mode: target.mode,
+        });
       if (session) return select(session);
       return navigate({ view: "workspace", sessionId: target.session, mode: null });
     }
     if (target.action === "launch") return launch();
+    // Signing out leaves the workspace: unsaved changes ask first, as the menu's button.
+    if (target.action === "sign-out")
+      return requestNavigation({ reason: "logout", commit: auth.logout }).catch(
+        () => undefined,
+      );
     if (target.action === "session-changes")
       return navigate({ ...route, mode: "changes" });
     // The run page on screen takes the requested page action and opens its changes.
     if (
       target.action === "run-changes" ||
       target.action === "chat-new" ||
-      target.action === "chat-summarise"
+      target.action === "chat-summarise" ||
+      target.action === "chat-archived" ||
+      target.action === "view-new"
     )
       return undefined;
     if (target.action === "delete-project")
@@ -144,9 +164,14 @@ export default function AppSearch({
               // the run on screen offers its changes (not an imported history run)
               pageActionOffered("run-changes")
             }
-            offered={chatActions.filter(pageActionOffered)}
+            offered={[
+              ...chatActions.filter(pageActionOffered),
+              ...(pageActionOffered("view-new") ? ["view-new"] : []),
+              ...(auth ? ["sign-out"] : []),
+            ]}
             connections={connections}
             workspace={workspace}
+            views={views || []}
             recent={recent}
             loading={loading && !connections}
           />

@@ -231,6 +231,31 @@ test("settings are found by their English labels and old names stay findable", a
   await expect(dialog(page)).toHaveCount(0);
 });
 
+test("a session's own action opens the session and its dialog (AGENTPIER-418)", async ({
+  page,
+}) => {
+  await ownerFixture(page);
+  await page.goto(baseURL + "/projects");
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await openWithShortcut(page);
+  await field(page).fill("billing stop");
+  const stop = group(page, "Actions").getByRole("option").first();
+  await expect(stop).toContainText("Refactor billing · Stop session");
+  await stop.click();
+  await expect(page).toHaveURL(/\/sessions\/billing-refactor/);
+  // Stopping still asks first.
+  await expect(page.getByRole("dialog", { name: "Stop session?" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // A CLI account by the word people search for.
+  await page.locator(".sidebar .sidebar-menu-button").focus();
+  await openWithShortcut(page);
+  await field(page).fill("Claude-Login");
+  await group(page, "Pages")
+    .getByRole("option", { name: /Work account/ })
+    .click();
+  await expect(page).toHaveURL(/\/coding\/clis\?tab=accounts&item=work-claude/);
+});
+
 test("on Linux Ctrl+K in the terminal stays the terminal's kill-line", async ({
   page,
 }) => {

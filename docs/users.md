@@ -33,8 +33,8 @@ After signing in, a user sees **My agents** (with a greeting and her agents), th
 with each agent, her agents' settings within her level, and **Account**: **Change
 password**, whether the owner may read her chats, the notifications of her devices and
 **Sign out**. The menu holds only **My agents** and **Account**. The user's **Search**
-button (and ⌘K or Ctrl+K) finds only their own agents' chats, settings and memory and
-these two pages, from the agent list the user's app already reads; nothing of the
+button (and ⌘K or Ctrl+K) finds only their own agents' chats, settings and memory,
+these two pages and **Sign out** (which opens **Account**), from the agent list the user's app already reads; nothing of the
 owner's is indexed. The user's app makes HTTP
 requests only to `/auth` and `/api/me`; an owner address opened in it shows "This page
 does not exist here." It also opens four WebSockets outside `/api/me`, each admitted

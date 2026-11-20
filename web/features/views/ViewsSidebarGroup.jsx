@@ -6,6 +6,7 @@ import { viewsCopy } from "../../lib/i18n/messages/views.js";
 import { paneCount } from "./split-tree.js";
 import { useViews } from "./views-context.js";
 import useViewsOffered from "./useViewsOffered.js";
+import { usePageAction } from "../../app/page-action.js";
 import "./views.css";
 
 /** The next default name "View n": the smallest n ≥ 1 no view is named after. */
@@ -25,16 +26,13 @@ export default function ViewsSidebarGroup({ navigate, route }) {
   const store = useViews();
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  if (!offered || !store) return null;
-  const { views } = store;
-  const current = route?.view === "split" ? route.viewId : "";
   const create = async () => {
-    if (!store.loaded) return;
+    if (!store?.loaded) return;
     setError("");
     setCreating(true);
     try {
       const view = await store.create({
-        name: nextDefaultName(views, viewsCopy.defaultName),
+        name: nextDefaultName(store.views, viewsCopy.defaultName),
         layout: null,
       });
       if (view) navigate({ view: "split", viewId: view.id });
@@ -44,6 +42,11 @@ export default function ViewsSidebarGroup({ navigate, route }) {
       setCreating(false);
     }
   };
+  // ⌘K "New view" (offered only while this group shows) creates one, as "+" does.
+  usePageAction("view-new", create, Boolean(offered && store?.loaded) && !creating);
+  if (!offered || !store) return null;
+  const { views } = store;
+  const current = route?.view === "split" ? route.viewId : "";
   return (
     <SidebarGroup
       name="views"

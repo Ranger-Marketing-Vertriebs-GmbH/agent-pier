@@ -21,7 +21,7 @@ import "./agent-chat-top.css";
  * icons) and, on phones and in split-view panes, one row with the Chat | Pinboard
  * switch and Chats (a team member's chat has no row: a header pin icon toggles its
  * pinboard). Wider, the header carries Pinboard itself; the pinboard docks beside the
- * chat. New chat and Summarize this chat live in the Chats sheet (and ⌘K). Then the
+ * chat. New chat, Summarize this chat and Archived chats live in the Chats sheet (and ⌘K). Then the
  * chat's strips.
  * `pinboard` is useChatPinboard's result; `talk` is `{ shown, talk, status }`;
  * `summarise` is summariseAction's result; `strips` ChatStrips' `entry`, `output`
@@ -61,6 +61,15 @@ export default function AgentChatTop({
     "chat-summarise",
     () => shownSummarise?.run(),
     focused && Boolean(shownSummarise) && !shownSummarise.reason,
+  );
+  // ⌘K "Archived chats" opens the Chats sheet at its archived list.
+  usePageAction(
+    "chat-archived",
+    () => {
+      owner.chats.setShowArchived(true);
+      owner.setOpen(true);
+    },
+    focused && chatList,
   );
   const pinLabel = agentPinboardCopy.tabWithCount(pinboard.fresh);
   const actions = (

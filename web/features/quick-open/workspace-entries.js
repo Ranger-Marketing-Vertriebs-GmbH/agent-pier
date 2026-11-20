@@ -1,8 +1,10 @@
 // The search's entries for the owner's own things (AGENTPIER-224): sessions, projects,
 // agent chats, pipeline runs and definitions, inbox items, and the actions New run and
-// Open inbox. Every source is data the owner's app already reads under the owner's session
-// (the workspace state, the agent list, the pushed run list and inbox, the project and
-// pipeline lists), so the search shows nothing the owner's pages would not.
+// Open inbox, CLI accounts, task profiles, saved views and each session's own actions.
+// Every source is data the owner's app already reads under the owner's session (the
+// workspace state, the agent list, the pushed run list and inbox, the project, pipeline
+// and task profile lists, the saved views), so the search shows nothing the owner's
+// pages would not.
 import { sidebarCopy } from "../../lib/i18n/messages/app.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -10,6 +12,11 @@ import { inboxCopy } from "../../lib/i18n/messages/inbox.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { searchCopy } from "../../lib/i18n/messages/search.js";
 import { bilingual, join, withTerms } from "../../app/search-entries.js";
+import { cliAccountWords, projectTabLabels } from "../../app/area-search-entries.js";
+import { codingPageCopy } from "../../lib/i18n/messages/coding.js";
+import { viewsCopy } from "../../lib/i18n/messages/views.js";
+import { codingRoute } from "../coding/routes.js";
+import { sessionActionEntries } from "./session-action-entries.js";
 import { chatTitle, ownerChatFilter } from "../assistants/chats/chat-names.js";
 import { itemTitle, kindLabel } from "../inbox/inbox-presentation.js";
 import { runStatusLabel } from "../pipelines/run-codes.js";
@@ -117,6 +124,18 @@ export function projectEntries({ projects = [], repositories = [] } = {}) {
         },
       ),
     );
+    // "alpha Knowledge": the project's other tabs (Tickets has its own entry above).
+    for (const tab of Object.keys(projectTabLabels).filter((key) => key !== "tickets"))
+      entries.push(
+        entry(
+          "projects",
+          `project-${tab}:${id}`,
+          bilingual(projectTabLabels[tab]),
+          join(root, same(name)),
+          { route: projectsRoute({ projectId: id, projectTab: tab }) },
+          { meta: same(path), icon: "folder", extra: [name, path].filter(Boolean) },
+        ),
+      );
   };
   for (const project of listedProjects(projects))
     add(project.id, project.name || folder(project.cwd), project.cwd || "");
@@ -205,6 +224,66 @@ export function pipelineEntries(pipelines = []) {
     );
 }
 
+/** Task profiles by name, opened in the profile editor. */
+export function profileEntries(profiles = []) {
+  const root = join(
+    bilingual(() => pipelineCopy.title),
+    bilingual(() => pipelineCopy.profiles),
+  );
+  return profiles
+    .filter((profile) => profile?.id && profile.name)
+    .map((profile) =>
+      entry(
+        "runs",
+        `profile:${profile.id}`,
+        same(profile.name),
+        root,
+        {
+          route: { view: "pipelines", pipelineTab: "profiles", pipelineItem: profile.id },
+        },
+        { icon: "grid" },
+      ),
+    );
+}
+
+/** Native CLI accounts by name ("Konten", "Claude-Login"), opened under CLIs › Accounts. */
+export function cliAccountEntries({ accounts = [], tools = [] } = {}) {
+  const root = join(
+    bilingual(() => codingPageCopy.title),
+    bilingual(() => codingPageCopy.tabs.accounts),
+  );
+  const toolName = new Map(tools.map((tool) => [tool.id, tool.name]));
+  return accounts
+    .filter((account) => account?.id && account.name && account.tool !== "shell")
+    .map((account) =>
+      entry(
+        "pages",
+        `cli-account:${account.id}`,
+        same(account.name),
+        root,
+        { route: codingRoute("accounts", { item: account.id }) },
+        {
+          meta: same(toolName.get(account.tool) || account.tool),
+          extra: [toolName.get(account.tool), account.tool, ...cliAccountWords].filter(
+            Boolean,
+          ),
+        },
+      ),
+    );
+}
+
+/** The saved views by name (split views at /views/:id). */
+export function viewEntries(views = []) {
+  const root = bilingual(() => viewsCopy.group);
+  return views
+    .filter((view) => view?.id && view.name)
+    .map((view) =>
+      entry("pages", `view:${view.id}`, same(view.name), root, {
+        route: { view: "split", viewId: view.id },
+      }),
+    );
+}
+
 /** What waits in the inbox, opened at the item's own address. */
 export function inboxEntries(items = []) {
   const root = bilingual(() => inboxCopy.title);
@@ -282,8 +361,12 @@ export function workspaceEntries(sources = {}, { agentsEnabled = false } = {}) {
     ...projectEntries(sources),
     ...(agentsEnabled ? chatEntries(sources) : []),
     ...(agentsEnabled ? sessionAgentAccessEntries(sources.workspace || {}) : []),
+    ...sessionActionEntries(sources.workspace || {}),
+    ...cliAccountEntries(sources.workspace || {}),
     ...runEntries(sources.runs || []),
     ...pipelineEntries(sources.pipelines || []),
+    ...profileEntries(sources.profiles || []),
+    ...viewEntries(sources.views || []),
     ...inboxEntries(sources.inbox || []),
     ...workspaceActions(),
   ].map((item) =>

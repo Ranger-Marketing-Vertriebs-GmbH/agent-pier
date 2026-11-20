@@ -26,6 +26,7 @@ export default function SearchDialog({
   offered = [],
   connections,
   workspace,
+  views = [],
   recent,
   loading,
 }) {
@@ -54,7 +55,9 @@ export default function SearchDialog({
           projects: sources.projects,
           runs: sources.runs,
           pipelines: sources.pipelines,
+          profiles: sources.profiles,
           inbox: sources.inbox,
+          views,
         },
         { agentsEnabled },
       ),
@@ -69,6 +72,7 @@ export default function SearchDialog({
       offeredKey,
       runtimes,
       workspace,
+      views,
       sources,
     ],
   );

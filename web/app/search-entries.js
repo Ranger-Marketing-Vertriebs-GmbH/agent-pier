@@ -1,13 +1,9 @@
 // Bilingual quick-open index: pages, agent settings, connections and actions.
 // Old labels remain searchable as aliases.
-import { withLanguage } from "../lib/i18n/index.js";
-import { sidebarCopy } from "../lib/i18n/messages/app.js";
-import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { agentGroupSearchAction } from "../features/assistants/groups/group-search.js";
 import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
 import { assistantDreamingCopy } from "../lib/i18n/messages/assistant-dreaming.js";
-import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.js";
 import { assistantTeamCopy } from "../lib/i18n/messages/assistant-team.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
@@ -15,7 +11,6 @@ import { craftAnythingCopy } from "../lib/i18n/messages/craft-anything.js";
 import { craftCopy } from "../lib/i18n/messages/craft.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { extensionsHubCopy } from "../lib/i18n/messages/extensions.js";
-import { filesCopy } from "../lib/i18n/messages/files.js";
 import { galleryCopy } from "../lib/i18n/messages/gallery.js";
 import { inboxCopy } from "../lib/i18n/messages/inbox.js";
 import { mcpDirectoryCopy } from "../lib/i18n/messages/mcp-directory.js";
@@ -30,75 +25,29 @@ import {
   agentSurfaceEntries,
   surfaceSearchEntries,
 } from "../features/assistants/runtime-surface-search.js";
-import {
-  agentPageAllowed,
-  agentRoute,
-  visibleAgentTabs,
-} from "../features/assistants/settings/agent-settings-fields.js";
 import { codingRoute } from "../features/coding/routes.js";
-import { connectionsRoute } from "../features/connections/routes.js";
+import { connectionSections, connectionsRoute } from "../features/connections/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
-import { settingsTabOf } from "../features/operations/routes.js";
 import { termsOf } from "./search-index.js";
-import { chatActionEntries, pinboardEntry } from "./agent-chat-entries.js";
+import { chatActionEntries } from "./agent-chat-entries.js";
+import { agentActionEntries, agentEntries } from "./agent-search-entries.js";
+import {
+  areaActionEntries,
+  areaPageEntries,
+  cliAccountWords,
+} from "./area-search-entries.js";
+import {
+  alias,
+  bilingual,
+  join,
+  pageEntry,
+  pipelinesRoute,
+  settingsRoute,
+  text,
+} from "./search-labels.js";
+export { bilingual, join } from "./search-labels.js";
 import { projectActionEntries } from "./project-search-entries.js";
 
-/** `{ de, en }` of a label read from the reactive catalogs. */
-export const bilingual = (read) => ({
-  de: withLanguage("de", read),
-  en: withLanguage("en", read),
-});
-export const join = (...parts) => ({
-  de: parts.map((part) => part.de).join(" › "),
-  en: parts.map((part) => part.en).join(" › "),
-});
-
-const text = {
-  menu: () => sidebarCopy.menu,
-  work: () => sidebarCopy.workGroup,
-  setup: () => sidebarCopy.setupGroup,
-  overview: () => commonCopy.overview,
-  inbox: () => inboxCopy.title,
-  projects: () => sidebarCopy.projectsNavigation,
-  craft: () => craftCopy.title,
-  pipelines: () => pipelineCopy.title,
-  files: () => filesCopy.tab,
-  artifacts: () => artifactCopy.title,
-  agents: () => assistantCopy.title,
-  clis: () => codingPageCopy.title,
-  connections: () => connectionsAreaCopy.title,
-  settings: () => commonCopy.settings,
-};
-const alias = (key) => () => searchCopy.aliases[key];
-
-// A page: `parent` is the label path above it, `aliases` its old names.
-function pageEntry(id, label, parent, target, options = {}) {
-  const own = bilingual(label);
-  const path = parent ? join(...parent, own) : own;
-  return {
-    id: `page:${id}`,
-    group: "pages",
-    label: own,
-    path,
-    target,
-    ...options,
-    aliases: (options.aliases || []).map(bilingual),
-  };
-}
-
-const settingsRoute = (section) => ({
-  view: "settings",
-  settingsSection: section,
-  settingsTab: settingsTabOf(section),
-});
-const pipelinesRoute = (pipelineTab) => ({
-  view: "pipelines",
-  pipelineTab,
-  pipelineItem: "",
-  pipelinePage: 1,
-  projectId: "",
-  pipelineStatus: "",
-});
 // Laufzeit's groups under the names the tab shows; `section` scrolls to a group.
 const runtimeGroups = [
   ["feature", () => assistantCopy.feature.title, ["agentsFeature"]],
@@ -231,6 +180,7 @@ export function pageEntries() {
             extensions: [alias("extensions")],
             mcp: [alias("settingsMcp")],
           }[tab],
+          ...(tab === "accounts" ? { extra: cliAccountWords } : {}),
         },
       ),
     ),
@@ -256,26 +206,25 @@ export function pageEntries() {
       { route: connectionsRoute() },
       { aliases: [alias("accounts"), alias("settingsAccess")] },
     ),
-    ...["models", "services", "mcp-servers", "ssh", "secrets", "github", "tickets"].map(
-      (section) =>
-        pageEntry(
-          `connections-${section}`,
-          () => connectionsAreaCopy.sections[section],
-          connections,
-          { route: connectionsRoute(section) },
-          {
-            agentsOnly: section === "services",
-            aliases: {
-              models: [alias("accountsModels")],
-              services: [alias("accountsServices")],
-              "mcp-servers": [alias("accountsMcp")],
-              ssh: [alias("settingsSsh"), alias("sshAccesses")],
-              secrets: [alias("settingsSecrets")],
-              github: [alias("settingsGithub")],
-              tickets: [alias("planeConnections")],
-            }[section],
-          },
-        ),
+    ...connectionSections.map((section) =>
+      pageEntry(
+        `connections-${section}`,
+        () => connectionsAreaCopy.sections[section],
+        connections,
+        { route: connectionsRoute(section) },
+        {
+          agentsOnly: section === "services",
+          aliases: {
+            models: [alias("accountsModels")],
+            services: [alias("accountsServices")],
+            "mcp-servers": [alias("accountsMcp")],
+            ssh: [alias("settingsSsh"), alias("sshAccesses")],
+            secrets: [alias("settingsSecrets")],
+            github: [alias("settingsGithub")],
+            tickets: [alias("planeConnections")],
+          }[section],
+        },
+      ),
     ),
     pageEntry(
       "connections-ssh-keys",
@@ -336,106 +285,6 @@ export function pageEntries() {
       route: settingsRoute("components"),
     }),
   ];
-}
-
-// An agent's tabs and the old tab names that lead to them.
-const tabAliases = {
-  identity: ["profileTab"],
-  // What the tab holds: "Learns its own skills" and the names people search it by.
-  capabilities: ["skillLearning", "selfLearning", "learnSkills", "skillWorkshop"],
-  access: ["workTab"],
-  automation: ["routinesTab"],
-  channels: ["telegramTab"],
-};
-const pageKeys = {
-  memory: "memory",
-  allowlist: "allowlist",
-  skills: "skills",
-  actions: "actions",
-  projects: "projects",
-  pipelines: "pipelines",
-  ssh: "ssh",
-  github: "github",
-  secrets: "secrets",
-  "telegram-activity": "telegramActivity",
-  "telegram-connection": "telegramConnection",
-};
-// Names of what an agent's subpage holds, so searching for them finds the page.
-const pageAliases = { memory: ["memoryPins"], projects: ["sessionTalk"] };
-const pageTabs = {
-  memory: "capabilities",
-  allowlist: "capabilities",
-  skills: "capabilities",
-  actions: "overview",
-  projects: "access",
-  pipelines: "access",
-  ssh: "access",
-  github: "access",
-  secrets: "access",
-  "telegram-activity": "channels",
-  "telegram-connection": "channels",
-};
-
-/** "Ops-Wache · Zugriffe" and its subpages, for every agent that is not archived. */
-export function agentEntries(agents) {
-  const root = bilingual(text.agents);
-  const tabLabels = Object.fromEntries(
-    [
-      "overview",
-      "identity",
-      "capabilities",
-      "access",
-      "team",
-      "automation",
-      "channels",
-    ].map((tab) => [tab, bilingual(() => assistantSettingsCopy.tabs[tab])]),
-  );
-  const pageLabels = Object.fromEntries(
-    Object.entries(pageKeys).map(([page, key]) => [
-      page,
-      bilingual(() => searchCopy.agentPages[key]),
-    ]),
-  );
-  const oldTabs = Object.fromEntries(
-    Object.values(tabAliases)
-      .flat()
-      .map((key) => [key, bilingual(alias(key))]),
-  );
-  const entries = [];
-  for (const agent of agents || []) {
-    if (!agent?.id || agent.archivedAt) continue;
-    const name = { de: agent.name || agent.id, en: agent.name || agent.id };
-    const named = (part) => ({
-      de: `${name.de} · ${part.de}`,
-      en: `${name.en} · ${part.en}`,
-    });
-    const tabs = visibleAgentTabs(agent);
-    for (const tab of tabs)
-      entries.push({
-        id: `agent:${agent.id}:${tab}`,
-        group: "agents",
-        label: named(tabLabels[tab]),
-        path: join(root, name, tabLabels[tab]),
-        target: { route: agentRoute(agent.id, tab) },
-        agentsOnly: true,
-        aliases: (tabAliases[tab] || []).map((key) => named(oldTabs[key])),
-      });
-    const pinboard = pinboardEntry(agent, name, root, { bilingual, join, named });
-    if (pinboard) entries.push(pinboard);
-    for (const page of Object.keys(pageKeys)) {
-      if (!tabs.includes(pageTabs[page]) || !agentPageAllowed(agent, page)) continue;
-      entries.push({
-        id: `agent:${agent.id}:${page}`,
-        group: "agents",
-        label: named(pageLabels[page]),
-        path: join(root, name, tabLabels[pageTabs[page]], pageLabels[page]),
-        target: { route: agentRoute(agent.id, pageTabs[page], page) },
-        agentsOnly: true,
-        aliases: (pageAliases[page] || []).map((key) => named(bilingual(alias(key)))),
-      });
-    }
-  }
-  return entries;
 }
 
 // Connection names (loaded on the search's first open), each in its Zugänge category.
@@ -527,6 +376,7 @@ export function actionEntries() {
       pending: "plane-add",
     }),
     ...projectActionEntries(action, bilingual(text.projects), bilingual),
+    ...areaActionEntries(action),
     action(
       "session-changes",
       () => searchCopy.actions.showChanges,
@@ -586,8 +436,10 @@ export function buildSearchIndex({
 }) {
   return [
     ...pageEntries(),
+    ...areaPageEntries(),
     ...surfaceSearchEntries(runtimes, pageEntry, bilingual),
     ...agentEntries(agents),
+    ...agentActionEntries(agents),
     ...agentSurfaceEntries(agents, runtimes, { bilingual, join }),
     ...connectionEntries(connections),
     ...actionEntries(),
