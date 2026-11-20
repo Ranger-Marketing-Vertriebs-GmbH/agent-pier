@@ -118,6 +118,14 @@ export function deliveryView(item, now) {
   return null;
 }
 
+/**
+ * Whether the card of a local command is done once its brief notice ended: no
+ * native row ever follows a command (Codex `/status`), so the card would otherwise
+ * stay below every later reply. An unconfirmed command keeps its question.
+ */
+export const retiredCommand = (item, now) =>
+  Boolean(item.command) && deliveryView(item, now) === "accepted";
+
 /** Milliseconds until the view of one of `items` changes by time alone, or null. */
 export function nextDeliveryChange(items, now) {
   const waits = items.flatMap((item) => {

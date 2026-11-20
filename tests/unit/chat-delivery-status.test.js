@@ -13,6 +13,7 @@ import {
   followDeliveryClock,
   nextDeliveryChange,
   rereadable,
+  retiredCommand,
   sendHeld,
 } from "../../web/features/chat/delivery-confirmation.js";
 import { nativeDeliveryStates } from "../../web/features/chat/native-delivery-state.js";
@@ -133,8 +134,23 @@ test("an accepted message shows no notice; a command shows handed over briefly",
   const command = { status: "accepted", command: true, acceptedAt: 1000 };
   assert.equal(deliveryView(command, 1000), "commandHandedOff");
   assert.equal(nextDeliveryChange([command], 2000), COMMAND_NOTICE_MS - 1000);
-  // Only the notice ends; the sent message stays until its transcript row shows.
   assert.equal(deliveryView(command, 1000 + COMMAND_NOTICE_MS), "accepted");
+});
+
+test("a handed-over command retires its card after the notice", () => {
+  // Recorded from Codex 0.169.1 (`/status`): no native row ever follows a command.
+  const command = {
+    status: "accepted",
+    command: true,
+    confirmation: "screen",
+    acceptedAt: 1000,
+  };
+  assert.equal(retiredCommand(command, 1000), false);
+  assert.equal(retiredCommand(command, 1000 + COMMAND_NOTICE_MS), true);
+  // A message keeps its badge; an unconfirmed command keeps its question.
+  assert.equal(retiredCommand({ ...command, command: undefined }, 999999), false);
+  const asking = { ...command, status: "handed-off", handedOffAt: 0 };
+  assert.equal(retiredCommand(asking, ASK_AFTER_MS * 2), false);
 });
 
 test("hook blocks read as blocked, with the text in the CLI or released", () => {
