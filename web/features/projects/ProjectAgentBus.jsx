@@ -7,6 +7,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { projectAgentBusCopy as copy } from "../../lib/i18n/messages/agentbus.js";
 import { projectOverviewCopy } from "../../lib/i18n/messages/projects.js";
 import { names } from "../../lib/providers.js";
+import { serverText } from "../../lib/server-messages.js";
 import MessageLog from "../agentbus/MessageLog.jsx";
 import CountUnavailable from "./CountUnavailable.jsx";
 
@@ -19,6 +20,7 @@ export default function ProjectAgentBus({
   busProjects,
   busVersion,
   busNote,
+  busNoteKey,
   busError,
   reloadBus,
   route,
@@ -108,7 +110,9 @@ export default function ProjectAgentBus({
       {busTab === "status" ? (
         busProject ? (
           <>
-            {busNote && <p className="field-description">{busNote}</p>}
+            {busNote && (
+              <p className="field-description">{serverText(busNote, busNoteKey)}</p>
+            )}
             <GroupLabel as={mobile ? "h2" : "h3"}>
               {copy.connectedCount(connected)}
             </GroupLabel>
@@ -127,7 +131,7 @@ export default function ProjectAgentBus({
                     : session.registered
                       ? commonCopy.connected
                       : session.status === "running"
-                        ? copy.waitingForSignIn
+                        ? copy.waitingForRegistration
                         : commonCopy.ended;
                   return (
                     <article className="project-agentbus-session" key={session.id}>
@@ -140,7 +144,9 @@ export default function ProjectAgentBus({
                         {reloadRequired ? (
                           <p>{copy.reloadRequiredDescription}</p>
                         ) : (
-                          session.reason && <p>{session.reason}</p>
+                          session.reason && (
+                            <p>{serverText(session.reason, session.reasonKey)}</p>
+                          )
                         )}
                       </div>
                       <span className="agentbus-pending">

@@ -298,7 +298,8 @@ test("MCP stdin transport exposes tools and uses registered launch identity with
   assert.equal(await ended, 0, error);
   const replies = output.trim().split("\n").map(JSON.parse);
   assert.equal(replies.find((row) => row.id === 2).result.tools.length, 3);
-  assert.match(replies.find((row) => row.id === 3).result.content[0].text, /Keine neuen/);
+  const empty = replies.find((row) => row.id === 3).result.content[0].text;
+  assert.match(empty, /No new messages/);
 });
 test("legacy helper coverage: launch registry and bus storage refuse traversal and symlinks; stale PIDs do not register as live", async (t) => {
   const ctx = await setup(t);
@@ -526,9 +527,8 @@ for (const tool of ["codex", "claude"]) {
       });
     const intro = JSON.parse(await runHook("SessionStart")).hookSpecificOutput
       .additionalContext;
-    assert.match(intro, /nur nach einem Nachrichtenhinweis/);
-    assert.match(intro, /nicht periodisch/);
-    assert.doesNotMatch(intro, /Prüfe inbox_read vor/);
+    assert.match(intro, /only after a message notice/);
+    assert.match(intro, /never periodically/);
     assert.equal(await runHook("UserPromptSubmit"), "");
     const { trustedPeers: brokerPeers } =
       await import("../../server/features/agentbus/agentbus-runtime.js");
@@ -543,7 +543,7 @@ for (const tool of ["codex", "claude"]) {
         text: "Synthetic pending message",
       }),
     );
-    assert.match(await runHook("UserPromptSubmit"), /1 ungelesene Nachricht/);
+    assert.match(await runHook("UserPromptSubmit"), /1 unread message/);
     const { requestBus } = await import("../helpers/agentbus-broker.js");
     const read = await requestBus(launch.env, "tools/call", {
       name: "inbox_read",
