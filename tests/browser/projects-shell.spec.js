@@ -194,7 +194,7 @@ test.describe("English projects shell", () => {
   });
 });
 
-test("the update notice drops the hidden app header's offset on phones", async ({
+test("the update notice sits below the projects page header on phones", async ({
   page,
 }) => {
   await page.setViewportSize(phone);
@@ -208,7 +208,11 @@ test("the update notice drops the hidden app header's offset on phones", async (
   await page.evaluate(() => dispatchEvent(new Event("agentpier-update-available")));
   const notice = page.locator(".update-notice");
   await expect(notice).toBeVisible();
-  expect((await notice.boundingBox()).y).toBe(8);
+  // Not 62 px lower for the hidden app header, and not over the page's own header.
+  const headerBox = await page.locator(".settings-shell-header").boundingBox();
+  expect((await notice.boundingBox()).y).toBe(
+    Math.round(headerBox.y + headerBox.height) + 8,
+  );
 });
 
 test("the phone subtitle shows no fake zero when every source fails", async ({
