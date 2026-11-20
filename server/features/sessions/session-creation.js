@@ -52,6 +52,24 @@ function startedByRecord(value) {
  * and the public session record (`${id}.json`). Owns none of the tmux/process
  * control that follows a successful write; that stays with `SessionManager.create`.
  */
+/**
+ * The message key and arguments of a name AgentPier generated (`{ key, args }`), so a
+ * browser renders it in its own language; {} for none or an invalid one.
+ */
+export function nameMessageFields(message) {
+  if (!message || typeof message !== "object") return {};
+  const { key, args = [] } = message;
+  if (typeof key !== "string" || !/^[A-Za-z][\w-]*(?:\.[A-Za-z][\w-]*)+$/.test(key))
+    return {};
+  if (
+    !Array.isArray(args) ||
+    args.length > 4 ||
+    args.some((arg) => typeof arg !== "string" || arg.length > 200)
+  )
+    return {};
+  return { nameKey: key, nameArgs: [...args] };
+}
+
 export async function buildSessionLaunch(manager, options) {
   if (!options || typeof options !== "object")
     throw failure(serverMessages.sessions.invalidOptions);
@@ -75,6 +93,11 @@ export async function buildSessionLaunch(manager, options) {
     if (!ticket) throw failure(serverMessages.sessions.invalidOptions);
   }
   const name = validName(options.name);
+  if (
+    options.nameMessage !== undefined &&
+    !nameMessageFields(options.nameMessage).nameKey
+  )
+    throw failure(serverMessages.sessions.invalidOptions);
   if (!(isCodingCli(tool) || tool === "shell"))
     throw failure(serverMessages.sessions.invalidTool);
   if (
@@ -171,6 +194,7 @@ export async function buildSessionLaunch(manager, options) {
     ...(ticket ? { ticket } : {}),
     ...(options.launchMode ? { launchMode: options.launchMode } : {}),
     ...(options.purpose === "login" ? { purpose: "login" } : {}),
+    ...nameMessageFields(options.nameMessage),
     ...(options.agentbus
       ? {
           agentbus: {

@@ -14,6 +14,7 @@ import SidebarGroup, { SidebarGroupActions } from "./SidebarGroup.jsx";
 import useSearchDialog from "./search-dialog.js";
 import { isMacPlatform } from "./search-shortcut.js";
 import { routePath } from "./routes.js";
+import { accessMode } from "./access-mode.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
 import { codingRoute } from "../features/coding/routes.js";
@@ -152,7 +153,7 @@ export default function Sidebar({
             {copy.brandLabel}
             <span className="brand-dot">.</span>
           </span>
-          <span className="local-badge">{copy.localBadge}</span>
+          <span className="local-badge">{copy.badges[accessMode(state).reach]}</span>
         </button>
         <SidebarMenu
           {...{

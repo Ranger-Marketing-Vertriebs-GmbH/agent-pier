@@ -292,6 +292,9 @@ export class SessionManager {
     return this.serial(async () => {
       const session = await this.current(id);
       session.name = validName(name);
+      // The owner's own name: no longer the generated one in another language.
+      delete session.nameKey;
+      delete session.nameArgs;
       await this.save(session);
       return session;
     }, id);

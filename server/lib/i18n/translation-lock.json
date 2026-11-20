@@ -1829,7 +1829,7 @@
   "sessions.invalidTool": "de:f78900e216d9 en:3f6f986459b6",
   "sessions.invalidWorkingDirectory": "de:c5fa3451d0c6 en:82d273323e47",
   "sessions.loginModelPickerUnavailable": "de:10341eb5403b en:3321f299e9cc",
-  "sessions.loginNameSuffix": "de:0a95591746f1 en:3d87dac99628",
+  "sessions.loginName": "de:5c972bf7de5e en:6870cfda763a",
   "sessions.loginSessionOpen": "de:7ea2304a7d3a en:ffc569e80955",
   "sessions.loginStarting": "de:e39275f37e75 en:61d6611aebde",
   "sessions.nativeBindingAlreadyExists": "de:83c4a4f5ed07 en:97167a7da5c0",

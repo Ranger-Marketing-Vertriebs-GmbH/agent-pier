@@ -25,7 +25,7 @@ export const sessions = Object.freeze({
   talkUnavailable: "The agent cannot be reached right now.",
   sandboxProfilesRateLimited:
     "Too many requests for the sandbox profiles. Please try again in a minute.",
-  loginNameSuffix: " · Sign-in",
+  loginName: (accountName) => `${accountName} · Sign-in`,
   sessionLimitReached: "At most 30 sessions at a time. Please stop a session first.",
   loginSessionOpen: (name) =>
     `The sign-in session "${name}" of this account is still open. Finish or stop it before starting a session.`,

@@ -264,6 +264,20 @@ test("a login session never persists an attachments field", async (t) => {
   assert.equal(session.attachments, undefined);
 });
 
+test("a generated name keeps its message key until the owner renames it", async (t) => {
+  const { manager, start } = await fixture(t);
+  const session = await start({
+    purpose: "login",
+    name: "Work · Anmeldung",
+    nameMessage: { key: "sessions.loginName", args: ["Work"] },
+  });
+  assert.equal(session.nameKey, "sessions.loginName");
+  assert.deepEqual(session.nameArgs, ["Work"]);
+  const renamed = await manager.rename(session.id, "Mine");
+  assert.equal(renamed.nameKey, undefined);
+  assert.equal(renamed.nameArgs, undefined);
+});
+
 test("lost tmux server marks metadata stopped without automatically relaunching", async (t) => {
   const { manager, dataDir, start, managers } = await fixture(t);
   const created = await start();

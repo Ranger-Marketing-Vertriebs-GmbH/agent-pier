@@ -39,8 +39,9 @@ you, in a column up to about 1180 px wide:
   Chrome for Testing update), **Start** for CLIs or **Connections** for the GitHub CLI.
   The ⋯ menu holds every other action (**Update CLI**, **Update browser**, **Remove**).
   **CLIs & extensions › Installation** keeps the full grid with every action.
-- A footer: your sessions keep running when you close the browser; everything runs
-  locally and only you have access.
+- A footer: your sessions keep running when you close the browser, and how AgentPier is
+  reached and by whom: locally, in your tailnet or on the network, and whether only you
+  or also other users have access.
 
 Every tile is in place from the first paint. Until its data arrives it shows grey
 skeleton bars with a slow shimmer (still with reduced motion) in the shape of its

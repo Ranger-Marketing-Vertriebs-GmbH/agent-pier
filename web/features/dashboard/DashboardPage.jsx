@@ -23,6 +23,7 @@ import PipelinesCard from "./PipelinesCard.jsx";
 import ToolRows from "./ToolRows.jsx";
 import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
 import { usePageAction } from "../../app/page-action.js";
+import { accessMode } from "../../app/access-mode.js";
 import "./start-page.css";
 import "./start-cards.css";
 
@@ -34,6 +35,12 @@ const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
  * is in place from the first paint: until its data arrives it shows skeletons in the
  * shape the page had last time (start-layout.js), so nothing moves when it loads.
  */
+// "Runs locally · only you have access", or how else AgentPier is reached and by whom.
+function footerAccess(state) {
+  const { reach, users } = accessMode(state);
+  return `${copy.reach[reach]} · ${users ? copy.withUsers(users) : copy.onlyYou}`;
+}
+
 export default function DashboardPage({
   state,
   availableTools,
@@ -225,7 +232,7 @@ export default function DashboardPage({
         <span>{copy.keepsRunning}</span>
         <span>
           <Icon name="shield" size={13} />
-          {copy.localOnly}
+          {footerAccess(state)}
         </span>
       </footer>
       {dialog && (

@@ -200,6 +200,8 @@ export function liveWriteSignals(services) {
     res.once("finish", () => {
       if (res.statusCode >= 400) return;
       for (const topic of WRITE_SIGNALED_TOPICS) services.live?.invalidate(topic);
+      // The state names how many users may sign in (workspace-state.js accessView).
+      if (area === "users") services.live?.invalidate("state");
     });
     next();
   };

@@ -171,5 +171,15 @@ export const startPageCopy = {
   systemMemory: (used, total) => `${used} / ${total}`,
   systemAgentPier: (cpu, memory) => `AgentPier: ${cpu} CPU · ${memory} RAM`,
   keepsRunning: "Your sessions keep running even when you close the browser.",
-  localOnly: "Runs locally · only you have access",
+  // The footer: where AgentPier is reached and who may sign in (access-mode.js).
+  reach: {
+    local: "Runs locally",
+    tailscale: "Reachable in your tailnet",
+    network: "Reachable on the network",
+  },
+  onlyYou: "only you have access",
+  withUsers: (count) =>
+    count === 1
+      ? "you and 1 other user have access"
+      : `you and ${count} other users have access`,
 };
