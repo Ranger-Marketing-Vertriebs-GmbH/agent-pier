@@ -20,6 +20,7 @@ export default function SearchSelect({
   const root = useRef(null),
     trigger = useRef(null),
     input = useRef(null),
+    panel = useRef(null),
     touch = useRef(false);
   const id = useId();
   const search = query ?? localQuery;
@@ -41,6 +42,7 @@ export default function SearchSelect({
   useEffect(() => {
     if (!open) return;
     input.current?.focus({ preventScroll: true });
+    revealAboveSaveBar(root.current, panel.current);
     const outside = (event) => {
       if (!root.current?.contains(event.target)) setOpen(false);
     };
@@ -83,7 +85,7 @@ export default function SearchSelect({
       </button>
       {open && (
         // Revealed as a whole above the on-screen keyboard (lib/keyboard-inset.js).
-        <div className="search-select-panel" data-keyboard-reveal="">
+        <div ref={panel} className="search-select-panel" data-keyboard-reveal="">
           <input
             ref={input}
             type="search"
@@ -161,4 +163,25 @@ export default function SearchSelect({
       )}
     </div>
   );
+}
+
+// The panel opens in the flow; a settings page's sticky save bar would cover its lower
+// part, so the page scrolls until the panel ends above the bar.
+function revealAboveSaveBar(root, panel) {
+  const bar = root?.closest(".settings-shell")?.querySelector(":scope > .save-bar");
+  if (!bar || !panel) return;
+  const overlap =
+    panel.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top;
+  if (overlap <= 0) return;
+  for (let node = root.parentElement; node; node = node.parentElement) {
+    const overflow = getComputedStyle(node).overflowY;
+    if (
+      (overflow === "auto" || overflow === "scroll") &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      node.scrollTop += overlap;
+      return;
+    }
+  }
+  document.scrollingElement?.scrollBy(0, overlap);
 }

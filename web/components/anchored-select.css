@@ -6,12 +6,20 @@
   cursor: pointer;
   touch-action: manipulation;
 }
+/* A fixed layer at the viewport's corner, in the dialog or the page (AnchoredSelect.jsx);
+   the menu is positioned in it from the field's box. */
+.anchored-layer {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  top: 0;
+  left: 0;
+  /* 100px wide, so that AnchoredSelect reads the layer's zoom from its width. */
+  width: 100px;
+  height: 0;
+}
 .anchored-options {
   position: absolute;
-  z-index: 50;
-  top: calc(100% + 6px);
-  left: 0;
-  width: 100%;
+  min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid #505155;
@@ -22,8 +30,7 @@
   scrollbar-width: thin;
 }
 .anchored-options.above {
-  top: auto;
-  bottom: calc(100% + 6px);
+  transform: translateY(-100%);
 }
 .anchored-options.searchable {
   display: flex;

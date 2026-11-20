@@ -71,6 +71,17 @@ function scrolls(element) {
   );
 }
 
+// A menu in a fixed layer (AnchoredSelect) reveals the field that opened it.
+function revealTarget(document, field) {
+  const layer = field.closest("[data-keyboard-reveal-for]");
+  const anchor =
+    layer &&
+    document.querySelector(
+      `[data-keyboard-reveal-id="${CSS.escape(layer.dataset.keyboardRevealFor)}"]`,
+    );
+  return anchor || field.closest("[data-keyboard-reveal]") || field;
+}
+
 // Scrolls each scroll container from the field up to its dialog, so that the field, or
 // the `[data-keyboard-reveal]` block around it (a search with its results), is inside
 // the container's visible part above the keyboard and clear of sticky bars (the
@@ -79,7 +90,7 @@ function revealFocusedField(document, viewport) {
   const field = document.activeElement;
   const dialog = typingField(field) ? field.closest("dialog[open]") : null;
   if (!dialog) return;
-  const target = field.closest("[data-keyboard-reveal]") || field;
+  const target = revealTarget(document, field);
   const visibleTop = viewport.offsetTop;
   const visibleBottom = viewport.offsetTop + viewport.height;
   for (let element = target.parentElement; element; element = element.parentElement) {
