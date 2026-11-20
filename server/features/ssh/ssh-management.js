@@ -7,6 +7,7 @@ import { SshCatalog } from "./ssh-catalog.js";
 import { SshAccessStore } from "./ssh-access-store.js";
 import { SshSessions } from "./ssh-sessions.js";
 import { validateSshProjectBinding } from "./ssh-project-scope.js";
+import { mainWorkTree } from "../memory/project-folders.js";
 import { projectScope } from "../memory/project-scope.js";
 import { readSshImport, sshImportPath } from "./ssh-import.js";
 import { requestReceipt, replayReceipt, saveReceipt } from "./ssh-receipts.js";
@@ -49,6 +50,17 @@ const allowed = {
 };
 const busy = () => sshProblem("SSH_BUSY", serverMessages.ssh.managementBusy, 429);
 
+/**
+ * A remembered project's name and folder: those of its main work tree when an
+ * earlier version remembered it from one of its worktrees (an agent's coding
+ * session), so pickers never list it as "agent-<id>" (AGENTPIER-444).
+ */
+function rooted(row) {
+  const root = row.kind === "git" ? mainWorkTree(row.cwd) : null;
+  return root
+    ? { name: path.basename(root), cwd: root }
+    : { name: row.name, cwd: row.cwd };
+}
 export class SshManagement {
   constructor({
     dataDir,
@@ -471,7 +483,7 @@ export class SshManagement {
         ...new Map(
           [...known, ...this.catalog.read().projects].map((row) => [
             row.id,
-            { id: row.id, name: row.name, cwd: row.cwd, kind: row.kind },
+            { id: row.id, ...rooted(row), kind: row.kind },
           ]),
         ).values(),
       ],

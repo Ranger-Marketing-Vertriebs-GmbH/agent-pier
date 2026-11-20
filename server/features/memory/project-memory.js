@@ -1,4 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
+import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { backupDatabase, openDatabase, transaction } from "./memory-database.js";
 import {
@@ -9,7 +10,11 @@ import {
   record,
 } from "./memory-validation.js";
 import { projectScope, stableIdentity, useProjectRegistry } from "./project-scope.js";
-import { classifyProjectFolder, runWorktreeRoot } from "./project-folders.js";
+import {
+  classifyProjectFolder,
+  mainWorkTree,
+  runWorktreeRoot,
+} from "./project-folders.js";
 import { gitInitRebind } from "./project-rebind.js";
 import {
   forgetEntry,
@@ -77,7 +82,26 @@ export class ProjectMemory {
     this.onForget = null;
     // An interrupted or incomplete purge of forgotten entries is retried at start.
     purgeForgotten(this);
+    this.repairWorktreeRows();
     this.leaveRegistry = useProjectRegistry((folder) => this.registeredId(folder));
+  }
+  /**
+   * Git project rows an earlier version stored with the name and folder of the
+   * worktree it first saw the project from (an agent's coding session in
+   * `<project>/.agentpier-worktrees/agent-<id>`): they take their main work tree's
+   * name and folder (AGENTPIER-444). Runs at every start; repaired rows stay as they
+   * are, so it changes nothing twice.
+   */
+  repairWorktreeRows() {
+    const rows = this.db.prepare("SELECT id,cwd FROM projects WHERE kind='git'").all();
+    const update = this.db.prepare(
+      "UPDATE projects SET name=?,cwd=? WHERE id=? AND cwd=?",
+    );
+    for (const row of rows) {
+      const root = mainWorkTree(row.cwd);
+      if (root && root !== row.cwd)
+        update.run(path.basename(root), root, row.id, row.cwd);
+    }
   }
   /**
    * The registered project of a folder identity: the most recently registered row of
@@ -164,7 +188,8 @@ export class ProjectMemory {
         } catch (error) {
           if (error.status !== 404) throw error;
         }
-      if (current?.id !== scope.id) {
+      // A row stored with one of its worktrees (same project, rooted here) moves too.
+      if (current?.id !== scope.id || current.cwd === scope.cwd) {
         const verified = await this.scope(scope.cwd);
         if (verified.id !== scope.id)
           throw failure(serverMessages.memory.projectChanged, 409);

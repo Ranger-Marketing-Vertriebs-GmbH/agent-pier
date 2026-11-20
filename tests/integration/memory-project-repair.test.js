@@ -67,10 +67,13 @@ for (const replaced of [false, true]) {
     }
   });
 }
-test("registering another valid checkout keeps the existing project launch directory", async (t) => {
+// AGENTPIER-444: a project first seen from a linked worktree is its main checkout's.
+test("a project first registered from a linked worktree is placed at its main checkout", async (t) => {
   const f = fixture(t),
     first = await f.memory.register(f.worktree);
+  assert.equal(first.cwd, f.repo);
+  assert.equal(first.name, "repo");
   const second = await f.memory.register(f.repo);
-  assert.equal(second.cwd, f.worktree);
+  assert.equal(second.cwd, f.repo);
   assert.equal(second.id, first.id);
 });
