@@ -277,7 +277,8 @@ export class CdpInput {
   }
   /**
    * Sends `calls` to tab `targetId`, attaching to it first when needed. Commands
-   * go out one after another, in the order the owner made them.
+   * go out one after another, in the order the owner made them; resolves with each
+   * call's result (the toolbar reads the tab's history so).
    */
   dispatch(targetId, calls) {
     if (this.closed) return Promise.reject(Error("closed"));
@@ -290,7 +291,7 @@ export class CdpInput {
   async dispatchNow(targetId, calls) {
     // Nothing queued reaches the page once the owner handed the browser back.
     if (this.closed) throw Error("closed");
-    if (!calls.length) return;
+    if (!calls.length) return [];
     await this.connect();
     if (this.targetId !== targetId || !this.sessionId) {
       const previous = this.sessionId;
@@ -306,7 +307,10 @@ export class CdpInput {
       this.sessionId = sessionId;
       this.targetId = targetId;
     }
-    for (const [method, params] of calls) await this.send(method, params, this.sessionId);
+    const results = [];
+    for (const [method, params] of calls)
+      results.push(await this.send(method, params, this.sessionId));
+    return results;
   }
   close() {
     this.closed = true;

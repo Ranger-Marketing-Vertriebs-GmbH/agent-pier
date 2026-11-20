@@ -9,6 +9,8 @@ import { BrowserLiveView } from "../../server/features/assistants/browser-live-v
 // which sends OpenClaw's ready message and one binary frame per ticket.
 async function fakeGateway(t) {
   const tickets = [];
+  // The takeover toolbar's calls: navigation and tab routes.
+  const calls = [];
   const server = http.createServer();
   const wss = new WebSocketServer({ server });
   const connected = [];
@@ -38,7 +40,7 @@ async function fakeGateway(t) {
   const base = `ws://127.0.0.1:${server.address().port}`;
   const client = {
     ready: true,
-    request: async (_method, { method, path, body }) => {
+    request: async (_method, { method, path, query, body }) => {
       if (path === "/") return { running: true };
       if (path === "/tabs")
         return {
@@ -47,6 +49,10 @@ async function fakeGateway(t) {
             { targetId: "t2", title: "Two", url: "https://b.example/" },
           ],
         };
+      if (["/navigate", "/tabs/focus"].includes(path) || method === "DELETE") {
+        calls.push({ method, path, query, body });
+        return { ok: true };
+      }
       if (method === "POST" && path === "/screencast") {
         tickets.push(body);
         const token = `token-${tickets.length}`;
@@ -60,7 +66,7 @@ async function fakeGateway(t) {
     },
     openStream: (wsPath) => new WebSocket(base + wsPath),
   };
-  return { client, tickets, connected };
+  return { client, tickets, connected, calls };
 }
 
 test("the owner watches an agent's browser through the authenticated stream", async (t) => {
@@ -146,7 +152,17 @@ async function fakeCdp(t) {
       const message = JSON.parse(String(raw));
       events.push(message);
       const result =
-        message.method === "Target.attachToTarget" ? { sessionId: "S1" } : {};
+        message.method === "Target.attachToTarget"
+          ? { sessionId: "S1" }
+          : message.method === "Page.getNavigationHistory"
+            ? {
+                currentIndex: 1,
+                entries: [
+                  { id: 5, url: "https://start.example/" },
+                  { id: 6, url: "https://a.example/" },
+                ],
+              }
+            : {};
       ws.send(JSON.stringify({ id: message.id, result }));
     }),
   );
@@ -232,4 +248,96 @@ test("the owner takes over: input goes to the agent's tab over CDP, then hands b
   await until(() => last().control.held === false);
   assert.deepEqual(handBacks, [["a", "owner"]]);
   ws.close();
+});
+
+test("the holder's browser toolbar navigates, goes back, reloads and switches tabs", async (t) => {
+  const gateway = await fakeGateway(t);
+  const cdp = await fakeCdp(t);
+  const f = await applicationFixture(t);
+  const live = new BrowserLiveView({
+    browsers: {
+      viewProfile: () => ({
+        name: "agent-a",
+        entry: { headless: false, cdpPort: cdp.port },
+      }),
+      viewReason: () => "noProfile",
+      watched: () => {},
+    },
+    runtime: { client: gateway.client },
+    pollMs: 60_000,
+    retryMs: 50,
+    lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+  });
+  t.after(() => live.close());
+  f.application.assistants = { liveView: live, close: async () => {} };
+  const ws = new WebSocket(
+    `${f.url.replace("http:", "ws:")}/api/assistants/a/browser-stream`,
+    {
+      origin: f.url,
+      headers: { cookie: f.cookie },
+    },
+  );
+  const messages = [];
+  ws.on("message", (data, binary) => !binary && messages.push(JSON.parse(String(data))));
+  await new Promise((r) => ws.on("open", r));
+  const until = async (check) => {
+    for (let n = 0; n < 200 && !check(); n++) await new Promise((r) => setTimeout(r, 10));
+    assert.ok(check());
+  };
+  const last = () => messages.filter((m) => m.type === "state").at(-1)?.state;
+  const errors = () => messages.filter((m) => m.type === "error").map((m) => m.code);
+  await until(() => last()?.status === "live");
+  // Watching only: the toolbar's commands are refused.
+  ws.send(JSON.stringify({ type: "navigate", action: "go", url: "b.example" }));
+  await until(() => errors().includes("NOT_HOLDER"));
+  assert.equal(gateway.calls.length, 0);
+  ws.send(JSON.stringify({ type: "take" }));
+  await until(() => last().control.mine === true);
+  ws.send(JSON.stringify({ type: "navigate", action: "go", url: "b.example/x" }));
+  await until(() => gateway.calls.length === 1);
+  assert.deepEqual(gateway.calls[0], {
+    method: "POST",
+    path: "/navigate",
+    query: { profile: "agent-a" },
+    body: { url: "https://b.example/x", targetId: "t1" },
+  });
+  // The private-network rule of the agent browser: a loopback address is refused.
+  ws.send(
+    JSON.stringify({ type: "navigate", action: "go", url: "http://127.0.0.1:4380/" }),
+  );
+  await until(() => errors().includes("NAVIGATION_BLOCKED"));
+  assert.equal(gateway.calls.length, 1);
+  ws.send(JSON.stringify({ type: "navigate", action: "back" }));
+  ws.send(JSON.stringify({ type: "navigate", action: "reload" }));
+  const page = () =>
+    cdp.events
+      .filter((e) => e.method?.startsWith("Page."))
+      .map((e) => [e.method, e.params]);
+  await until(() => page().length === 3);
+  assert.deepEqual(page(), [
+    ["Page.getNavigationHistory", {}],
+    ["Page.navigateToHistoryEntry", { entryId: 5 }],
+    ["Page.reload", {}],
+  ]);
+  assert.ok(
+    cdp.events
+      .filter((e) => e.method?.startsWith("Page."))
+      .every((e) => e.sessionId === "S1"),
+  );
+  // The sign-in tab: brought to the front and shown, then closed.
+  ws.send(JSON.stringify({ type: "tab", action: "switch", targetId: "t2" }));
+  await until(() => gateway.tickets.at(-1)?.targetId === "t2");
+  assert.deepEqual(gateway.calls[1].path, "/tabs/focus");
+  assert.deepEqual(gateway.calls[1].body, { targetId: "t2" });
+  ws.send(JSON.stringify({ type: "tab", action: "close", targetId: "t2" }));
+  await until(() => gateway.calls.length === 3);
+  assert.deepEqual(gateway.calls[2], {
+    method: "DELETE",
+    path: "/tabs/t2",
+    query: { profile: "agent-a", targetIdMode: "raw" },
+    body: undefined,
+  });
+  // An unknown command still closes the socket.
+  ws.send(JSON.stringify({ type: "navigate-everything" }));
+  await new Promise((r) => ws.on("close", r));
 });

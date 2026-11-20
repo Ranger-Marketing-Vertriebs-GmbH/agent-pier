@@ -20,12 +20,15 @@ import {
   leaseMs,
   warnMs,
 } from "./browser-takeover.js";
+import { navigationAllowed } from "./browser-navigation.js";
 
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 // Viewers of one agent's browser at once (several tabs and devices of the owner).
 export const maxViewers = 8;
 // An upstream socket without a first frame by then is given up and retried.
 const openTimeoutMs = 10000;
+// An owner's typed address may take a while to load (OpenClaw waits for it).
+const navigateTimeoutMs = 30000;
 // A user's turn holds a shared browser this long after its last browser call (the
 // hand-back lease); then the browser returns to the owner.
 export const driverMs = leaseMs;
@@ -43,10 +46,14 @@ export class BrowserLiveView {
     openMs = openTimeoutMs,
     cdpInput = defaultCdpInput,
     onHandBack,
+    // The owner's browser network setting (browser-network-settings.js).
+    navigationPolicy = () => ({ allowPrivateNetwork: false }),
+    lookup,
   }) {
     Object.assign(this, { browsers, runtime, pollMs, retryMs, maxRetryMs, previewMs });
     Object.assign(this, { now, openMs, closeWaitMs });
     Object.assign(this, { cdpInput, onHandBack, leaseMs, warnMs, graceMs });
+    Object.assign(this, { navigationPolicy, lookup });
     this.streams = new Map();
     // Whose turn drives each agent's browser: a user's id, or null for the owner.
     this.drivers = new Map();
@@ -113,6 +120,14 @@ export class BrowserLiveView {
     this.driverWatchers.add(fn);
     return () => this.driverWatchers.delete(fn);
   }
+  /** Whether the owner may open `url` in an agent's browser (browser-navigation.js). */
+  navigationAllowed(url) {
+    const allowPrivateNetwork = this.navigationPolicy()?.allowPrivateNetwork === true;
+    return navigationAllowed(url, {
+      allowPrivateNetwork,
+      ...(this.lookup && { lookup: this.lookup }),
+    });
+  }
   /** Whether the owner holds agent `id`'s browser (the tool guard waits then). */
   controlled(id) {
     return !!this.streams.get(id)?.takeover.holder;
@@ -169,6 +184,9 @@ export class BrowserLiveView {
       take: ({ move = false } = {}) => stream.takeover.take(owner(), { move }),
       handBack: () => stream.takeover.handBack(owner()),
       input: (command) => stream.takeover.input(owner(), command),
+      // The browser toolbar: navigation and tabs, the holder's only.
+      navigate: async (command) => stream.takeover.navigate(owner(), command),
+      tab: async (command) => stream.takeover.tab(owner(), command),
     };
   }
   drop(stream) {
@@ -249,13 +267,54 @@ class LiveStream {
     const { browsers, runtime } = this.live;
     return browsers.ready ? browsers.ready(this.agent()) : hostReady(runtime);
   }
-  request(method, path, body) {
+  request(method, path, body, { query, timeoutMs } = {}) {
     return this.port().request({
       method,
       path,
-      query: { profile: this.profile },
+      query: { profile: this.profile, ...query },
       body,
+      ...(timeoutMs && { timeoutMs }),
     });
+  }
+  /**
+   * Opens `url` in the shown tab through the runtime's POST /navigate: OpenClaw
+   * applies the agent's navigation policy (ssrfPolicy) to it as to the agent's own.
+   */
+  async navigate(url) {
+    const targetId = this.state.targetId;
+    try {
+      await this.request(
+        "POST",
+        "/navigate",
+        { url, ...(targetId && { targetId }) },
+        { timeoutMs: navigateTimeoutMs },
+      );
+    } catch (error) {
+      const blocked = /blocked|not allowed|ssrf|private network/i.test(
+        `${error?.code || ""} ${error?.message || ""}`,
+      );
+      throw Object.assign(Error("navigation"), {
+        code: blocked ? "NAVIGATION_BLOCKED" : "NAVIGATION_FAILED",
+        cause: error,
+      });
+    } finally {
+      this.wake();
+    }
+  }
+  /** Brings tab `targetId` to the front in the browser and shows it. */
+  async focusTab(targetId) {
+    await this.request("POST", "/tabs/focus", { targetId });
+    this.select(targetId);
+  }
+  /** Closes tab `targetId`; the refresh then lists the rest. */
+  async closeTab(targetId) {
+    try {
+      await this.request("DELETE", `/tabs/${encodeURIComponent(targetId)}`, undefined, {
+        query: { targetIdMode: "raw" },
+      });
+    } finally {
+      this.wake();
+    }
   }
   /** Refreshes now and keeps polling while viewers stay. */
   wake() {
