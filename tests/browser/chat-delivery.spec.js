@@ -432,7 +432,11 @@ for (const copy of [
       await expect(output.locator("summary")).toContainText(
         copy.locale === "en-GB" ? "Shell output" : "Shell-Ausgabe",
       );
-      await expect(output.locator(".tool-output-label")).toHaveText(["stdout", "stderr"]);
+      await expect(output.locator(".tool-output-label")).toHaveText(
+        copy.locale === "en-GB"
+          ? ["Standard output", "Error output"]
+          : ["Standardausgabe", "Fehlerausgabe"],
+      );
       await expect(output).toContainText("README.md");
       await expect(output).toContainText("Shell cwd was reset");
       await expect(page.locator("body")).not.toContainText("bash-");
@@ -467,7 +471,9 @@ for (const copy of [
           ? "Earlier output omitted ("
           : "Ältere Ausgabe ausgelassen (",
       );
-      await expect(long.locator(".tool-output-label")).toHaveText(["stdout"]);
+      await expect(long.locator(".tool-output-label")).toHaveText([
+        copy.locale === "en-GB" ? "Standard output" : "Standardausgabe",
+      ]);
       await expect(page.locator("body")).not.toContainText('{"stdout"');
       await page.locator(".chat-tool-group > .activity-row-head").click();
       const agent = page.locator('details.chat-tool[data-message-id="call"]');

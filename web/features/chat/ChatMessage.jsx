@@ -11,7 +11,10 @@ import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import { projectLinkPath } from "./chat-file-link.js";
 import { artifactLink } from "../artifacts/artifact-return-link.js";
 import ChatImages from "./ChatImages.jsx";
-import { providerNames } from "./presentation.js";
+import Icon from "../../components/Icon.jsx";
+import { chatAttachmentsCopy } from "../../lib/i18n/messages/chat.js";
+import { userAttachments } from "./user-attachments.js";
+import { providerNames, toolDisplayName } from "./presentation.js";
 import { subagentRowStatus, subagentStatusLabel } from "./subagent-presentation.js";
 import { observedAgent, usageSummary } from "./token-presentation.js";
 import { connectionsRoutePath } from "../connections/routes.js";
@@ -57,7 +60,7 @@ export default function Message({
               ? copy.subagentLabel(subagent.description, subagent.type)
               : message.shellOutput
                 ? copy.shellOutputLabel
-                : message.toolName || copy.chatToolLabel}
+                : toolDisplayName(message.toolName)}
           </strong>
           <small className={blocked ? "chat-tool-sandbox" : undefined}>
             {subagent
@@ -105,7 +108,11 @@ export default function Message({
                   )}
                 </p>
               )}
-              <ToolOutput text={message.text} toolName={message.toolName} />
+              <ToolOutput
+                text={message.text}
+                toolName={message.toolName}
+                shell={Boolean(message.shellOutput)}
+              />
             </>
           ))}
       </details>
@@ -131,6 +138,11 @@ export default function Message({
         <p>{message.text}</p>
       </div>
     );
+  // A user row shows the composer's attachment path lines as chips (user-attachments.js).
+  const shown =
+    message.role === "user"
+      ? userAttachments(message.text, message.images)
+      : { text: message.text, files: [] };
   return (
     <article
       className={`chat-message ${message.role}${streaming ? " streaming" : ""}`}
@@ -195,10 +207,29 @@ export default function Message({
             },
           }}
         >
-          {message.text}
+          {shown.text}
         </ChatMarkdown>
       </div>
-      <ChatImages images={message.images} sessionId={sessionId} />
+      {shown.files.length > 0 && (
+        <ul
+          className="chat-attachment-list chat-message-attachments"
+          aria-label={chatAttachmentsCopy.listAriaLabel}
+        >
+          {shown.files.map((file, index) => (
+            <li key={`${file.path}-${index}`} className="chat-attachment-chip">
+              <Icon name="file" size={16} />
+              <span className="chat-attachment-name" title={file.path}>
+                {file.name}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ChatImages
+        images={message.images}
+        sessionId={sessionId}
+        fileName={message.role === "user"}
+      />
     </article>
   );
 }

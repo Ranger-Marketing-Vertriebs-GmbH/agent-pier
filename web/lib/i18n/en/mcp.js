@@ -52,6 +52,13 @@ export const mcpCopy = {
   revoked: "Revoked",
   revoke: "Revoke access",
   confirmRevoke: "Revoke now",
+  sessionRevokeTitle: (name) => `Revoke AgentPier tools for "${name}"?`,
+  sessionRevokeBody:
+    "The CLI loses its AgentPier tools immediately. You can grant them again later; they return with the next Reload & resume.",
+  grantAgain: "Grant again",
+  regranted: "Granted again",
+  regrantedHint:
+    "The tools return with the next Reload & resume, which restarts the CLI with this conversation.",
   revokeWarning:
     "This client will lose access immediately. Connecting again requires new browser authorization.",
   previous: "Previous grants",

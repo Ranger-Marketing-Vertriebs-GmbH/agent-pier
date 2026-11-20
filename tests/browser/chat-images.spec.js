@@ -5,6 +5,7 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jzN8AAAAASUVORK5CYII=",
   "base64",
 );
+const attachmentDir = "/data/chat-attachments/local-codex/image-session";
 const first = "a".repeat(64),
   second = "b".repeat(64),
   missing = "c".repeat(64);
@@ -76,6 +77,12 @@ async function fixture(page, large = false) {
       status: "completed",
       text: "${directory}/pending.png ...png pending.png",
       images: [item("d".repeat(64), "${directory}/pending.png")],
+    },
+    {
+      id: "user-attachments",
+      role: "user",
+      text: `Bitte prüfen\n${attachmentDir}/file-Ab12/note.txt\n${attachmentDir}/20261120T083415-ad8ce264.png`,
+      images: [item("e".repeat(64), `${attachmentDir}/20261120T083415-ad8ce264.png`)],
     },
     {
       id: "external",
@@ -254,4 +261,22 @@ test("tool image descriptors never load previews, even when the tool details are
   await expect(tool.locator("pre")).toContainText("${directory}/pending.png");
   await expect(tool.getByRole("img")).toHaveCount(0);
   expect(imageRequests.some((url) => url.endsWith("d".repeat(64)))).toBe(false);
+});
+
+test("a user's attachments show as file names, not data-folder paths", async ({
+  page,
+}) => {
+  await fixture(page);
+  await open(page);
+  const row = page.locator('[data-message-id="user-attachments"]');
+  await expect(row.locator(".message-content")).toHaveText("Bitte prüfen");
+  await expect(row.getByRole("list", { name: "Anhänge" })).toHaveText("note.txt");
+  await expect(row.locator(".chat-image-path")).toHaveText(
+    "20261120T083415-ad8ce264.png",
+  );
+  await expect(row).not.toContainText("/chat-attachments/");
+  // Assistant images keep their full path: it says where the CLI wrote them.
+  await expect(
+    page.locator(".chat-image-path").filter({ hasText: "/fixture/generated/result.png" }),
+  ).toBeVisible();
 });

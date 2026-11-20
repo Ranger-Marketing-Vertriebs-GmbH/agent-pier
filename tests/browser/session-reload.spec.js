@@ -344,6 +344,31 @@ test("unverified native conversation disables reload and German copy is availabl
   expect(state.posts).toEqual([]);
 });
 
+test("an ended session that cannot resume offers a new session in its folder", async ({
+  page,
+}) => {
+  const state = await fixture(page, "en", (state) => {
+    state.session.status = "stopped";
+    state.reload.eligible = false;
+    state.reload.reason = "native-session-unverified";
+  });
+  await open(page);
+  await expect(dialog(page)).toContainText("This session has ended");
+  await expect(dialog(page)).not.toContainText("running process");
+  await expect(
+    dialog(page).getByRole("button", { name: "Remove session", exact: true }),
+  ).toBeVisible();
+  await dialog(page)
+    .getByRole("button", { name: "New session in this folder", exact: true })
+    .click();
+  await expect(dialog(page)).toHaveAccessibleName("New session");
+  await expect(page.getByLabel("Working directory", { exact: true })).toHaveValue(
+    "/fixture",
+  );
+  await expect(page.getByLabel("CLI", { exact: true })).toHaveValue("codex");
+  expect(state.posts).toEqual([]);
+});
+
 test("confirmed validation rejection allows a corrected new request and stays visible during polling", async ({
   page,
 }) => {

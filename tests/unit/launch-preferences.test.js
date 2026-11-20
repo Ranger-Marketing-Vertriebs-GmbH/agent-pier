@@ -9,6 +9,7 @@ import {
   rememberLaunchFolder,
   rememberedLaunchFolder,
   profileLaunchAccess,
+  rememberedLaunchModel,
 } from "../../web/features/sessions/launch-preferences.js";
 
 const key = "agentpier.launch-preferences";
@@ -305,4 +306,23 @@ test("a task profile on the local login preselects a managed account", () => {
     ),
     "local-claude",
   );
+});
+
+test("a provider connection's model is remembered per CLI and connection", () => {
+  const storage = memoryStorage();
+  withStorage(storage, () => {
+    assert.equal(rememberedLaunchModel("claude", "provider:open"), "");
+    rememberLaunchChoice("claude", "provider:open", { modelId: "gpt-test" });
+    rememberLaunchChoice("codex", "provider:open", { modelId: "gpt-codex" });
+    // An account launch keeps the connection's model for next time.
+    rememberLaunchChoice("claude", "claude-a", { modelId: "ignored" });
+    assert.equal(rememberedLaunchModel("claude", "provider:open"), "gpt-test");
+    assert.equal(rememberedLaunchModel("codex", "provider:open"), "gpt-codex");
+    assert.equal(rememberedLaunchModel("claude", "claude-a"), "");
+    assert.equal(rememberedLaunchModel("claude", "provider:other"), "");
+  });
+  for (const raw of ['{"models":[]}', '{"models":{"claude provider:open":7}}', "{"])
+    withStorage(memoryStorage({ [key]: raw }), () =>
+      assert.equal(rememberedLaunchModel("claude", "provider:open"), "", raw),
+    );
 });

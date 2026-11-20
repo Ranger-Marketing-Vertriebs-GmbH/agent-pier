@@ -14,6 +14,10 @@ export function sessionsRoutes(services) {
     await sessions.get(req.params.id);
     res.json(await services.sessionMcp.revoke(req.params.id));
   });
+  router.post("/sessions/:id/mcp", async (req, res) => {
+    await sessions.get(req.params.id);
+    res.json(publicSession(await services.sessionMcp.restore(req.params.id)));
+  });
   router.post("/sessions", async (req, res) =>
     res.status(201).json(publicSession(await launch(req.body))),
   );

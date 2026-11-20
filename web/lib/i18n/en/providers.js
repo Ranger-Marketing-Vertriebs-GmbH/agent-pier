@@ -6,6 +6,7 @@ export const providerCopy = {
   model: "Provider model",
   chooseModel: "Choose model",
   missingModel: "The saved model is unavailable in the current catalog.",
+  modelRequired: "Choose a model to start the session.",
   noModels: "No matching models found for this CLI.",
   contextRequired: "context required",
   modelsNeedContext: (count) =>

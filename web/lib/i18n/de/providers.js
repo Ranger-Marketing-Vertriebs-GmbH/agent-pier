@@ -6,6 +6,7 @@ export const providerCopy = {
   model: "Anbietermodell",
   chooseModel: "Modell auswählen",
   missingModel: "Gespeichertes Modell ist im aktuellen Katalog nicht verfügbar.",
+  modelRequired: "Wähle ein Modell, um die Session zu starten.",
   noModels: "Keine passenden Modelle für diese CLI gefunden.",
   contextRequired: "Kontext erforderlich",
   modelsNeedContext: (count) =>

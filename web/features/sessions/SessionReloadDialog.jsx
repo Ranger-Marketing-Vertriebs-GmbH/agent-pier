@@ -21,6 +21,9 @@ export default function SessionReloadDialog({
   pending,
   openTerminal,
   switchAccount = false,
+  // Ways out of a session that has ended and cannot resume (no native conversation).
+  startNew,
+  remove,
 }) {
   const reload = useSessionReload(session, pending);
   const [interrupt, setInterrupt] = useState(false);
@@ -36,6 +39,14 @@ export default function SessionReloadDialog({
     data && !["idle", "stopped"].includes(data.activity?.state ?? data.activity);
   const choosing = data?.eligible && !active && !reload.pending;
   const target = switchAccount ? targetAccountId : undefined;
+  // An ended session without a verified conversation has no process to keep and
+  // nothing to resume: say so and offer a new session in its folder or removal.
+  const ended =
+    data &&
+    !data.eligible &&
+    !active &&
+    data.reason === "native-session-unverified" &&
+    session.status !== "running";
   const actions = [
     choosing &&
       switchAccount &&
@@ -88,6 +99,16 @@ export default function SessionReloadDialog({
         onClick={() => reload.submit()}
       >
         {copy.retry}
+      </button>
+    ),
+    ended && remove && (
+      <button key="remove" className="button secondary" onClick={remove}>
+        {copy.remove}
+      </button>
+    ),
+    ended && startNew && (
+      <button key="start-new" className="button primary" onClick={startNew}>
+        {copy.startNew}
       </button>
     ),
     !data && error && (
@@ -148,9 +169,11 @@ export default function SessionReloadDialog({
       )}
       {data && !data.eligible && !active && (
         <p className="dialog-status" role="status">
-          {data.reason === "native-session-unverified"
-            ? copy.unverified
-            : copy.unsupported}
+          {ended
+            ? copy.unverifiedStopped
+            : data.reason === "native-session-unverified"
+              ? copy.unverified
+              : copy.unsupported}
         </p>
       )}
       {choosing && switchAccount && (

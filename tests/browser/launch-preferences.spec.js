@@ -22,7 +22,10 @@ const hubPaths =
   /^\/api\/(repositories|memory\/projects|agentbus|pipeline-runs|pipelines)(\/|$)/;
 // The projects hub fixture with three CLIs, the host's local logins, two managed
 // Claude accounts (A is the configured default) and a captured session launch.
-async function launchFixture(page, { defaultAccountIds = { claude: "claude-a" } } = {}) {
+async function launchFixture(
+  page,
+  { defaultAccountIds = { claude: "claude-a" }, providerConnections = [] } = {},
+) {
   const launches = [];
   await hubFixture(page, {
     intercept: async (route, url, method) => {
@@ -38,6 +41,7 @@ async function launchFixture(page, { defaultAccountIds = { claude: "claude-a" } 
               account("local-opencode", "opencode", "OpenCode"),
             ],
             defaultAccountIds,
+            providerConnections,
             sessions: [],
             home: "/work",
           },
@@ -237,4 +241,49 @@ test("a merely preselected local login and a task profile give way to a managed 
   await expect(field(page, "Zugang")).toHaveValue("claude-a");
   await field(page, "Aufgabenprofil").selectOption("");
   await expect(field(page, "Zugang")).toHaveValue("claude-a");
+});
+
+test("a provider connection starts on its last model and says when one is missing", async ({
+  page,
+}) => {
+  const connection = {
+    id: "azure",
+    name: "Azure",
+    providerId: "endpoint",
+    tools: ["claude"],
+    launchable: true,
+    endpoint: {
+      models: [
+        { modelId: "gpt-a", label: "GPT A", contextTokens: 128000 },
+        { modelId: "gpt-b", label: "GPT B", contextTokens: 128000 },
+      ],
+    },
+  };
+  const launches = await launchFixture(page, { providerConnections: [connection] });
+  await page.goto(base);
+  await openNewSession(page);
+  const dialog = page.getByRole("dialog");
+  await field(page, "CLI").selectOption("claude");
+  await field(page, "Zugang").selectOption("provider:azure");
+  const start = dialog.getByRole("button", { name: "Session starten", exact: true });
+  await expect(start).toBeDisabled();
+  await expect(
+    dialog.getByText("Wähle ein Modell, um die Session zu starten."),
+  ).toBeVisible();
+  await field(page, "Anbietermodell").selectOption("gpt-b");
+  await start.click();
+  await expect(dialog).toHaveCount(0);
+  expect(launches[0]).toMatchObject({
+    providerConnectionId: "azure",
+    providerModelId: "gpt-b",
+  });
+
+  await openNewSession(page);
+  await expect(field(page, "Zugang")).toHaveValue("provider:azure");
+  await expect(field(page, "Anbietermodell")).toHaveValue("gpt-b");
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Session starten", exact: true }),
+  ).toBeEnabled();
 });

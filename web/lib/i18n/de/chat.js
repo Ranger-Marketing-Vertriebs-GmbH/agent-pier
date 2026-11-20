@@ -59,6 +59,20 @@ export const chatMessageCopy = {
   replyStreaming: "schreibt …",
   chatToolLabel: "Tool-Aktivität",
   shellOutputLabel: "Shell-Ausgabe",
+  // Names AgentPier gives tool rows the CLI leaves unnamed (history-parsers.js).
+  toolNames: {
+    command: "Befehl",
+    fileChange: "Dateiänderung",
+    tool: "Tool",
+    viewImage: "Bild ansehen",
+    webSearch: "Websuche",
+  },
+  // The streams of a shell-output row (shell-output.js).
+  shellStreams: {
+    output: "Ausgabe",
+    stdout: "Standardausgabe",
+    stderr: "Fehlerausgabe",
+  },
   shellOutputOmitted: (size) => `Ältere Ausgabe ausgelassen (${size})`,
   toolDetails: "Details",
   sandboxBlocked: "Wahrscheinlich von der Sandbox blockiert",

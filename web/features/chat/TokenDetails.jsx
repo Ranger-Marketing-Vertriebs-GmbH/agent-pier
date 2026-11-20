@@ -4,6 +4,7 @@ import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { relativeTime } from "../projects/ProjectOverview.jsx";
 import {
   currentBuckets,
+  formatCredits,
   formatTokens,
   formatUsd,
   lowerBoundShown,
@@ -58,7 +59,7 @@ function SubagentLine({ subagents }) {
 function Credits({ credits }) {
   if (credits?.unlimited) return <span>{copy.creditsUnlimited}</span>;
   if (credits?.hasCredits && credits.balance !== null)
-    return <span>{copy.credits(credits.balance)}</span>;
+    return <span>{copy.credits(formatCredits(credits.balance))}</span>;
   return null;
 }
 

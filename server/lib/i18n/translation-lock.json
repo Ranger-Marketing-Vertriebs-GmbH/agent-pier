@@ -980,6 +980,7 @@
   "mcp.projectRequired": "de:1d3c6b80b0e0 en:93ac98c46bfe",
   "mcp.reservedSessionMcpName": "de:a959873a01e2 en:501deb7485ef",
   "mcp.sessionAccessRevoked": "de:84717cb34365 en:227498dc9664",
+  "mcp.sessionToolsNotRevoked": "de:666308137eb2 en:4fb1120fbff0",
   "mcp.unavailableResources": "de:66a1b565ce4d en:8b186b1c233d",
   "mcpDirectory.disabled": "de:03f17a571400 en:ecf81d1a5cff",
   "mcpDirectory.invalid": "de:159b79c219ea en:9fcd6692dc7c",

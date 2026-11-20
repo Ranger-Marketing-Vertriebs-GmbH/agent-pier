@@ -150,6 +150,10 @@ export const sessionReloadCopy = {
   unsupported: "This session cannot be reloaded.",
   unverified:
     "The native conversation has not been verified yet. The running process will stay untouched.",
+  unverifiedStopped:
+    "This session has ended and its native conversation could not be verified, so it cannot be resumed. Start a new session in the same folder, or remove this one.",
+  startNew: "New session in this folder",
+  remove: "Remove session",
   failed: "Reload failed. You can retry with the same conversation.",
   requestFailed:
     "The reload request could not be confirmed. Retry the same request to safely check its result.",

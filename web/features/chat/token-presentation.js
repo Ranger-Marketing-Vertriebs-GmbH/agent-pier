@@ -20,6 +20,18 @@ export function formatUsd(value) {
   });
 }
 
+/** A Codex credits balance arrives as a decimal string such as "60363.7510000000". */
+export function formatCredits(balance) {
+  if (typeof balance !== "string" || !balance) return null;
+  const value = Number(balance);
+  if (!/^-?\d+(\.\d+)?$/.test(balance.trim()) || !Number.isFinite(value)) return balance;
+  const digits = Number.isInteger(value) ? 0 : 2;
+  return formatNumber(value, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 export function formatDuration(ms) {
   if (tokenCount(ms) === null) return null;
   const seconds = Math.round(ms / 1000);

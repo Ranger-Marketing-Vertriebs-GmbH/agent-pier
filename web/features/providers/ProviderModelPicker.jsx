@@ -46,6 +46,11 @@ export default function ProviderModelPicker({
           ]}
         />
       </label>
+      {!catalog.loading && !modelId && catalog.models.length > 0 && (
+        <p className="field-description" role="status">
+          {copy.modelRequired}
+        </p>
+      )}
       {!catalog.loading && modelId && !selected && !inUnavailable && (
         <p className="field-description">{copy.missingModel}</p>
       )}

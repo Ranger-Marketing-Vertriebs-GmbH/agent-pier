@@ -4,6 +4,7 @@ import api from "../../lib/api.js";
 import {
   preferredLaunchAccess,
   profileLaunchAccess,
+  rememberedLaunchModel,
   rememberedLaunchTool,
 } from "./launch-preferences.js";
 export function launchAccesses(state, tool) {
@@ -48,7 +49,11 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     [accessRemembered, setAccessRemembered] = useState(start.accessRemembered),
     // The owner chose this access in the dialog (or chose it last time and kept it).
     [accessPicked, setAccessPicked] = useState(start.accessPicked),
-    [modelId, setModel] = useState(initialProfile?.config.models.default || ""),
+    [modelId, setModel] = useState(
+      () =>
+        initialProfile?.config.models.default ||
+        rememberedLaunchModel(start.tool, start.accessId),
+    ),
     [nativeModelId, setNativeModel] = useState(
       initialProfile?.config.models.default || "",
     ),
@@ -75,8 +80,9 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     );
   const catalog = useConnectionModels(connection, tool),
     selectedModel = catalog.models.find((model) => model.modelId === modelId);
-  function resetModel() {
-    setModel("");
+  // A provider connection starts on the model last launched with it.
+  function resetModel(nextTool, nextAccess) {
+    setModel(rememberedLaunchModel(nextTool, nextAccess));
     setNativeModel("");
     setQuery("");
   }
@@ -87,14 +93,14 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     setAccess(preferred.accessId);
     setAccessRemembered(preferred.remembered);
     setAccessPicked(preferred.picked);
-    resetModel();
+    resetModel(value, preferred.accessId);
   }
   // `picked` is false when the dialog itself preselects, e.g. for a task profile.
   function chooseAccess(value, picked = true) {
     setAccess(value);
     setAccessRemembered(false);
     setAccessPicked(picked);
-    resetModel();
+    resetModel(tool, value);
   }
   const ready = Boolean(
     tools.some((item) => item.id === tool) &&
