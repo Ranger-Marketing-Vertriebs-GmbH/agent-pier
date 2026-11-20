@@ -207,7 +207,8 @@ Installed versions update under **Settings → Operations → Updates**, on the
 **Stable** or **Preview** channel ([release channels](docs/release-channels.md)). A
 failed start returns to the previous version. Coding CLIs update from the overview
 ([CLI updates](docs/cli-updates.md)); a CLI AgentPier installed cannot start sessions
-below its minimum version until it is updated. A source checkout updates with `git pull`,
+below its minimum version until it is updated, and a running session on an older CLI
+says so in its chat, with the way to update it. A source checkout updates with `git pull`,
 `npm ci` and `npm run build` ([updating](docs/installation.md#6-updating)).
 
 > **Upgrading from 1.x**

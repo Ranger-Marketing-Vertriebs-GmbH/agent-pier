@@ -62,4 +62,13 @@ AgentPier reads each version with `<cli> --version` in the background and keeps 
 
 **Other installations.** AgentPier cannot update a CLI installed through Homebrew, npm, another package manager or a manual download, so such a CLI below its minimum is not blocked. The **New session** dialog warns and asks you to update it with the package manager that installed it.
 
+**In the chat.** A running session whose recorded `cliVersion` is below its CLI's minimum shows a **CLI out of date** notice above the chat composer: "This Claude Code 2.1.300 is older than AgentPier supports (2.1.329). Some chat features may not work. Update it:", followed by the way to update that installation:
+
+- an installation AgentPier manages: the **Update <CLI>** button, which opens the update dialog described above;
+- Homebrew: the `brew upgrade` command for its cask or formula (for example `brew upgrade --cask claude-code`), with **Copy command**;
+- npm: `npm install -g <package>@latest` for its global package (for example `npm install -g @openai/codex@latest`), with **Copy command**;
+- anything else: a hint to update it with the package manager, installer or download it came from.
+
+AgentPier reads the installation method from the executable's resolved path (`server/features/tools/cli-install-method.js`): a `Caskroom/<name>` or `Cellar/<name>` folder means Homebrew, a `node_modules/<package>` folder npm. The tool list carries it as `installMethod` and `updateCommand` for every installation AgentPier does not manage. A session whose version could not be read never shows the notice. The notice follows the live `state` topic, which reads the installed versions again after an update through AgentPier at once and otherwise within 60 seconds, so it disappears as soon as the installed CLI is at its minimum; the running session keeps its old CLI until you [reload it](session-reload.md). A session started or reloaded with a current CLI records that version and shows no notice.
+
 If the version cannot be read (no `--version` output, a timeout or an unknown format), the dialog shows a warning and the session starts anyway. One exception: Claude Code with a custom model or endpoint needs a verified version for its context configuration. AgentPier then reads the version once more with a longer timeout and, if that also fails, refuses the launch with "The Claude Code version could not be verified". Each new or reloaded session records the CLI version it started with as `cliVersion` in its session record.

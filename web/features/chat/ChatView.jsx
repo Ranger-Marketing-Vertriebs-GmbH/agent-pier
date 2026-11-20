@@ -21,6 +21,7 @@ import ChatLiveReplies from "./ChatLiveReplies.jsx";
 import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatLimitBar from "./ChatLimitBar.jsx";
+import ChatCliVersionNotice from "./ChatCliVersionNotice.jsx";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
@@ -34,6 +35,8 @@ export default function ChatView({
   onConnection,
   openTerminal,
   openFile,
+  cliTool,
+  updateCli,
 }) {
   const {
     data,
@@ -328,6 +331,7 @@ export default function ChatView({
                 ))}
               </div>
             )}
+          <ChatCliVersionNotice session={session} tool={cliTool} update={updateCli} />
           {sessionActivity(session).limited && (
             <ChatLimitBar
               detail={session.activity.limit.detail}

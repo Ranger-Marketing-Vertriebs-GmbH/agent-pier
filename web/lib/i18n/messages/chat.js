@@ -22,3 +22,7 @@ export const chatAttachmentCopy = localizedCopy(
   en.chatAttachmentCopy,
 );
 export const chatDeliveryCopy = localizedCopy(de.chatDeliveryCopy, en.chatDeliveryCopy);
+export const chatCliVersionCopy = localizedCopy(
+  de.chatCliVersionCopy,
+  en.chatCliVersionCopy,
+);

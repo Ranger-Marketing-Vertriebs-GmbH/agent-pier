@@ -181,6 +181,17 @@ test("the tool list reports version, minimum and state for each installed coding
       },
     ],
   );
+  // Only an installation AgentPier does not manage says how it was installed.
+  assert.deepEqual(
+    tools.map((tool) => [tool.id, tool.installMethod, tool.updateCommand]),
+    [
+      ["codex", "unknown", undefined],
+      ["claude", undefined, undefined],
+      ["opencode", "unknown", undefined],
+      ["shell", undefined, undefined],
+      ["gh", undefined, undefined],
+    ],
+  );
 });
 
 test("POST /api/sessions answers an outdated CLI with a typed update_required problem", async (t) => {

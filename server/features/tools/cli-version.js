@@ -5,6 +5,8 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { planToolUpdate } from "./tool-update.js";
 import { cliDefinition, cliName, codingCliIds } from "../clis/catalog.js";
+import { cliInstallMethod } from "./cli-install-method.js";
+import { atLeast, isCliVersion } from "./cli-version-compare.js";
 
 /**
  * The oldest release of each coding CLI that AgentPier starts sessions with. These
@@ -18,27 +20,12 @@ export const MINIMUM_CLI_VERSIONS = Object.freeze(
 );
 const CLI_NAMES = Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)]));
 
-const triple = (version) => {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(typeof version === "string" ? version : "");
-  return match ? match.slice(1).map(Number) : null;
-};
-
 /** The first `major.minor.patch` in a CLI's `--version` output, or null. */
 export function parseCliVersion(output) {
   if (typeof output !== "string") return null;
   return /(?<![\d.])(\d+\.\d+\.\d+)/.exec(output)?.[1] || null;
 }
-export const isCliVersion = (version) => triple(version) !== null;
-
-/** Whether `version` is `minimum` or newer; an unparseable version never is. */
-export function atLeast(version, minimum) {
-  const found = triple(version),
-    required = triple(minimum);
-  if (!found || !required) return false;
-  for (let index = 0; index < 3; index++)
-    if (found[index] !== required[index]) return found[index] > required[index];
-  return true;
-}
+export { atLeast, isCliVersion };
 
 function runVersion(command, args, { timeout }) {
   return new Promise((resolve) => {
@@ -212,12 +199,19 @@ export async function requireCliVersion(
 
 /**
  * The tool list entries with each coding CLI's version state and whether AgentPier
- * manages its installation. Without `wait` it never waits for a probe: polled
- * lists show `checking` until the background probe has finished.
+ * manages its installation; an installation it does not manage carries how it was
+ * installed (`installMethod`: homebrew, npm or unknown) and, when known, the
+ * `updateCommand` for it (cli-install-method.js). Without `wait` it never waits
+ * for a probe: polled lists show `checking` until the background probe has finished.
  */
 export async function withCliVersions(
   tools,
-  { probe = cliVersions, wait = false, managed = () => false } = {},
+  {
+    probe = cliVersions,
+    wait = false,
+    managed = () => false,
+    method = cliInstallMethod,
+  } = {},
 ) {
   return Promise.all(
     tools.map(async (tool) => {
@@ -225,10 +219,14 @@ export async function withCliVersions(
       const { settled, version } = wait
         ? { settled: true, version: await probe.read(tool.path) }
         : await probe.peek(tool.path);
+      const managedInstall = managed(tool);
+      const install = managedInstall ? null : method(tool.path);
       return {
         ...tool,
         ...cliVersionStatus(tool.id, version, { checking: !settled }),
-        managedInstall: managed(tool),
+        managedInstall,
+        ...(install && { installMethod: install.method }),
+        ...(install?.command && { updateCommand: install.command }),
       };
     }),
   );

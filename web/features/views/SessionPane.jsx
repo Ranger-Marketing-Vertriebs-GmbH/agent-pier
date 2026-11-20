@@ -88,6 +88,7 @@ export default function SessionPane({
         key={session.id}
         session={session}
         account={state.accounts.find((item) => item.id === session.accountId)}
+        cliTool={state.tools?.find((item) => item.id === session.tool)}
         action={action}
         autoResume={autoResume}
         mode={mode}
