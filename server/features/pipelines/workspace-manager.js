@@ -312,7 +312,7 @@ export class PipelineWorkspace {
    * Local-only commits block cleanup unless the operator confirms. The run branch is
    * kept either way, so removing the worktree never discards a commit.
    */
-  async remove({ workspace, confirmLocalCommits = false }) {
+  async remove({ workspace, confirmLocalCommits = false, keepChanges = false }) {
     const stored = await this.validate(workspace),
       state = await this.inspect(stored);
     if (this.sessions) {
@@ -326,9 +326,29 @@ export class PipelineWorkspace {
             throw problem(serverMessages.pipelineWorkspaces.processesStillRunning, 409);
         }
     }
-    if (state.dirty)
-      throw problem(serverMessages.pipelineWorkspaces.uncommittedChanges, 409);
-    if (state.commits.length) {
+    // Uncommitted changes refuse with a code the delete dialog offers a way out of:
+    // kept as a commit on the run branch, which survives the worktree (AGENTPIER-429).
+    if (state.dirty && keepChanges !== true)
+      throw Object.assign(
+        problem(serverMessages.pipelineWorkspaces.uncommittedChanges, 409),
+        { code: "PIPELINE_UNCOMMITTED_CHANGES" },
+      );
+    if (state.dirty) {
+      await git(stored.cwd, ["add", "--all"]);
+      await git(stored.cwd, [
+        "-c",
+        "user.name=AgentPier",
+        "-c",
+        "user.email=agentpier@localhost",
+        "commit",
+        "--no-verify",
+        "--quiet",
+        "-m",
+        `WIP: uncommitted changes of pipeline run ${stored.runId}`,
+      ]);
+      confirmLocalCommits = true;
+    }
+    if (state.commits.length && confirmLocalCommits !== true) {
       const unpublished = await git(stored.cwd, [
         "rev-list",
         "--count",

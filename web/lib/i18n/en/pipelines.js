@@ -109,6 +109,7 @@ export const pipelineCopy = {
   confirmTitles: {
     delete: (run) => `Delete run “${run}”?`,
     "delete-local": (run) => `Remove the worktree of “${run}”?`,
+    "delete-changes": (run) => `Keep the uncommitted changes of “${run}”?`,
     abort: (run) => `Stop run “${run}”?`,
     override: (run) => `Override the current stage of “${run}”?`,
     "create-pr": (run) => `Create or update the pull request of “${run}”?`,
@@ -411,6 +412,9 @@ export const pipelineCopy = {
   deleteLocalCommits:
     "This worktree has commits that exist only locally, for example because the repository has no remote. Removing the worktree keeps them on the run branch.",
   deleteKeepBranch: "Remove worktree, keep branch",
+  deleteUncommitted:
+    "This run's worktree has uncommitted changes, so it cannot simply be removed. Deleting the run commits them as a work-in-progress commit to the run branch, which is kept, and then removes the worktree.",
+  deleteKeepChanges: "Commit changes and delete",
   overrides: "Overridden results",
   overrideEntry: (time, reason) => `${time} · overrode: ${reason}`,
   cancelRun: "The active stage will be stopped. The working directory will be preserved.",

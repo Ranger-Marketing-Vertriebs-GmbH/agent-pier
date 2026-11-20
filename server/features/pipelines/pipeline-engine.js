@@ -370,13 +370,17 @@ export class PipelineEngine {
     });
     return this.get(id);
   }
-  async delete(id, { confirmLocalCommits = false } = {}) {
+  async delete(id, { confirmLocalCommits = false, keepChanges = false } = {}) {
     await this.lock(id, async () => {
       const run = this.store.get(id);
       if (!terminal(run))
         throw problem(serverMessages.pipelines.cancelBeforeDeleting, 409);
       if (run.workspace)
-        await this.workspace.remove({ workspace: run.workspace, confirmLocalCommits });
+        await this.workspace.remove({
+          workspace: run.workspace,
+          confirmLocalCommits,
+          keepChanges,
+        });
       this.store.remove(id);
     });
   }

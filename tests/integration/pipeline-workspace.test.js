@@ -436,3 +436,28 @@ test("the pull request state reads merged, closed, armed and open", async (t) =>
       });
     });
 });
+
+// A stopped run with uncommitted changes (AGENTPIER-429): the refusal says so with a
+// code, and deleting with keepChanges commits them to the kept run branch first.
+test("uncommitted changes are kept as a commit on the run branch when the owner asks", async (t) => {
+  const { project, dataDir, git } = await fixture(t);
+  const manager = new PipelineWorkspace({ dataDir });
+  const workspace = await manager.prepare({
+    runId: "run-wip",
+    cwd: project,
+    baseBranch: "main",
+  });
+  await fs.writeFile(path.join(workspace.cwd, "tracked.txt"), "half done\n");
+  await fs.writeFile(path.join(workspace.cwd, "new.txt"), "new\n");
+  await assert.rejects(manager.remove({ workspace }), {
+    code: "PIPELINE_UNCOMMITTED_CHANGES",
+    message: copy.uncommittedChanges,
+  });
+  const result = await manager.remove({ workspace, keepChanges: true });
+  assert.equal(result.keptBranch, "agentpier/run-wip");
+  await assert.rejects(fs.stat(workspace.cwd));
+  assert.match(await git("log", "-1", "--format=%s", "agentpier/run-wip"), /^WIP/);
+  assert.equal(await git("show", "agentpier/run-wip:tracked.txt"), "half done");
+  assert.equal(await git("show", "agentpier/run-wip:new.txt"), "new");
+  assert.equal(await git("branch", "--show-current"), "main");
+});

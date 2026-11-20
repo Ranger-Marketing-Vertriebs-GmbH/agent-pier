@@ -20,7 +20,7 @@ export const primaryActions = ["accept", "approve-risk", "raise-budget"];
 // Actions that change or remove the run irreversibly ask for confirmation first.
 export const confirmedActions = ["delete", "abort", "override", "create-pr"];
 // Of those, the ones that lose work or data: a danger button and Cancel focused first.
-export const destructiveActions = ["delete", "delete-local", "abort"];
+export const destructiveActions = ["delete", "delete-local", "delete-changes", "abort"];
 
 // The engine authorizes actions; publishing additionally needs a Git remote, which
 // the run workspace records (`hasRemote` false for a local-only repository). Return to
@@ -35,6 +35,10 @@ export const offeredRunActions = (run) =>
 // explicit confirmation; the run branch keeps those commits.
 export const localCommitsBlockDelete = (error) =>
   error?.code === "PIPELINE_LOCAL_COMMITS";
+// Uncommitted changes in the worktree: deleting can keep them as a commit on the run
+// branch (AGENTPIER-429).
+export const uncommittedBlockDelete = (error) =>
+  error?.code === "PIPELINE_UNCOMMITTED_CHANGES";
 
 // The members of the current parallel group that have not reported, by name.
 export function blockedMemberNames(run, group) {
@@ -61,13 +65,15 @@ function overrideDescription(run) {
 export function confirmDescription(action, run) {
   return action === "delete-local"
     ? copy.deleteLocalCommits
-    : action === "delete"
-      ? copy.deleteRun
-      : action === "abort"
-        ? copy.cancelRun
-        : action === "create-pr"
-          ? copy.prConfirm
-          : overrideDescription(run);
+    : action === "delete-changes"
+      ? copy.deleteUncommitted
+      : action === "delete"
+        ? copy.deleteRun
+        : action === "abort"
+          ? copy.cancelRun
+          : action === "create-pr"
+            ? copy.prConfirm
+            : overrideDescription(run);
 }
 
 // Sends one engine-authorized run action. Resolves true when the run was deleted.
@@ -82,13 +88,19 @@ export async function requestRunAction(
     review = false,
     resumeAt = "",
     confirmLocalCommits = false,
+    keepChanges = false,
     nodeId,
     tokenBudget,
   } = {},
 ) {
   const base = `/pipeline-runs/${encodeURIComponent(run.id)}`;
   if (action === "delete") {
-    await api(base + (confirmLocalCommits ? "?confirmLocalCommits=true" : ""), "DELETE");
+    const query = keepChanges
+      ? "?keepChanges=true"
+      : confirmLocalCommits
+        ? "?confirmLocalCommits=true"
+        : "";
+    await api(base + query, "DELETE");
     return true;
   }
   if (action === "reconcile") {
