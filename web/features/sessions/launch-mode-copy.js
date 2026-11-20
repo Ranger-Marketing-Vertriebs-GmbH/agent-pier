@@ -8,3 +8,9 @@ export const launchModeCopy = (tool, mode) =>
     "claude:bypass": [copy.claudeBypassOption, copy.claudeBypassDescription],
     "opencode:auto": [copy.opencodeAutoOption, copy.opencodeAutoDescription],
   })[`${tool}:${mode}`] || [mode, ""];
+
+/** The name of a task profile's permission mode, or the raw mode when it has none. */
+export const profileModeName = (tool, mode) =>
+  (Object.hasOwn(copy.profileModeNames, `${tool}:${mode}`) &&
+    copy.profileModeNames[`${tool}:${mode}`]) ||
+  mode;

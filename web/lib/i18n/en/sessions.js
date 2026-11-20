@@ -13,6 +13,21 @@ export const launchDialogCopy = {
   profileUnavailable: "This task profile is unavailable. Please choose another profile.",
   profileSessionHint:
     "The profile presets the launch options. Changes apply only to this session. Changing the CLI preserves instructions and parameters while resetting access, model and launch mode.",
+  // Names of a task profile's permission modes (cliTool:mode), shown instead of the
+  // CLI's raw value.
+  profileModeNames: {
+    "claude:default": "Default",
+    "claude:manual": "Manual",
+    "claude:acceptEdits": "Accept edits",
+    "claude:plan": "Plan only",
+    "claude:auto": "Auto · with safety checks",
+    "claude:dontAsk": "Don't ask",
+    "claude:bypassPermissions": "Bypass permissions · no prompts",
+    "codex:on-request": "On request · the model asks when needed",
+    "codex:never": "Never ask",
+    "opencode:ask": "Ask",
+    "opencode:auto": "Auto · approve requests automatically",
+  },
   profileMode: (mode) => `Profile · ${mode}`,
   profileModeDescription: (mode) => `Uses permission mode ${mode} from the task profile.`,
 

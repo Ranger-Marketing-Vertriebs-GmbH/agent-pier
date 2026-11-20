@@ -204,7 +204,11 @@ export class NativePipelineDriver {
   ) {
     if (nonoProfile) throw problem(serverMessages.sessions.sandboxNotForTaskProfile, 409);
     profile = standaloneProfile(profile, access, this.accounts);
-    const prompt = renderProfilePrompt(profile, params, model);
+    // Outside a pipeline run an autonomous profile has no stage or task: its kickoff
+    // stays out, the role remains (AGENTPIER-406).
+    const prompt = renderProfilePrompt(profile, params, model, {
+      kickoff: profile.config.run?.autonomous !== true,
+    });
     if (!profile.enabled) throw problem(serverMessages.pipelineProfiles.disabled, 409);
     const sessionId = randomUUID();
     return this.lifecycle.launch(

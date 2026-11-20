@@ -14,6 +14,21 @@ export const launchDialogCopy = {
     "Das Aufgabenprofil ist nicht verfügbar. Bitte wähle ein anderes Profil.",
   profileSessionHint:
     "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Session. Bei einem CLI-Wechsel bleiben die Anweisungen und Parameter erhalten; Zugang, Modell und Startmodus werden zurückgesetzt.",
+  // Names of a task profile's permission modes (cliTool:mode), shown instead of the
+  // CLI's raw value.
+  profileModeNames: {
+    "claude:default": "Standard",
+    "claude:manual": "Manuell",
+    "claude:acceptEdits": "Änderungen annehmen",
+    "claude:plan": "Nur planen",
+    "claude:auto": "Auto · mit Sicherheitsprüfung",
+    "claude:dontAsk": "Nicht fragen",
+    "claude:bypassPermissions": "Berechtigungen umgehen · keine Rückfragen",
+    "codex:on-request": "Bei Bedarf · das Modell fragt, wenn nötig",
+    "codex:never": "Nie fragen",
+    "opencode:ask": "Fragen",
+    "opencode:auto": "Auto · Anfragen automatisch bestätigen",
+  },
   profileMode: (mode) => `Profil · ${mode}`,
   profileModeDescription: (mode) =>
     `Verwendet den Berechtigungsmodus ${mode} aus dem Aufgabenprofil.`,
