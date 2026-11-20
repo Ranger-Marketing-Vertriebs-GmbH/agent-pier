@@ -199,8 +199,9 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   allowed entries as a list card with a remove button each. Each side scrolls on its
   own. The search uses the rules of `AddPicker` and renders at most 50 rows ("n weitere
   – Suche verfeinern"); a search without matches names the query. `autoFocus` puts the
-  focus in the search field when the dialog opens (on touch screens `Modal` keeps it on
-  the dialog).
+  focus in the search field, with a fine pointer only: when the dialog opens, or when
+  the picker appears in an open dialog after loading. On touch screens the focus stays
+  where it is, so no on-screen keyboard opens.
 - **Stacked** (phones, and at every width with `stacked`, for a picker that is one
   section of a larger form such as the new-session dialog): the allowed list card ends
   in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed".

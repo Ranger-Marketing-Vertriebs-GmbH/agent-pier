@@ -12,6 +12,7 @@ import {
   isAllowed,
   setGrant,
 } from "./grant-picker.js";
+import { touchQuery } from "./useModalDialog.js";
 import useMediaQuery from "../lib/useMediaQuery.js";
 import { mediaQueries } from "../lib/breakpoints.js";
 import {
@@ -98,8 +99,12 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
   const matches = filterCandidates(entries, query);
   const { rows, hidden } = visibleRows(matches);
 
+  // Mounted with its Modal, the closed dialog ignores this and `data-autofocus` lets the
+  // Modal decide; mounted later (after loading), the field takes focus itself. Touch
+  // screens keep the focus where it is, so no on-screen keyboard opens.
   useEffect(() => {
-    if (autoFocus) input.current?.focus({ preventScroll: true });
+    if (autoFocus && !window.matchMedia?.(touchQuery).matches)
+      input.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
   return (
@@ -123,39 +128,44 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
           {copy.count(matches.length, entries.length)}
         </span>
       </div>
-      <fieldset className="grant-picker-list" disabled={disabled}>
-        <legend className="visually-hidden">{listLabel}</legend>
-        {rows.map((entry, index) => {
-          const rowId = `${id}-row-${index}`;
-          return (
-            <label key={entry.id} className="grant-picker-row">
-              <input
-                type="checkbox"
-                aria-labelledby={`${rowId}-name`}
-                aria-describedby={entry.sub ? `${rowId}-sub` : undefined}
-                checked={isAllowed(entry, selected)}
-                disabled={Boolean(entry.locked)}
-                onChange={(event) =>
-                  onChange(setGrant(selected, entry.id, event.target.checked))
-                }
-              />
-              <span className="grant-picker-name" id={`${rowId}-name`}>
-                {entry.name}
-              </span>
-              {entry.sub && (
-                <span className="grant-picker-sub" id={`${rowId}-sub`}>
-                  {entry.sub}
+      {/* The div scrolls: a fieldset ignores overflow in some engines. */}
+      <div className="grant-picker-list">
+        <fieldset disabled={disabled}>
+          <legend className="visually-hidden">{listLabel}</legend>
+          {rows.map((entry, index) => {
+            const rowId = `${id}-row-${index}`;
+            return (
+              <label key={entry.id} className="grant-picker-row">
+                <input
+                  type="checkbox"
+                  aria-labelledby={`${rowId}-name`}
+                  aria-describedby={entry.sub ? `${rowId}-sub` : undefined}
+                  checked={isAllowed(entry, selected)}
+                  disabled={Boolean(entry.locked)}
+                  onChange={(event) =>
+                    onChange(setGrant(selected, entry.id, event.target.checked))
+                  }
+                />
+                <span className="grant-picker-name" id={`${rowId}-name`}>
+                  {entry.name}
                 </span>
-              )}
-              {entry.badge && <span className="badge">{entry.badge}</span>}
-            </label>
-          );
-        })}
-        {!matches.length && (
-          <p className="grant-picker-note">{copy.noMatches(query.trim())}</p>
-        )}
-        {hidden > 0 && <p className="grant-picker-note">{addPickerCopy.more(hidden)}</p>}
-      </fieldset>
+                {entry.sub && (
+                  <span className="grant-picker-sub" id={`${rowId}-sub`}>
+                    {entry.sub}
+                  </span>
+                )}
+                {entry.badge && <span className="badge">{entry.badge}</span>}
+              </label>
+            );
+          })}
+          {!matches.length && (
+            <p className="grant-picker-note">{copy.noMatches(query.trim())}</p>
+          )}
+          {hidden > 0 && (
+            <p className="grant-picker-note">{addPickerCopy.more(hidden)}</p>
+          )}
+        </fieldset>
+      </div>
     </div>
   );
 }

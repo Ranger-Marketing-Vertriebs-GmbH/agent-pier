@@ -70,6 +70,12 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
 }
+.grant-picker-list > fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 label.grant-picker-row {
   display: flex;
   flex-direction: row;
