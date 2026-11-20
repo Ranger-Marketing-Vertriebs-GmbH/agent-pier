@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
+import { addGrant, grantOption } from "../helpers/grant-picker.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { secretsFixture } from "./secrets-fixture.js";
 
@@ -37,18 +38,19 @@ test("every secret is an optional choice with its owner, sent as secretIds", asy
   const secrets = dialog(page).getByRole("group", { name: "Secrets" });
   await expect(dialog(page).getByText(/own project are always included/)).toBeVisible();
   // No project guess: a project's secret is offered like any other, with its owner.
-  const project = secrets.getByRole("checkbox", { name: "DATABASE_URL" });
-  await expect(project).toBeEnabled();
-  await expect(project).not.toBeChecked();
-  await expect(secrets.getByText("Agent app", { exact: true })).toBeVisible();
-  await expect(secrets.getByText("Global", { exact: true })).toBeVisible();
-  const global = secrets.getByRole("checkbox", { name: "GITHUB_TOKEN" });
-  await global.check();
-  await project.check();
+  const project = await grantOption(secrets, "Add secret", "DATABASE_URL");
+  await expect(project).toBeVisible();
+  await expect(project).not.toHaveAttribute("aria-disabled", "true");
+  await expect(project).toHaveAttribute("aria-selected", "false");
+  await expect(project).toContainText("Agent app");
+  const global = await grantOption(secrets, "Add secret", "GITHUB_TOKEN");
+  await expect(global).toContainText("Global");
+  await addGrant(secrets, "Add secret", "GITHUB_TOKEN");
+  await addGrant(secrets, "Add secret", "DATABASE_URL");
   await start(page);
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
   expect(state.launches[0].secretIds).toEqual(["secret-github", "secret-db"]);
-  await expect(global).toBeChecked();
+  await expect(secrets.getByText("GITHUB_TOKEN", { exact: true })).toBeVisible();
 });
 
 test("unchosen secrets send nothing, and an unreadable project list shows ids", async ({
@@ -60,8 +62,9 @@ test("unchosen secrets send nothing, and an unreadable project list shows ids", 
   );
   await openExtensions(page, "/work/docs");
   const secrets = dialog(page).getByRole("group", { name: "Secrets" });
-  await expect(secrets.getByRole("checkbox", { name: "DATABASE_URL" })).toBeEnabled();
-  await expect(secrets.getByText("project-app", { exact: true })).toBeVisible();
+  const option = await grantOption(secrets, "Add secret", "DATABASE_URL");
+  await expect(option).not.toHaveAttribute("aria-disabled", "true");
+  await expect(option).toContainText("project-app");
   await start(page);
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
   expect("secretIds" in state.launches[0]).toBe(false);

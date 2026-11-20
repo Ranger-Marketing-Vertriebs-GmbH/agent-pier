@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import CheckRow from "../../components/CheckRow.jsx";
+import GrantPicker from "../../components/GrantPicker.jsx";
 import useResource from "../../lib/useResource.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
@@ -33,23 +33,15 @@ export default function LaunchAgentChoices({ selected, change }) {
   if (!list?.length) return null;
   return (
     <div className="ssh-launch">
-      <fieldset className="check-list">
-        <legend>{copy.title}</legend>
-        {list.map((agent) => (
-          <CheckRow
-            key={agent.id}
-            title={agent.name}
-            checked={selected.includes(agent.id)}
-            onChange={(event) =>
-              change(
-                event.target.checked
-                  ? [...selected, agent.id]
-                  : selected.filter((id) => id !== agent.id),
-              )
-            }
-          />
-        ))}
-      </fieldset>
+      <GrantPicker
+        stacked
+        entries={list.map((agent) => ({ id: agent.id, name: agent.name }))}
+        selected={selected}
+        onChange={change}
+        typeLabel={copy.grantType}
+        listLabel={copy.title}
+        heading={copy.title}
+      />
       <p>{copy.hint}</p>
     </div>
   );
