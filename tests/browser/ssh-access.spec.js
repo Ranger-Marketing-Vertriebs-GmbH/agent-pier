@@ -164,6 +164,55 @@ test("an inherited access stays allowed when its explicit assignment is removed"
   await expect.poll(() => sessionPuts(state)).toEqual([{ accessIds: [] }]);
 });
 
+const manyAccesses = (state, count) =>
+  Array.from({ length: count }, (_, index) => {
+    const name = `host-${String(index + 1).padStart(2, "0")}`;
+    return { ...state.access, id: `ssh-${name}`, name, host: `${name}.example.test` };
+  });
+
+test("the split SSH dialog keeps rows and Save reachable in a short window", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 420 });
+  const state = await fixture(page);
+  state.accesses = manyAccesses(state, 40);
+  const dialog = await openSessionSsh(page);
+  await expect(dialog.locator(".grant-picker")).toHaveAttribute(
+    "data-arrangement",
+    "split",
+  );
+  const list = dialog.locator(".grant-picker-list");
+  await list.scrollIntoViewIfNeeded();
+  // Several rows fit, not just the search field.
+  expect(await list.evaluate((element) => element.clientHeight)).toBeGreaterThan(108);
+  const row = dialog.getByRole("checkbox", { name: "host-03" });
+  await row.check();
+  await expect(row).toBeChecked();
+  const save = dialog.getByRole("button", { name: "Speichern", exact: true });
+  await save.scrollIntoViewIfNeeded();
+  await expect(save).toBeInViewport({ ratio: 1 });
+  await save.click();
+  await expect.poll(() => sessionPuts(state)).toEqual([{ accessIds: ["ssh-host-03"] }]);
+});
+
+test("the split SSH dialog keeps its height while the search narrows the list", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const state = await fixture(page);
+  state.accesses = manyAccesses(state, 40);
+  const dialog = await openSessionSsh(page);
+  const height = () => dialog.evaluate((element) => element.offsetHeight);
+  const before = await height();
+  await dialog
+    .getByRole("searchbox", { name: "SSH-Zugänge durchsuchen" })
+    .fill("host-07");
+  await expect(
+    dialog.getByRole("group", { name: "SSH-Zugänge", exact: true }).getByRole("checkbox"),
+  ).toHaveCount(1);
+  expect(await height()).toBe(before);
+});
+
 test("endpoint edits invalidate confirmation and deletion requires confirmation", async ({
   page,
 }) => {
