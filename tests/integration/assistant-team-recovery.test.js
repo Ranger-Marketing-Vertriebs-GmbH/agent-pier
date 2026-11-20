@@ -191,3 +191,12 @@ test("a member run confirmed after a lost acknowledgement is running again", asy
   await f.service.reconcile();
   assert.equal(f.service.store.member(m.id).phase, "running");
 });
+test("a member's assignment is recorded as its lead's", async (t) => {
+  // AGENTPIER-445: its chat showed the assignment as the owner's own message.
+  const f = teamFixture(t),
+    { team } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  const [m] = f.service.store.members(team.id);
+  const attempt = f.assistants.ledger.getAttempt(m.attemptId);
+  assert.equal(f.service.store.context(attempt.requestId).leadName, "Parent");
+});

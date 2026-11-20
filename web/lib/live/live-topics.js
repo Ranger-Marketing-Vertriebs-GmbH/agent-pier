@@ -171,6 +171,13 @@ export const liveTopics = Object.freeze({
     interval: 10000,
     sampled: true,
   }),
+  // Like the reminders: pushed by every routine write and run result, sampled too.
+  "agent.routines": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/routines`,
+    interval: 10000,
+    sampled: true,
+  }),
   // Pushed by every pinboard write; files edited without a tool call are sampled by
   // the server while a visible tab watches.
   "agent.pinboard": Object.freeze({

@@ -261,3 +261,35 @@ test("only the owner switches whether a routine may delegate writing tasks", asy
   });
   assert.equal(on.writes, true);
 });
+test("Run once starts a daily routine now and leaves its schedule on", async (t) => {
+  // AGENTPIER-445: a daily routine had no "Run once", although the docs promised one.
+  const f = setup(t),
+    routine = await f.routines.create(f.id, f.input);
+  const job = [...f.jobs.values()][0];
+  assert.equal(job.enabled, true);
+  const receipt = await f.routines.trigger(f.id, routine.id, { eventId: "now-1" });
+  assert.equal(receipt.status, "queued");
+  const runs = f.calls.filter((c) => c.method === "cron.run");
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].input.mode, "force");
+  assert.equal([...f.jobs.values()][0].enabled, true);
+});
+test("a completed run replaces its stale Run queued receipt", async (t) => {
+  const f = setup(t),
+    routine = await f.routines.create(f.id, { ...f.input, trigger: { kind: "event" } });
+  await f.routines.trigger(f.id, routine.id, { eventId: "e1" });
+  const listed = async () => (await f.routines.list(f.id)).routines[0].lastEvent;
+  assert.equal((await listed()).status, "queued");
+  await f.reminders.complete(routine.id, {
+    jobId: [...f.jobs.keys()][0],
+    runAtMs: Date.now(),
+    status: "ok",
+    summary: "Done.",
+  });
+  assert.equal(await listed(), null);
+  // A newer Run once shows again until its own run completes (a later millisecond:
+  // a run recorded in the same one counts as after it).
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await f.routines.trigger(f.id, routine.id, { eventId: "e2" });
+  assert.equal((await listed()).status, "queued");
+});

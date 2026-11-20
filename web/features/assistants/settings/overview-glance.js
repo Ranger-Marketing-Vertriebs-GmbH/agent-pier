@@ -6,7 +6,7 @@ import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-sett
 import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantGithubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import { offersEveryCommand, shellChoice } from "../shell-level.js";
-import { followsLeadModel } from "./agent-settings-fields.js";
+import { followsLeadModel, isPersonal } from "./agent-settings-fields.js";
 
 const copy = () => assistantSettingsCopy.glance;
 const joined = (parts) => parts.filter(Boolean).join(" · ");
@@ -20,14 +20,20 @@ export function identitySummary(assistant) {
   ]);
 }
 
-/** The switched-on capabilities, the shell level and the number of skills. */
+/**
+ * The switched-on capabilities, the shell level and the number of skills. A task
+ * member runs with what its lead granted (`inherited`, as its Capabilities tab
+ * lists it), not with its own switches (AGENTPIER-445).
+ */
 export function capabilitySummary(assistant) {
-  const on = assistant.capabilities || {};
-  const shell = shellChoice(assistant);
+  const granted =
+    !isPersonal(assistant) && assistant.inherited ? assistant.inherited : null;
+  const on = (granted || assistant).capabilities || {};
+  const shell = granted ? granted.shell || "off" : shellChoice(assistant);
   const levels = offersEveryCommand(assistant.runtimeInfo)
     ? assistantShellCopy.everyCommand.levels
     : assistantShellCopy.levels;
-  const skills = (assistant.skills || []).length;
+  const skills = ((granted || assistant).skills || []).length;
   const parts = [
     on.memory ? copy().memory : "",
     on.webSearch || on.webFetch ? copy().web : "",

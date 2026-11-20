@@ -85,6 +85,20 @@
 .agent-chat-work-goal {
   overflow-wrap: anywhere;
 }
+.agent-chat-work-details {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+.agent-chat-work-details dt {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.agent-chat-work-details dd {
+  margin: 0 0 var(--space-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 
 /* The one row under the header on phones and in panes. */
 .agent-chat-switch {

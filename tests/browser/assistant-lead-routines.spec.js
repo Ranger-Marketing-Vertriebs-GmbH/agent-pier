@@ -154,5 +154,7 @@ for (const [language, size, viewport] of cases)
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(viewport.width);
     await panel.getByRole("button", { name: t.remove }).click();
+    // Removing asks first (AGENTPIER-445).
+    await page.getByRole("dialog").getByRole("button", { name: t.remove }).click();
     await expect(panel.getByText(t.empty)).toBeVisible();
   });

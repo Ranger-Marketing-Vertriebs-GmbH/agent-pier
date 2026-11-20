@@ -83,6 +83,7 @@ export function agentListTopic(services) {
 // - `agent.coding-requests`: that list's team coding requests (`teamId`) only;
 // - `agent.channels`: GET /api/assistant-channels with the agent's channels only;
 // - `agent.reminders`: GET /api/assistants/:id/reminders;
+// - `agent.routines`: GET /api/assistants/:id/routines, signalled like the reminders;
 // - `agent.pinboard`: GET /api/assistants/:id/pinboard (the agent's pinned lists);
 // - `agent.senders`: GET /api/assistant-telegram-senders/:id;
 // - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status;
@@ -107,6 +108,7 @@ export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.coding-requests",
   "agent.channels",
   "agent.reminders",
+  "agent.routines",
   "agent.pinboard",
   "agent.senders",
   "agent.ssh-agent",
@@ -267,6 +269,20 @@ export function agentDetailTopics(services) {
       // Reminder writes and run results signal it once they are done
       // (followReminderWrites), channel writes its Telegram delivery state; what
       // changes inside the Gateway only is sampled.
+      sampleMs: AGENT_REMINDERS_SAMPLE_MS,
+      watch: switched,
+    }),
+    detailTopic(services, {
+      name: "agent.routines",
+      content: true,
+      read: (id) => {
+        const assistants = running(services);
+        return services.assistantRoutines.list(id, {
+          userId: agentPerson(assistants.store.getAssistant(id)),
+        });
+      },
+      // Routine writes, "Run once" and every run result signal it like the
+      // reminders (followReminderWrites); the next run moves on in the scheduler.
       sampleMs: AGENT_REMINDERS_SAMPLE_MS,
       watch: switched,
     }),
@@ -452,7 +468,16 @@ export function agentChannelsChanged(hub, assistantId) {
 
 // The reminder service's writes: an agent's reminders, or (a run's result, `complete`)
 // any agent's.
-const REMINDER_WRITES = ["create", "update", "remove", "review", "disable", "complete"];
+// A routine's "Run once" (`trigger`) changes its receipt.
+const REMINDER_WRITES = [
+  "create",
+  "update",
+  "remove",
+  "review",
+  "disable",
+  "complete",
+  "trigger",
+];
 
 /**
  * Signals `agent.reminders` on `hub()` once each reminder write of `reminders`
@@ -481,8 +506,9 @@ export function agentRemindersChanged(hub, ids) {
   // The users' shared Gateway sample predates the write: their reads ask again.
   forgetReminderSamples(ids);
   try {
-    // Users' own reminder lists too (live-me-topics.js).
-    for (const name of ["agent.reminders", "me.reminders"]) {
+    // The routines share the reminders' writes and results; users' own reminder
+    // lists too (live-me-topics.js).
+    for (const name of ["agent.reminders", "agent.routines", "me.reminders"]) {
       if (!ids.length) hub?.invalidate(name);
       for (const id of ids) hub?.invalidate(name, id);
     }

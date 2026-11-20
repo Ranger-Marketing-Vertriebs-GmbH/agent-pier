@@ -164,7 +164,7 @@ test("creating a hook reveals its secret and curl sample once", async ({ page })
   // One control copies the secret, one the sample.
   await expect(reveal.getByRole("button", { name: "Copy secret" })).toHaveCount(1);
   await expect(reveal.locator("pre").nth(1)).toHaveText(
-    `curl -X POST -H "Authorization: Bearer ${firstSecret}" -H "Content-Type: application/json" -d '{"id":"1","message":"test"}' https://pier.example.ts.net/hooks/${hookId}`,
+    `curl -X POST -H "Authorization: Bearer ${firstSecret}" -H "Content-Type: application/json" -d '{"id":"test-'"$(date +%s)"'","message":"test"}' https://pier.example.ts.net/hooks/${hookId}`,
   );
   // The long sample wraps on a phone instead of widening the sheet.
   await page.setViewportSize({ width: 390, height: 844 });

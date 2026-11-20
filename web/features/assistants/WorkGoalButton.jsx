@@ -10,7 +10,8 @@ import useStopGoal from "./useStopGoal.js";
 
 /**
  * The chat's open work goal (AGENTPIER-208) as a header icon: a working dot and the
- * stop glyph. A tap opens a sheet with the goal and the owner's Stop. `onStopped`
+ * stop glyph. A tap opens a sheet with the goal, what "done" means, the steps the
+ * agent noted, and the owner's Stop. `onStopped`
  * reloads the chat. Nothing without a goal; a goal that ends closes its sheet, so the
  * next one does not open by itself.
  */
@@ -44,6 +45,23 @@ export default function WorkGoalButton({ goal, conversationId, onStopped }) {
         <p className="sheet-body agent-chat-work-goal" role="status">
           {text}
         </p>
+        {/* What "done" means and the steps the agent noted (AGENTPIER-445). */}
+        {(goal.done || goal.steps) && (
+          <dl className="sheet-body agent-chat-work-details">
+            {goal.done && (
+              <>
+                <dt>{workGoalCopy.doneWhen}</dt>
+                <dd>{goal.done}</dd>
+              </>
+            )}
+            {goal.steps && (
+              <>
+                <dt>{workGoalCopy.steps}</dt>
+                <dd>{goal.steps}</dd>
+              </>
+            )}
+          </dl>
+        )}
         <ErrorMessage error={failed && workGoalCopy.stopFailed} />
         <div className="sheet-actions">
           <button

@@ -201,6 +201,9 @@ export const assistantCopy = {
     pauseReminder: "Erinnerung pausieren",
     resumeReminder: "Erinnerung fortsetzen",
     removeReminder: "Erinnerung entfernen",
+    removeReminderTitle: (name) => `Erinnerung „${name}“ entfernen?`,
+    removeReminderBody:
+      "Sie wird nicht mehr gesendet. Bereits gesendete Erinnerungen bleiben im Chat.",
     reviewReminder: "Als geprüft markieren",
     reviewReminderHint:
       "Ob diese Erinnerung angelegt wurde, ist unklar. Sie wird nicht automatisch erneut angelegt.",

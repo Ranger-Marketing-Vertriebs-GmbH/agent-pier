@@ -67,8 +67,10 @@ export function hookPatch(values, hook) {
 export const hookAddress = (addresses) =>
   addresses.tailscale || addresses.network[0] || addresses.local;
 
+// Each run of the sample sends a new event id (the shell's clock), so a second try is
+// a new event, not a duplicate of the first (AGENTPIER-445).
 export const curlSample = (secret, address) =>
-  `curl -X POST -H "Authorization: Bearer ${secret}" -H "Content-Type: application/json" -d '{"id":"1","message":"test"}' ${address}`;
+  `curl -X POST -H "Authorization: Bearer ${secret}" -H "Content-Type: application/json" -d '{"id":"test-'"$(date +%s)"'","message":"test"}' ${address}`;
 
 /** Why a hook does (not) wake its agent: no secret yet, paused, agent not eligible. */
 export function hookState(hook) {

@@ -2,6 +2,9 @@
 // und seine Hinweise.
 export const workGoalCopy = {
   line: (t) => `Arbeitet bis fertig: ${t}`,
+  // The goal sheet: what "done" means and the steps the agent noted.
+  doneWhen: "Fertig, wenn",
+  steps: "Schritte",
   stop: "Stoppen",
   stopFailed: "Das Ziel ließ sich nicht stoppen. Versuche es erneut.",
   // Eine Runde, die AgentPier schickt, damit der Agent am Ziel weiterarbeitet.

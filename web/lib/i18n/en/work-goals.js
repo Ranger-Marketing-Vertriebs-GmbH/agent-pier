@@ -1,6 +1,9 @@
 // An agent's work goal in its owner's chat: the open goal with Stop, and its notes.
 export const workGoalCopy = {
   line: (t) => `Working until done: ${t}`,
+  // The goal sheet: what "done" means and the steps the agent noted.
+  doneWhen: "Done when",
+  steps: "Steps",
   stop: "Stop",
   stopFailed: "The goal could not be stopped. Try again.",
   // A turn AgentPier sent so the agent keeps working on the goal.

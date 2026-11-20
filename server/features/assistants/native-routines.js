@@ -122,7 +122,7 @@ export class NativeRoutines extends NativeReminders {
     return {
       ...projected,
       status: binding.routineUpdateUnknown ? "unknown" : projected.status,
-      lastEvent: this.receipts.latest(binding.id),
+      lastEvent: this.currentEvent(binding),
       prompt: binding.definition?.prompt || "",
       trigger: binding.definition?.trigger || null,
       enabled:
@@ -143,6 +143,21 @@ export class NativeRoutines extends NativeReminders {
           }
         : {}),
     };
+  }
+  /**
+   * The routine's last "Run once" receipt while it still says something: a run that
+   * completed or failed after it was queued replaces it (AGENTPIER-445, the stale
+   * "Run queued."). A receipt from before receipts had a time counts as queued
+   * before any recorded run.
+   */
+  currentEvent(binding) {
+    const receipt = this.receipts.latest(binding.id);
+    const done = receipt && this.results?.latest?.(binding.id);
+    if (!done) return receipt;
+    const later = Number.isFinite(receipt.atMs)
+      ? done.at >= receipt.atMs
+      : receipt.status === "queued";
+    return later ? null : receipt;
   }
   leadName(binding) {
     try {
@@ -282,18 +297,19 @@ export class NativeRoutines extends NativeReminders {
       textValue(input.eventId, 512);
       const agent = this.agent(id, true),
         binding = this.owned(id, bindingId);
-      if (
-        ["removed", "revoked"].includes(binding.state) ||
-        binding.definition?.trigger.kind !== "event"
-      )
+      if (["removed", "revoked"].includes(binding.state) || !binding.definition)
         throw assistantProblem("invalid", 409);
+      // "Run once" starts an event routine, and a daily one now besides its
+      // schedule (AGENTPIER-445); its scheduler forces the run either way.
+      const onEvent = binding.definition.trigger.kind === "event";
       const old = this.receipts.get(bindingId, input.eventId);
       if (old) return old;
       if (binding.routineEnabled === false) throw assistantProblem("active", 409);
       const job = this.find(binding, await this.jobs(agent));
       // A listed scheduler without this job will not grow it back; retrying is futile.
       if (!job) throw assistantProblem("notFound", 404);
-      if (job.enabled) throw assistantProblem("unavailable", 503);
+      // An event routine's job never runs on its own: an enabled one is not ours.
+      if (onEvent && job.enabled) throw assistantProblem("unavailable", 503);
       await this.assistants.config.apply(id);
       this.agent(id, true);
       const { receipt, fresh } = this.receipts.reserve(bindingId, input.eventId);
@@ -303,6 +319,7 @@ export class NativeRoutines extends NativeReminders {
         return this.receipts.write(bindingId, {
           eventId: input.eventId,
           status: result.queued ? "queued" : result.refused ? "rejected" : "unknown",
+          atMs: Date.now(),
         });
       } catch {
         return receipt;

@@ -36,7 +36,7 @@ export const assistantTeamCopy = {
     suggest:
       "Der Agent schlägt in einem Satz vor, ein passendes Mitglied einzubeziehen, und wartet auf dein Ja. Dein Ja gilt als deine Anfrage.",
     autonomous:
-      "Der Agent fragt Mitglieder und übergibt passende Aufgaben von sich aus, begrenzt pro Antwort und Stunde. Seine eigenen Aufgaben dürfen den Arbeitsbereich des Mitglieds ändern; Shell, SSH, Projektordner, GitHub und neue Teams behalten ihre üblichen Freigaben.",
+      "Der Agent fragt Mitglieder und übergibt passende Aufgaben von sich aus; nur sehr viele Aktionen in kurzer Zeit halten ihn an, damit keine Schleife ausufert. Seine eigenen Aufgaben dürfen den Arbeitsbereich des Mitglieds ändern; Shell, SSH, Projektordner, GitHub und neue Teams behalten ihre üblichen Freigaben.",
   },
   memberShellSsh: "Team-Mitglieder dürfen Shell und SSH nutzen",
   memberShellSshHint:

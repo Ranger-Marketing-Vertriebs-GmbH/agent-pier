@@ -157,6 +157,10 @@ test("English agent settings edit native memory with its revision and manage dai
     fullPage: true,
   });
   await page.getByRole("button", { name: "Remove reminder", exact: true }).click();
+  // Removing asks first (AGENTPIER-445).
+  const dialog = page.getByRole("dialog", { name: /^Remove reminder/ });
+  await expect(dialog).toContainText("It is not sent again.");
+  await dialog.getByRole("button", { name: "Remove reminder" }).click();
   await expect(page.getByText("No reminders yet.")).toBeVisible();
 });
 test("English agent settings let the owner review an unconfirmed reminder", async ({

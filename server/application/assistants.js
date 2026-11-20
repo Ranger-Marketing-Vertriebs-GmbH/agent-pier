@@ -89,6 +89,7 @@ export function createAssistantServices(options) {
       agentChannelsChanged(options.live, assistantId);
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     followReminderWrites(graph.assistantReminders, () => options.live);
+    followReminderWrites(graph.assistantRoutines, () => options.live);
     // A night an agent dreamed by itself (runtime-services.js agentDreams) shows on
     // the memory view.
     if (graph.assistants.agentDreams)

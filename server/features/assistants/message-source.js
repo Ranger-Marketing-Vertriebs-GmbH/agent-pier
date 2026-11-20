@@ -53,6 +53,14 @@ export function requestSource(context) {
       sender: { kind: "agent", name },
       text: context.display,
     };
+  // A temporary member's assignment (team-scheduler.js) is its lead's, as the text
+  // the lead wrote: named like a lead's request (AGENTPIER-445).
+  if (
+    context.kind === "team-member" &&
+    typeof context.leadName === "string" &&
+    context.leadName
+  )
+    return { source: "lead", sender: { kind: "agent", name: context.leadName } };
   // A session's ask or tell to the agent: the chat shows the session's bare text, from
   // the session, never as the owner's turn.
   if (

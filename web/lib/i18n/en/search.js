@@ -28,6 +28,10 @@ export const searchCopy = {
   projectTickets: "Tickets",
   sshKeys: "SSH keys",
   // Subpages in an agent's settings.
+  // Groups inside an agent's tabs that search names on their own.
+  agentGroups: {
+    memberGroups: "Member groups",
+  },
   agentPages: {
     memory: "Notes",
     allowlist: "Always allowed commands",

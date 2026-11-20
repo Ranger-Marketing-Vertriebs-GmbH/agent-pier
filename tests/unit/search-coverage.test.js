@@ -123,4 +123,17 @@ test("every routed page of an agent has a search entry", () => {
     "/agents/ops/browser",
   ])
     assert.ok(ownPaths.has(path), path);
+  // The groups inside its tabs that people search by name (AGENTPIER-445).
+  for (const group of [
+    "hooks",
+    "reminders",
+    "routines",
+    "check-ins",
+    "shell",
+    "member-groups",
+  ])
+    assert.ok(
+      own.some((entry) => entry.id === `agent:ops:group:${group}`),
+      group,
+    );
 });
