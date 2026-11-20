@@ -4,6 +4,8 @@ import { compileHome } from "../../server/features/assistants/runtimes/hermes/he
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import {
   checkedPreset,
+  closedPreset,
+  closedUrl,
   mixturePreset,
 } from "../../server/features/assistants/runtimes/hermes/hermes-config/mixture.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
@@ -63,8 +65,33 @@ const configOf = (compiled) => readHermesConfig(compiled.files["config.yaml"]);
 // What the home names about the mixture among what it cannot serve.
 const reasons = (compiled) =>
   compiled.unsupported.filter((reason) => reason.startsWith("mixture"));
+// Hermes runs its built-in preset (openai-codex, OpenRouter) for a session still on
+// `provider: moa` whenever config.yaml names no preset of AgentPier's (AGENTPIER-437):
+// without advisors the home holds the closed preset, which reaches no model.
+const closedMoa = {
+  default_preset: "agentpier",
+  active_preset: "",
+  save_traces: false,
+  presets: {
+    agentpier: {
+      enabled: false,
+      fanout: "user_turn",
+      degraded_reference_policy: "loud",
+      reference_timeout: 120,
+      reference_models: [{ provider: "custom:agentpier-closed", model: "none" }],
+      aggregator: { provider: "custom:agentpier-closed", model: "none" },
+    },
+  },
+};
+const closedEntry = { base_url: "http://127.0.0.1:9/v1", api_mode: "chat_completions" };
+const assertClosed = (config, message) => {
+  assert.deepEqual(config.moa, closedMoa, message);
+  assert.deepEqual(config.providers["agentpier-closed"], closedEntry, message);
+  for (const name of Object.keys(config.providers))
+    assert.equal(name.startsWith("agentpier-advisor-"), false, message);
+};
 
-test("without advisors the home is exactly today's", () => {
+test("without advisors the home holds the closed preset, never Hermes's own", () => {
   const before = home(profile(), undefined);
   for (const variant of [
     home(profile(), []),
@@ -77,7 +104,18 @@ test("without advisors the home is exactly today's", () => {
     assert.equal(variant.files[".env"], before.files[".env"]);
     assert.deepEqual(variant.unsupported, before.unsupported);
   }
-  assert.equal(before.files["config.yaml"].includes("moa"), false);
+  const config = configOf(before);
+  assertClosed(config);
+  assert.equal(config.model.provider, "custom");
+  assert.deepEqual(Object.keys(config.providers), ["agentpier-closed"]);
+  assert.equal(closedUrl, closedEntry.base_url);
+  // The closed preset passes the same check as any preset AgentPier writes.
+  assert.deepEqual(
+    checkedPreset(closedPreset(), config.providers),
+    closedMoa.presets.agentpier,
+  );
+  // No key goes with it.
+  assert.equal(before.files[".env"].includes("ADVISOR"), false);
 });
 
 test("two advisors compile into named providers, a preset and provider moa", () => {
@@ -110,6 +148,7 @@ test("two advisors compile into named providers, a preset and provider moa", () 
   });
   assert.deepEqual(config.moa, {
     default_preset: "agentpier",
+    active_preset: "",
     save_traces: false,
     presets: {
       agentpier: {
@@ -200,12 +239,12 @@ test("an advisor that is not available is left out, keeping the others' numbers"
   ]) {
     const left = home(profile([two[0]]), [{ ...twoResolved[0], provider }]);
     assert.equal(configOf(left).model.provider, "custom", "none left: MoA is off");
-    assert.equal("moa" in configOf(left), false);
+    assertClosed(configOf(left));
     assert.deepEqual(reasons(left), ["mixtureAdvisor"]);
   }
   // A connection the apply did not resolve at all is left out as well.
   const missing = home(profile([two[0]]), []);
-  assert.equal("moa" in configOf(missing), false);
+  assertClosed(configOf(missing));
 });
 
 test("an aggregator Hermes cannot reach as a named provider keeps MoA off", () => {
@@ -217,19 +256,19 @@ test("an aggregator Hermes cannot reach as a named provider keeps MoA off", () =
   const proxy = { url: "http://127.0.0.1:9", credentialFor: () => "proxy-credential" };
   const chatgpt = home(profile(two), twoResolved, { modelProxy: proxy }, account);
   assert.equal(configOf(chatgpt).model.provider, "openai-codex");
-  assert.equal("moa" in configOf(chatgpt), false);
-  assert.equal("providers" in configOf(chatgpt), false);
+  assertClosed(configOf(chatgpt));
+  assert.deepEqual(Object.keys(configOf(chatgpt).providers), ["agentpier-closed"]);
   assert.deepEqual(reasons(chatgpt), ["mixture"]);
   const azure = {
     ...own,
     provider: endpoint("az", "k", { authHeader: false, headers: { "api-key": "k" } }),
   };
   const header = home(profile(two), twoResolved, {}, azure);
-  assert.equal("moa" in configOf(header), false);
+  assertClosed(configOf(header));
   assert.ok(configOf(header).model.extra_headers, "the model stays as today");
 });
 
-test("removing the advisors removes the preset, the providers and their keys", () => {
+test("removing the advisors closes the preset and removes the providers and keys", () => {
   const withMixture = home(profile(two), twoResolved);
   const existing = {
     "config.yaml": withMixture.files["config.yaml"].replace(
@@ -240,22 +279,19 @@ test("removing the advisors removes the preset, the providers and their keys", (
   };
   const off = home(profile([]), [], { existing });
   const config = configOf(off);
-  assert.equal("moa" in config, false);
+  assertClosed(config);
   assert.deepEqual(config.providers, {
     mine: { base_url: "https://mine.example.test/v1" },
+    "agentpier-closed": closedEntry,
   });
   assert.equal(config.model.provider, "custom");
   assert.equal(off.files[".env"].includes("ADVISOR"), false);
   assert.match(off.files[".env"], /^OTHER='kept'$/m);
-  // With no provider of the owner's left, the section goes with AgentPier's.
+  // With no provider of the owner's, only the closed one is left.
   const clean = home(profile([]), [], {
     existing: { "config.yaml": withMixture.files["config.yaml"] },
   });
-  assert.equal("providers" in configOf(clean), false);
-  assert.equal(
-    clean.files["config.yaml"],
-    home(profile(), undefined).files["config.yaml"],
-  );
+  assert.deepEqual(configOf(clean), configOf(home(profile(), undefined)));
   // A start that does not know the model leaves the whole mixture as it is.
   const bare = compileHome(desiredAgent(profile(two)), {
     existing: { "config.yaml": withMixture.files["config.yaml"] },
