@@ -7592,6 +7592,8 @@
   "sessions:launchDialogCopy.sessionSection": "de:6959b4159575 en:6959b4159575",
   "sessions:launchDialogCopy.shellSessionDescription": "de:ff7bd43fcecb en:a36394fae6ac",
   "sessions:launchDialogCopy.sshSummary": "de:c92995b9b6cc en:f5553215b2c7",
+  "sessions:launchDialogCopy.stopSignIn": "de:eb56cf94ed09 en:c8dee054f557",
+  "sessions:launchDialogCopy.stoppingSignIn": "de:e242e0544129 en:48ac2f276adf",
   "sessions:launchDialogCopy.taskProfile": "de:0b7117253491 en:c6ed15ad2a09",
   "sessions:launchDialogCopy.toolsDisabled": "de:099e3f9d0939 en:5656124a0f5b",
   "sessions:launchDialogCopy.toolsEnabled": "de:e03ada80b6fc en:72dd2ddf4e2f",

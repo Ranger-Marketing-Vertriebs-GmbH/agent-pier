@@ -51,7 +51,7 @@ export function registerResponses(app) {
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
       error.code === "CLI_UPDATE_REQUIRED" ||
-      /^(?:(?:SSH|SECRET|ARTIFACT|PREVIEW|PROJECT_GROUP|VIEW|PIPELINE|TICKET_RULES|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY|USER)_[A-Z_]+|CHAT_(?:ARCHIVED|MAIN|BUSY|COMMAND|COMMAND_QUEUED|CONFIRM|COMPACT_NOTHING|COMPACT_FAILED|HINT_FAILED)|TASK_STOP_[A-Z_]+|PROJECT_DELETING|PROJECT_DELETE_(?:STALE|BLOCKED|REFUSED|ABORTED|NAME|NOT_FAILED)|PROJECT_FOLDER_REAPPEARED|PROJECT_NOT_FOUND|PROJECT_SESSIONS_UNREADABLE|LOGIN_(?:USERNAME|PASSWORD)_INVALID)$/.test(
+      /^(?:(?:SSH|SECRET|ARTIFACT|PREVIEW|PROJECT_GROUP|VIEW|PIPELINE|TICKET_RULES|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY|USER)_[A-Z_]+|CHAT_(?:ARCHIVED|MAIN|BUSY|COMMAND|COMMAND_QUEUED|CONFIRM|COMPACT_NOTHING|COMPACT_FAILED|HINT_FAILED)|TASK_STOP_[A-Z_]+|PROJECT_DELETING|PROJECT_DELETE_(?:STALE|BLOCKED|REFUSED|ABORTED|NAME|NOT_FAILED)|PROJECT_FOLDER_REAPPEARED|PROJECT_NOT_FOUND|PROJECT_SESSIONS_UNREADABLE|SESSION_LOGIN_OPEN|LOGIN_(?:USERNAME|PASSWORD)_INVALID)$/.test(
         error.code || "",
       )
         ? { code: error.code }
@@ -67,6 +67,10 @@ export function registerResponses(app) {
       // The CLI's own reason a task could not be stopped (task-control.js).
       ...(error.code === "TASK_STOP_REFUSED" && typeof error.reason === "string"
         ? { reason: error.reason }
+        : {}),
+      // The account's open sign-in session that blocks a start (session-lifecycle.js).
+      ...(error.code === "SESSION_LOGIN_OPEN" && typeof error.sessionId === "string"
+        ? { sessionId: error.sessionId }
         : {}),
       // Deletion aborted after the agents' grants were revoked (project-deletion.js),
       // and the refusal that stopped it (project-deletion-preflight.js).

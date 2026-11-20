@@ -30,6 +30,10 @@ export const sessions = Object.freeze({
   loginNameSuffix: " · Anmeldung",
   sessionLimitReached:
     "Maximal 30 Sessions gleichzeitig. Bitte zuerst eine Session beenden.",
+  loginSessionOpen: (name) =>
+    `Die Anmelde-Session „${name}“ dieses Accounts ist noch offen. Schließe die Anmeldung ab oder beende die Session, bevor du eine Session startest.`,
+  loginStarting:
+    "Für diesen Account startet gerade eine Anmeldung. Warte, bis sie fertig ist, und starte die Session dann.",
   stopBeforeLogin:
     "Bitte die laufenden Sessions dieses Accounts vor einer neuen Anmeldung beenden.",
   invalidAdapterConfiguration: "Die Adapter-Konfiguration der Session ist ungültig.",

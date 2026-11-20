@@ -219,7 +219,9 @@ npm start
    der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Beim
    nächsten Mal wählt der Dialog die zuletzt gestartete CLI und ihren Account vor. Das
    native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt den
-   gespeicherten Verlauf.
+   gespeicherten Verlauf. Solange die Anmelde-Session eines Accounts offen ist, startet
+   keine andere Session dieses Accounts: Der Dialog nennt die Anmelde-Session und bietet
+   **Anmelde-Session beenden** an.
 4. Optional: Öffne **Agenten** im **Menü**, wähle **Agenten aktivieren** und lege mit
    **Neuer Agent** einen an ([Agenten-Anleitung](docs/agents.md)).
 

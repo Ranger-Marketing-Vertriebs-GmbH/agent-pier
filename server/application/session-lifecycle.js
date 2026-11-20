@@ -65,6 +65,13 @@ export function createSessionLifecycle(services) {
       accountMutations.delete(id);
     }
   }
+  // A session start refused while the account's sign-in session is open: the web
+  // names it and offers to stop it (code SESSION_LOGIN_OPEN, its `sessionId`).
+  const loginOpen = (session) =>
+    Object.assign(
+      problem(serverMessages.sessions.loginSessionOpen(session.name || session.id), 409),
+      { code: "SESSION_LOGIN_OPEN", sessionId: session.id },
+    );
   let reservationQueue = Promise.resolve();
   const reserve = (account, login) => {
     const operation = reservationQueue.then(async () => {
@@ -73,16 +80,23 @@ export function createSessionLifecycle(services) {
       );
       if (running.length + reservations.size >= 30)
         throw problem(serverMessages.sessions.sessionLimitReached, 409);
+      // A sign-in session holds the account alone (its CLI rewrites the login).
+      const signIn = running.find(
+        (session) => session.accountId === account.id && session.purpose === "login",
+      );
+      if (!login && signIn) throw loginOpen(signIn);
       if (
-        running.some(
-          (session) =>
-            session.accountId === account.id && (login || session.purpose === "login"),
-        ) ||
+        running.some((session) => session.accountId === account.id && login) ||
         [...reservations.values()].some(
           (item) => item.accountId === account.id && (login || item.login),
         )
       )
-        throw problem(serverMessages.sessions.stopBeforeLogin, 409);
+        throw problem(
+          login
+            ? serverMessages.sessions.stopBeforeLogin
+            : serverMessages.sessions.loginStarting,
+          409,
+        );
       const key = Symbol();
       reservations.set(key, { accountId: account.id, login });
       return () => reservations.delete(key);
