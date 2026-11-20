@@ -5,6 +5,8 @@ export const plugins = Object.freeze({
   nativeMarketplaceSource: "Provided by the native Codex catalog",
   remoteCatalogEmpty:
     "No default plugins are available for this account. Choose an account signed in to Codex and reload.",
+  remoteCatalogTimeout:
+    "Loading the default catalog of the selected account timed out. Local plugins remain available; try again.",
   remoteCatalogUnavailable:
     "The default catalog of the selected account could not be loaded. Local plugins remain available.",
   serviceStopping: "Plugin management is stopping.",

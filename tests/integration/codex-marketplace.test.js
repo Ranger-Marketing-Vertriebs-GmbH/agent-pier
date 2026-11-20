@@ -40,6 +40,8 @@ async function fixture(t) {
         ],
       });
     if (args.includes("list")) {
+      if (accountId !== "local-codex" && state.failRemote === "timeout")
+        throw Object.assign(Error("Synthetic timeout"), { status: 503, timedOut: true });
       if (accountId !== "local-codex" && state.failRemote)
         throw Object.assign(Error("Synthetic remote unavailable"), { status: 502 });
       return JSON.stringify({
@@ -187,6 +189,15 @@ test("remote inventory failure preserves usable shared plugins with an honest ca
   assert.equal(value.catalogReasonCode, "unavailable");
   assert.ok(value.marketplaces.some(({ name }) => name === remote));
   assert.ok(!value.installed.some(({ marketplace }) => marketplace === remote));
+});
+
+test("a remote catalog that timed out says so (AGENTPIER-396)", async (t) => {
+  const x = await fixture(t);
+  x.state.failRemote = "timeout";
+  const value = await x.list(x.a.id);
+  assert.equal(value.installed[0].id, "shared@local");
+  assert.equal(value.catalogReasonCode, "timeout");
+  assert.match(value.catalogReason, /Zeitlimit|timed out/);
 });
 
 test("selected account reads cannot share another catalog cache or bypass account deletion guards", async (t) => {

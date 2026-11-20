@@ -32,6 +32,17 @@ export default function CatalogAccount({ plugins, account }) {
       {data && catalogReason(data) && (
         <ExtensionHint>
           <p>{catalogReason(data)}</p>
+          {/* A catalog that timed out or failed may load on the next try. */}
+          {["timeout", "unavailable"].includes(data.catalogReasonCode) && (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy || plugins.loading}
+              onClick={() => plugins.load()}
+            >
+              {copy.retryCatalog}
+            </button>
+          )}
         </ExtensionHint>
       )}
     </div>

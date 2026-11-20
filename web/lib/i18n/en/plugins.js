@@ -28,7 +28,10 @@ export const pluginCatalogCopy = {
   extensionSectionLabel: "Plugin catalog",
 };
 export const profilePluginsCopy = {
+  retryCatalog: "Load the catalog again",
   catalogReasons: {
+    timeout:
+      "Loading the default catalog for the selected account timed out. Local plugins remain available.",
     empty:
       "No default plugins are available for this account. Choose an account signed in to Codex and reload.",
     unavailable:

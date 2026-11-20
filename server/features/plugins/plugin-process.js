@@ -48,9 +48,11 @@ export async function executePluginCommand(
         } catch {}
       }
     };
-    const cancel = (message) => {
+    const cancel = (message, timedOut = false) => {
       if (failure) return;
       failure = problem(message, 503);
+      // A command that ran out of time says so (codex-catalog.js shows a retry).
+      if (timedOut) failure.timedOut = true;
       kill("SIGTERM");
       killComplete = new Promise((resolveKill) => {
         setTimeout(() => {
@@ -66,7 +68,7 @@ export async function executePluginCommand(
     const active = { cancel, completed };
     processes.add(active);
     const timer = setTimeout(
-      () => cancel(serverMessages.plugins.commandTimeout),
+      () => cancel(serverMessages.plugins.commandTimeout, true),
       mutation ? mutationTimeout : listTimeout,
     );
     timer.unref();

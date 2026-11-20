@@ -131,6 +131,18 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
       { exact: true },
     ),
   ).toBeVisible();
+  // A catalog that timed out says so, and the retry reads it again (AGENTPIER-396).
+  inventory.catalogReasonCode = "timeout";
+  await page.getByRole("button", { name: "Load the catalog again" }).click();
+  await expect(
+    page.getByText(
+      "Loading the default catalog for the selected account timed out. Local plugins remain available.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Load the catalog again" }),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("english-marketplace.png"),
     fullPage: true,
