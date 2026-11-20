@@ -138,7 +138,7 @@ test("the Agent access dialog lists the allowed agents beside the search", async
   await openAccess(page);
   await liveStub.waitForSubscribe("session.agent-access:deploy");
   const access = dialog(page);
-  const search = access.getByRole("searchbox", { name: "Search Agents" });
+  const search = access.getByRole("searchbox", { name: "Search agents", exact: true });
   await expect(search).toBeFocused();
   await search.fill("plan");
   await expect(access.getByRole("checkbox")).toHaveCount(1);

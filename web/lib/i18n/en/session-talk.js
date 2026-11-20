@@ -29,7 +29,7 @@ export const sessionTalkCopy = {
       "Agents with “Sessions may talk” for this session's project are allowed already; change that in the agent's Access tab.",
     viaProject: "via project",
     grantType: "agent",
-    listLabel: "Agents",
+    listLabel: "agents",
     empty: "No agents yet. Create one under Agents.",
     loading: "Loading agents …",
     busy: "Saving …",
