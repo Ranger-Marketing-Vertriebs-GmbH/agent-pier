@@ -95,6 +95,21 @@ for (const language of ["en", "de"]) {
       await expect(page.locator(".split-pane")).toHaveCount(2);
     });
 
+    test("removing a session from its pane menu keeps the view open (AGENTPIER-415)", async ({
+      page,
+    }) => {
+      const controls = await splitViewFixture(page, { language });
+      controls.sessions = [sessions.s1, { ...sessions.s2, status: "stopped" }];
+      await page.goto(viewURL);
+      await expect(page.locator(".split-pane")).toHaveCount(3);
+      await page.getByRole("button", { name: text.paneMenu("Shop UI") }).click();
+      await page.getByRole("menuitem", { name: text.removeSession }).click();
+      await page.getByRole("button", { name: text.removeNow }).click();
+      await expect.poll(() => controls.sessionDeletes).toEqual(["/api/sessions/s2"]);
+      await expect(page).toHaveURL(viewURL);
+      await expect(page.locator(".split-pane")).toHaveCount(3);
+    });
+
     test("the view name renames in place", async ({ page }) => {
       const controls = await splitViewFixture(page, { language });
       await page.goto(viewURL);

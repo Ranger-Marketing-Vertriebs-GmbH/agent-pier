@@ -179,6 +179,9 @@ test("user-clicked deep links are allowed only for documents, never APIs or imag
     "/sessions/example/terminal",
     "/sessions/example/files",
     "/sessions/example/changes",
+    "/views/example",
+    "/pipelines/queue/example",
+    "/agents/example/pinboard",
   ])
     assert.equal(authorizeRequest({ ...request(headers), url }, config), true, url);
   for (const url of [

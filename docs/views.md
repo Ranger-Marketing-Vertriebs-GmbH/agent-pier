@@ -61,7 +61,9 @@ from the keyboard.
 
 The **×** on a pane header removes only that pane; the session or chat itself keeps
 running. The trash button in the view header (**Delete view**) deletes the whole view; AgentPier
-asks first, and sessions and chats stay as they are.
+asks first, and sessions and chats stay as they are. Removing a session through its pane
+menu (**Remove session**) keeps you in the view; the pane then shows "Session removed".
+A `/views/:id` address opens the view directly, also after a reload or from a link.
 
 ## Limits
 
