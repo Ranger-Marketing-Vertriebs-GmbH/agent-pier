@@ -74,7 +74,7 @@ export const requestCopy = {
   answer: "Send answer",
   handoff: "Answer in terminal",
   terminal: "Open terminal",
-  terminalApproval: "Approval moved to the terminal.",
+  terminalApproval: "Claude is waiting in the terminal for your approval.",
   dismissNotice: "Dismiss",
   unknown: "Delivery uncertain. Check the terminal.",
   responding: "Delivering answer …",

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
-import { recentlyUsedElsewhere, settleNotice } from "../requests/request-interaction.js";
+import { recentlyUsedElsewhere } from "../requests/request-interaction.js";
 import { isCodingCli, cliDefinition } from "../../../server/features/clis/catalog.js";
 import useSessionRequests from "../requests/useSessionRequests.js";
 
@@ -75,8 +75,8 @@ export default function useClaudeTerminalQuestions({ session, active, request })
             continue;
           }
           if (entry.status === "unknown") released.add(entry.id);
-          // This tab shows the terminal; a "waiting in terminal" notice is moot.
-          settleNotice(entry.id);
+          // The chat keeps its "waiting in the terminal" notice: back in chat,
+          // the owner still sees that Claude waits in its own dialog.
           const result = await request(
             `${base}/${encodeURIComponent(entry.id)}/handoff`,
             "POST",

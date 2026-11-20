@@ -370,3 +370,35 @@ test("a Claude plan reaches chat in full and keep planning stops Claude", async 
   assert.equal(decision.behavior, "deny");
   assert.equal(decision.interrupt, true);
 });
+
+test("approving a Claude plan hands its input back so Claude leaves plan mode", async (t) => {
+  const f = await fixture(t);
+  // Claude Code 2.1.329 reads the plan from its plan file into the hook's input.
+  const toolInput = {
+    plan: "# Plan\n\n1. Write the file",
+    planFilePath: path.join(f.root, "plans", "mossy-koala.md"),
+  };
+  const run = hook(
+    f,
+    {
+      hook_event_name: "PermissionRequest",
+      tool_name: "ExitPlanMode",
+      tool_input: toolInput,
+    },
+    { timeout: 10_000 },
+  );
+  const request = await pending(f);
+  await f.broker.answer("session", request.id, {
+    expectedRevision: 1,
+    choice: "acceptEdits",
+  });
+  await run.done;
+  // Without updatedInput Claude ignores the allow and shows "Ready to code?".
+  assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput.decision, {
+    behavior: "allow",
+    updatedInput: toolInput,
+    updatedPermissions: [
+      { type: "setMode", mode: "acceptEdits", destination: "session" },
+    ],
+  });
+});

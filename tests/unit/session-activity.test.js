@@ -363,3 +363,40 @@ test("narrow Claude panes never infer work from quoted or unparsed agent rows", 
   const header = busy.split("\n").filter((line) => !/◯|↓ 2 more/.test(line));
   assert.equal(parseSessionActivity("claude", header.join("\n")).state, "idle");
 });
+
+const planDialogs = JSON.parse(
+  readFileSync(
+    new URL("../fixtures/tui-input/claude-2.1.329-plan-dialog.json", import.meta.url),
+    "utf8",
+  ),
+);
+
+test("Claude's own plan dialog reads as waiting at every pane size", () => {
+  // AGENTPIER-414: after a handoff Claude waits in "Ready to code?"; the sidebar
+  // must not keep showing the mod's Working.
+  for (const [size, { raw }] of Object.entries(planDialogs).filter(([key]) =>
+    key.startsWith("plan"),
+  ))
+    assert.equal(parseSessionActivity("claude", raw).state, "waiting", size);
+});
+
+test("a numbered list above Claude's composer is no dialog", () => {
+  const transcript = "Ready to code?\n❯ 1. Yes, auto-accept edits\n  2. No\n";
+  assert.equal(parseSessionActivity("claude", transcript + claude()).state, "idle");
+  // Without a question above them, selected options alone stay unknown.
+  assert.equal(
+    parseSessionActivity("claude", "Plan\n❯ 1. Write the file\n  2. Test it").state,
+    "unknown",
+  );
+});
+
+test("a dialog on screen outranks the mod's Working report", async () => {
+  const activity = new SessionActivity({
+    sessions: {},
+    screen: async () => planDialogs.plan80x30.raw,
+    cacheMs: 0,
+    hooks: async () => ({ state: "working", event: "mod", at: Date.now(), mod: true }),
+  });
+  const item = await activity.read({ id: "plan", tool: "claude", status: "running" });
+  assert.equal(item.state, "waiting");
+});

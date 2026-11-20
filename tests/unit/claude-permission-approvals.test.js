@@ -96,11 +96,13 @@ test("Always allow is offered only for allow rules Claude proposes", () => {
 
 test("ExitPlanMode shows the plan with approve and keep-planning answers", () => {
   const plan = "# Plan\n\n1. Add the hook\n2. Test it";
+  // Claude Code 2.1.329 reads the plan from its plan file into the hook's input.
+  const toolInput = { plan, planFilePath: "/home/.claude/plans/mossy-koala.md" };
   const request = claudeRequest({
     hook_event_name: "PermissionRequest",
     tool_name: "ExitPlanMode",
     cwd: "/work/repo",
-    tool_input: { plan },
+    tool_input: toolInput,
     permission_suggestions: [suggestion],
   });
   const view = requestValue(request.view);
@@ -110,14 +112,18 @@ test("ExitPlanMode shows the plan with approve and keep-planning answers", () =>
     view.options.map((option) => option.id),
     ["acceptEdits", "approve", "keep"],
   );
+  // Claude ignores an allow for ExitPlanMode without updatedInput and shows its
+  // own "Ready to code?" dialog instead (AGENTPIER-414).
   assert.deepEqual(decide(request, "acceptEdits").decision, {
     behavior: "allow",
+    updatedInput: toolInput,
     updatedPermissions: [
       { type: "setMode", mode: "acceptEdits", destination: "session" },
     ],
   });
   assert.deepEqual(decide(request, "approve").decision, {
     behavior: "allow",
+    updatedInput: toolInput,
     updatedPermissions: [{ type: "setMode", mode: "default", destination: "session" }],
   });
   const keep = decide(request, "keep").decision;
@@ -136,16 +142,29 @@ test("ExitPlanMode shows the plan with approve and keep-planning answers", () =>
 });
 
 test("ExitPlanMode without a plan stays an ordinary approval", () => {
-  const view = claudeRequest({
+  const request = claudeRequest({
     hook_event_name: "PermissionRequest",
     tool_name: "ExitPlanMode",
     tool_input: {},
-  }).view;
+  });
+  const { view } = request;
   assert.deepEqual(
     view.options.map((option) => option.id),
     ["allow", "deny"],
   );
   assert.equal(requestValue(view).subject.plan, undefined);
+  // Its allow still carries the input, or Claude falls back to its own dialog.
+  assert.deepEqual(decide(request, "allow").decision, {
+    behavior: "allow",
+    updatedInput: {},
+  });
+  assert.deepEqual(decide(request, "deny").decision, { behavior: "deny" });
+});
+
+test("other tools' allows leave the input to Claude", () => {
+  assert.deepEqual(decide(claudeRequest(bash()), "allow").decision, {
+    behavior: "allow",
+  });
 });
 
 test("a subagent's approval names the agent that asks", () => {

@@ -247,14 +247,17 @@ as questions. The "Answer in terminal" action does the same from chat. A
 handoff never approves anything.
 
 When a tool approval leaves chat through a handoff or a timeout, chat shows the
-notice "Approval moved to the terminal" ("Freigabe ins Terminal verschoben").
+notice "Claude is waiting in the terminal for your approval" ("Claude wartet im
+Terminal auf deine Freigabe").
 The notice does not block chat. It is cleared by any of these:
 
 - the next native request;
 - the next chat message delivered to that session;
 - a ten-minute time-to-live.
 
-It can also be dismissed, and the tab that performed the handoff never shows it.
+It can also be dismissed. The "Answer in terminal" action does not show it in the
+tab that used it; a focused Terminal tab that took the approval over leaves it in
+chat, so chat still says that Claude waits in its own dialog.
 
 Permission subjects name their target:
 

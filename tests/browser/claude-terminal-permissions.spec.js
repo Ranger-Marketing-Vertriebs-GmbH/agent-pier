@@ -25,8 +25,8 @@ const answers = (state) => state.calls.filter((call) => call.path.endsWith("/ans
 for (const locale of ["de-DE", "en-GB"]) {
   const en = locale === "en-GB";
   const notice = en
-    ? "Approval moved to the terminal."
-    : "Freigabe ins Terminal verschoben.";
+    ? "Claude is waiting in the terminal for your approval."
+    : "Claude wartet im Terminal auf deine Freigabe.";
   test.describe(`Claude terminal permissions ${locale}`, () => {
     test.use({ locale, viewport: { width: 390, height: 700 } });
 
@@ -42,16 +42,15 @@ for (const locale of ["de-DE", "en-GB"]) {
         body: { expectedRevision: 1 },
       });
       expect(answers(state)).toHaveLength(0);
-      // This tab released it itself, so chat shows no redundant notice.
+      // Back in chat, the card is gone but chat says that Claude still waits in
+      // its own dialog (AGENTPIER-414).
       state.requestNotice = { id: permission.id, reason: "terminal" };
       await page
         .locator(".terminal-topbar")
         .getByRole("button", { name: "Chat", exact: true })
         .click();
-      await expect
-        .poll(() => state.calls.filter((call) => call.path.endsWith("/requests")).length)
-        .toBeGreaterThan(3);
-      await expect(page.getByText(notice, { exact: true })).toHaveCount(0);
+      await expect(page.getByText(notice, { exact: true })).toBeVisible();
+      expect(answers(state)).toHaveLength(0);
     });
 
     test("chat shows the approval summary and announces it once it moves to the terminal", async ({
