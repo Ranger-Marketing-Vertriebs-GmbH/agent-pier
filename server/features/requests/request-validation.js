@@ -2,6 +2,7 @@ import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { previewLimit, notesLimit } from "./question-limits.js";
 import { planLimit } from "./claude-permission.js";
+import { optionLabelKey } from "./option-labels.js";
 const invalid = () => problem(copy.invalid, 400);
 export const validSession = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
@@ -17,6 +18,7 @@ export function requestValue(value) {
       return {
         id: option.id,
         label: option.label,
+        ...(optionLabelKey(option.labelKey) ? { labelKey: option.labelKey } : {}),
         ...(string(option.description, 8000) ? { description: option.description } : {}),
         ...(string(option.preview, previewLimit) && option.preview.trim()
           ? { preview: option.preview }

@@ -1,5 +1,5 @@
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
+import { optionLabel } from "./option-labels.js";
 
 /** Installed 0.153.4 generated protocol. Unknown methods remain owned by the real TUI. */
 export function codexRequest(message) {
@@ -47,8 +47,8 @@ export function codexRequest(message) {
             .join("\n"),
         },
         options: [
-          { id: "allow", label: copy.turnAllow, scope: "turn" },
-          { id: "deny", label: copy.deny },
+          { id: "allow", ...optionLabel("turnAllow"), scope: "turn" },
+          { id: "deny", ...optionLabel("deny") },
         ],
       },
       answer: (input) => ({
@@ -71,11 +71,12 @@ export function codexRequest(message) {
       method,
     )
   ) {
+    // Native decisions by the stable key of their label (option-labels.js).
     const names = {
-      accept: copy.once,
-      acceptForSession: copy.sessionAllow,
-      decline: copy.deny,
-      cancel: copy.cancel,
+      accept: "once",
+      acceptForSession: "sessionAllow",
+      decline: "deny",
+      cancel: "cancel",
     };
     const decisions = p.availableDecisions || ["accept", "decline"];
     // Policy amendment objects need additional disclosure; leave those choices in the native TUI.
@@ -83,7 +84,7 @@ export function codexRequest(message) {
       .filter((value) => typeof value === "string" && Object.hasOwn(names, value))
       .map((value) => ({
         id: value,
-        label: names[value],
+        ...optionLabel(names[value]),
         ...(value === "acceptForSession"
           ? { scope: "session" }
           : value === "accept"

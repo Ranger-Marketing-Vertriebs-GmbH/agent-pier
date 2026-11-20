@@ -172,6 +172,50 @@ test.describe("English remembered approvals", () => {
       page.getByRole("button", { name: "Always allow WebFetch in this session" }),
     ).toBeVisible();
   });
+  // AGENTPIER-442: the server sends German labels with a stable key.
+  for (const [source, options, english] of [
+    [
+      "codex",
+      [
+        { id: "accept", label: "Einmal erlauben", labelKey: "once", scope: "once" },
+        {
+          id: "acceptForSession",
+          label: "Für diese Session erlauben",
+          labelKey: "sessionAllow",
+          scope: "session",
+        },
+        { id: "cancel", label: "Abbrechen", labelKey: "cancel" },
+      ],
+      ["Allow once", "Allow for this session", "Cancel"],
+    ],
+    [
+      "opencode",
+      [
+        { id: "once", label: "Einmal erlauben", labelKey: "once", scope: "once" },
+        { id: "reject", label: "Ablehnen", labelKey: "deny" },
+      ],
+      ["Allow once", "Deny"],
+    ],
+  ])
+    test(`${source} approval options read in English`, async ({ page }) => {
+      const state = await operationsFixture(page);
+      state.requests = [
+        {
+          ...request,
+          kind: "permission",
+          source,
+          questions: undefined,
+          subject: { tool: "bash", command: "curl -sI https://example.com" },
+          options,
+        },
+      ];
+      await page.goto(baseURL + "/sessions/fixture-session/chat");
+      for (const name of english)
+        await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /Einmal|Abbrechen|Ablehnen/ }),
+      ).toHaveCount(0);
+    });
 });
 test("secret native answers stay masked and a new occurrence resets the draft", async ({
   page,

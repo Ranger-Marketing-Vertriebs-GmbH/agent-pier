@@ -53,6 +53,7 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             : (startup && copy.startupOptions[request.subject?.dialog]?.[option.id]) ||
               (claudeApproval &&
                 (plan ? copy.planOptions : copy.claudeOptions)[option.id]) ||
+              (option.labelKey && copy.optionLabels[option.labelKey]) ||
               option.label,
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>

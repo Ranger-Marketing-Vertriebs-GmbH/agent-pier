@@ -1,6 +1,5 @@
 import { isMainModule } from "../../lib/is-main-module.js";
 import { randomUUID } from "node:crypto";
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers, claudeAnnotations } from "./native-questions.js";
 import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
@@ -15,6 +14,7 @@ import {
   planRequest,
   ruleText,
 } from "./claude-permission.js";
+import { optionLabel } from "./option-labels.js";
 
 // Model-facing text stays English like Claude's own tool results.
 function declineReason(questions, notes = {}) {
@@ -131,19 +131,19 @@ export function claudeRequest(data) {
             trimmed(data.tool_input?.description, 2000) ?? workflow.description,
         },
         options: [
-          { id: "allow", label: copy.once, scope: "once" },
+          { id: "allow", ...optionLabel("once"), scope: "once" },
           // Offered only for rules Claude itself proposes for this call.
           ...(rules.length
             ? [
                 {
                   id: "always",
-                  label: copy.always,
+                  ...optionLabel("always"),
                   description: rules.map(ruleText).join("\n"),
                   scope: "persistent",
                 },
               ]
             : []),
-          { id: "deny", label: copy.deny },
+          { id: "deny", ...optionLabel("deny") },
         ],
       },
       answer: (input) =>

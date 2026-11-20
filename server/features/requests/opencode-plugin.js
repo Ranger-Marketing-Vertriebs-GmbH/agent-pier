@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers } from "./native-questions.js";
+import { optionLabel } from "./option-labels.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 export const id = "agentpier-requests";
 // An OpenCode session id as a command may name it; anything else never reaches the SDK.
@@ -64,11 +65,11 @@ export function observeOpenCode(api, channel) {
                     .join("\n"),
                 },
                 options: [
-                  { id: "once", label: copy.once, scope: "once" },
+                  { id: "once", ...optionLabel("once"), scope: "once" },
                   ...(request.always?.length
-                    ? [{ id: "always", label: copy.sessionAllow, scope: "session" }]
+                    ? [{ id: "always", ...optionLabel("sessionAllow"), scope: "session" }]
                     : []),
-                  { id: "reject", label: copy.deny },
+                  { id: "reject", ...optionLabel("deny") },
                 ],
               };
         channel.publish(key, view, async (answer) => {

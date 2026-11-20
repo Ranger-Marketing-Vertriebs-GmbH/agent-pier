@@ -124,6 +124,14 @@ terminal for your approval" until you answer there, send a message, dismiss the
 notice or ten minutes pass. While Claude's dialog is on screen, the session reads as
 **Waiting**, also when the bridge mod last reported a running turn.
 
+## Option labels
+
+The buttons AgentPier itself puts on a CLI approval (**Allow once**, **Allow for this
+session**, **Deny**, **Cancel** and the like, for Claude Code, Codex and OpenCode) carry
+a stable key (`labelKey`, `server/features/requests/option-labels.js`). The browser
+shows them in the UI language and Telegram in the channel's language; options whose
+text the CLI wrote itself, such as a question's answers, keep that text.
+
 ## Remembered and default approvals
 
 Every CLI tool approval (Claude Code, Codex and OpenCode) also offers **Always allow

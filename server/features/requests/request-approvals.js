@@ -14,6 +14,7 @@ import {
   touchesSecret,
 } from "./cli-approval-defaults.js";
 import { riskyForm } from "./risky-forms.js";
+import { optionLabel } from "./option-labels.js";
 
 // Approvals the owner remembered on a CLI permission card ("Allow for this session"
 // or "for this project"), kept by AgentPier and answered by it: a later request of
@@ -220,7 +221,7 @@ export class RequestApprovals {
         .filter((scope) => scope === "session" || projectId)
         .map((scope) => ({
           id: rememberIds[scope],
-          label: scope === "session" ? copy.rememberSession : copy.rememberProject,
+          ...optionLabel(scope === "session" ? "rememberSession" : "rememberProject"),
           scope,
           remember,
         })),

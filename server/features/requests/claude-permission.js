@@ -1,4 +1,4 @@
-import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
+import { optionLabel } from "./option-labels.js";
 
 export const planLimit = 100000;
 const ruleLimit = 20;
@@ -98,9 +98,9 @@ export function planRequest(data) {
         cwd: data.cwd,
       },
       options: [
-        { id: "acceptEdits", label: copy.planAcceptEdits, scope: "session" },
-        { id: "approve", label: copy.planApprove, scope: "session" },
-        { id: "keep", label: copy.planKeep },
+        { id: "acceptEdits", ...optionLabel("planAcceptEdits"), scope: "session" },
+        { id: "approve", ...optionLabel("planApprove"), scope: "session" },
+        { id: "keep", ...optionLabel("planKeep") },
       ],
     },
     answer: (input) =>
