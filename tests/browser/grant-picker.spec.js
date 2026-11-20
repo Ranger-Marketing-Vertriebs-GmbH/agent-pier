@@ -63,10 +63,32 @@ test("split: a locked entry is checked, disabled and has no remove button", asyn
     .getByRole("checkbox", { name: "prod-web-02" });
   await expect(locked).toBeChecked();
   await expect(locked).toBeDisabled();
+  // Its note says why, on the left too.
+  await expect(locked).toHaveAccessibleDescription(/Project managed/);
   const allowed = box.getByRole("group", { name: /^Allowed in this session/ });
   await expect(allowed.getByText("Project managed")).toBeVisible();
   await expect(allowed.getByRole("button", { name: "Remove prod-web-01" })).toBeVisible();
   await expect(box.getByRole("button", { name: "Remove prod-web-02" })).toHaveCount(0);
+});
+
+test("split: removing a row moves the focus to the next, previous, then the search", async ({
+  page,
+}) => {
+  const box = await split(page);
+  const search = box.getByRole("searchbox", { name: "Search SSH accesses" });
+  const choices = box.getByRole("group", { name: "SSH accesses" });
+  const remove = (name) => box.getByRole("button", { name: `Remove ${name}` });
+  await search.fill("prod-web-0");
+  await choices.getByRole("checkbox", { name: "prod-web-03" }).check();
+  await choices.getByRole("checkbox", { name: "prod-web-04" }).check();
+  // Allowed: prod-web-01, prod-web-02 (locked, no remove button), 03, 04.
+  await remove("prod-web-01").click();
+  await expect(remove("prod-web-03")).toBeFocused();
+  await remove("prod-web-04").focus();
+  await page.keyboard.press("Enter");
+  await expect(remove("prod-web-03")).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(search).toBeFocused();
 });
 
 test("split: a search without matches says so with the query", async ({ page }) => {
@@ -105,9 +127,13 @@ test("stacked: the add field grants and the row's button removes", async ({ page
 
   await card.getByRole("button", { name: "Remove stage-db-07" }).click();
   await expect(card.getByText("stage-db-07", { exact: true })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Remove prod-web-01" })).toBeFocused();
+  await card.getByRole("button", { name: "Remove prod-web-01" }).click();
+  // No allowed row left to focus: the add field takes the focus.
+  await expect(field).toBeFocused();
 
   await field.fill("prod-web-0");
-  const granted = list.getByRole("option", { name: /prod-web-01/ });
+  const granted = list.getByRole("option", { name: /prod-web-02/ });
   await expect(granted).toHaveAttribute("aria-disabled", "true");
   await expect(granted).toContainText("allowed");
 });
@@ -131,6 +157,22 @@ test("dialog: autoFocus focuses the search of a picker that mounts late", async 
   await expect(
     dialog.getByRole("searchbox", { name: "Search SSH accesses" }),
   ).toBeFocused();
+});
+
+test("dialog: Escape clears the search first, then closes the dialog", async ({
+  page,
+}) => {
+  const dialog = await openDialog(page);
+  const search = dialog.getByRole("searchbox", { name: "Search SSH accesses" });
+  await expect(search).toBeFocused();
+  await search.fill("prod-web-03");
+  await expect(dialog.getByRole("status")).toHaveText("1 of 600");
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(dialog.getByRole("status")).toHaveText("600 of 600");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
 });
 
 test.describe("touch screen", () => {

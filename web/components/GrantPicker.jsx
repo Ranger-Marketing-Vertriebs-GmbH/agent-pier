@@ -26,7 +26,43 @@ export const grantDialogClass = "grant-dialog";
 
 const ids = (items) => items.map((item) => item.id);
 
-function AllowedRow({ entry, selected, onChange, disabled }) {
+// The field that takes the focus when no allowed row is left to focus.
+const fieldSelector = ".grant-picker-search input, .add-picker-field input";
+
+/**
+ * Keeps the keyboard focus in the picker when a click removes the button that had it
+ * ("Remove X", "Remove explicit assignment"): it moves to the next allowed row's remove
+ * button, else the previous one, else the search or add field. Returns the handler to
+ * call with the clicked button before the change.
+ */
+function useFocusAfterRemove(root) {
+  const pending = useRef(null);
+  useEffect(() => {
+    const target = pending.current;
+    if (!target) return;
+    pending.current = null;
+    if (target.from.isConnected) return;
+    const next = [target.next, target.previous].find(
+      (button) => button?.isConnected && !button.disabled,
+    );
+    (next ?? root.current?.querySelector(fieldSelector))?.focus();
+  });
+  return (button) => {
+    const rows = [...root.current.querySelectorAll(".grant-picker-allowed")];
+    const index = rows.indexOf(button.closest(".grant-picker-allowed"));
+    const removeOf = (row) => row.querySelector("[data-grant-remove]");
+    pending.current = {
+      from: button,
+      next: rows
+        .slice(index + 1)
+        .map(removeOf)
+        .find(Boolean),
+      previous: rows.slice(0, Math.max(index, 0)).reverse().map(removeOf).find(Boolean),
+    };
+  };
+}
+
+function AllowedRow({ entry, selected, onChange, disabled, onRemove }) {
   const value = [entry.badge, ...(entry.notes ?? [])].filter(Boolean).join(" · ");
   return (
     <ListRow
@@ -40,7 +76,10 @@ function AllowedRow({ entry, selected, onChange, disabled }) {
           type="button"
           className="grant-picker-action"
           disabled={disabled}
-          onClick={entry.action.onClick}
+          onClick={(event) => {
+            onRemove(event.currentTarget);
+            entry.action.onClick();
+          }}
         >
           {entry.action.label}
         </button>
@@ -50,8 +89,12 @@ function AllowedRow({ entry, selected, onChange, disabled }) {
           type="button"
           className="list-row-icon-button"
           aria-label={copy.remove(entry.name)}
+          data-grant-remove
           disabled={disabled}
-          onClick={() => onChange(setGrant(selected, entry.id, false))}
+          onClick={(event) => {
+            onRemove(event.currentTarget);
+            onChange(setGrant(selected, entry.id, false));
+          }}
         >
           <Icon name="close" />
         </button>
@@ -67,6 +110,7 @@ function AllowedList({
   selected,
   onChange,
   disabled,
+  onRemove,
   last,
 }) {
   return (
@@ -82,6 +126,7 @@ function AllowedList({
             selected={selected}
             onChange={onChange}
             disabled={disabled}
+            onRemove={onRemove}
           />
         ))}
         {!allowed.length && !last && (
@@ -123,6 +168,14 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
           spellCheck={false}
           data-autofocus={autoFocus || undefined}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            // Escape clears a query first, in every engine (Firefox would close the
+            // dialog and drop unsaved choices); with an empty field the dialog closes.
+            if (event.key !== "Escape" || !query) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setQuery("");
+          }}
         />
         <span className="grant-picker-count" role="status">
           {copy.count(matches.length, entries.length)}
@@ -134,12 +187,17 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
           <legend className="visually-hidden">{listLabel}</legend>
           {rows.map((entry, index) => {
             const rowId = `${id}-row-${index}`;
+            const notes = entry.notes?.filter(Boolean) ?? [];
+            const described = [
+              entry.sub && `${rowId}-sub`,
+              notes.length && `${rowId}-notes`,
+            ].filter(Boolean);
             return (
               <label key={entry.id} className="grant-picker-row">
                 <input
                   type="checkbox"
                   aria-labelledby={`${rowId}-name`}
-                  aria-describedby={entry.sub ? `${rowId}-sub` : undefined}
+                  aria-describedby={described.join(" ") || undefined}
                   checked={isAllowed(entry, selected)}
                   disabled={Boolean(entry.locked)}
                   onChange={(event) =>
@@ -155,6 +213,14 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
                   </span>
                 )}
                 {entry.badge && <span className="badge">{entry.badge}</span>}
+                {/* Why a locked row cannot be switched off, read as the checkbox's
+                    description only: hidden, it is not read a second time, and the
+                    allowed list shows the notes. */}
+                {notes.length > 0 && (
+                  <span hidden id={`${rowId}-notes`}>
+                    {notes.join(" · ")}
+                  </span>
+                )}
               </label>
             );
           })}
@@ -191,6 +257,8 @@ export default function GrantPicker({
   children,
 }) {
   const id = useId();
+  const root = useRef(null);
+  const onRemove = useFocusAfterRemove(root);
   const phone = useMediaQuery(mediaQueries.phone);
   if (!entries.length)
     return (
@@ -208,11 +276,12 @@ export default function GrantPicker({
     selected,
     onChange,
     disabled,
+    onRemove,
   };
 
   if (stacked || phone)
     return (
-      <div className="grant-picker" data-arrangement="stacked">
+      <div className="grant-picker" data-arrangement="stacked" ref={root}>
         <AllowedList
           {...list}
           last={
@@ -231,7 +300,7 @@ export default function GrantPicker({
     );
 
   return (
-    <div className="grant-picker" data-arrangement="split">
+    <div className="grant-picker" data-arrangement="split" ref={root}>
       <Choices
         id={id}
         entries={entries}

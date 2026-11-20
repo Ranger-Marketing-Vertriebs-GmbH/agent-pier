@@ -169,7 +169,12 @@ test("inherited project accesses are visibly managed by the project and cannot b
   const inherited = page.getByRole("checkbox", { name: /Build server/ });
   await expect(inherited).toBeChecked();
   await expect(inherited).toBeDisabled();
-  await expect(page.getByText("Project managed", { exact: true })).toBeVisible();
+  await expect(inherited).toHaveAccessibleDescription(/Project managed/);
+  await expect(
+    page
+      .getByRole("group", { name: /^Allowed in this session/ })
+      .getByText("Project managed", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Manage project accesses" }),
   ).toHaveAttribute("href", "/connections?section=ssh");

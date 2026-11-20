@@ -160,6 +160,8 @@ test("an inherited access stays allowed when its explicit assignment is removed"
   const box = dialog.getByRole("checkbox", { name: "Build server" });
   await expect(box).toBeChecked();
   await expect(box).toBeDisabled();
+  // The locked row on the left says why it cannot be switched off.
+  await expect(box).toHaveAccessibleDescription(/Vom Projekt verwaltet/);
   await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect.poll(() => sessionPuts(state)).toEqual([{ accessIds: [] }]);
 });
