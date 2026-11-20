@@ -207,7 +207,9 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed".
 - `locked` marks an entry the session has anyway (from the project): it counts as
   allowed, its checkbox is checked and disabled and its row has no remove button.
-  `action` (`{ label, onClick }`) adds a text button to the allowed row.
+  `action` (`{ label, onClick }`) adds a text button to the allowed row. An allowed row
+  stacks name, `sub` and the `badge` and `notes` line below each other, with the
+  `action` on a line of its own, so long notes stay readable in the 320px column.
 - `disabled` (a save is running) disables the checkboxes, the remove and action buttons
   and the add field; the search stays usable. Without entries the picker shows
   `emptyText` and the `children` only.

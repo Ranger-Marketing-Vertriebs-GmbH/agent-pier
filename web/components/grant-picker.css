@@ -134,20 +134,57 @@ label.grant-picker-row input[type="checkbox"] {
 label.grant-picker-row + .grant-picker-note {
   border-top: 1px solid var(--divider-soft);
 }
+/* An allowed row stacks its texts in the narrow column: name, connection and notes
+   below each other with the remove button beside them, the action on a line of its
+   own. Side by side (ListRow's default) a long note squeezed the name to a few letters
+   per line. */
+.list-row.grant-picker-allowed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--space-2);
+  align-items: center;
+}
+.grant-picker-allowed > .list-row-main {
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 10px 0;
+}
+.grant-picker-allowed > .list-row-icon-button {
+  grid-column: 2;
+  grid-row: 1;
+}
+/* Beats ListRow's 70 % cap for a label beside a value; here the value sits below. */
+.list-row.grant-picker-allowed > .list-row-main > .list-row-text {
+  flex: none;
+  max-width: none;
+  padding: 0;
+}
 .grant-picker-allowed .list-row-sub {
-  overflow: hidden;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--font-size-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+.grant-picker-allowed .list-row-value {
+  min-width: 0;
+  margin-left: 0;
+  font-size: var(--font-size-sm);
+  text-align: start;
 }
 .grant-picker-empty {
   margin: 0;
   color: var(--muted);
   font-size: var(--font-size-md);
 }
+/* In the text column only: spanning both, its width would widen the button column. */
 .grant-picker-action {
-  flex: none;
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+  /* The text lines up with the name above it. */
+  margin: calc(-1 * var(--space-1)) 0 var(--space-2) calc(-1 * var(--space-2));
   padding: var(--space-1) var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);

@@ -104,6 +104,8 @@ export const sshCopy = {
     "The name can be changed. To use different key material, add another key.",
 
   title: "SSH accesses",
+  // One SSH access, as the type of the add field in the session SSH dialog.
+  grantType: "SSH access",
   description: "Connections and keys for your projects.",
   scope:
     "Assignments help target access within one OS user. They do not isolate processes or protect keys from other processes of that user.",

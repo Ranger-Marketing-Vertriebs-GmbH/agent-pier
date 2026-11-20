@@ -5,7 +5,9 @@ import Icon from "../../components/Icon.jsx";
 import api from "../../lib/api.js";
 import { readBefore } from "../../lib/read-stamps.js";
 import useSshAccesses from "./useSshAccesses.js";
-import SshChoices from "./SshChoices.jsx";
+import GrantPicker, { grantDialogClass } from "../../components/GrantPicker.jsx";
+import { setGrant } from "../../components/grant-picker.js";
+import { sshGrantEntries } from "./ssh-grant-entries.js";
 import SshCopy from "./SshCopy.jsx";
 import SessionSshAgentStatus from "./SessionSshAgentStatus.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
@@ -86,6 +88,15 @@ export default function SessionSshDialog({ session, close, openReload }) {
     }
   };
   const state = tools?.state || "unavailable";
+  const change = (ids) => {
+    setSelected(ids);
+    setSaved(false);
+  };
+  const manage = (
+    <a className="ssh-dialog-manage" href={connectionsRoutePath(connectionsRoute("ssh"))}>
+      {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
+    </a>
+  );
 
   return (
     <Modal
@@ -94,7 +105,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
         if (!busy) close();
       }}
       closeDisabled={busy}
-      className="ssh-dialog"
+      className={`ssh-dialog ${grantDialogClass}`}
       footer={
         data ? (
           <>
@@ -163,47 +174,49 @@ export default function SessionSshDialog({ session, close, openReload }) {
               {copy.unsaved}
             </p>
           )}
-          <SshChoices
-            accesses={data.accesses}
+          <GrantPicker
+            entries={sshGrantEntries(data.accesses, {
+              selected,
+              inherited: data.inheritedIds || [],
+              onRemoveExplicit: (id) => change(setGrant(selected, id, false)),
+              copy,
+              projectCopy,
+            })}
             selected={selected}
-            inherited={data.inheritedIds || []}
+            onChange={change}
+            typeLabel={copy.grantType}
+            listLabel={copy.title}
             disabled={busy}
-            hideLegend
-            change={(ids) => {
-              setSelected(ids);
-              setSaved(false);
-            }}
-          />
-          <SessionSshAgentStatus agent={agent} accesses={data.accesses} />
-          {data.commands.length > 0 && (
-            <details className="learn-more">
-              <summary>
-                {copy.advanced}
-                <Icon name="down" size={14} />
-              </summary>
-              <div className="learn-more-body">
-                <p>
-                  {copy.commandHint} <code>-- uname -a</code>
-                </p>
-                {data.commands.map((item) => (
-                  <SshCopy
-                    key={item.id}
-                    label={`${copy.command} · ${data.accesses.find((access) => access.id === item.id)?.name || item.id}`}
-                    text={item.command}
-                    button={copy.copyCommand}
-                  />
-                ))}
-              </div>
-            </details>
-          )}
+            emptyText={copy.empty}
+            autoFocus
+          >
+            <SessionSshAgentStatus agent={agent} accesses={data.accesses} />
+            {data.commands.length > 0 && (
+              <details className="learn-more">
+                <summary>
+                  {copy.advanced}
+                  <Icon name="down" size={14} />
+                </summary>
+                <div className="learn-more-body">
+                  <p>
+                    {copy.commandHint} <code>-- uname -a</code>
+                  </p>
+                  {data.commands.map((item) => (
+                    <SshCopy
+                      key={item.id}
+                      label={`${copy.command} · ${data.accesses.find((access) => access.id === item.id)?.name || item.id}`}
+                      text={item.command}
+                      button={copy.copyCommand}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
+            {manage}
+          </GrantPicker>
         </>
       )}
-      <a
-        className="ssh-dialog-manage"
-        href={connectionsRoutePath(connectionsRoute("ssh"))}
-      >
-        {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
-      </a>
+      {!data && manage}
     </Modal>
   );
 }

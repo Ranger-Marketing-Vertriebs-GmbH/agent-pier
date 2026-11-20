@@ -99,8 +99,10 @@
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
+/* In the grant picker's flex column the link keeps its own width. */
 .ssh-dialog-manage {
   justify-self: start;
+  align-self: flex-start;
   font-size: 12px;
   font-weight: 600;
   color: var(--accent);
