@@ -228,8 +228,8 @@ export const connectionCopy = {
     imagesHelp:
       "Nein lässt den Adapter Bild-Eingaben für dieses Modell ablehnen; Codex führt es ohne Bildeingang.",
     sources: { detected: "Erkannt", manual: "Manuell" },
-    contextHint: (tokens) => `Modell-Maximum: ${tokens}`,
-    contextMissing: "Kontext erforderlich",
+    contextHint: (tokens) => `max. ${tokens}`,
+    contextMissing: "Erforderlich",
     addModel: "Modell hinzufügen",
     removeModel: (id) => `${id} entfernen`,
     azureHint: "Azure OpenAI: Trage deine Deployment-Namen als Modell-IDs ein.",

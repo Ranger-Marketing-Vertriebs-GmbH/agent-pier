@@ -228,8 +228,8 @@ export const connectionCopy = {
     imagesHelp:
       "No makes the adapter refuse image input for this model, and Codex lists it without image input.",
     sources: { detected: "Detected", manual: "Manual" },
-    contextHint: (tokens) => `Model maximum: ${tokens}`,
-    contextMissing: "Context required",
+    contextHint: (tokens) => `max. ${tokens}`,
+    contextMissing: "Required",
     addModel: "Add model",
     removeModel: (id) => `Remove ${id}`,
     azureHint: "Azure OpenAI: enter your deployment names as model IDs.",
