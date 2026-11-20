@@ -14,11 +14,8 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
-import {
-  defaultHighlightStyle,
-  syntaxHighlighting,
-  bracketMatching,
-} from "@codemirror/language";
+import { bracketMatching } from "@codemirror/language";
+import { editorHighlighting } from "../../components/editor-highlight.js";
 import { loadLanguage } from "./file-editor-languages.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
@@ -52,7 +49,7 @@ export default function FileEditor({ tab, onChange: edit, onSave: save, searchRe
           history(),
           bracketMatching(),
           search({ top: true }),
-          syntaxHighlighting(defaultHighlightStyle),
+          editorHighlighting(),
           language.of([]),
           phrases.of(EditorState.phrases.of({})),
           permissions.of([]),
