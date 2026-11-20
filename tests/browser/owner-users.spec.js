@@ -14,6 +14,9 @@ const languages = {
     create: "Anlegen",
     signIn: "Anmelden erlaubt",
     disabled: "Deaktiviert",
+    disableNow: "Anmelden sperren",
+    disableImpact: /2 Erinnerungen, Routinen und Check-ins und 1 Telegram-Bot/,
+    cancel: "Abbrechen",
     delete: "Benutzer löschen",
     deleteNow: "Jetzt löschen",
     keep: "Unter meinem Konto behalten",
@@ -35,6 +38,9 @@ const languages = {
     create: "Add",
     signIn: "Sign-in allowed",
     disabled: "Disabled",
+    disableNow: "Block sign-in",
+    disableImpact: /2 reminders, routines and check-ins and 1 Telegram bot/,
+    cancel: "Cancel",
     delete: "Delete user",
     deleteNow: "Delete now",
     keep: "Keep under my account",
@@ -67,6 +73,7 @@ async function setup(page, language, { users = [], assistants = [] } = {}) {
     if (path === "/api/assistants")
       return json(route, { assistants: state.assistants, conversations: [], models: [] });
     if (path === "/api/users" && method === "GET") return json(route, state.users);
+    if (/\/disable-impact$/.test(path)) return json(route, { schedules: 2, bots: 1 });
     if (path === "/api/users" && method === "POST") {
       const user = {
         id: `u-${state.users.length + 1}`,
@@ -120,9 +127,25 @@ for (const [language, copy] of Object.entries(languages))
       await dialog.getByRole("button", { name: copy.create, exact: true }).click();
       await expect(page).toHaveURL(/\/settings\/users\?user=u-1$/);
       await expect(page.getByRole("heading", { name: "Anna" })).toBeVisible();
-      await page.getByRole("switch", { name: copy.signIn }).click();
-      await expect(page.getByRole("switch", { name: copy.signIn })).not.toBeChecked();
+      // Turning sign-in off removes her reminders, routines and bots for good: it asks
+      // first and names what goes. Cancel changes nothing.
+      const signIn = page.getByRole("switch", { name: copy.signIn });
+      await signIn.click();
+      const confirm = page.getByRole("dialog");
+      await expect(confirm.getByText(copy.disableImpact)).toBeVisible();
+      await confirm.getByRole("button", { name: copy.cancel }).click();
+      await expect(confirm).toHaveCount(0);
+      await expect(signIn).toBeChecked();
+      expect(state.calls.some((c) => c.method === "PATCH")).toBe(false);
+      await signIn.click();
+      await page.getByRole("button", { name: copy.disableNow }).click();
+      await expect(signIn).not.toBeChecked();
       expect(state.users[0].disabled).toBe(true);
+      // Back on lets her in again without asking.
+      await signIn.click();
+      await expect(signIn).toBeChecked();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(state.users[0].disabled).toBe(false);
       await page.getByRole("button", { name: copy.delete }).click();
       await page.getByRole("button", { name: copy.deleteNow }).click();
       await expect(page).toHaveURL(/\/settings\/users$/);

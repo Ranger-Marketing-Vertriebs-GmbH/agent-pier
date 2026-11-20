@@ -4,6 +4,7 @@ import { Router } from "express";
 import { notFoundBody } from "../responses.js";
 import { userProblem } from "../../features/users/user-errors.js";
 import { UserAgents } from "../../features/users/user-agents.js";
+import { userBindingsImpact } from "../../features/users/user-release.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 
 // Whether agents ever ran here: their store may hold a user's agents and chats.
@@ -34,6 +35,11 @@ export function usersRoutes(services) {
       await new UserAgents(services).disableUser(user.id);
     }
     res.json(user);
+  });
+  // What disabling her would end, for the owner's confirmation (UserDetail).
+  router.get("/users/:id/disable-impact", (req, res) => {
+    const user = users.get(req.params.id);
+    res.json(userBindingsImpact(services, user.id));
   });
   // "Owner may read chats": from now on, never earlier; the user sees it in her app.
   router.put("/users/:id/owner-may-read", (req, res) => {

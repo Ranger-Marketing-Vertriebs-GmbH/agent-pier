@@ -25,6 +25,12 @@ export const usersCopy = {
   active: "Sign-in allowed",
   activeSub:
     "Off: they are signed out, and their reminders, routines and Telegram bots are removed for good.",
+  disableTitle: (name) => `Block sign-in for ${name}?`,
+  disableBody:
+    "They are signed out at once. Their reminders, routines, check-ins and Telegram bots are removed for good; allowing sign-in again does not restore them. Their agents and chats stay.",
+  disableImpact: (schedules, bots) =>
+    `Removed: ${schedules === 1 ? "1 reminder, routine or check-in" : `${schedules} reminders, routines and check-ins`} and ${bots === 1 ? "1 Telegram bot" : `${bots} Telegram bots`}.`,
+  disableConfirm: "Block sign-in",
   ownerMayRead: "Owner may read chats",
   ownerMayReadSub:
     "They see this in their app. It applies from now on, never to older chats.",

@@ -25,6 +25,12 @@ export const usersCopy = {
   active: "Anmelden erlaubt",
   activeSub:
     "Aus: Die Person ist abgemeldet, ihre Erinnerungen, Routinen und Telegram-Bots werden endgültig entfernt.",
+  disableTitle: (name) => `Anmelden für ${name} sperren?`,
+  disableBody:
+    "Die Person wird sofort abgemeldet. Ihre Erinnerungen, Routinen, Check-ins und Telegram-Bots werden endgültig entfernt; erneutes Erlauben stellt sie nicht wieder her. Ihre Agenten und Chats bleiben.",
+  disableImpact: (schedules, bots) =>
+    `Entfernt werden: ${schedules === 1 ? "1 Erinnerung, Routine oder Check-in" : `${schedules} Erinnerungen, Routinen und Check-ins`} und ${bots === 1 ? "1 Telegram-Bot" : `${bots} Telegram-Bots`}.`,
+  disableConfirm: "Anmelden sperren",
   ownerMayRead: "Besitzer darf Chats lesen",
   ownerMayReadSub:
     "Die Person sieht das in ihrer App. Es gilt ab jetzt, nie für ältere Chats.",

@@ -8,6 +8,7 @@ export const ownerUsersApi = {
   list: () => api("/users"),
   create: (input) => api("/users", "POST", input),
   update: (userId, input) => api(`/users/${id(userId)}`, "PATCH", input),
+  disableImpact: (userId) => api(`/users/${id(userId)}/disable-impact`),
   setOwnerMayRead: (userId, enabled) =>
     api(`/users/${id(userId)}/owner-may-read`, "PUT", { enabled }),
   resetPassword: (userId, password) =>
