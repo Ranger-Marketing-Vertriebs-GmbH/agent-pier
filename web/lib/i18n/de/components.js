@@ -41,6 +41,15 @@ export const addPickerCopy = {
   modeLabel: "Modus für neue Einträge",
   add: (count) => (count > 0 ? `${count} hinzufügen` : "Hinzufügen"),
 };
+export const grantPickerCopy = {
+  search: (list) => `${list} durchsuchen`,
+  count: (shown, total) => `${shown} von ${total}`,
+  allowed: (count) => `Erlaubt in dieser Session · ${count}`,
+  noneAllowed: "Noch nichts erlaubt.",
+  noMatches: (query) => `Keine Treffer für „${query}“`,
+  remove: (name) => `${name} entfernen`,
+  allowedTag: "erlaubt",
+};
 export const skeletonCopy = {
   loading: "Wird geladen",
 };

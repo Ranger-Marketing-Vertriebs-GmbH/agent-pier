@@ -1,0 +1,193 @@
+/* Grant picker (GrantPicker.jsx, docs/ui-guide.md#choosing-what-a-session-may-use):
+   search and compact rows on the left, the allowed list on the right; stacked it is a
+   list card ending in AddPicker. Tokens only; the checkbox shares the CheckRow look
+   (components/dialog.css). */
+.grant-picker {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.grant-picker[data-arrangement="split"] {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+.grant-picker-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Outside a grant dialog (the gallery) each column keeps a sensible height. */
+  max-height: min(560px, 70dvh);
+}
+.grant-picker-side {
+  gap: var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+/* The column scrolls as a whole; its parts never shrink and clip. */
+.grant-picker-side > * {
+  flex: none;
+}
+.grant-picker-allowed-list {
+  min-width: 0;
+}
+.grant-picker-allowed-list > .group-label:first-child {
+  margin-top: 0;
+}
+.grant-picker-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+}
+.grant-picker-search input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-md);
+}
+.grant-picker-search input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+.grant-picker-count {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.grant-picker-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+label.grant-picker-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--divider-soft);
+  color: var(--text);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+label.grant-picker-row:first-of-type {
+  border-top: 0;
+}
+label.grant-picker-row:hover:not(:has(input:disabled)) {
+  background: var(--popover-raised);
+}
+label.grant-picker-row:has(input:disabled) {
+  cursor: default;
+}
+label.grant-picker-row:has(input:disabled) > span {
+  opacity: 0.72;
+}
+label.grant-picker-row input[type="checkbox"] {
+  margin: 0;
+}
+.grant-picker-name {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grant-picker-sub {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-meta);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+}
+.grant-picker-row .badge {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 6px;
+}
+.grant-picker-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+label.grant-picker-row + .grant-picker-note {
+  border-top: 1px solid var(--divider-soft);
+}
+.grant-picker-allowed .list-row-sub {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grant-picker-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-md);
+}
+.grant-picker-action {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.grant-picker-action:hover:not(:disabled) {
+  background: var(--popover-raised);
+}
+.grant-picker-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+.grant-picker-action:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* In a grant dialog the dialog takes the split width, grows with its content up to its
+   height limit, and the picker fills the body so each column scrolls on its own. */
+@media (min-width: 701px) {
+  dialog.grant-dialog {
+    width: min(920px, calc(100vw - 32px));
+  }
+  dialog.grant-dialog[open]:has(.grant-picker[data-arrangement="split"]) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  dialog.grant-dialog:has(.grant-picker[data-arrangement="split"])
+    > :is(.dialog-heading, .dialog-actions) {
+    flex: none;
+  }
+  dialog.grant-dialog .dialog-body:has(> .grant-picker[data-arrangement="split"]) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+  dialog.grant-dialog .dialog-body > .grant-picker[data-arrangement="split"] {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  dialog.grant-dialog .grant-picker[data-arrangement="split"] .grant-picker-column {
+    max-height: none;
+  }
+}

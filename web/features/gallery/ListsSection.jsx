@@ -7,6 +7,7 @@ import ReferenceRow from "../../components/ReferenceRow.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
 import AddPickerSpecimens from "./AddPickerSpecimens.jsx";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
+import GrantPickerSpecimens from "./GrantPickerSpecimens.jsx";
 import { noop } from "./gallery-fixtures.js";
 
 export default function ListsSection() {
@@ -46,6 +47,7 @@ export default function ListsSection() {
         </ListCard>
       </Specimen>
       <AddPickerSpecimens />
+      <GrantPickerSpecimens />
       <Specimen label="ReferenceRow" wide>
         <ReferenceRow title={s.reference} onOpen={noop} />
         <ReferenceRow
