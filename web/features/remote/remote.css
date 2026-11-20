@@ -24,3 +24,10 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+/* Addresses such as a long Tailscale URL wrap instead of widening a phone page. */
+.remote-settings code {
+  overflow-wrap: anywhere;
+}
+.remote-settings .settings-card h3 {
+  margin-top: 16px;
+}

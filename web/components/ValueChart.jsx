@@ -68,17 +68,21 @@ export default function ValueChart({
           {points.length > 1 && <span>{points.at(-1).label}</span>}
         </div>
       </div>
-      <table className="visually-hidden" aria-labelledby={`${id}-caption`}>
-        <caption id={`${id}-caption`}>{label}</caption>
-        <tbody>
-          {points.map((point, i) => (
-            <tr key={i}>
-              <th scope="row">{point.label}</th>
-              <td>{text(point.value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* A hidden wrapper, not a hidden table: a table never gets narrower than its
+          content, and would widen the page on a phone. */}
+      <div className="visually-hidden">
+        <table aria-labelledby={`${id}-caption`}>
+          <caption id={`${id}-caption`}>{label}</caption>
+          <tbody>
+            {points.map((point, i) => (
+              <tr key={i}>
+                <th scope="row">{point.label}</th>
+                <td>{text(point.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }
