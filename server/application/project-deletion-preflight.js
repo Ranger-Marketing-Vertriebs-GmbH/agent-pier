@@ -129,6 +129,27 @@ async function folderProcesses(services, folder, probes) {
   return { status: "ok", list: probes.classify(result.processes, context) };
 }
 
+/**
+ * A process of an AgentPier session that uses the folder belongs to that session, the
+ * project's own or another's: it is listed once as a running session ("Stop sessions"
+ * stops it as a whole), never as another process to end one by one.
+ */
+function foldSessionProcesses(blockers, processes) {
+  const listed = new Set(blockers.sessions.map((session) => session.id));
+  const list = [];
+  for (const item of processes.list) {
+    if (item.known?.kind !== "session") {
+      list.push(item);
+      continue;
+    }
+    const { sessionId: id, name = "" } = item.known;
+    if (listed.has(id)) continue;
+    listed.add(id);
+    blockers.sessions.push({ id, name });
+  }
+  return { ...processes, list };
+}
+
 // One report per project folder; a nested project that is a worktree already listed
 // in an earlier report is not checked twice.
 async function gitReports(scope, probes) {
@@ -237,6 +258,7 @@ export async function preflight(services, rawPath, overrides = {}) {
         gitReports(scope, probes),
       ]);
       if (processes.list.some((item) => item.protected)) refused = "agentpier-process";
+      processes = foldSessionProcesses(blockers, processes);
     }
   }
   const blocked = Object.values(blockers).some((list) => list.length > 0);

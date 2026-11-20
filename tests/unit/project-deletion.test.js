@@ -174,6 +174,15 @@ test("endBlockers stops sessions and ends only ticked, endable processes", async
   f.runs.set("r1", { id: "r1", projectId: f.id, cwd: f.app, status: "running" });
   const report = await f.deletion.preflight(f.app);
   assert.equal(report.ready, false);
+  // A session's process in the folder is listed as its session, never on its own.
+  assert.deepEqual(
+    report.blockers.sessions.map((session) => session.id),
+    ["s1", "pane"],
+  );
+  assert.deepEqual(
+    report.processes.list.map((item) => item.pid),
+    [101, 102, 103],
+  );
   await assert.rejects(
     f.deletion.endBlockers({ path: f.app, token: "f".repeat(64), sessions: true }, owner),
     { code: "PROJECT_DELETE_STALE" },
@@ -194,7 +203,7 @@ test("endBlockers stops sessions and ends only ticked, endable processes", async
     owner,
   );
   assert.deepEqual(f.ended, [101]);
-  assert.deepEqual(f.calls, ["stop:s1", "cancel:r1", "stop:pane"]);
+  assert.deepEqual(f.calls, ["stop:s1", "stop:pane", "cancel:r1"]);
   // The ended work is named in the audit record of the deletion.
   found.splice(0, found.length);
   const after = await f.deletion.preflight(f.app);

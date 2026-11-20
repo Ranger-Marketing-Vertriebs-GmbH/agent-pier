@@ -197,7 +197,8 @@ function ancestors(table, pid) {
 /**
  * Marks what AgentPier knows about each found process and whether it may be offered:
  * never its server and the server's ancestors, the tmux server, the Gateway or pid 1,
- * and never another user's process.
+ * never another user's process, and never a process of one of its sessions: that
+ * session is stopped as a whole (project-deletion-preflight.js lists it as a blocker).
  */
 export function classifyProcesses(
   found,
@@ -226,7 +227,11 @@ export function classifyProcesses(
     if (trees.get("gateway")?.has(pid)) return { kind: "agent-command" };
     for (const pane of sessionPanes)
       if (trees.get(`session:${pane.id}`)?.has(pid))
-        return { kind: "session", sessionId: pane.id };
+        return {
+          kind: "session",
+          sessionId: pane.id,
+          ...(pane.name ? { name: pane.name } : {}),
+        };
     return null;
   };
   const result = [];
@@ -241,6 +246,7 @@ export function classifyProcesses(
     }
     const isProtected = guarded.has(pid);
     const mine = owner != null && owner === uid;
+    const known = isProtected ? null : knownOf(pid);
     result.push({
       pid,
       startTime,
@@ -248,8 +254,8 @@ export function classifyProcesses(
       name,
       uses,
       owner: mine ? "self" : "other",
-      known: isProtected ? null : knownOf(pid),
-      endable: !isProtected && mine && startTime !== null,
+      known,
+      endable: !isProtected && mine && startTime !== null && known?.kind !== "session",
       protected: isProtected,
     });
   }

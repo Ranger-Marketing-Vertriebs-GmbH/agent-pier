@@ -124,8 +124,8 @@ export class ProjectDeletion {
 
   /**
    * Stops what blocks a deletion, as the owner asked: with `sessions`, every running
-   * session of the scope, its unfinished runs, waiting queue items and running Craft
-   * rebuilds; each ticked process that a fresh scan still finds, endable and with the
+   * session of the scope and every other session with a process in the folder, its
+   * unfinished runs, waiting queue items and running Craft rebuilds; each ticked process that a fresh scan still finds, endable and with the
    * same start time. Returns the new report. Nothing is deleted.
    */
   endBlockers({ path: rawPath, token, sessions = false, processes = [] }, _principal) {
@@ -146,14 +146,6 @@ export class ProjectDeletion {
         const tickedStart = ticked.get(item.pid);
         if (!tickedStart || tickedStart !== item.startTime) continue;
         if (!item.endable) continue;
-        if (item.known?.kind === "session") {
-          const { sessionId } = item.known;
-          await attempt(async () => {
-            await this.#stopSession(sessionId);
-            ended.sessionIds.add(sessionId);
-          });
-          continue;
-        }
         const result = await this.end(item);
         if (result === "ended" || result === "gone")
           ended.processes.set(item.pid, { pid: item.pid, name: item.name });
