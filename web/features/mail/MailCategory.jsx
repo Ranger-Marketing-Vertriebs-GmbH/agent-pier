@@ -20,6 +20,7 @@ import { auditRoute, connectionsRoute } from "../connections/routes.js";
 import MailAccountForm from "./MailAccountForm.jsx";
 import MailTestResult, { testPassed } from "./MailTestResult.jsx";
 import { needsPlaintext } from "./mail-account-form.js";
+import { usePageAction } from "../../app/page-action.js";
 import "./mail.css";
 
 /** "ok", "failed" or "untested" from an account's stored last test. */
@@ -218,6 +219,8 @@ export default function MailCategory({ shared, item, loading }) {
     />
   );
   const add = () => setForm({ account: null });
+  // ⌘K "Add email account" opens the form once the list shows.
+  usePageAction("mail-add", add, !item && accounts !== null);
   const failed =
     accounts === null && mail.error ? (
       <div className="accounts-detail-error">

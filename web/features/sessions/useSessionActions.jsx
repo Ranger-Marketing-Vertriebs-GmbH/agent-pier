@@ -49,6 +49,39 @@ export default function useSessionActions({ session, action, reloadable, openTer
     () => setAgentSession(sessionIdentity),
     talk,
   );
+  // ⌘K "<session> · …" (session-action-entries.js) requests these for this session.
+  const askReload = (switching) => {
+    setSwitchAccount(switching);
+    setReloadSession(sessionIdentity);
+  };
+  const switchable =
+    reloadable &&
+    isCodingCli(session.tool) &&
+    cliDefinition(session.tool).capabilities.accountTransfer &&
+    !session.provider &&
+    !session.access?.providerConnectionId;
+  const headless = Boolean(session.pipeline?.headless);
+  usePageAction(`session-reload:${session.id}`, () => askReload(false), reloadable);
+  usePageAction(
+    `session-switch-account:${session.id}`,
+    () => askReload(true),
+    switchable,
+  );
+  usePageAction(
+    `session-mcp:${session.id}`,
+    () => setMcpSession(sessionIdentity),
+    Boolean(session.agentpierTools),
+  );
+  usePageAction(
+    `session-stop:${session.id}`,
+    () => action("stop", session),
+    running && !headless,
+  );
+  usePageAction(
+    `session-remove:${session.id}`,
+    () => action("remove", session),
+    !running,
+  );
   const items = [];
   if (reloadable)
     items.push({
@@ -56,27 +89,15 @@ export default function useSessionActions({ session, action, reloadable, openTer
       label: sessionReloadCopy.title,
       title: sessionReloadCopy.title,
       icon: "refresh",
-      run: () => {
-        setSwitchAccount(false);
-        setReloadSession(sessionIdentity);
-      },
+      run: () => askReload(false),
     });
-  if (
-    reloadable &&
-    isCodingCli(session.tool) &&
-    cliDefinition(session.tool).capabilities.accountTransfer &&
-    !session.provider &&
-    !session.access?.providerConnectionId
-  )
+  if (switchable)
     items.push({
       id: "switch-account",
       label: sessionReloadCopy.switchTitle,
       title: sessionReloadCopy.switchTitle,
       icon: "users",
-      run: () => {
-        setSwitchAccount(true);
-        setReloadSession(sessionIdentity);
-      },
+      run: () => askReload(true),
     });
   if (session.agentpierTools)
     items.push({

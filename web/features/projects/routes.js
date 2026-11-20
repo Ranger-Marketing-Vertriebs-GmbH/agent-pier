@@ -1,5 +1,6 @@
 const valid = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const tabs = [
+// The project tabs (ProjectDetail.jsx); the ⌘K index has an entry for each.
+export const projectTabs = [
   "overview",
   "knowledge",
   "agentbus",
@@ -44,7 +45,7 @@ export function readProjectsRoute(pathname, search) {
   if (!match) return null;
   if (match[1] && !valid.test(match[1])) return { view: "missing" };
   const query = new URLSearchParams(search);
-  const tab = tabs.includes(query.get("tab")) ? query.get("tab") : "overview";
+  const tab = projectTabs.includes(query.get("tab")) ? query.get("tab") : "overview";
   const page = pageNumber(query.get("page"));
   return projectsRoute({
     projectId: match[1] || "",

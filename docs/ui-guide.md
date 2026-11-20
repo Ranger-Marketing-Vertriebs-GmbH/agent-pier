@@ -429,7 +429,8 @@ The information architecture is recorded in
   mobile header. The menu popover opens inside the drawer at full width with a
   **Search** row first.
 - **Search** (quick open; `web/app/SearchDialog.jsx` on the `CommandPalette` primitive;
-  index in `web/app/search-entries.js` and `web/features/quick-open/`, matching in
+  index in `web/app/search-entries.js`, `area-search-entries.js`,
+  `agent-search-entries.js` and `web/features/quick-open/`, matching in
   `search-index.js`, catalog `search.js`): opens from the sidebar button, the search
   button of the phone header and of the phone drawer, the phone menu row and ⌘K (macOS) /
   Ctrl+K (others).
@@ -443,18 +444,30 @@ The information architecture is recorded in
   - **Index:** every area, tab, settings group and subpage in both languages plus old
     names as aliases ("Settings › Access › SSH accesses"), the loaded agents and their
     tabs, connection names (loaded on first open), and the owner's own things:
-    sessions (by name, project, CLI and account; opened in their last view), projects,
-    the owner's chats with agents, the first page of pipeline runs, pipeline definitions
-    and inbox items. They come only from what the owner's pages read under the owner's
-    session: the
-    workspace state and agent list the app already holds, the pushed run list and
-    inbox, and the project and pipeline lists, read while the search is open
+    sessions (by name, project, CLI and account; opened in their last view), projects
+    and each project's tabs ("alpha Knowledge"), the owner's chats with agents, the
+    first page of pipeline runs, pipeline definitions, task profiles, saved views, CLI
+    accounts (also as "Konten" or "Claude-Login") and inbox items. They come only from
+    what the owner's pages read under the owner's session: the workspace state, agent
+    list and saved views the app already holds, the pushed run list and inbox, and the
+    project, pipeline and task profile lists, read while the search is open
     (`useQuickOpenSources.js`). Actions: "New session", "Start run", "Open inbox", "New
-    agent", "Add SSH access" and the other connection actions.
+    agent", "Add SSH access", "Add email account" and the other connection actions,
+    "Install skill", "Update CLI", "Chrome for Testing"; each agent's "Duplicate",
+    "Archive", "Restart main chat" and "Clear attachments"; each session's "Reload &
+    resume", "Continue with another account", "AgentPier tools", "Stop" or "Remove" and
+    "Background tasks". An action that needs its page ("New view", "Sign out", a chat's
+    "Archived chats") is offered only while that page can take it; dialogs behind an
+    action still ask first.
+  - **Coverage guard:** `tests/unit/search-coverage.test.js` derives the routed areas
+    and tabs from their route definitions and lists the settings groups inside pages; a
+    new page, tab or group without a search entry fails it.
   - **Matching:** every word of the query must match one entry, in either language;
     exact, prefix and word matches rank first, then inner matches, then fuzzy ones
     (the word's letters in order from a word start, at most as many skipped letters as
-    the word is long, so "flaky logn" finds "Fix the flaky login test").
+    the word is long, so "flaky logn" finds "Fix the flaky login test"). A word of four
+    letters or more with two neighbouring letters swapped ("Tailsacle") matches as a
+    word start, ranked with the fuzzy matches.
   - **Results:** grouped (**Recent**, **Sessions**, **Projects**, **Chats**, **In
     agents**, **Pipelines**, **Inbox**, **Pages**, **Actions**) with their path; a query
     orders the groups by their best match. An empty query shows the recent results

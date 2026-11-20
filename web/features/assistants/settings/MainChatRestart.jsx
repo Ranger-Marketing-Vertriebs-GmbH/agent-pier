@@ -5,6 +5,7 @@ import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
 import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { usePageAction } from "../../../app/page-action.js";
 import { assistantApi } from "../assistant-api.js";
 import useAssistants from "../useAssistants.js";
 
@@ -111,7 +112,17 @@ export default function MainChatRestart({ assistant }) {
   const copy = assistantSettingsCopy.mainChatRestart;
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState("");
-  if (!assistant || assistant.teamMemberId || assistant.archivedAt) return null;
+  const shown = Boolean(assistant && !assistant.teamMemberId && !assistant.archivedAt);
+  // ⌘K "<agent> · Restart main chat" (agent-search-entries.js) opens the dialog.
+  usePageAction(
+    `agent-main-chat-restart:${assistant?.id}`,
+    () => {
+      setResult("");
+      setConfirming(true);
+    },
+    shown,
+  );
+  if (!shown) return null;
   return (
     <section id="agent-danger" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.group}</GroupLabel>

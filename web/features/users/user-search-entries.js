@@ -1,8 +1,10 @@
 // The search in a restricted user's own app (AGENTPIER-224, docs/users.md): only what
 // the user's app can open. Its entries come from the user's own agent list (`/api/me`, pushed on
-// `me.agents`): each agent's chat, settings and memory, plus My agents and Account.
+// `me.agents`): each agent's chat, settings and memory, plus My agents, Account and
+// Sign out (which opens Account, where the user signs out).
 // Nothing of the owner's (sessions, projects, pipelines, settings) is ever indexed.
 import { withLanguage } from "../../lib/i18n/index.js";
+import { loginCopy } from "../../lib/i18n/messages/login.js";
 import { searchCopy } from "../../lib/i18n/messages/search.js";
 import { userAppCopy } from "../../lib/i18n/messages/user-app.js";
 import { termsOf } from "../../app/search-index.js";
@@ -12,6 +14,7 @@ const bilingual = (read) => ({
   en: withLanguage("en", read),
 });
 const same = (text) => ({ de: text, en: text });
+const join = (a, b) => ({ de: `${a.de} › ${b.de}`, en: `${a.en} › ${b.en}` });
 
 function withTerms(entry) {
   return {
@@ -48,6 +51,16 @@ export function buildUserSearchIndex({ agents = [] } = {}) {
       path: same(userAppCopy.brand),
       target: { route: { view: "account" } },
       suggested: true,
+    },
+    {
+      id: "user:sign-out",
+      group: "actions",
+      label: bilingual(() => loginCopy.logout),
+      path: join(
+        same(userAppCopy.brand),
+        bilingual(() => userAppCopy.account),
+      ),
+      target: { route: { view: "account" } },
     },
   ];
   for (const agent of agents || []) {

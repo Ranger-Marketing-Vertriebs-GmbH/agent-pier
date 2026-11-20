@@ -202,7 +202,7 @@ test("agents get their tabs and subpages; old tab names find the new tabs", () =
   const helperHits = results("Helfer");
   assert.ok(helperHits.some((item) => item.id === "agent:tmp:pinboard"));
   const helper = helperHits
-    .filter((item) => !item.target.route?.pinboard)
+    .filter((item) => item.group === "agents" && !item.target.route?.pinboard)
     .map((item) => item.target.route?.agentTab || "overview");
   assert.deepEqual(helper, ["overview", "identity", "capabilities", "access"]);
   assert.equal(
@@ -583,4 +583,9 @@ test("an OpenClaw agent's memory wiki and its wiki page are found", () => {
       results(query, entries).some((item) => item.id === "agent:owl:openclaw-wiki"),
       query,
     );
+});
+
+test("Email accounts and its add action are indexed (AGENTPIER-418, 388)", () => {
+  assert.equal(pathOf(first("E-Mail-Zugänge")), "/connections?section=mail");
+  assert.equal(first("Add email account").target.pending, "mail-add");
 });

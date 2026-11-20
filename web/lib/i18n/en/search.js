@@ -105,5 +105,9 @@ export const searchCopy = {
     selfLearning: "self-learning",
     learnSkills: "learn skills",
     skillWorkshop: "Skill workshop",
+    // The Knowledge tab of a project.
+    memory: "Memory",
+    // The danger zone row of an agent's Overview.
+    restartMainChat: "Restart main chat",
   },
 };

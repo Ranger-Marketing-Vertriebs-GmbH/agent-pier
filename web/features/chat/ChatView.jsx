@@ -26,6 +26,7 @@ import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
 import { groupTasks, tasksLine } from "./background-tasks.js";
 import useScrollbarWidth from "./useScrollbarWidth.js";
+import { usePageAction } from "../../app/page-action.js";
 export default function ChatView({
   active,
   session,
@@ -147,6 +148,12 @@ export default function ChatView({
   const line = tasksLine({ ...grouped, tasks });
   // A sheet whose content vanished closes for good instead of reopening later.
   const nothingToShow = !line;
+  // ⌘K "<session> · Background tasks" (session-action-entries.js) opens the sheet.
+  usePageAction(
+    `session-tasks:${session.id}`,
+    () => openTasks(),
+    active && !nothingToShow,
+  );
   useEffect(() => {
     if (tasksOpen && nothingToShow) closeTasks();
   }, [tasksOpen, nothingToShow, closeTasks]);

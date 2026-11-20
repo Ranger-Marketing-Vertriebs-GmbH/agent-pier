@@ -381,7 +381,7 @@ test("a restricted user's index holds only the user's agents and pages", () => {
     false,
   );
   const groups = new Set(index.map((item) => item.group));
-  assert.deepEqual([...groups].sort(), ["agents", "chats", "pages"]);
+  assert.deepEqual([...groups].sort(), ["actions", "agents", "chats", "pages"]);
   // Every target is a route of the user's app or opens one of their agents' chats.
   for (const item of index) {
     if (item.target.route)
@@ -582,4 +582,12 @@ test("quick open opens an OpenClaw agent's wiki page; the user's index never", (
   );
   const users = buildUserSearchIndex({ agents: [owl] });
   assert.equal(flat(searchEntries(users, "wissens-wiki")).length, 0);
+});
+
+test("a project's other tabs are found by project name (AGENTPIER-418)", () => {
+  const hit = find("billing knowledge").find(
+    (item) => item.id === "project-knowledge:p1",
+  );
+  assert.equal(pathOf(hit), "/projects/p1?tab=knowledge");
+  assert.equal(hit.path.de, "Projekte › billing-api");
 });

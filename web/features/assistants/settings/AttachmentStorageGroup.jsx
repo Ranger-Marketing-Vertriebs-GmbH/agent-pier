@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from "react";
+import { usePageAction } from "../../../app/page-action.js";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
@@ -49,6 +50,14 @@ export default function AttachmentStorageGroup({ assistant }) {
       });
     return () => controller.abort();
   }, [agentId]);
+  const clearable =
+    !assistant.userAccess && !busy && Boolean(usage) && (usage.files > 0 || usage.unsafe);
+  // ⌘K "<agent> · Clear attachments" (agent-search-entries.js) asks first, as the row.
+  usePageAction(
+    `agent-attachments-clear:${agentId}`,
+    () => setConfirming(true),
+    clearable,
+  );
   const clear = async () => {
     setConfirming(false);
     setBusy(true);

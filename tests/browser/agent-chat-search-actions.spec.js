@@ -119,3 +119,22 @@ test("in a split view New chat runs in the focused pane only", async ({ page }) 
     controls.agents.calls.filter((path) => /\/api\/assistants\/a[12]\/chats$/.test(path));
   await expect.poll(created).toEqual(["/api/assistants/a2/chats"]);
 });
+
+test("Archived chats opens the Chats sheet at its archived list", async ({ page }) => {
+  await linux(page);
+  await chatFixture(page, {
+    conversations: [{ id: "dinner", assistantId: "home", title: "Dinner plans" }],
+    history: { messages, requests: [], stale: false },
+  });
+  await page.route("**/api/assistants/home/pinboard", (route) =>
+    route.fulfill({ json: { fresh: 0, lists: [] } }),
+  );
+  await quiet(page);
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.locator(".assistant-header")).toBeVisible();
+  await search(page, "Archived chats");
+  await option(page, "Archived chats Agents").click();
+  const sheet = page.getByRole("dialog", { name: "Archived chats" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Back to chats" })).toBeVisible();
+});

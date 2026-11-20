@@ -22,6 +22,7 @@ import AgentsCard from "./AgentsCard.jsx";
 import PipelinesCard from "./PipelinesCard.jsx";
 import ToolRows from "./ToolRows.jsx";
 import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
+import { usePageAction } from "../../app/page-action.js";
 import "./start-page.css";
 import "./start-cards.css";
 
@@ -109,6 +110,8 @@ export default function DashboardPage({
     rememberStartLayout(JSON.parse(seenKey));
   }, [seenKey]);
   const openStatus = (tab) => setDialog(tab);
+  // ⌘K "Overview › System status" opens the tile's details.
+  usePageAction("system-status", () => openStatus("load"));
   // CLI profiles (accounts of the coding CLIs, not the shell), once the state is loaded.
   const profiles = ready
     ? (state.accounts || []).filter((account) => account.tool !== "shell").length

@@ -15,7 +15,8 @@ sidebar has no **Views** group (see "Narrow windows" below).
 A view has a name (1 to 60 characters) and one to six panes. A pane is either a session
 (with its tab: terminal, chat, files or changes) or an agent chat. The sidebar group **Views**
 (German: **Ansichten**) sits between **Inbox** and **Agents**; its rows show the view's
-name and pane count and open the view at `/views/:id`.
+name and pane count and open the view at `/views/:id`. Search (⌘K or Ctrl+K) finds
+views by name, and **New view** while the **Views** group shows.
 
 An item appears once per view. Dragging a session or chat that is already in the view
 moves it instead of adding a second copy. In the sidebar, sessions and agent chats shown

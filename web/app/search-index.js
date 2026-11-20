@@ -103,9 +103,23 @@ export function fuzzyGaps(text, token) {
   return best;
 }
 
+/**
+ * The token with two neighbouring letters swapped, once per pair ("sesison" →
+ * "session"), for tokens of four letters and more.
+ */
+export function swappedTokens(token) {
+  if (token.length < 4) return [];
+  const variants = new Set();
+  for (let at = 0; at < token.length - 1; at += 1)
+    if (token[at] !== token[at + 1])
+      variants.add(token.slice(0, at) + token[at + 1] + token[at] + token.slice(at + 2));
+  return [...variants];
+}
+
 // How well tokens match one term, lower is better, null when they do not: 0 exact,
 // 1 the term starts with the query, 2 every token starts a word, 4 every token occurs,
 // 6 and more when a token only matches fuzzily (fewer skipped characters rank higher).
+// A token with two swapped letters matches only as a word start, as one skipped letter.
 function matchTerm(term, tokens, joined) {
   if (term.text === joined) return 0;
   if (term.text.startsWith(joined)) return 1;
@@ -118,9 +132,16 @@ function matchTerm(term, tokens, joined) {
       continue;
     }
     const fuzzy = fuzzyGaps(term.text, token);
-    if (fuzzy === null) return null;
+    if (fuzzy !== null) {
+      rank = 6;
+      gaps += fuzzy;
+      continue;
+    }
+    const swapped = swappedTokens(token);
+    if (!term.words.some((word) => swapped.some((variant) => word.startsWith(variant))))
+      return null;
     rank = 6;
-    gaps += fuzzy;
+    gaps += 1;
   }
   return rank === 6 ? rank + Math.min(gaps, 9) / 10 : rank;
 }

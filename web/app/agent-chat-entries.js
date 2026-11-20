@@ -1,5 +1,5 @@
 // ⌘K entries of the owner's agent chat: the agent's pinboard and the chat's own
-// actions (the compact header's New chat and Summarize now).
+// actions (the Chats sheet's New chat, Summarize now and Archived chats).
 import { agentChatsCopy } from "../lib/i18n/messages/agent-chats.js";
 import { agentPinboardCopy } from "../lib/i18n/messages/agent-pinboard.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
@@ -23,7 +23,7 @@ export function pinboardEntry(agent, name, root, { bilingual, join, named }) {
 }
 
 /**
- * New chat and Summarize this chat. The chat on screen takes them (usePageAction in
+ * New chat, Summarize this chat and Archived chats. The chat on screen takes them (usePageAction in
  * AgentChatTop), so the search offers each only while one is mounted that can run it
  * (`offer`). `action` is search-entries.js' action builder.
  */
@@ -49,6 +49,13 @@ export function chatActionEntries(action, path, bilingual) {
           bilingual(() => agentChatsCopy.summariseThisChat),
         ],
       },
+    ),
+    action(
+      "chat-archived",
+      () => agentChatsCopy.showArchived,
+      path,
+      { action: "chat-archived", pending: "chat-archived" },
+      { offer: "chat-archived", suggested: false },
     ),
   ];
 }
