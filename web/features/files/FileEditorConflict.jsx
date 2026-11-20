@@ -2,9 +2,15 @@ import React, { useLayoutEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { MergeView } from "@codemirror/merge";
+import { editorHighlighting } from "../../components/editor-highlight.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 
-const readOnly = [EditorState.readOnly.of(true), EditorView.editable.of(false)];
+const readOnly = [
+  EditorState.readOnly.of(true),
+  EditorView.editable.of(false),
+  EditorView.theme({}, { dark: true }),
+  editorHighlighting(),
+];
 
 export default function FileEditorConflict({
   draft,

@@ -46,8 +46,8 @@
 }
 .file-editor-view {
   min-width: 0;
-  color: #e8e8ec;
-  background: #101114;
+  color: var(--syntax-text);
+  background: var(--syntax-bg);
 }
 .file-editor-view .cm-editor {
   height: 380px;
@@ -58,7 +58,7 @@
 }
 .file-editor-view .cm-gutters,
 .file-editor-view .cm-panels {
-  color: #e8e8ec;
+  color: var(--syntax-text);
   background: var(--panel);
 }
 .file-editor-view .cm-search {
@@ -72,7 +72,7 @@
   max-width: 100%;
 }
 .file-editor-view .cm-content {
-  caret-color: #e8e8ec;
+  caret-color: var(--syntax-text);
 }
 .file-editor-path {
   overflow-wrap: anywhere;
@@ -113,9 +113,9 @@
 }
 .file-editor-view .cm-search .cm-textfield,
 .file-editor-view .cm-search .cm-button {
-  color: #e8e8ec;
-  background: #18191d;
-  border: 1px solid #555760;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--button-secondary-line);
   border-radius: 4px;
 }
 .file-editor-view .cm-search button[name="close"] {

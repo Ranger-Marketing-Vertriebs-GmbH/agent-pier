@@ -58,6 +58,9 @@
   --blue-400: #7fb0e0;
   --blue-300: #aeb7e8;
   --blue-200: #b7d3f0;
+  --cyan-300: #99ccee;
+  --indigo-200: #b7bdf8;
+  --purple-300: #d8b6ef;
 
   /* Semantic colours. Alpha tints keep their literal value: a light theme redefines
      them together with their base colour. */
@@ -130,6 +133,25 @@
   --chart-agentpier: var(--neutral-26);
   --chart-other: var(--neutral-18);
   --chart-grid: var(--divider-soft);
+
+  /* Syntax highlighting for code editors and code blocks
+     (web/components/editor-highlight.js). Every colour keeps WCAG AA (4.5:1) on
+     --syntax-bg; tests/unit/editor-highlight-style.test.js checks it. */
+  --syntax-bg: var(--neutral-01);
+  --syntax-text: var(--neutral-30);
+  --syntax-keyword: var(--orange-200);
+  --syntax-string: var(--green-200);
+  --syntax-number: var(--purple-300);
+  --syntax-property: var(--cyan-300);
+  --syntax-function: var(--blue-300);
+  --syntax-type: var(--amber-400);
+  --syntax-tag: var(--red-200);
+  --syntax-attribute: var(--orange-500);
+  --syntax-comment: var(--blue-500);
+  --syntax-punctuation: var(--neutral-25);
+  --syntax-meta: var(--indigo-200);
+  --syntax-link: var(--blue-400);
+  --syntax-invalid: var(--red-500);
 
   /* Spacing: a 4px grid. */
   --space-1: 4px;
