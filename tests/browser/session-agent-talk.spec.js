@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
+import { addGrant } from "../helpers/grant-picker.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import {
@@ -66,8 +67,7 @@ test("the new-session dialog sends the ticked agents as agentAccessIds", async (
     .fill("/work/homelab");
   await dialog(page).locator(".launch-extensions > summary").click();
   const agents = dialog(page).getByRole("group", { name: "Agents" });
-  await expect(agents.getByRole("checkbox", { name: /Network Architect/ })).toBeVisible();
-  await agents.getByRole("checkbox", { name: /Network Architect/ }).check();
+  await addGrant(agents, "Add agent", "Network Architect");
   await expect(dialog(page).getByText(/1 agent\b/)).toBeVisible();
   await dialog(page).getByRole("button", { name: "Start session", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Launch rejected");

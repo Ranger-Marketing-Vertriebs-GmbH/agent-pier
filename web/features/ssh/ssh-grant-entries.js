@@ -5,9 +5,8 @@
 /**
  * One entry per access: the connection as `sub`, SFTP as a badge, an access the project
  * grants (`inherited`) locked with its note, a selected access noted as explicitly
- * assigned (as SshChoices shows it), and an
- * inherited access that is also explicitly assigned offers removing the assignment
- * when `onRemoveExplicit(id)` is given.
+ * assigned, and an inherited access that is also explicitly assigned offers removing
+ * the assignment when `onRemoveExplicit(id)` is given.
  */
 export function sshGrantEntries(
   accesses,

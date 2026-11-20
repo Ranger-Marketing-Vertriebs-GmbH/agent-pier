@@ -1,5 +1,5 @@
 import React from "react";
-import CheckRow from "../../components/CheckRow.jsx";
+import GrantPicker from "../../components/GrantPicker.jsx";
 import useResource from "../../lib/useResource.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { secretsCopy as copy } from "../../lib/i18n/messages/secrets.js";
@@ -31,28 +31,24 @@ export default function LaunchSecretChoices({ selected, change }) {
       ? projects.data?.projects?.find((item) => item.id === secret.projectId)?.name ||
         secret.projectId
       : copy.global;
+  const entries = list.map((secret) => ({
+    id: secret.id,
+    name: secret.name,
+    sub: secret.description || undefined,
+    group: owner(secret),
+    badge: owner(secret),
+  }));
   return (
     <div className="ssh-launch">
-      <fieldset className="ssh-choices check-list">
-        <legend>{copy.title}</legend>
-        {list.map((secret) => (
-          <CheckRow
-            key={secret.id}
-            title={secret.name}
-            subtitle={secret.description || undefined}
-            checked={selected.includes(secret.id)}
-            onChange={(event) =>
-              change(
-                event.target.checked
-                  ? [...selected, secret.id]
-                  : selected.filter((id) => id !== secret.id),
-              )
-            }
-          >
-            <span className="badge">{owner(secret)}</span>
-          </CheckRow>
-        ))}
-      </fieldset>
+      <GrantPicker
+        stacked
+        entries={entries}
+        selected={selected}
+        onChange={change}
+        typeLabel={copy.grantType}
+        listLabel={copy.title}
+        heading={copy.title}
+      />
       <p>{copy.launchHint}</p>
     </div>
   );

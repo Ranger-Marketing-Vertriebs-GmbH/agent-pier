@@ -45,5 +45,6 @@ export const sessionTalkCopy = {
     title: "Agents",
     hint: "The session may ask and tell the agents you tick, and they may write to it, until it stops.",
     summary: (count) => `${count} ${count === 1 ? "agent" : "agents"}`,
+    grantType: "agent",
   },
 };

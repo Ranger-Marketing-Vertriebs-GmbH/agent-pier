@@ -1,3 +1,4 @@
+import { addGrant } from "../helpers/grant-picker.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
@@ -260,14 +261,15 @@ test("launch selections are submitted and retained when launch fails", async ({
   await page.goto(baseURL);
   await openNewSession(page);
   await page.locator(".launch-extensions > summary").click();
-  await page.getByRole("checkbox", { name: /Build server/ }).check();
+  const accesses = page.getByRole("group", { name: "SSH-Zugänge" });
+  await addGrant(accesses, "SSH-Zugang hinzufügen", "Build server");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
   expect(launches[0].sshAccessIds).toEqual(["ssh-one"]);
-  await expect(page.getByRole("checkbox", { name: /Build server/ })).toBeChecked();
+  await expect(accesses.getByText("Build server", { exact: true })).toBeVisible();
   expect(state.calls.filter((call) => call.method !== "GET")).toHaveLength(0);
 });
 

@@ -1,3 +1,4 @@
+import { addGrant } from "../helpers/grant-picker.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
@@ -46,7 +47,11 @@ for (const width of [1440, 390])
     await model.fill("session-model");
     await dialog.getByLabel("Startmodus", { exact: true }).selectOption("yolo");
     await page.locator(".launch-extensions > summary").click();
-    await dialog.getByRole("checkbox", { name: /Testserver/ }).check();
+    await addGrant(
+      dialog.getByRole("group", { name: "SSH-Zugänge" }),
+      "SSH-Zugang hinzufügen",
+      "Testserver",
+    );
     await dialog.getByRole("checkbox", { name: /AgentPier-Tools/ }).uncheck();
     await profile.scrollIntoViewIfNeeded();
     await page.screenshot({
