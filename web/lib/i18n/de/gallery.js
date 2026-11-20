@@ -187,6 +187,12 @@ export const galleryCopy = {
     approval: "Mit Freigabe",
     trusted: "Vertraut",
   },
+  grantPicker: {
+    card: "SSH-Zugänge der Beispiel-Session",
+    type: "SSH-Zugang",
+    list: "SSH-Zugänge",
+    managed: "Vom Projekt verwaltet",
+  },
   saveStates: {
     label: "Zustand der Speicherleiste",
     hidden: "Ausgeblendet",

@@ -40,6 +40,15 @@ export const addPickerCopy = {
   modeLabel: "Mode for new items",
   add: (count) => (count > 0 ? `Add ${count}` : "Add"),
 };
+export const grantPickerCopy = {
+  search: (list) => `Search ${list}`,
+  count: (shown, total) => `${shown} of ${total}`,
+  allowed: (count) => `Allowed in this session · ${count}`,
+  noneAllowed: "Nothing allowed yet.",
+  noMatches: (query) => `No matches for “${query}”`,
+  remove: (name) => `Remove ${name}`,
+  allowedTag: "allowed",
+};
 export const skeletonCopy = {
   loading: "Loading",
 };

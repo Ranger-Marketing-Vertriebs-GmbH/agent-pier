@@ -185,6 +185,12 @@ export const galleryCopy = {
     approval: "With approval",
     trusted: "Trusted",
   },
+  grantPicker: {
+    card: "SSH accesses of the sample session",
+    type: "SSH access",
+    list: "SSH accesses",
+    managed: "Project managed",
+  },
   saveStates: {
     label: "Save bar state",
     hidden: "Hidden",
