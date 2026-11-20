@@ -255,13 +255,10 @@ test(
     }
     let target = null;
     try {
-      // Retried once after a timed-out start (helpers/browser-start.js), which reads
-      // the answer as `{ result }`.
-      const { result: started } = await startBrowser(async (label) => ({
-        result: await turn(
-          { name: "browser", arguments: { action: "start" } },
-          `upload-${label}`,
-        ),
+      // A cold start's whole budget, started once more after a failed launch
+      // (helpers/browser-start.js), which reads the answer as `{ result }`.
+      const { result: started } = await startBrowser(async (label, args) => ({
+        result: await turn({ name: "browser", arguments: args }, `upload-${label}`),
       }));
       const running = await turn(
         { name: "browser", arguments: { action: "status" } },

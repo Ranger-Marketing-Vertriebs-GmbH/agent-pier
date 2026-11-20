@@ -230,9 +230,10 @@ test(
       return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
     }
     try {
-      // Retried once after a timed-out start (helpers/browser-start.js).
-      const started = await startBrowser((label) =>
-        turn({ name: "browser", arguments: { action: "start" } }, `live-${label}`),
+      // A cold start's whole budget, started once more after a failed launch
+      // (helpers/browser-start.js).
+      const started = await startBrowser((label, args) =>
+        turn({ name: "browser", arguments: args }, `live-${label}`),
       );
       for (const name of ["web_search", "web_fetch", "pdf", "browser"])
         assert.ok(started.offered.includes(name), `offered ${name}`);
