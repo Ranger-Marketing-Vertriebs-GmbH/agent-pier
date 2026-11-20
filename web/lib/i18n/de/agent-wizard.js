@@ -36,9 +36,9 @@ export const agentWizardCopy = {
     runtime: "Laufzeit",
     runtimeHint: "Die Laufzeit, auf der der Agent läuft. Sie bleibt beim Agenten.",
     openclawSub:
-      "Alle Fähigkeiten: Chats, Tools, Gedächtnis, Routinen, Skills, Browser und Kanäle.",
+      "Chats, Tools, Gedächtnis mit Wiki, Routinen, Skills, Browser und Kanäle.",
     hermesSub:
-      "Heute Chats, Tools und Freigaben; Routinen, Skills, Gedächtnis, Browser und Kanäle folgen.",
+      "Chats, Tools, Gedächtnis, Routinen, Skills, Browser und Kanäle, dazu Mixture of Agents.",
     duplicateRuntime: "Eine Kopie läuft auf der Laufzeit des duplizierten Agenten.",
   },
   identity: {
@@ -130,7 +130,7 @@ export const agentWizardCopy = {
     channels: "Kanäle & Routinen",
     noChannels: "keine",
     telegram: "Telegram",
-    checkIns: "Meldet sich von selbst",
+    checkIns: (runs) => `Meldet sich von selbst (etwa ${runs} Läufe am Tag)`,
     routine: (name, time) => `Routine „${name}“ täglich ${time}`,
     open: "Offen",
     nothingOpen: "Nichts offen",

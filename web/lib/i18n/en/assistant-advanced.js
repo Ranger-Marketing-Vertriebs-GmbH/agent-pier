@@ -24,6 +24,7 @@ export const assistantAdvancedCopy = {
     media: "Images and media",
   },
   live: "Immediate",
+  liveFor: (name) => `Immediate for ${name}`,
   restart: "Restart needed",
   nextTurn: "Next message",
   liveLabel: "Takes effect immediately",

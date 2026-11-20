@@ -118,7 +118,35 @@ for (const [language, copy] of Object.entries(languages))
       await expect(status).toHaveText(copy.compacting);
       await noSideScroll(page);
       await send(page, "dinner", { type: "steps-end", runId: "run-1" });
-      await expect(details).toHaveCount(0);
+      // The finished turn keeps its steps (AGENTPIER-440 U8).
+      await expect(details).toHaveCount(1);
+    });
+
+    test("a finished turn keeps its steps, collapsed under its reply", async ({
+      page,
+    }) => {
+      const state = await chatFixture(page, { language, history: running() });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      await send(page, "dinner", steps({ phase: "model" }));
+      const details = page.locator(".assistant-run-steps");
+      await expect(details.locator("summary")).toHaveText(copy.steps);
+      // The run ends and the turn completes (AGENTPIER-440 U8).
+      await send(page, "dinner", { type: "steps-end", runId: "run-1" });
+      state.history = {
+        ...running({ id: "a-1", runtimeRunId: "run-1", state: "completed" }),
+        messages: [
+          { id: "q", role: "user", text: "Draw the family.", requestId: "q-1" },
+          { id: "r", role: "assistant", text: "Here is the family.", requestId: "q-1" },
+        ],
+      };
+      await page.evaluate(() => window.agentFeed.push("dinner"));
+      await expect(page.getByRole("log").getByText("Here is the family.")).toBeVisible();
+      await expect(details.locator("summary")).toHaveText(copy.steps);
+      await expect(details.getByText(copy.thought)).toBeHidden();
+      await details.locator("summary").click();
+      await expect(details.getByText(copy.thought)).toBeVisible();
+      await noSideScroll(page);
     });
 
     test("a turn without an answer from the model offers Stop and Try again", async ({

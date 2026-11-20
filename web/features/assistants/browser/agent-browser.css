@@ -177,6 +177,33 @@
 .agent-browser-keyboard-button {
   margin-top: var(--space-2);
 }
+/* The live picture fills the frame: no black band around it, and the phone's
+   Keyboard button sits below the picture, not on a band of its own. */
+.agent-browser-screen:has(.agent-browser-control) {
+  display: block;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: none;
+}
+.agent-browser-control img {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+@media (max-width: 700px) {
+  /* Phones: the picture runs edge to edge, so the page reads as large as it can. */
+  .agent-browser-screen:has(.agent-browser-control) {
+    margin-inline: -12px;
+  }
+  .agent-browser-control img {
+    border-inline: 0;
+    border-radius: 0;
+  }
+  .agent-browser-keyboard-button {
+    margin-inline: 12px;
+  }
+}
 .agent-browser-takeover {
   display: flex;
   flex-wrap: wrap;

@@ -16,11 +16,15 @@ import { updateCauseDetail } from "../../update-cause.js";
 import {
   hermesBusy,
   hermesErrorText,
+  hermesInstallStep,
   hermesStatus,
   validHermes,
 } from "./install-state.js";
 
 const copy = () => agentsHubCopy.runtime.hermes;
+// "Installing Hermes Agent: step 3 of 5, …", or "" without a known step.
+const installStepText = (at) =>
+  at ? copy().installStep(at.index, at.of, copy().installSteps[at.step]) : "";
 // Hermes Agent's update, for "Pause agents and update".
 const hermesUpdate = {
   blockers: "/assistant-runtime/hermes/update/blockers",
@@ -73,7 +77,7 @@ export default function InstallSurface({ runtime, context, list, anchor }) {
         ]
           .filter(Boolean)
           .join(" ")
-      : copy().states[status.kind];
+      : installStepText(hermesInstallStep(state)) || copy().states[status.kind];
   const versionSub = [
     state?.pythonVersion && copy().python(state.pythonVersion),
     state?.targetVersion &&

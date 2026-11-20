@@ -52,11 +52,14 @@ export default function useAgentConversationStream(
       },
       onSnapshot: (live) => {
         seed.current = live;
-        // Every turn is over: no reply streams any more.
+        // Every turn is over: no reply streams any more. A run that ended keeps its
+        // steps for its finished turn (run-steps.js nextSteps); one that never
+        // reported its end goes.
         if (live.requests?.every((r) => settled.has(r.state))) {
           runs.clear();
           setStream(null);
-          if (held.size) setSteps((held = new Map()));
+          const ended = new Map([...held].filter(([, run]) => run.ended));
+          if (ended.size !== held.size) setSteps((held = ended));
         }
         callbacks.current.onReachable?.(true);
         callbacks.current.onLive(live);

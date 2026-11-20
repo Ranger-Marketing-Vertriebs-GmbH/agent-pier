@@ -4,7 +4,7 @@ import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { cronResultText } from "./cron-result-text.js";
-import { RoutineResults } from "./routine-results.js";
+import { RoutineResults, withRunResults } from "./routine-results.js";
 import { lastRunFailure, runEntry, runFailure } from "./routine-failures.js";
 import {
   deliverableChannel,
@@ -395,7 +395,8 @@ export class NativeReminders {
       if (!binding.nativeId) return { entries: [] };
       const agent = this.assistants.store.getAssistant(id);
       const entries = await bindingRuns(this.scheduler(agent), binding);
-      return { entries: entries.map(runEntry) };
+      const recorded = this.results.forBinding(binding.id);
+      return { entries: withRunResults(entries.map(runEntry), recorded) };
     });
   }
   /** Telegram outbox entries: only while the binding still delivers to that chat. */

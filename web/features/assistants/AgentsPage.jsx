@@ -79,11 +79,14 @@ export default function AgentsPage({
     teams.find((t) => t.id === route.teamId && t.parentAssistantId === route.assistantId);
   const conversationId = route.conversationId || team?.parentConversationId;
   // The pinboard link (`/agents/:id/pinboard`) opens the main chat with its pinboard,
-  // in the link's place, so Back leaves it.
+  // and the agent's own address (`/agents/:id`) its main chat, in the link's place,
+  // so Back leaves it.
   const pinboardRoute = Boolean(route.pinboard && !route.conversationId);
-  const pinboardLink = pinboardRoute && Boolean(assistant);
+  const mainRoute = Boolean(route.agentMain && !route.conversationId);
+  const linkRoute = pinboardRoute || mainRoute;
+  const pinboardLink = linkRoute && Boolean(assistant);
   useEffect(() => {
-    if (pinboardLink) open(assistant, { pinboard: true }, true);
+    if (pinboardLink) open(assistant, pinboardRoute ? { pinboard: true } : {}, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinboardLink, assistant?.id]);
   // Settings on phones scroll inside their own container under the fixed header, so
@@ -172,8 +175,8 @@ export default function AgentsPage({
   // address.
   if (route.creating)
     return <AgentWizard key={routePath(route)} route={route} navigate={navigate} />;
-  // A pinboard link while it opens its chat, or until the agents are listed.
-  if (route.assistantId && pinboardRoute && (pinboardLink || !loaded))
+  // A pinboard or agent link while it opens its chat, or until the agents are listed.
+  if (route.assistantId && linkRoute && (pinboardLink || !loaded))
     return (
       <div className="page assistants-page">
         <ErrorMessage error={error || loadError} />

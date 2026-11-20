@@ -53,6 +53,8 @@ test("⌘K finds an agent's browser in both languages, only while it is on", () 
   assert.equal(entry.label.de, "Browser von Ops-Wache");
   assert.equal(entry.label.en, "Ops-Wache's browser");
   assert.equal(routePath(entry.target.route), "/agents/ops/browser");
+  // Its icon is the agent's initial in either language (AGENTPIER-440 U9).
+  assert.equal(entry.mark, "Ops-Wache");
   assert.ok(!index.some((item) => item.id === "agent:off:browser"));
   // Agents switched off: no agent entries at all.
   const off = buildSearchIndex({ agents: [ops], agentsEnabled: false });

@@ -7,6 +7,7 @@ import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import { connectionLabel } from "../connection-label.js";
 import { runtimeNameOf } from "../runtime-list.js";
+import { heartbeatRuns } from "../heartbeat.js";
 import { matchingProfile } from "./wizard-profiles.js";
 
 const copy = () => agentWizardCopy.review;
@@ -54,7 +55,15 @@ export default function StepReview({
   const channels =
     joined([
       d.telegramToken.trim() && copy().telegram,
-      d.heartbeatEnabled && d.memory && copy().checkIns,
+      d.heartbeatEnabled &&
+        d.memory &&
+        copy().checkIns(
+          heartbeatRuns({
+            interval: d.heartbeatInterval,
+            start: d.heartbeatStart,
+            end: d.heartbeatEnd,
+          }),
+        ),
       d.routine && copy().routine(d.routine.name, d.routine.time),
     ]) || copy().noChannels;
   const open = openItems({ runtime, webSearchReady, d });

@@ -45,6 +45,8 @@ export function browserEntry(agent, name, root, { bilingual, join, named }) {
       bilingual(() => assistantBrowserCopy.entry),
     ),
     target: { route: browserRoute(agent.id) },
+    // The agent's initial in both languages, not the label's ("B" and "O").
+    mark: name.en,
     agentsOnly: true,
     aliases: [named(bilingual(() => assistantBrowserCopy.liveOpen))],
   };

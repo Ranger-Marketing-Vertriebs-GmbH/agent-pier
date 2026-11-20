@@ -2616,7 +2616,9 @@ same socket carries the takeover's input ([Takeover](#takeover)).
   agent opens or closes one; the owner can pick a tab and **Follow the agent** again.
 - A stopped browser shows **Start browser**, which launches the agent's profile
   within the visible-browser limit (`AgentBrowsers.ownerStart`, with a 30-second
-  budget for a cold launch). A running one shows **Stop browser** (also while no
+  budget for a cold launch); until the state reports it running, the view says
+  **Starting the browser …** and the button waits (also on a cold `?takeover=1`
+  start), and a failed start's error shows below the toolbar. A running one shows **Stop browser** (also while no
   picture arrives), which stops the profile the view shows through the same path as
   the idle stop (`AgentBrowsers.ownerStop`, `browser.request` `POST /stop`): its tabs
   close, its profile stays, a takeover ends, and the agent's next browser call starts

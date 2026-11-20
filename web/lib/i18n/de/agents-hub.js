@@ -135,6 +135,16 @@ export const agentsHubCopy = {
       hint: "Eine zweite Agenten-Laufzeit neben OpenClaw. Du wählst sie pro Agent beim Anlegen; bestehende Agenten behalten ihre Laufzeit.",
       enable: "Hermes Agent anbieten",
       enableSub: "Installiert Hermes Agent im Hintergrund.",
+      // The running installation's step (about 540 MB in all, mostly packages).
+      installStep: (index, of, step) =>
+        `Hermes Agent wird installiert: Schritt ${index} von ${of}, ${step} …`,
+      installSteps: {
+        download: "Download",
+        python: "Python wird installiert",
+        packages: "Python-Pakete werden installiert (etwa 540 MB)",
+        check: "Installation wird geprüft",
+        tools: "Browser- und PDF-Tools werden installiert",
+      },
       state: "Zustand",
       states: {
         installing: "Hermes Agent wird installiert …",

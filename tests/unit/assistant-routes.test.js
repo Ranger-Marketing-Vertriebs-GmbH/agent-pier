@@ -84,3 +84,12 @@ test("the pinboard link round-trips", () => {
   assert.equal(routePath(route), "/agents/a1/pinboard");
   assert.deepEqual(readRoute({ pathname: "/agents/a1/pinboard", search: "" }), route);
 });
+
+test("an agent's own address leads to its main chat, not to a missing page", () => {
+  // AGENTPIER-440 B7: /agents/<id> was "Page not found".
+  const route = { view: "agents", assistantId: "a1", agentMain: true };
+  assert.equal(routePath(route), "/agents/a1");
+  assert.deepEqual(readRoute({ pathname: "/agents/a1", search: "" }), route);
+  assert.deepEqual(readRoute({ pathname: "/agents/a1/", search: "" }), route);
+  assert.equal(readRoute({ pathname: "/agents/a1/unknown", search: "" }).view, "missing");
+});

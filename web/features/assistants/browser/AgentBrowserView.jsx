@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import BrowserScreen from "./BrowserScreen.jsx";
 import BrowserToolbar from "./BrowserToolbar.jsx";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
@@ -38,6 +38,20 @@ export default function AgentBrowserView({
     input,
   } = useBrowserStream(assistant.id);
   const status = state.status;
+  // Start sent, the browser not up yet: the view says so instead of "not running"
+  // (a cold ?takeover=1 start takes several seconds; AGENTPIER-440).
+  const [starting, setStarting] = useState(false);
+  useEffect(() => {
+    if (status !== "stopped") setStarting(false);
+  }, [status]);
+  useEffect(() => {
+    if (error) setStarting(false);
+  }, [error]);
+  const startBrowser = useCallback(() => {
+    setStarting(true);
+    start();
+  }, [start]);
+  const shown = starting && status === "stopped" ? "starting" : status;
   const viewOnly = state.viewOnly === true;
   const control = state.control || { held: false, mine: false };
   const asked = useRef(false);
@@ -52,9 +66,9 @@ export default function AgentBrowserView({
   useEffect(() => {
     if (takeover && !viewOnly && !started.current && status === "stopped") {
       started.current = true;
-      start();
+      startBrowser();
     }
-  }, [takeover, viewOnly, status, start]);
+  }, [takeover, viewOnly, status, startBrowser]);
   const mine = control.mine;
   useEffect(() => {
     onControl?.(mine);
@@ -69,9 +83,9 @@ export default function AgentBrowserView({
   return (
     <div className="agent-browser-body">
       <div className="agent-browser-bar">
-        <span className={`agent-browser-status ${status}`} role="status">
+        <span className={`agent-browser-status ${shown}`} role="status">
           <i aria-hidden="true" />
-          {copy.liveStatus[status] || status}
+          {copy.liveStatus[shown] || shown}
         </span>
         {!viewOnly && state.pinned && (
           <button type="button" className="button secondary compact" onClick={follow}>
@@ -148,13 +162,24 @@ export default function AgentBrowserView({
           select={select}
         />
       )}
+      {/* By the address bar, so a refused address or a failed start is in view. */}
+      {error && (
+        <p role="alert" className="assistant-notice">
+          {error}
+        </p>
+      )}
       <div className="agent-browser-screen">
         {status === "stopped" ? (
+          // The status line above already says it is not running (or starting).
           <div className="agent-browser-empty">
-            <p>{copy.liveStatus.stopped}</p>
             {!viewOnly && (
-              <button type="button" className="button primary" onClick={start}>
-                {copy.liveStart}
+              <button
+                type="button"
+                className="button primary"
+                disabled={starting}
+                onClick={startBrowser}
+              >
+                {starting ? copy.liveStarting : copy.liveStart}
               </button>
             )}
           </div>
@@ -174,11 +199,6 @@ export default function AgentBrowserView({
           </p>
         )}
       </div>
-      {error && (
-        <p role="alert" className="assistant-notice">
-          {error}
-        </p>
-      )}
       {control.mine && (
         <p className="assistant-note">
           {copy.liveDialogs} {copy.liveEscape}

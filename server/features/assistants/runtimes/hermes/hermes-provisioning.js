@@ -4,6 +4,7 @@ import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { privateFolder } from "../../runtime-paths.js";
 import { hermesManifest } from "./hermes-manifest.js";
 import {
+  HERMES_INSTALL_STEPS,
   ensureHermesRuntime,
   hasAgentBrowser,
   sameHermesRuntime,
@@ -15,6 +16,13 @@ import { hasPdfium } from "./hermes-pdfium.js";
 // Only a stable code is reported; installer errors can carry private paths.
 const stableCode = (error, fallback) =>
   /^[A-Z][A-Z0-9_]*$/.test(error?.code || "") ? error.code : fallback;
+
+// A reported install step with its place: `{ step, index, of }`, index from 1.
+const stepOf = (step) => ({
+  step,
+  index: HERMES_INSTALL_STEPS.indexOf(step) + 1,
+  of: HERMES_INSTALL_STEPS.length,
+});
 
 // The assistants settings store (`<data>/assistants/settings.json`) keeps the runtime
 // switch as `enabled` and the Hermes opt-in as `hermes.enabled`.
@@ -157,6 +165,8 @@ export function createHermesSwitch({
 }) {
   let job = null;
   let failed = null;
+  // The step the running installation is at (hermes-install.js HERMES_INSTALL_STEPS).
+  let step = null;
   const self = {
     onChange: null,
     state() {
@@ -164,6 +174,9 @@ export function createHermesSwitch({
       return {
         enabled: hermesEnabled(dataDir),
         installing: !!job,
+        // Where the installation is ({ step, index, of }), null while none runs or
+        // before it reports its first step. The live topic samples it every 3 s.
+        installStep: job && step ? stepOf(step) : null,
         installed: !!selected,
         version: selected?.version || null,
         targetVersion: manifest.version,
@@ -180,12 +193,20 @@ export function createHermesSwitch({
       failed = null;
       if (!job && hermesStagingDue(dataDir, manifest))
         job = Promise.resolve()
-          .then(() => install({ dataDir }))
+          .then(() =>
+            install({
+              dataDir,
+              onStep: (next) => {
+                step = next;
+              },
+            }),
+          )
           .catch((error) => {
             failed = stableCode(error, "HERMES_PROVISIONING_FAILED");
           })
           .finally(() => {
             job = null;
+            step = null;
             self.onChange?.();
           });
       self.onChange?.();

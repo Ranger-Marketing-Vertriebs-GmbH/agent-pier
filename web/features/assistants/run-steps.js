@@ -51,14 +51,17 @@ function step(value) {
 
 /**
  * The runs' steps after a feed frame: `steps` replaces a run's view and stamps when it
- * arrived, `steps-end` drops it. Null when the frame is not one of them.
+ * arrived, `steps-end` marks it `ended`, so the finished turn keeps its tool and
+ * advisor steps below the reply while the chat stays open (AGENTPIER-440 U8). Null
+ * when the frame is not one of them.
  */
 export function nextSteps(current, frame, now = Date.now()) {
   if (typeof frame?.runId !== "string") return null;
   if (frame.type === "steps-end") {
-    if (!current.has(frame.runId)) return current;
+    const ended = current.get(frame.runId);
+    if (!ended || ended.ended) return current;
     const next = new Map(current);
-    next.delete(frame.runId);
+    next.set(frame.runId, { ...ended, ended: true });
     return next;
   }
   if (frame.type !== "steps" || !Array.isArray(frame.steps)) return null;

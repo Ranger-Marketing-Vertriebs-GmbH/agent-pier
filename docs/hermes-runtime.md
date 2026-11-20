@@ -723,7 +723,7 @@ the ones Hermes v0.22.5 has a faithful equivalent of, by the shared setting's id
 a running agent takes a change live or restarts. They are stored once, in the store
 OpenClaw's overrides always used. While Hermes is on and at least one Hermes agent
 exists, the page marks the others **OpenClaw only** and Time zone **Restarts Hermes
-agents**; both texts take the runtimes' names from the server, so the page itself
+agents**, its badge then **Immediate for OpenClaw**; these texts take the runtimes' names from the server, so the page itself
 names no runtime. Hermes describes no advanced setting of its own yet; one would
 show as a row under **Hermes Agent** on the same page.
 

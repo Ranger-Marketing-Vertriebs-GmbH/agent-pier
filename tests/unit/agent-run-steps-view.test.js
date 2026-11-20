@@ -20,7 +20,7 @@ const frame = (extra = {}) => ({
   ...extra,
 });
 
-test("a steps frame replaces its run's view and steps-end drops it", () => {
+test("a steps frame replaces its run's view and steps-end keeps it as ended", () => {
   let runs = nextSteps(new Map(), frame(), 1000);
   assert.deepEqual(runs.get("r1").steps[0], {
     id: "tool:1",
@@ -34,7 +34,11 @@ test("a steps frame replaces its run's view and steps-end drops it", () => {
   const same = nextSteps(runs, { type: "steps-end", runId: "other" });
   assert.equal(same, runs);
   runs = nextSteps(runs, { type: "steps-end", runId: "r1" });
-  assert.equal(runs.size, 0);
+  // The finished turn keeps its steps (AGENTPIER-440 U8), marked ended once.
+  assert.equal(runs.size, 1);
+  assert.equal(runs.get("r1").ended, true);
+  assert.equal(runs.get("r1").phase, "model");
+  assert.equal(nextSteps(runs, { type: "steps-end", runId: "r1" }), runs);
   assert.equal(nextSteps(runs, { type: "stream", runId: "r1" }), null);
 });
 

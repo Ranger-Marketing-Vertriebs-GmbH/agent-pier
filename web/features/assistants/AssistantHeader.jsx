@@ -110,12 +110,22 @@ export default function AssistantHeader({
                 className={`assistant-shell-chip ${shell}`}
                 title={assistantShellCopy.badgeLabel(assistantShellCopy.levels[shell])}
               >
-                {assistantShellCopy.badge[shell]}
+                <Icon name="terminal" size={12} className="assistant-shell-chip-icon" />
+                <span className="assistant-shell-chip-text">
+                  {assistantShellCopy.badge[shell]}
+                </span>
               </span>
             )}
             {assistant.browserRunning && (
-              <span className="assistant-shell-chip browser" role="status">
-                {assistantBrowserCopy.running}
+              <span
+                className="assistant-shell-chip browser"
+                role="status"
+                title={assistantBrowserCopy.running}
+              >
+                <Icon name="globe" size={12} className="assistant-shell-chip-icon" />
+                <span className="assistant-shell-chip-text">
+                  {assistantBrowserCopy.running}
+                </span>
               </span>
             )}
           </div>

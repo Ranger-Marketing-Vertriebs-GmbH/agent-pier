@@ -36,8 +36,9 @@ agents**.
    runtime settings for all agents: **Time limit per task**, **Thinking level**,
    **Time zone**, **Image quality**, **Maximum image size** and **Media file
    retention**. Each one is marked **Immediate** or **Restart needed**. Hermes agents
-   take **Thinking level** and **Time zone** too (a time zone change restarts them);
-   while Hermes agents exist, the other four are marked **OpenClaw only**
+   take **Thinking level** and **Time zone** too (a time zone change restarts them,
+   so its badge then reads **Immediate for OpenClaw** beside **Restarts Hermes
+   agents**); while Hermes agents exist, the other four are marked **OpenClaw only**
    ([Hermes runtime](hermes-runtime.md#advanced-settings)). AgentPier offers only
    settings that do not touch security, access or management, and applies them only to
    the runtime version they were approved for; an older runtime starts with OpenClaw's
@@ -81,6 +82,8 @@ On a phone: [agent groups](screenshots/agent-groups-phone.png). The Runtime tab:
   used.
 - **Skills:** the owner's skill catalog for all agents ([skill catalog](#skill-catalog)).
 - **Runtime:** see [Turn agents on](#turn-agents-on).
+
+An agent's own address, `/agents/<id>`, opens its main chat.
 
 ## Agent groups
 
@@ -226,7 +229,9 @@ the left on a computer and one per screen with a progress bar on a phone; **Back
    afterwards), **Check in on its own** and a first daily routine. Hooks are created
    after the agent exists, because creating one reveals a secret. **Check in on its
    own** is on by default, every 30 minutes from 09:00 to 18:00, when the profile
-   keeps **Remember information** on; switch it off here if you do not want it.
+   keeps **Remember information** on; switch it off here if you do not want it. The
+   switch names what it costs as you change the times ("About 18 extra model runs per
+   day"), and the review repeats it ("Check-ins (about 18 runs a day)").
 6. **Review:** every choice, open prerequisites (for example a missing web search
    provider) and **Create agent**.
 
@@ -268,7 +273,8 @@ duplicate keeps its source's). **OpenClaw** is the default and offers everything
 this page. **Hermes Agent** is a second runtime
 ([ADR 0006](adr/0006-assistant-runtime-port.md)): switch on **Offer Hermes Agent** under
 **Agents › Runtime › Hermes Agent**, which installs its pinned release (about 540 MB) in the
-background. Once it is installed, the wizard's **Start** step offers a **Runtime**
+background; its **State** row names the step the installation is at ("step 3 of 5,
+installing the Python packages"). Once it is installed, the wizard's **Start** step offers a **Runtime**
 group with **OpenClaw** and **Hermes Agent**; the review lists the choice. Each Hermes agent runs in its own process set with a
 private home inside AgentPier's data directory; it starts when the agent is created
 and with AgentPier, stops when the agent is archived or Hermes is switched off, and
@@ -599,7 +605,7 @@ A switch with fresh chats also has the new model review the agent's memory; see
   window is, with its address and tabs; pick a tab or follow the agent, **Stop
   browser** (its tabs close, its profile stays; the agent's next browser call starts it
   again; it asks first while the agent uses the browser or someone controls it) and
-  **Start browser** there. Only the owner sees it, and no pictures are stored. **Take over** there
+  **Start browser** there (the page says **Starting the browser …** until it runs). Only the owner sees it, and no pictures are stored. **Take over** there
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
   and **Hand back** (or ten minutes without input) gives it back; if the agent tried
   the browser meanwhile, a note in the chat lets it continue. When the agent needs you
@@ -1720,7 +1726,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   usable, the routine's runs fail with the account cause until you sign in again
   under **Connections › Model access**. Opening that line shows OpenClaw's own error message
   (at most 500 characters, keys and tokens hidden) to read or copy, and how many runs
-  failed in a row; **Run history** lists the recent runs the same way. The agent sees
+  failed in a row; **Run history** lists the recent runs the same way, and a completed
+  run with the start of what it delivered (the whole result is in the chat's
+  **Events** area). The agent sees
   the same cause and message when it lists its routines, so it can tell you why
   instead of only "error"; a lead learns it with the failed run's report. A reminder's
   history names the cause too.
@@ -1925,7 +1933,8 @@ While the agent works on a message, the line under it says what it does now:
 "The model did not answer, trying again (2 of 8)". **N steps** below it opens the
 turn's steps: each tool call with its state (Running, Done, Failed) and when it
 thought. Steps show tool names and short titles only, never commands, web addresses,
-image prompts, output or what the agent thought.
+image prompts, output or what the agent thought. Once the turn is done, its steps stay below the reply,
+collapsed, while the chat is open; a reload shows the reply alone.
 
 When the model stays silent for three minutes while the agent waits for it, the chat
 says "No answer from the model for N minutes." with **Stop** and **Try again**. Try

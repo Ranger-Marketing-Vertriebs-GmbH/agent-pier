@@ -280,6 +280,14 @@
   gap: 8px;
   min-width: 0;
 }
+/* A completed run's result under its line: the start of it, wrapped. */
+.routine-run-result {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 /* A hook's one-time secret and sample request wrap instead of widening the dialog. */
 .agent-hook-secret .code-block > .code-block-pre {
   white-space: pre-wrap;

@@ -8,7 +8,7 @@ import { assistantProactivityCopy as proactivity } from "../../../lib/i18n/messa
 import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "../assistant-api.js";
-import { heartbeatIntervals } from "../heartbeat.js";
+import { heartbeatIntervals, heartbeatRuns } from "../heartbeat.js";
 import ServiceSheet from "./ServiceSheet.jsx";
 
 const copy = () => agentWizardCopy.channels;
@@ -54,6 +54,12 @@ export default function StepChannels({ d, set }) {
       </p>
     );
   const routine = d.routine;
+  const checkIns = d.heartbeatEnabled && d.memory;
+  const runs = heartbeatRuns({
+    interval: d.heartbeatInterval,
+    start: d.heartbeatStart,
+    end: d.heartbeatEnd,
+  });
   const setRoutine = (patch) => set({ routine: { ...routine, ...patch } });
   return (
     <>
@@ -92,12 +98,19 @@ export default function StepChannels({ d, set }) {
         <ListCard labelledBy={`${id}-checkins`}>
           <ToggleRow
             label={copy().checkIns}
-            sub={d.memory ? undefined : copy().checkInsSub}
-            checked={d.heartbeatEnabled && d.memory}
+            // What they cost, in view while choosing (AGENTPIER-440 U7): runs a day.
+            sub={
+              d.memory
+                ? checkIns
+                  ? proactivity.heartbeatCost(runs)
+                  : undefined
+                : copy().checkInsSub
+            }
+            checked={checkIns}
             disabled={!d.memory}
             onChange={(heartbeatEnabled) => set({ heartbeatEnabled })}
           />
-          {d.heartbeatEnabled && d.memory && (
+          {checkIns && (
             <>
               <SelectRow
                 label={proactivity.interval}
