@@ -18,7 +18,7 @@ import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
 // the version docs/cli-mcp-qualification.md qualifies ("OAuth login brokering"). Each
 // account is its own temporary HOME (isolatedHome()), logins use the file store, and
 // the provider is the local fake authorization server; nothing of the owner is read.
-const qualified = "0.160.1";
+const qualified = "0.169.1";
 const enabled = process.env.AGENTPIER_CLI_MCP_CONTRACT === "1";
 const codex = enabled ? installedClis().codex : null;
 const options = {
