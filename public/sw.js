@@ -1,6 +1,6 @@
 /* global self, caches, importScripts */
 importScripts("/pwa-de.js", "/pwa-en.js", "/pwa-render.js");
-const PUBLIC_CACHE = "agentpier-public-v2";
+const PUBLIC_CACHE = "agentpier-public-v3";
 const PUBLIC_PATHS = [
   "/offline.html",
   "/offline.js",
