@@ -13,6 +13,16 @@ const inputBurst = 240,
   inputRate = 120;
 const inputTypes = new Set(["pointer", "wheel", "key", "text", "paste"]);
 const controls = new Set(["start", "stop", "take", "handBack"]);
+// The takeover's browser toolbar: navigation and tab commands of the holder.
+const toolbar = new Set(["navigate", "tab"]);
+const toolbarErrors = new Set([
+  "NOT_HOLDER",
+  "VIEW_ONLY",
+  "NO_TARGET",
+  "INVALID_NAVIGATION",
+  "NAVIGATION_BLOCKED",
+  "NAVIGATION_FAILED",
+]);
 // The view is still admitted, but now only to watch (or now to drive): the page
 // reconnects at once and gets the new rights.
 const accessChanged = 4000;
@@ -37,7 +47,7 @@ export function personalState(state, holder) {
  * /api/assistants/:id/browser-stream, behind the login and the origin check like the
  * chat stream. The server sends JSON state messages and binary frames; the viewer
  * sends small JSON commands (`select`, `follow`, `start`, `stop`). Input for a
- * takeover travels the same way.
+ * takeover travels the same way, and so do its toolbar's `navigate` and `tab`.
  */
 export function attachBrowserWebSocket(
   server,
@@ -169,6 +179,7 @@ export function attachBrowserWebSocket(
           if (
             !inputTypes.has(command?.type) &&
             !controls.has(command?.type) &&
+            !toolbar.has(command?.type) &&
             !["select", "follow"].includes(command?.type)
           )
             return ws.close(1008);
@@ -180,6 +191,17 @@ export function attachBrowserWebSocket(
           return await subscription.input(command).catch((error) => {
             if (["NOT_HOLDER", "VIEW_ONLY"].includes(error.code))
               send({ type: "error", code: error.code });
+          });
+        }
+        if (toolbar.has(command?.type)) {
+          if (!allowInput()) return;
+          const run =
+            command.type === "navigate" ? subscription.navigate : subscription.tab;
+          return await run(command).catch((error) => {
+            send({
+              type: "error",
+              code: toolbarErrors.has(error.code) ? error.code : "NAVIGATION_FAILED",
+            });
           });
         }
         if (command?.type === "select") subscription.select(command.targetId);

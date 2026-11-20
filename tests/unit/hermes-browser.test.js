@@ -266,3 +266,66 @@ test("a Hermes home with AgentPier's Chromium turns Hermes's browser tools on", 
     assert.equal(config.browser, undefined);
   }
 });
+
+test("the takeover toolbar navigates, focuses and closes tabs of the agent's Chromium", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  const fetched = [];
+  const fetch = browser.fetch;
+  browser.fetch = async (url, options) => {
+    fetched.push(url);
+    return fetch(url, options);
+  };
+  await browser.start();
+  const navigating = browser.request({
+    method: "POST",
+    path: "/navigate",
+    body: { url: "https://shop.example/", targetId: "T1" },
+  });
+  for (let n = 0; n < 5 && !chromium.sockets.at(-1)?.sent.length; n++)
+    await new Promise((resolve) => setImmediate(resolve));
+  const socket = chromium.sockets.at(-1);
+  assert.match(socket.url, /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/page\/T1$/);
+  assert.deepEqual(socket.sent, [
+    { id: 1, method: "Page.navigate", params: { url: "https://shop.example/" } },
+  ]);
+  socket.onmessage({ data: JSON.stringify({ id: 1, result: { frameId: "F" } }) });
+  assert.deepEqual(await navigating, {
+    ok: true,
+    targetId: "T1",
+    url: "https://shop.example/",
+  });
+  // Only web addresses, and only on a page socket of this browser.
+  // Only web addresses; cloud metadata stays blocked, as for Hermes's own tools.
+  for (const url of ["file:///etc/hosts", "http://169.254.169.254/latest/meta-data"])
+    await assert.rejects(
+      browser.request({ method: "POST", path: "/navigate", body: { url } }),
+      { code: "BROWSER_NAVIGATION_BLOCKED" },
+    );
+  await assert.rejects(
+    browser.request({
+      method: "POST",
+      path: "/navigate",
+      body: { url: "https://a.example/", targetId: "T2" },
+    }),
+    { code: "BROWSER_NO_TAB" },
+  );
+  await browser.request({
+    method: "POST",
+    path: "/tabs/focus",
+    body: { targetId: "T1" },
+  });
+  await browser.request({ method: "DELETE", path: "/tabs/T1" });
+  assert.deepEqual(
+    fetched
+      .filter((url) => /\/json\/(activate|close)\//.test(url))
+      .map((url) => new URL(url).pathname),
+    ["/json/activate/T1", "/json/close/T1"],
+  );
+  await assert.rejects(
+    browser.request({ method: "POST", path: "/tabs/focus", body: {} }),
+    { code: "BROWSER_NO_TAB" },
+  );
+  await assert.rejects(browser.request({ method: "DELETE", path: "/tabs/W1" }), {
+    code: "BROWSER_NO_TAB",
+  });
+});

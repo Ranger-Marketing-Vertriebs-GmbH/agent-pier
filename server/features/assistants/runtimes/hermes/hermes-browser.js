@@ -7,6 +7,7 @@ import { EventEmitter } from "node:events";
 import { privateFolder, readJSON, writePrivate } from "../../../../lib/storage.js";
 import { closeConnection } from "../../../../lib/socket-errors.js";
 import { setFileInputFiles, uploadTab } from "./hermes-browser-files.js";
+import { toolbarRoute } from "./hermes-browser-control.js";
 import { chromiumArgs, chromiumEnvironment } from "../../chromium-launch.js";
 
 export { chromiumArgs, chromiumEnvironment };
@@ -56,7 +57,9 @@ function loopbackSocket(value, port) {
  * The browser sub-port (../agent-runtime.js) speaks the part of OpenClaw's browser
  * control API AgentPier's live view and limits use (agent-browsers.js,
  * browser-live-view.js): `GET /` (`{ running }`), `POST /start`, `POST /stop`, `GET
- * /tabs`, `POST /screencast` (a single-use ticket for one tab) and `openStream`,
+ * /tabs`, `POST /screencast` (a single-use ticket for one tab), the takeover
+ * toolbar's `POST /navigate`, `POST /tabs/focus` and `DELETE /tabs/<targetId>`
+ * (hermes-browser-control.js) and `openStream`,
  * which relays CDP's screencast of that tab in OpenClaw's frame format (a four-byte
  * header length, a JSON header with the CSS viewport, the JPEG).
  *
@@ -246,6 +249,9 @@ export class HermesBrowser {
         this.WebSocketImpl,
       );
     }
+    // The owner's browser toolbar: an address, a tab to the front, a tab closed.
+    const toolbar = await toolbarRoute(this, { method, route, body });
+    if (toolbar) return toolbar;
     if (method === "POST" && route === "/screencast") {
       const pages = (await this.tabs()).filter(
         (tab) => tab.type === "page" && tab.socket,

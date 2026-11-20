@@ -1,4 +1,10 @@
 import { CdpInput, inputCalls, validateInput } from "./browser-input.js";
+import {
+  historyCalls,
+  historyStep,
+  validateNavigation,
+  validateTab,
+} from "./browser-navigation.js";
 
 // Without owner input for this long the browser goes back to the agent; a minute
 // before, the owner is warned. A holder whose every view closed gets a short grace
@@ -107,10 +113,18 @@ export class Takeover {
   }
   /** One input command of the holder, to the tab the view shows. */
   async input(holder, command) {
-    if (!this.holder || holder !== this.holder) throw problem("NOT_HOLDER");
+    this.require(holder);
     const valid = validateInput(command);
     if (!valid) throw problem("INVALID_INPUT");
     this.touch();
+    const { channel, targetId } = this.target();
+    await channel.dispatch(targetId, inputCalls(valid, this.stream.metrics));
+  }
+  require(holder) {
+    if (!this.holder || holder !== this.holder) throw problem("NOT_HOLDER");
+  }
+  /** The CDP channel to the agent's browser and the tab the view shows. */
+  target() {
     const targetId = this.stream.state.targetId;
     const port = this.live.browsers.viewProfile(this.stream.id)?.entry?.cdpPort;
     if (!targetId || !port) throw problem("NO_TARGET");
@@ -119,7 +133,63 @@ export class Takeover {
       this.channel?.close();
       this.channel = this.live.cdpInput(port);
     }
-    await this.channel.dispatch(targetId, inputCalls(valid, this.stream.metrics));
+    return { channel: this.channel, targetId };
+  }
+  /**
+   * A toolbar command of the holder (browser-navigation.js): an address goes through
+   * the runtime's own navigation, back, forward, reload and stop go to the shown tab
+   * over CDP. Every address the owner opens, typed or from the history, passes the
+   * agent browser's private-network rule first. Commands run one after another, so
+   * a reload pressed during a back waits for it.
+   */
+  async navigate(holder, command) {
+    this.require(holder);
+    const valid = validateNavigation(command);
+    if (!valid) throw problem("INVALID_NAVIGATION");
+    this.touch();
+    return this.inOrder(holder, () => this.navigateNow(valid));
+  }
+  // Nothing queued runs once the lease ended or moved.
+  inOrder(holder, run) {
+    const next = (this.toolbar || Promise.resolve())
+      .catch(() => {})
+      .then(() => {
+        this.require(holder);
+        return run();
+      });
+    this.toolbar = next;
+    return next;
+  }
+  async navigateNow(valid) {
+    if (valid.action === "go") {
+      if (!(await this.live.navigationAllowed(valid.url)))
+        throw problem("NAVIGATION_BLOCKED");
+      return this.stream.navigate(valid.url);
+    }
+    const { channel, targetId } = this.target();
+    const [result] = await channel.dispatch(targetId, historyCalls(valid.action));
+    if (!["back", "forward"].includes(valid.action)) return;
+    const entry = historyStep(result, valid.action);
+    if (!entry) return;
+    if (!(await this.live.navigationAllowed(entry.url)))
+      throw problem("NAVIGATION_BLOCKED");
+    await channel.dispatch(targetId, [
+      ["Page.navigateToHistoryEntry", { entryId: entry.id }],
+    ]);
+  }
+  /** Switches to or closes one of the browser's tabs, for the holder. */
+  async tab(holder, command) {
+    this.require(holder);
+    const valid = validateTab(command);
+    if (!valid) throw problem("INVALID_NAVIGATION");
+    if (!this.stream.state.tabs.some((tab) => tab.targetId === valid.targetId))
+      throw problem("NO_TARGET");
+    this.touch();
+    return this.inOrder(holder, () =>
+      valid.action === "switch"
+        ? this.stream.focusTab(valid.targetId)
+        : this.stream.closeTab(valid.targetId),
+    );
   }
   stop() {
     this.release("stopped");

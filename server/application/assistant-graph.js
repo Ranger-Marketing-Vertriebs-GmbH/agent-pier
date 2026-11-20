@@ -196,8 +196,8 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.liveView = new BrowserLiveView({
     browsers: assistants.browsers,
     runtime: assistantRuntime,
-    // The agent continues once the owner hands its browser back.
     onHandBack: (id, reason) => noteBrowserHandBack(assistants, id, reason),
+    navigationPolicy: () => assistantWebTools.network(),
   });
   assistants.browsers.controlled = (id) => assistants.liveView.controlled(id);
   assistants.browsers.driver = (id) => assistants.liveView.driver(id);
