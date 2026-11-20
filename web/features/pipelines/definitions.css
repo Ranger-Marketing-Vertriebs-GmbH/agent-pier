@@ -94,9 +94,12 @@
 .definition-card > fieldset {
   gap: 22px;
 }
+/* Each field keeps its own height: the budget's long hint must not stretch the name
+   and description, which then sat far below their labels. */
 .definition-head {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
   gap: 16px;
 }
 .definition-card label {

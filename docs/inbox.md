@@ -19,7 +19,8 @@ each card opens its item here (see [start page](system-status.md#start-page)).
 
 **All** shows everything; every tab shows its count. Items about to expire (within 15
 minutes, such as an agent's shell command) come first, soonest first; everything else
-follows with the longest waiting first.
+follows with the longest waiting first. A gate's row names its stage, the pipeline, the
+project folder and the first line of the run's task.
 
 ## Answering
 

@@ -6,6 +6,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import Segment from "../../components/Segment.jsx";
 import TokenBudgetInput from "./TokenBudgetInput.jsx";
+import { MAX_TOKEN_BUDGET, parseTokenBudget } from "./token-budget.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -133,6 +134,11 @@ export default function NewRunDialog({
   const pipelineBudget = definitions.data?.pipelines?.find(
     (p) => p.id === pipelineId,
   )?.tokenBudget;
+  // An invalid budget gets the range inline, as the Raise field does, not the
+  // browser's own "match the requested format".
+  const budgetNumber = parseTokenBudget(tokenBudget);
+  const budgetValid =
+    !tokenBudget || (budgetNumber >= 1 && budgetNumber <= MAX_TOKEN_BUDGET);
   const dismiss = () => {
     if (!action.busy) close();
   };
@@ -152,6 +158,7 @@ export default function NewRunDialog({
       <form
         onSubmit={(event) => {
           event.preventDefault();
+          if (!budgetValid) return;
           action.run(async () => {
             if (ticket) {
               const result = await api(ticketStartPath(ticket.projectId), "POST", {
@@ -234,10 +241,17 @@ export default function NewRunDialog({
               {copy.tokenBudget}
               <TokenBudgetInput
                 value={tokenBudget}
-                aria-describedby="run-dialog-budget-help"
+                pattern={undefined}
+                aria-describedby={`run-dialog-budget-help${budgetValid ? "" : " run-dialog-budget-error"}`}
+                aria-invalid={!budgetValid}
                 onChange={setTokenBudget}
               />
             </label>
+            {!budgetValid && (
+              <p id="run-dialog-budget-error" className="field-description" role="status">
+                {copy.budgetRange(formatNumber(1), formatNumber(MAX_TOKEN_BUDGET))}
+              </p>
+            )}
             <small id="run-dialog-budget-help" className="run-dialog-help">
               {copy.runTokenBudgetHelp(pipelineBudget && formatNumber(pipelineBudget))}
             </small>
@@ -269,7 +283,7 @@ export default function NewRunDialog({
           >
             {commonCopy.cancel}
           </button>
-          <button className="button primary" disabled={action.busy}>
+          <button className="button primary" disabled={action.busy || !budgetValid}>
             {ticket ? (again ? ticketStartCopy.again : copy.newRun) : title}
           </button>
         </div>

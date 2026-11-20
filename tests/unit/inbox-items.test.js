@@ -393,3 +393,22 @@ test("a rebuild's open questions and approvals wait in the questions tab", async
     [`${id}:q1`, `${id}:q2`],
   );
 });
+
+test("a gate names the project folder and the task's first line, not the run id", () => {
+  const item = gateItem({
+    id: "be3b1b16-7709-4a02-8915-06df9c57e858",
+    pipelineName: "W5 tiny",
+    status: "awaiting-human",
+    currentNodeId: "review",
+    cwd: "/home/owner/projects/shop",
+    workingDir: "/data/pipelines/worktrees/be3b1b16-7709-4a02-8915-06df9c57e858",
+    task: "Add a vegetarian filter\n\nThe menu page needs it.",
+    createdAt: at(0),
+    executionLog: [],
+    nodes: [
+      { id: "review", status: "awaiting-gate", profileSnapshot: { name: "Review" } },
+    ],
+  });
+  assert.equal(item.source.project, "shop");
+  assert.equal(item.task, "Add a vegetarian filter");
+});

@@ -90,6 +90,8 @@ export const pipelineCopy = {
   modelsHelp: "One model per line. An empty line uses the account default.",
   role: "Role instructions",
   kickoff: "Starting instructions",
+  // An autonomous profile cannot start without them.
+  kickoffRequired: "Starting instructions (required)",
   parameters: "Parameters",
   addParameter: "Add parameter",
   paramKey: (n) => `Parameter key ${n}`,
@@ -301,6 +303,7 @@ export const pipelineCopy = {
   budgetGateHelp: (used, budget) =>
     `The run's turns reported ${used} tokens, above its budget of ${budget}. Running turns were not stopped; the next turn starts once you raise the budget.`,
   newTokenBudget: "New token budget",
+  stepperRange: (min, max) => `From ${min} to ${max}.`,
   budgetRange: (min, max) => `Enter a whole number from ${min} to ${max}.`,
   attempts: "Execution history",
   verdict: "Verdict",
@@ -314,6 +317,9 @@ export const pipelineCopy = {
   noArtifacts: "No files reported.",
   emptyDiff: "No changes reported.",
   truncated: "Output truncated.",
+  // A verification step that printed nothing.
+  noOutput: (code) =>
+    Number.isInteger(code) ? `No output (exit code ${code}).` : "No output.",
   reviewChanges: "Review changes",
   reviewNotes: (n) => (n === 1 ? "1 open comment" : `${n} open comments`),
   reviewNotesSent: (n) =>
