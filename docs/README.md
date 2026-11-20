@@ -103,7 +103,7 @@ used at the time. They are not maintained as user guides.
   [web tools](assistant-web-tools-qualification.md).
 - MCP: [central servers in the CLIs](cli-mcp-qualification.md),
   [OAuth](mcp-oauth-qualification.md).
-- Chat and sessions: [Claude model switch](claude-model-switch-validation.md),
+- Chat and sessions: [Chat model switch](claude-model-switch-validation.md),
   [direct chat TUI](direct-chat-tui-validation.md),
   [chat prompt guards](native-chat-prompt-validation.md),
   [session activity](session-activity-validation.md).

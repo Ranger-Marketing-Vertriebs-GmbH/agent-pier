@@ -1,4 +1,4 @@
-# Claude chat model switching
+# Chat model switching
 
 Validated on 2026-09-13 with Claude Code 2.1.270 and tmux 3.7c on macOS ARM64.
 
@@ -67,8 +67,18 @@ with the fix the controller opened the picker there and listed its models.
 
 Run `node --test tests/unit/codex-model-state.test.js` for the captured idle screens.
 
+## Attachments while the picker is open
+
+An open picker (or a selection AgentPier started and has not yet seen finish) holds
+the composer: **Send** stays disabled until the picker closes. It no longer holds the
+draft's attachments. A file dragged onto the chat while the popover is open, the
+popover itself included, is uploaded and listed under the draft like any other drop;
+nothing reaches the terminal, and the picker stays open. Before, the chat's drop zone
+was disabled while the picker was open, so the drop was swallowed without a message.
+`tests/browser/chat-drop-model-picker.spec.js` covers it in English and German.
+
 ## Tests
 
 Run `node --test tests/unit/claude-model-picker-2-1-329.test.js tests/unit/models.test.js tests/integration/model-viewport.test.js`
-and `npx playwright test tests/browser/claude-model-control.spec.js tests/browser/model-control.spec.js`.
+and `npx playwright test tests/browser/claude-model-control.spec.js tests/browser/model-control.spec.js tests/browser/chat-drop-model-picker.spec.js`.
 Set `AGENTPIER_TEST_BROWSER=webkit` for the WebKit browser run.
