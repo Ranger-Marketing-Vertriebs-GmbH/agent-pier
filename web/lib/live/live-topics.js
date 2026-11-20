@@ -372,6 +372,14 @@ export const liveTopics = Object.freeze({
   // of each source. useLiveSignal reads nothing without the channel; the page reads
   // them again on a reload, as it did before the topic.
   "projects.changed": Object.freeze({ mode: "signal", path: null, interval: 30000 }),
+  // A knowledge project's entries (server/features/memory/live-topics.js): `changed`,
+  // then the Knowledge tab reads its entries page again.
+  "memory.changed": Object.freeze({
+    mode: "signal",
+    path: null,
+    paramRequired: true,
+    interval: 30000,
+  }),
   // The projects page's project groups: `changed`, then one read of
   // GET /api/project-groups.
   "project-groups.changed": Object.freeze({

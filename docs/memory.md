@@ -74,6 +74,8 @@ Titles are limited to 200 UTF-8 bytes, content to 32 KiB and search queries to 3
 
 ## Search
 
+The project's **Knowledge** tab updates live: an entry that a session, an agent or another browser writes, archives, restores, forgets or merges in appears without **Refresh** (the `memory.changed:<projectId>` topic, see [Live channel](architecture.md#live-channel)).
+
 Search covers the title and content of each entry's current revision. Archived entries are searched only with the archived filter.
 
 - **Matching:** every word of the query must occur in the title or the content, in any order. A word also matches as the start of a longer word (`deploy` finds `deployment`). Matching ignores case and diacritics (`zurich` finds `Zürich`).

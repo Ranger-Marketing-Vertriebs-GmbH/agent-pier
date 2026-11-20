@@ -47,7 +47,9 @@ import {
 import { meTopics } from "../features/users/live-me-topics.js";
 import { defineAgentBusTopic } from "../features/agentbus/live-topics.js";
 import {
+  memoryChangedTopic,
   projectsChangedTopic,
+  watchMemoryWrites,
   watchProjectWrites,
 } from "../features/memory/live-topics.js";
 import {
@@ -134,6 +136,8 @@ export function createLiveHub(services, options = {}) {
   defineAgentBusTopic(hub, services);
   hub.define(projectsChangedTopic());
   watchProjectWrites(services, hub);
+  hub.define(memoryChangedTopic());
+  watchMemoryWrites(services, hub);
   hub.define(projectGroupsChangedTopic());
   hub.define(viewsTopic(services));
   hub.define(sessionReviewTopic(services));
