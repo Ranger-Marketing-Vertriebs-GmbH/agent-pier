@@ -153,9 +153,6 @@
   .app:has(.inbox-page) .mobile-header {
     display: none;
   }
-  body:has(.inbox-page):has(.mobile-header) .update-notice {
-    top: calc(env(safe-area-inset-top) + 8px);
-  }
   .inbox-list {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -145,10 +145,6 @@
   .app:has(.craft-page) .mobile-header {
     display: none;
   }
-  /* The hidden header must not push the update notice down (see update-notice.css). */
-  body:has(.craft-page):has(.mobile-header) .update-notice {
-    top: calc(env(safe-area-inset-top) + 8px);
-  }
   .craft-actions > .button {
     flex: 1 1 100%;
   }

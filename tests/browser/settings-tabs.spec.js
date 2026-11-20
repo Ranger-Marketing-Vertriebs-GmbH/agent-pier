@@ -317,8 +317,9 @@ test.describe("settings on a phone", () => {
     );
     const notice = page.locator(".update-notice");
     await expect(notice).toBeVisible();
-    // With the global header hidden the notice sits at the top, not 62px lower.
-    expect((await notice.boundingBox()).y).toBeLessThan(20);
+    // Below the page header and its tabs, never over them (AGENTPIER-420).
+    const tabs = await page.getByRole("tablist").boundingBox();
+    expect((await notice.boundingBox()).y).toBeGreaterThanOrEqual(tabs.y + tabs.height);
   });
 });
 

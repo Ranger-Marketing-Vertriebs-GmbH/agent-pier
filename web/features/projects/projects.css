@@ -212,10 +212,6 @@
   .app:has(.projects-hub) .mobile-header {
     display: none;
   }
-  /* The hidden header must not push the update notice down (see update-notice.css). */
-  body:has(.projects-hub):has(.mobile-header) .update-notice {
-    top: calc(env(safe-area-inset-top) + 8px);
-  }
   .project-row-main {
     min-height: 56px;
   }

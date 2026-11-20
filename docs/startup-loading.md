@@ -97,7 +97,9 @@ server sends the ID of the files it currently serves as `X-AgentPier-Build` on e
 response and re-reads it when `dist/index.html` changes. When the two differ, the app
 shows a non-modal "New version available" notice and never reloads on its own. On the
 mobile layout the notice sits below the mobile header so it never covers header
-controls. A lazy view that fails to load shows the recovery view, with update-specific
+controls; on a page with its own header (Inbox, Settings, Projects, Agents, Craft
+Anything) it sits below that header and its tabs
+(`web/features/updates/notice-placement.js`). A lazy view that fails to load shows the recovery view, with update-specific
 copy when a newer build was already detected. After the start, the page loads the code
 of the agent and session views in the background, so they open without a connection
 ([Views opened offline](mobile-recovery.md#views-opened-offline)).

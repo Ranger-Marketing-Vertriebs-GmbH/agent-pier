@@ -35,10 +35,6 @@
   .app:has(.settings-page-shell) .mobile-header {
     display: none;
   }
-  /* The hidden header stays in the DOM; keep the update notice off the tab row. */
-  body:has(.app .settings-page-shell) .update-notice {
-    top: calc(env(safe-area-inset-top) + 8px);
-  }
 }
 
 /* A list card inside a former operations section keeps air before the next control. */
