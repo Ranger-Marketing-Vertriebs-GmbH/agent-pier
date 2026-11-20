@@ -179,4 +179,14 @@ test("the header never says Ready while the chat is cut off or the agent archive
     "Gestoppt",
   );
   assert.equal(status({}).label, "Bereit");
+  // Offline the service's state turns "unknown" (AssistantsRoot); the chat's lost
+  // connection explains it, so the header names that instead.
+  assert.deepEqual(status({ disconnected: true, runtime: { availability: "unknown" } }), {
+    tone: "attention",
+    label: "Verbindung unterbrochen",
+  });
+  assert.equal(
+    status({ runtime: { availability: "unknown" } }).label,
+    "Unbekannt, solange offline",
+  );
 });

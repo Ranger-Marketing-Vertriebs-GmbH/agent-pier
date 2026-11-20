@@ -61,13 +61,17 @@ export function headerStatus({
   if (connectionMissing(assistant, models))
     return { tone: "missing", label: copy.status.connectionMissing };
   const availability = runtime?.availability;
+  // The chat's own connection is down: "Ready" would contradict its notice, and so
+  // would "Unknown while offline", which only follows from that lost connection
+  // (AssistantsRoot unknownRuntime). A service known to be stopped or failing still
+  // names itself.
+  if (disconnected && (availability === "ready" || availability === "unknown"))
+    return { tone: "attention", label: copy.status.disconnected };
   if (availability !== "ready")
     return {
       tone: attentionRuntime.has(availability) ? "attention" : "muted",
       label: serviceLabel(runtime, copy) ?? availability ?? "",
     };
-  // The chat's own connection is down: "Ready" would contradict its notice.
-  if (disconnected) return { tone: "attention", label: copy.status.disconnected };
   const current = entry ?? IDLE_ACTIVITY;
   // A turn waiting for the owner's approval stays accepted or running; the header
   // says what it waits for, as the sidebar does. An unclear outcome comes first.
