@@ -18,6 +18,7 @@ import ProviderAccountSummary from "../../providers/ProviderAccountSummary.jsx";
 import AccountDetail, { AccountSaveBar } from "../../accounts/AccountDetail.jsx";
 import FieldRow from "../../accounts/FieldRow.jsx";
 import LegacyProviderEditor from "./LegacyProviderEditor.jsx";
+import { shouldSubmitOnEnter } from "../../chat/enter-submit.js";
 import NativeAccountActions from "./NativeAccountActions.jsx";
 import UsedByGroup from "../../accounts/UsedByGroup.jsx";
 import { authOf } from "./useAccountAuthStates.js";
@@ -178,12 +179,14 @@ export default function NativeAccountDetail({
             form.save();
           }}
           // Two text fields and no submit button: browsers do not submit on Enter
-          // by themselves, so a field's Enter saves (as the save bar does).
+          // by themselves, so a field's Enter saves (as the save bar does). An IME's
+          // Enter (isComposing or keyCode 229) confirms its text instead, and keys from
+          // a select's menu, portaled outside the form, still bubble here through React.
           onKeyDown={(event) => {
             if (
-              event.key !== "Enter" ||
+              !shouldSubmitOnEnter(event, false) ||
               event.defaultPrevented ||
-              event.nativeEvent.isComposing ||
+              !event.currentTarget.contains(event.target) ||
               event.target.tagName !== "INPUT" ||
               event.target.type === "checkbox"
             )
