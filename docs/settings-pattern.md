@@ -193,7 +193,8 @@ Einrichten/Set up and marks the current one with `menuArea()`; see the
 
 Zugänge (`/connections`) lists shared credentials by category: a categories column
 with counts and problem counts (`GET /api/connections/problems`), the category's list
-and the open entry; on phones categories, list and entry are subpages. Model access
+and the open entry; up to 1150 px wide the entry goes below its list, and on phones
+categories, list and entry are subpages. Model access
 and services keep the Accounts list and detail forms; SSH/SFTP accesses and MCP
 servers use the long list (`LongList.jsx`, rules in `long-list.js`): fixed views,
 search, filter chips, groups with "Weitere n anzeigen", sorting, selection with bulk

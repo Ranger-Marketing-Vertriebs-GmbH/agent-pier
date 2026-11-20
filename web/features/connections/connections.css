@@ -407,7 +407,11 @@
     grid-template-columns: 180px minmax(0, 1fr);
     gap: var(--space-4);
   }
+  /* Beside the categories column there is no room for a list and a detail side by
+     side: the detail goes below its list (the ChatGPT logins of Model access use the
+     accounts layout, whose fixed 320px list would squeeze the detail to nothing). */
   .connections-list-detail.has-detail,
+  .connections-main .accounts-layout.has-detail,
   .connections-full {
     grid-template-columns: minmax(0, 1fr);
   }

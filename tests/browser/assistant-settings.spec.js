@@ -126,6 +126,20 @@ test("a ChatGPT login AgentPier holds needs no agent service link", async ({ pag
   await expect(login.getByRole("link", { name: "Agents › Runtime" })).toHaveCount(0);
 });
 
+// At tablet width the categories column leaves no room for the login list and its
+// detail side by side; the detail goes below the list instead of shrinking to nothing.
+test("a ChatGPT login's detail keeps its width on a tablet", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await setup(page, { runtime: stoppedRuntime, chatgptAccounts: [agentpierLogin] });
+  await page.goto(baseURL + "/connections?section=models");
+  const panel = await openAccountItem(page, "Own ChatGPT");
+  await expect(panel.getByText("Connected")).toBeVisible();
+  const detail = await panel.boundingBox();
+  const list = await page.locator(".accounts-hub").boundingBox();
+  expect(detail.width).toBeGreaterThanOrEqual(300);
+  expect(detail.y).toBeGreaterThanOrEqual(list.y + list.height);
+});
+
 for (const [language, locale] of [
   ["en", "en-US"],
   ["de", "de-DE"],
