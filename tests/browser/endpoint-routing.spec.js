@@ -27,7 +27,8 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
   const { controls, dialog, routing, uses, select } = await openNewEndpoint(page);
   // llama.cpp preset: only Chat Completions is enabled.
   await expect(uses("via adapter · Chat Completions")).toHaveCount(2);
-  await expect(uses("native")).toHaveCount(1);
+  // OpenCode's own Chat Completions provider is named by its protocol.
+  await expect(uses("Chat Completions")).toHaveCount(1);
   const claude = select("Claude Code");
   await expect(claude).toHaveAccessibleDescription(
     "Uses: via adapter · Chat Completions",
@@ -80,7 +81,9 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
 
 test("Ollama routes switch from native to the adapter and off", async ({ page }) => {
   const { dialog, uses, select } = await openNewEndpoint(page, "ollama");
-  await expect(uses("native")).toHaveCount(3);
+  // OpenCode's Automatic route prefers Responses.
+  await expect(uses("native")).toHaveCount(2);
+  await expect(select("OpenCode")).toHaveAccessibleDescription("Uses: Responses");
   await dialog.getByRole("checkbox", { name: /OpenAI Responses/ }).uncheck();
   await dialog.getByRole("checkbox", { name: /OpenAI Chat Completions/ }).uncheck();
   // Messages only: Codex goes through the adapter, OpenCode uses its Messages SDK.

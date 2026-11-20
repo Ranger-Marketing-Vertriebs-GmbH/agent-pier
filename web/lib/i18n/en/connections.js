@@ -67,7 +67,7 @@ export const connectionCopy = {
   endpoint: {
     routing: {
       title: "CLIs and routes",
-      help: "Automatic uses the CLI's native protocol and otherwise the protocol adapter (Responses before Messages before Chat Completions).",
+      help: "Automatic uses the CLI's native protocol and otherwise the protocol adapter (Responses before Messages before Chat Completions). OpenCode uses its own providers for Responses before Chat Completions before Messages.",
       select: (cli) => `Route for ${cli}`,
       choices: {
         auto: "Automatic",
@@ -132,7 +132,7 @@ export const connectionCopy = {
     },
     presetHelp: {
       azure:
-        "Replace <resource> with the name of your Azure OpenAI resource. Models are your deployment names; the key is sent in the api-key header.",
+        "Base URL: https://<resource>.openai.azure.com/openai/v1 with the name of your Azure OpenAI resource, or paste a deployment's target URI. Models are your deployment names with their context size; the key is sent in the api-key header.",
       custom:
         "For LM Studio, vLLM, LiteLLM and any other OpenAI- or Anthropic-compatible server.",
     },
@@ -195,7 +195,22 @@ export const connectionCopy = {
         "The server rejected the minimal test request but the endpoint exists.",
       modelListTruncated:
         "A connection holds at most 200 models. Manual models are kept; some detected models were left out.",
+      azureBaseModels:
+        "Azure lists the base models of the resource, not your deployments, so they were not added. Add your deployment names as models.",
+      deploymentRequired:
+        "Add a deployment name as a model below, then test again to check the protocols.",
     },
+    contextNeeded: (count) =>
+      count === 1
+        ? "Enter the context size of this model. No server reports it, and sessions and agents cannot use the model without it:"
+        : "Enter the context size of these models. No server reports it, and sessions and agents cannot use the models without it:",
+    contextAsk:
+      "Save again to save without a context size. The model stays unusable until you enter one.",
+    setContext: (id) => `Context of ${id}`,
+    noProtocol:
+      "No protocol is ticked, so no CLI can use this connection and the “New session” dialog does not list it. Tick at least one protocol.",
+    deploymentFromUrl: (name) =>
+      `Base URL taken from the deployment URL. Deployment ${name} was added as a model; enter its context size below.`,
     notListed:
       "The model list could not be read. Previously detected and manual models are kept.",
     notListedAuth:

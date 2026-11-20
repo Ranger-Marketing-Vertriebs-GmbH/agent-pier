@@ -85,7 +85,11 @@ test("the API provider lists each preset, which opens the form with its defaults
     "placeholder",
     "https://<resource>.openai.azure.com/openai/v1",
   );
-  await expect(dialog.getByText(/Replace <resource> with the name/)).toBeVisible();
+  await expect(
+    dialog.getByText(
+      /Base URL: https:\/\/<resource>.openai.azure.com\/openai\/v1 with the name/,
+    ),
+  ).toBeVisible();
   await expect(
     dialog.getByText("For Azure OpenAI choose one of your deployments as test model."),
   ).toBeVisible();

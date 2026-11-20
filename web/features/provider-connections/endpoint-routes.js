@@ -18,7 +18,9 @@ export const ROUTE_CHOICES = {
 };
 export const DEFAULT_ROUTING = { claude: "auto", codex: "auto", opencode: "auto" };
 const ADAPTER_ORDER = ["responses", "messages", "chatCompletions"];
-const OPENCODE_ORDER = ["chatCompletions", "responses", "messages"];
+// OpenCode prefers Responses: its Chat provider (@ai-sdk/openai-compatible) always sends
+// max_tokens, which OpenAI and Azure reasoning deployments refuse.
+const OPENCODE_ORDER = ["responses", "chatCompletions", "messages"];
 const filled = (value) => typeof value === "string" && value.trim() !== "";
 
 function unavailable(endpoint, source) {
@@ -63,11 +65,16 @@ export const routeOptions = (endpoint, tool) =>
     return { choice, source, available: reason === null, reason };
   });
 
+// Sources whose options apply: adapter routes, and OpenCode's own Chat Completions
+// route, which takes the probed output limit field (endpoint-launch.js).
 export const adapterSources = (endpoint) => {
   const used = new Set(
-    Object.keys(NATIVE_SOURCE)
-      .map((tool) => resolveDraftRoute(endpoint, tool))
-      .filter((route) => route?.mode === "adapter")
+    ROUTE_TOOLS.map((tool) => resolveDraftRoute(endpoint, tool))
+      .filter(
+        (route) =>
+          route?.mode === "adapter" ||
+          (route?.mode === "native" && route.source === "chatCompletions"),
+      )
       .map((route) => route.source),
   );
   return ["messages", "responses", "chatCompletions"].filter((s) => used.has(s));

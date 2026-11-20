@@ -90,9 +90,14 @@ test("auto falls back in the order Responses > Messages > Chat", () => {
   });
 });
 
-test("OpenCode auto takes Chat > Responses > Messages through its SDK providers", () => {
+test("OpenCode auto takes Responses > Chat > Messages through its SDK providers", () => {
+  // Responses first: Azure reasoning deployments refuse Chat Completions' max_tokens.
   assert.deepEqual(
     resolveRoute(endpoint({ chatCompletions: true, responses: true }), "opencode"),
+    { mode: "sdk", source: "responses" },
+  );
+  assert.deepEqual(
+    resolveRoute(endpoint({ chatCompletions: true, messages: true }), "opencode"),
     { mode: "native", source: "chatCompletions" },
   );
   assert.deepEqual(

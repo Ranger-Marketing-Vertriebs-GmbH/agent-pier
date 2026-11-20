@@ -223,8 +223,9 @@ test("endpoint pipeline snapshot covers the CLI's origin, protocol and selected 
     providerId: "endpoint",
     endpoint: {
       origins: ["http://127.0.0.1:11434"],
-      protocols: { chatCompletions: true },
-      route: { mode: "native", source: "chatCompletions" },
+      // OpenCode's Automatic route prefers Responses.
+      protocols: { responses: true },
+      route: { mode: "sdk", source: "responses" },
       models: { qwen3: { contextTokens: 32768, outputTokens: null } },
     },
   });

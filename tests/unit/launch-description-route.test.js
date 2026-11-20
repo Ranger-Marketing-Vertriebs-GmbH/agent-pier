@@ -22,10 +22,18 @@ test("endpoint launch targets carry the resolved route", () => {
     }).route,
     { mode: "adapter", source: "chatCompletions" },
   );
+  // OpenCode's Automatic route prefers Responses; Chat Completions is its own provider.
   assert.deepEqual(launchTarget(account("opencode"), endpoint).route, {
-    mode: "native",
-    source: "chatCompletions",
+    mode: "sdk",
+    source: "responses",
   });
+  assert.deepEqual(
+    launchTarget(account("opencode"), {
+      ...endpoint,
+      protocols: { messages: true, responses: false, chatCompletions: true },
+    }).route,
+    { mode: "native", source: "chatCompletions" },
+  );
 });
 
 test("a removed connection yields no route instead of throwing", () => {

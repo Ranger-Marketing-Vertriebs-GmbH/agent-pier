@@ -30,7 +30,9 @@ export const DEFAULT_ROUTING = Object.freeze({
  */
 export const ADAPTER_AUTO_ROUTES = true;
 const ADAPTER_ORDER = ["responses", "messages", "chatCompletions"];
-const OPENCODE_ORDER = ["chatCompletions", "responses", "messages"];
+// OpenCode prefers Responses: its Chat provider (@ai-sdk/openai-compatible) always sends
+// max_tokens, which OpenAI and Azure reasoning deployments refuse.
+const OPENCODE_ORDER = ["responses", "chatCompletions", "messages"];
 const LIBRARY = Object.freeze({
   messages: "messages",
   responses: "responses",

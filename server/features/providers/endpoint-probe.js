@@ -29,6 +29,24 @@ export function classifyProbe(result, { listedModel }) {
   return { status: "failed", reason: "http" };
 }
 
+/**
+ * The model a test probes. A chosen model wins; "Automatic" prefers a manually entered
+ * model, because a listing may report models the account cannot call. Azure lists base
+ * models, not the deployments requests must name, so it never falls back to one.
+ */
+export function chooseProbeModel({
+  preset,
+  probeModelId,
+  previousModels = [],
+  detection,
+}) {
+  if (probeModelId) return probeModelId;
+  const manual = previousModels.find((model) => model.source === "manual");
+  if (manual) return manual.modelId;
+  if (preset === "azure") return null;
+  return detection.models[0]?.modelId || previousModels[0]?.modelId || null;
+}
+
 export async function runEndpointTest({
   endpoint,
   apiKey,
@@ -39,18 +57,34 @@ export async function runEndpointTest({
 }) {
   const deadline = AbortSignal.timeout(TOTAL_TIMEOUT);
   const combined = signal ? AbortSignal.any([signal, deadline]) : deadline;
-  const detection = await listEndpointModels({
+  const listing = await listEndpointModels({
     endpoint,
     apiKey,
     signal: combined,
     lookup,
   });
+  const azure = endpoint.preset === "azure";
+  // Azure's /models reports the resource's base models, never its deployments: they
+  // confirm the key and address but are not models the connection can call.
+  const detection = azure
+    ? {
+        ...listing,
+        models: [],
+        warnings: listing.warnings.filter((warning) => warning !== "modelListTruncated"),
+      }
+    : listing;
   const models = mergeModels(previousModels, detection);
   const listedIds = new Set(detection.models.map((model) => model.modelId));
-  const model =
-    probeModelId || detection.models[0]?.modelId || models[0]?.modelId || null;
+  const model = chooseProbeModel({
+    preset: endpoint.preset,
+    probeModelId,
+    previousModels,
+    detection,
+  });
   const listedModel = listedIds.has(model);
   const warnings = new Set(detection.warnings);
+  if (azure && listing.models.length) warnings.add("azureBaseModels");
+  if (azure && !model) warnings.add("deploymentRequired");
   const keptDetected = models.filter((item) => item.source === "detected").length;
   if (detection.listed && keptDetected < detection.models.length)
     warnings.add("modelListTruncated");

@@ -1,4 +1,7 @@
 // Accounts subpages: /accounts?section=<group>&item=<id|new>[&step=<wizard step>]
+// A provider connection link may name one model row: `&model=<model id>`.
+import { validModelId } from "../provider-connections/endpoint-draft.js";
+
 export const accountSections = ["models", "services", "mcp-servers", "cli"];
 // Provider connection, ChatGPT (openclaw:<hash>), MCP server and CLI account ids.
 export const accountItemPattern = /^(?:new|[A-Za-z0-9][A-Za-z0-9_.:-]{0,127})$/;
@@ -28,6 +31,12 @@ function wizardStep(section, item, step) {
   return editWizardSteps.includes(step) ? step : "";
 }
 
+// The model row a provider connection link opens (its context field gets the focus).
+function modelRow(section, item, model) {
+  if (section !== "models" || !item || reservedItems.includes(item)) return "";
+  return typeof model === "string" && validModelId(model) ? model : "";
+}
+
 export function readAccountsQuery(search) {
   const query = new URLSearchParams(search);
   const section = query.get("section");
@@ -35,7 +44,13 @@ export function readAccountsQuery(search) {
   const raw = query.get("item") || "";
   const item = accountItemPattern.test(raw) ? raw : "";
   const step = wizardStep(section, item, query.get("step"));
-  return { section, ...(item ? { item } : {}), ...(step ? { step } : {}) };
+  const model = modelRow(section, item, query.get("model"));
+  return {
+    section,
+    ...(item ? { item } : {}),
+    ...(step ? { step } : {}),
+    ...(model ? { model } : {}),
+  };
 }
 
 export function accountsQuery(route) {
@@ -45,5 +60,7 @@ export function accountsQuery(route) {
   if (item) query.set("item", item);
   const step = wizardStep(route.section, item, route.step);
   if (step) query.set("step", step);
+  const model = modelRow(route.section, item, route.model);
+  if (model) query.set("model", model);
   return `?${query}`;
 }

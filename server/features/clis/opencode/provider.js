@@ -14,13 +14,14 @@ export function environment(env, { directory, key, description }) {
 
 export function endpointLaunch(
   result,
-  { description, secret, connectionName, metadata },
+  { description, secret, connectionName, metadata, endpoint },
 ) {
   metadata.cliModelId = endpointOpenCodeLaunch(
     result,
     description,
     secret,
     connectionName,
+    { endpoint },
   );
   return result;
 }

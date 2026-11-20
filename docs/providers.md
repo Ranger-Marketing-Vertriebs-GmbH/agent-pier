@@ -79,11 +79,15 @@ Native URLs are `<Anthropic base URL>/v1/messages`, `<OpenAI base URL>/responses
 `<OpenAI base URL>/chat/completions`.
 
 **Routing.** Each CLI has a route: Automatic, Native, Via adapter (protocol) or Off.
-OpenCode chooses among its built-in providers (Chat Completions, Responses, Messages)
+OpenCode chooses among its built-in providers (Responses, Chat Completions, Messages)
 and never needs the adapter. Automatic takes the native protocol when enabled, otherwise
 the adapter from the first enabled of Responses, Messages, Chat Completions (OpenCode:
-Chat Completions, Responses, Messages). The dialog shows the resolved route and why a
-choice is unavailable. Running sessions keep the route they started with until a reload, which
+Responses, Chat Completions, Messages). OpenCode prefers Responses because its Chat
+Completions provider always sends `max_tokens`, which OpenAI and Azure reasoning
+deployments refuse. On an OpenCode Chat Completions route the probed _output limit field_
+still applies: with `max_completion_tokens` the launch sends that field and a null
+`max_tokens`. The dialog shows the resolved route ("Uses: …", naming the protocol for
+OpenCode) and why a choice is unavailable. Running sessions keep the route they started with until a reload, which
 warns first. A pipeline run freezes the connection, including each CLI's route, when it
 starts; if the route changes during the run, its next stage launch is refused with a
 request to start a new run. A new run takes the new route; saving the profile again is
@@ -136,7 +140,7 @@ labels and warns that reasoning data of the earlier conversation is not carried 
 - After 3 adapter restarts within 60 s the CLI gets HTTP 503 until the session is
   reloaded.
 - With a custom auth header, OpenCode's Messages and Responses providers send a blank
-  `Authorization` header next to it. Whether Azure OpenAI accepts this is unverified.
+  `Authorization` header next to it. Azure OpenAI accepts this on the Responses route.
 
 **Addresses.** Plain `http` is accepted only for loopback, private (RFC 1918, `fc00::/7`),
 link-local and CGNAT/Tailscale (`100.64.0.0/10`) addresses; everything else needs
@@ -157,7 +161,22 @@ proposal; nothing is saved until you save the connection. Failures carry a fixed
 (for example `auth`, `notFound`, `modelNotFound`, `invalidResponse`, `network`, `http`)
 plus optional warnings. Paid endpoints may charge for the few tokens used.
 
+_Automatic_ as test model tests the first manually entered model, then a saved manual
+model, and only then the first listed one. Only a protocol the server answered as missing
+("Not supported") is unticked by a test; a failure caused by the model, the key or
+reachability keeps the protocol as it was. A connection with no usable protocol (none
+ticked, or only Messages without an Anthropic URL) reaches no CLI and is left out of the
+session launcher: its page warns "No protocol is ticked" and the connection list marks it
+as a problem.
+
 **Models and context.** Every model needs a context size before it can be launched.
+A server reports it only for some models (see below); for manually entered models, such
+as Azure deployments, you enter it in the model table. The test result names the manual
+models still without one, with a button to each context field, and the first save with
+such a model points at its field; saving again saves anyway, and the model stays
+unusable. Where a launcher or the agent wizard offers a model that needs a context size,
+its hint links straight to that model's context field
+(`/connections?section=models&item=<connection>&model=<model>`).
 
 - Ollama: the context comes from `num_ctx` when the model sets it. Otherwise Ollama sizes
   the context by available VRAM or `OLLAMA_CONTEXT_LENGTH`, which its API does not report;
@@ -167,10 +186,15 @@ plus optional warnings. Paid endpoints may charge for the few tokens used.
   from their `-c`/`--ctx-size` launch argument when the router reports it, otherwise
   enter it yourself. A test never makes the router load a model. Model IDs that are file paths are
   skipped; start `llama-server` with `--alias` or add the model manually.
-- Azure OpenAI: choose **Azure OpenAI** as API provider, replace `<resource>` in
-  `https://<resource>.openai.azure.com/openai/v1` and add your deployment names as
-  models; the model list shows base models, not deployments. Choose one of your
-  deployments as test model.
+- Azure OpenAI: choose **Azure OpenAI** as API provider and enter
+  `https://<resource>.openai.azure.com/openai/v1` with your resource name, or paste a
+  deployment's target URI (`…/openai/deployments/<name>/chat/completions?api-version=…`):
+  the form keeps the base URL and adds `<name>` as a model. Add each deployment name as a
+  model and enter its context size from the model's documentation; Azure reports none.
+  Azure's model list names the resource's base models, not deployments: the test uses it
+  only to check the key and address, says so, and adds none of them as models. _Automatic_
+  tests your first deployment and never a base model; without a deployment the test asks
+  for one and probes nothing.
 
 Model changes inside a running endpoint session require a reload.
 

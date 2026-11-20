@@ -17,7 +17,7 @@ import AppSearch from "./AppSearch.jsx";
 import SavePrompt from "../components/SavePrompt.jsx";
 import { defaultSessionMode, readRoute, screenRoute } from "./routes.js";
 import { useNotificationOpen } from "../features/notifications/notification-open.js";
-import { CrossLinkOrigin } from "./cross-link.js";
+import { AppNavigate, CrossLinkOrigin } from "./cross-link.js";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
 import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
@@ -504,5 +504,9 @@ function Application() {
       </div>
     </AppSearch>
   );
-  return <ViewsContext.Provider value={views}>{content}</ViewsContext.Provider>;
+  return (
+    <ViewsContext.Provider value={views}>
+      <AppNavigate.Provider value={navigate}>{content}</AppNavigate.Provider>
+    </ViewsContext.Provider>
+  );
 }

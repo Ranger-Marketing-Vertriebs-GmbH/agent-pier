@@ -9,7 +9,8 @@ export const providerCopy = {
   noModels: "No matching models found for this CLI.",
   contextRequired: "context required",
   modelsNeedContext: (count) =>
-    `${count} ${count === 1 ? "model needs" : "models need"} a context size before ${count === 1 ? "it" : "they"} can be used. Set it in the connection settings.`,
+    `${count} ${count === 1 ? "model needs" : "models need"} a context size before ${count === 1 ? "it" : "they"} can be used. Set it in the connection settings:`,
+  setContext: (id) => `Set the context of ${id}`,
   loading: "Loading provider models …",
   providersLoading: "Loading providers …",
   refresh: "Refresh model catalog",

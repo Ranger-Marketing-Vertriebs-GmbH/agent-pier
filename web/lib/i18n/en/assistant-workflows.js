@@ -142,4 +142,6 @@ export const assistantWorkflowCopy = {
     unsupportedAuthentication:
       "This authentication header is not supported by the agent runtime",
   },
+  providerContextNeeded: (name) =>
+    `${name} has no model with at least 4,000 context tokens yet. Enter the context size in the connection:`,
 };

@@ -1,7 +1,8 @@
 import React from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import { PRESET_URL_PATTERNS, PRESETS, withOpenaiUrl } from "./endpoint-draft.js";
+import { PRESET_URL_PATTERNS, PRESETS } from "./endpoint-draft.js";
+import { withPastedUrl } from "./azure-url.js";
 
 export default function EndpointFields({ draft, setDraft, locked }) {
   const copy = connectionCopy.endpoint;
@@ -39,10 +40,14 @@ export default function EndpointFields({ draft, setDraft, locked }) {
           value={draft.openaiBaseUrl}
           onChange={(event) => {
             const value = event.target.value;
-            setDraft((current) => withOpenaiUrl(current, value));
+            // A pasted Azure deployment URL becomes its base URL and deployment.
+            setDraft((current) => withPastedUrl(current, value));
           }}
         />
         <small>{copy.openaiHelp}</small>
+        {draft.pastedDeployment && (
+          <small role="status">{copy.deploymentFromUrl(draft.pastedDeployment)}</small>
+        )}
       </label>
       <details>
         <summary>{copy.advanced}</summary>

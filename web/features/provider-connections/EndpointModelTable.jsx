@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
+import ContextNeeded from "./ContextNeeded.jsx";
+import { focusContextField } from "./context-focus.js";
 import {
+  contextFieldId,
   MODEL_LIMIT,
   modelProblem,
   setModelImages,
@@ -9,9 +12,20 @@ import {
 
 const tokens = (value) => (value === "" ? null : Number(value));
 
-export default function EndpointModelTable({ draft, setDraft }) {
+export default function EndpointModelTable({
+  draft,
+  setDraft,
+  focusModel,
+  contextAsked,
+}) {
   const copy = connectionCopy.endpoint;
   const [newId, setNewId] = useState("");
+  // A link from a launcher or the agent wizard opens one model's context field, once.
+  const focused = useRef("");
+  useEffect(() => {
+    if (!focusModel || focused.current === focusModel) return;
+    if (focusContextField(focusModel)) focused.current = focusModel;
+  }, [focusModel, draft.models]);
   const update = (modelId, values) =>
     setDraft((current) => ({
       ...current,
@@ -45,6 +59,7 @@ export default function EndpointModelTable({ draft, setDraft }) {
       <legend>{copy.models}</legend>
       {draft.preset === "azure" && <p className="field-description">{copy.azureHint}</p>}
       {!draft.models.length && <p className="field-description">{copy.noModels}</p>}
+      {contextAsked && <ContextNeeded draft={draft} asked />}
       {draft.models.length > 0 && (
         <div className="endpoint-model-scroll">
           <table>
@@ -77,6 +92,7 @@ export default function EndpointModelTable({ draft, setDraft }) {
                     </td>
                     <td data-label={copy.context}>
                       <input
+                        id={contextFieldId(model.modelId)}
                         type="number"
                         min={1024}
                         max={10000000}

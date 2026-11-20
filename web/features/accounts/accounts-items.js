@@ -29,7 +29,7 @@ export const sectionLabel = (section) => accountsHubCopy.groups[groupKeys[sectio
  * openclaw:<hex>.
  */
 export function resolveAccountItem(route, data) {
-  const { section, item, step } = route;
+  const { section, item, step, model } = route;
   if (!section || !item) return null;
   const at = (kind, record = null) => ({
     kind,
@@ -37,6 +37,7 @@ export function resolveAccountItem(route, data) {
     item,
     record,
     ...(step ? { step } : {}),
+    ...(model ? { model } : {}),
   });
   const lookup = (list, kind, source) => {
     if (!Array.isArray(list)) {

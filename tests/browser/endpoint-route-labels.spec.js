@@ -41,7 +41,7 @@ test("connection list and launch dialog label adapter routes", async ({ page }) 
   ).toHaveText([
     /Codex.*via adapter · Chat Completions/,
     /Claude Code.*via adapter · Chat Completions/,
-    /OpenCode.*native/,
+    /OpenCode.*Chat Completions/,
   ]);
   await page.goto(baseURL + "/");
   await openNewSession(page);

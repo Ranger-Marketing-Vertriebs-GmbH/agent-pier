@@ -191,3 +191,29 @@ test("mail accounts report failed tests as problems and plaintext as warnings", 
   assert.equal(unreadable.mail, null);
   assert.equal((await connectionProblems(services())).mail, null);
 });
+
+test("an own endpoint without a usable protocol is a problem", async () => {
+  const endpoint = (protocols, anthropicBaseUrl = null) => ({
+    providerId: "endpoint",
+    launchable: true,
+    endpoint: { protocols, anthropicBaseUrl },
+  });
+  const none = { messages: false, responses: false, chatCompletions: false };
+  const result = await connectionProblems(
+    services({
+      providerConnections: {
+        list: () => [
+          { id: "off", ...endpoint(none) },
+          // Messages without its URL reaches no CLI either.
+          { id: "nourl", ...endpoint({ ...none, messages: true }) },
+          { id: "ok", ...endpoint({ ...none, chatCompletions: true }) },
+        ],
+      },
+      assistantFeature: { enabled: false },
+    }),
+  );
+  assert.deepEqual(ids(result.models.problems), [
+    ["off", ["noProtocol"]],
+    ["nourl", ["noProtocol"]],
+  ]);
+});

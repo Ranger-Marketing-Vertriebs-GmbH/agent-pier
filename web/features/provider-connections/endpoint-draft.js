@@ -165,6 +165,29 @@ export const keyReentryRequired = ({ connection, draft, apiKey, removeApiKey }) 
   !removeApiKey &&
   originsChanged(connection.endpoint, draft);
 
+/** Protocols a CLI can use: ticked, and Messages only with an Anthropic URL. */
+export const usableProtocols = (endpoint) =>
+  Object.entries(endpoint.protocols || {})
+    .filter(
+      ([name, enabled]) =>
+        enabled && (name !== "messages" || !!(endpoint.anthropicBaseUrl || "").trim()),
+    )
+    .map(([name]) => name);
+
+/** The model "Automatic" tests: the first manually entered one, else the server picks. */
+export const autoProbeModel = (draft) =>
+  draft.models.find((model) => model.source === "manual")?.modelId || "";
+
+/**
+ * Manual models (Azure deployments) without a context size: launchers and agents
+ * cannot use them until the owner enters one, since no listing reports it.
+ */
+export const missingContextModels = (draft) =>
+  draft.models.filter((model) => model.source === "manual" && !model.contextTokens);
+
+/** The id of a model row's context field, which links to the row focus. */
+export const contextFieldId = (modelId) => `endpoint-context-${modelId}`;
+
 export const MODEL_LIMIT = 200;
 const TOKEN_MIN = 1024;
 const TOKEN_MAX = 10_000_000;
@@ -246,15 +269,17 @@ const mergeCapabilities = (current = {}, proposed = {}, edits = {}) =>
     ]),
   );
 
+// Only a protocol the server answered as missing is unticked. A failure caused by the
+// model, the key or reachability says nothing about the protocol, so it keeps the
+// owner's choice; a protocol that answered is ticked.
+const testedProtocol = (status, enabled) =>
+  status === "ok" ? true : status === "unsupported" ? false : enabled;
+
 export function applyProposal(draft, proposal, now = new Date().toISOString()) {
   const protocols = Object.fromEntries(
     Object.entries(draft.protocols).map(([name, enabled]) => [
       name,
-      proposal.protocols[name] === "ok"
-        ? true
-        : proposal.protocols[name] === "skipped"
-          ? enabled
-          : false,
+      testedProtocol(proposal.protocols[name], enabled),
     ]),
   );
   const merged = mergeModels(draft.models, proposal);

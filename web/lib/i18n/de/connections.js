@@ -67,7 +67,7 @@ export const connectionCopy = {
   endpoint: {
     routing: {
       title: "CLIs und Routen",
-      help: "Automatisch nutzt das native Protokoll der CLI, sonst den Protokoll-Adapter (Responses vor Messages vor Chat Completions).",
+      help: "Automatisch nutzt das native Protokoll der CLI, sonst den Protokoll-Adapter (Responses vor Messages vor Chat Completions). OpenCode nutzt eigene Provider für Responses vor Chat Completions vor Messages.",
       select: (cli) => `Route für ${cli}`,
       choices: {
         auto: "Automatisch",
@@ -132,7 +132,7 @@ export const connectionCopy = {
     },
     presetHelp: {
       azure:
-        "Ersetze <resource> durch den Namen deiner Azure-OpenAI-Ressource. Modelle sind deine Deployment-Namen; der Key wird im Header api-key gesendet.",
+        "Basis-URL: https://<resource>.openai.azure.com/openai/v1 mit dem Namen deiner Azure-OpenAI-Ressource, oder füge die Ziel-URI eines Deployments ein. Modelle sind deine Deployment-Namen mit ihrer Kontextgröße; der Key wird im Header api-key gesendet.",
       custom:
         "Für LM Studio, vLLM, LiteLLM und jeden anderen OpenAI- oder Anthropic-kompatiblen Server.",
     },
@@ -195,7 +195,22 @@ export const connectionCopy = {
         "Der Server hat die minimale Testanfrage abgelehnt, der Endpunkt existiert aber.",
       modelListTruncated:
         "Ein Provider-Zugang fasst höchstens 200 Modelle. Manuelle Modelle bleiben erhalten; einige erkannte Modelle wurden nicht übernommen.",
+      azureBaseModels:
+        "Azure listet die Basismodelle der Ressource, nicht deine Deployments, deshalb wurden sie nicht übernommen. Trage deine Deployment-Namen als Modelle ein.",
+      deploymentRequired:
+        "Trage unten einen Deployment-Namen als Modell ein und teste erneut, um die Protokolle zu prüfen.",
     },
+    contextNeeded: (count) =>
+      count === 1
+        ? "Trage die Kontextgröße dieses Modells ein. Kein Server meldet sie, und ohne sie können Sessions und Agenten das Modell nicht nutzen:"
+        : "Trage die Kontextgröße dieser Modelle ein. Kein Server meldet sie, und ohne sie können Sessions und Agenten die Modelle nicht nutzen:",
+    contextAsk:
+      "Speichere erneut, um ohne Kontextgröße zu speichern. Das Modell bleibt unbenutzbar, bis du eine einträgst.",
+    setContext: (id) => `Kontext von ${id}`,
+    noProtocol:
+      "Kein Protokoll ist angehakt. Keine CLI kann diesen Provider-Zugang nutzen, und der Dialog „Neue Session“ führt ihn nicht auf. Hake mindestens ein Protokoll an.",
+    deploymentFromUrl: (name) =>
+      `Basis-URL aus der Deployment-URL übernommen. Das Deployment ${name} wurde als Modell hinzugefügt; trage unten seine Kontextgröße ein.`,
     notListed:
       "Die Modellliste konnte nicht gelesen werden. Bisher erkannte und manuelle Modelle bleiben erhalten.",
     notListedAuth:

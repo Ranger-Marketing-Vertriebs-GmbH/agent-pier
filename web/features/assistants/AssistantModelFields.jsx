@@ -8,6 +8,7 @@ import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflo
 import { assistantApi } from "./assistant-api.js";
 import { connectionLabel } from "./connection-label.js";
 import useAssistants from "./useAssistants.js";
+import ModelContextLink from "../providers/ModelContextLink.jsx";
 
 const CUSTOM = "\u0000custom";
 
@@ -129,6 +130,18 @@ export default function AssistantModelFields({
           ))}
         </select>
       </label>
+      {/* An endpoint whose models lack a context size links straight to the first one. */}
+      {models
+        .filter((m) => m.reason === "modelConfiguration" && m.contextMissing?.length)
+        .slice(0, 3)
+        .map((m) => (
+          <p key={m.id} className="field-description">
+            {assistantWorkflowCopy.providerContextNeeded(connectionLabel(m))}{" "}
+            <ModelContextLink connectionId={m.id} modelId={m.contextMissing[0]}>
+              {providerCopy.setContext(m.contextMissing[0])}
+            </ModelContextLink>
+          </p>
+        ))}
       {catalog.length > 0 && (
         <label>
           {copy.modelChoice}

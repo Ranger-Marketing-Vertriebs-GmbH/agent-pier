@@ -9,7 +9,7 @@ import EndpointTestResult from "./EndpointTestResult.jsx";
 import EndpointRouting from "./EndpointRouting.jsx";
 import EndpointAdapterOptions from "./EndpointAdapterOptions.jsx";
 import EndpointModelTable from "./EndpointModelTable.jsx";
-import { applyProposal } from "./endpoint-draft.js";
+import { applyProposal, autoProbeModel } from "./endpoint-draft.js";
 
 /** An own endpoint's groups: connection, test, routing per CLI, adapter, models. */
 export default function ConnectionEndpointGroups({
@@ -19,6 +19,8 @@ export default function ConnectionEndpointGroups({
   tester,
   probeModelId,
   setProbeModel,
+  focusModel,
+  contextAsked,
 }) {
   const copy = connectionCopy.endpoint;
   // A test model that left the list falls back to "Automatic".
@@ -57,7 +59,8 @@ export default function ConnectionEndpointGroups({
             className="button secondary"
             disabled={tester.busy || !endpoint.openaiBaseUrl.trim()}
             onClick={async () => {
-              const proposal = await tester.run(probe);
+              // "Automatic" tests a manually entered model (a deployment) first.
+              const proposal = await tester.run(probe || autoProbeModel(endpoint));
               if (proposal) setEndpoint((current) => applyProposal(current, proposal));
             }}
           >
@@ -74,7 +77,12 @@ export default function ConnectionEndpointGroups({
       </section>
       <EndpointRouting draft={endpoint} setDraft={setEndpoint} />
       <EndpointAdapterOptions draft={endpoint} setDraft={setEndpoint} />
-      <EndpointModelTable draft={endpoint} setDraft={setEndpoint} />
+      <EndpointModelTable
+        draft={endpoint}
+        setDraft={setEndpoint}
+        focusModel={focusModel}
+        contextAsked={contextAsked}
+      />
     </>
   );
 }
