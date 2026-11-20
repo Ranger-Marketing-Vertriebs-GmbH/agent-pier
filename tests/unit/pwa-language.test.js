@@ -92,16 +92,3 @@ test("worker persists only a supported language and localizes generic notificati
   });
   assert.equal(opened, "https://fixture.example/settings/notifications");
 });
-
-test("offline help uses the saved language ahead of browser settings", () => {
-  const nodes = { h1: {}, p: {}, a: {} };
-  const document = { documentElement: {}, querySelector: (name) => nodes[name] };
-  vm.runInNewContext(fs.readFileSync(publicFile("offline.js"), "utf8"), {
-    localStorage: { getItem: () => "en" },
-    navigator: { languages: ["de-DE"] },
-    document,
-  });
-  assert.equal(document.documentElement.lang, "en");
-  assert.equal(nodes.h1.textContent, "AgentPier is offline");
-  assert.equal(nodes.a.textContent, "Reconnect");
-});

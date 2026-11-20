@@ -70,7 +70,12 @@ measurements, not performance guarantees. The main JS chunk fell from approximat
 
 App documents stay `no-store` so a disconnected device never shows a cached shell
 that looks connected; the service worker keeps serving `offline.html` for failed
-navigations. The production build writes a build ID into
+navigations. That page tells the two causes apart with `navigator.onLine`: "This
+device is offline" asks for a network, "AgentPier is not reachable" says that the
+device is online but the service does not answer (stopped or restarting). It asks
+`/api/health` again by itself after 2 s, 4 s, 8 s … up to one minute, at once on the
+`online` event, when the page becomes visible or on **Try again now**, and reloads as
+soon as any HTTP answer arrives (`public/offline.js`). The production build writes a build ID into
 `<meta name="agentpier-build">`. The server sends the ID of the files it currently
 serves as `X-AgentPier-Build` on every response and re-reads it when
 `dist/index.html` changes. When the two differ, the app shows a non-modal "New

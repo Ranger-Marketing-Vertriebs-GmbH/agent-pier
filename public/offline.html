@@ -52,12 +52,13 @@
   <body>
     <main>
       <img src="/pwa-icon-192.png" alt="" />
-      <h1>AgentPier ist offline</h1>
+      <h1>AgentPier ist nicht erreichbar</h1>
       <p>
-        Verbinde dieses Gerät mit dem Netzwerk und öffne AgentPier erneut. Sessions und
-        Chats sind hier nicht offline gespeichert.
+        AgentPier antwortet nicht. Es startet vielleicht gerade neu oder wurde beendet,
+        oder dieses Gerät hat kein Netzwerk. Diese Seite versucht es selbst erneut.
       </p>
-      <a href="/">Erneut verbinden</a>
+      <p id="offline-status" role="status" aria-live="polite"></p>
+      <a href="/">Jetzt erneut versuchen</a>
     </main>
     <script src="/offline.js"></script>
   </body>
