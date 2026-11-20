@@ -32,7 +32,12 @@ test("the Agent access dialog saves a tick and shows the project's agent as fixe
   const inherited = access.getByRole("checkbox", { name: /Network Architect/ });
   await expect(inherited).toBeChecked();
   await expect(inherited).toBeDisabled();
-  await expect(access.getByText("via project", { exact: true })).toBeVisible();
+  await expect(inherited).toHaveAccessibleDescription(/via project/);
+  await expect(
+    access
+      .getByRole("group", { name: /^Allowed in this session/ })
+      .getByText("via project", { exact: true }),
+  ).toBeVisible();
   const own = access.getByRole("checkbox", { name: /Planner/ });
   await expect(own).not.toBeChecked();
   await own.check();

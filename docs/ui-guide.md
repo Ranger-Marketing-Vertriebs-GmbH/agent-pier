@@ -201,17 +201,22 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   – Suche verfeinern"); a search without matches names the query. `autoFocus` puts the
   focus in the search field, with a fine pointer only: when the dialog opens, or when
   the picker appears in an open dialog after loading. On touch screens the focus stays
-  where it is, so no on-screen keyboard opens.
+  where it is, so no on-screen keyboard opens. Escape in the search field clears a query
+  first; with an empty field it closes the dialog.
 - **Stacked** (phones, and at every width with `stacked`, for a picker that is one
   section of a larger form such as the new-session dialog): the allowed list card ends
   in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed". An entry
   without `group` shows its `badge` in the options instead, so "SFTP" stays visible and
   searchable.
 - `locked` marks an entry the session has anyway (from the project): it counts as
-  allowed, its checkbox is checked and disabled and its row has no remove button.
-  `action` (`{ label, onClick }`) adds a text button to the allowed row. An allowed row
-  stacks name, `sub` and the `badge` and `notes` line below each other, with the
-  `action` on a line of its own, so long notes stay readable in the 320px column.
+  allowed, its checkbox is checked and disabled and its row has no remove button. The
+  checkbox's accessible description carries the entry's `notes`, so a screen reader
+  hears why it cannot be switched off. `action` (`{ label, onClick }`) adds a text
+  button to the allowed row. When a remove or action button disappears after its click,
+  the focus moves to the next allowed row's remove button, else the previous one, else
+  the search or add field. An allowed row stacks name, `sub` and the `badge` and
+  `notes` line below each other, with the `action` on a line of its own, so long notes
+  stay readable in the 320px column.
 - `disabled` (a save is running) disables the checkboxes, the remove and action buttons
   and the add field; the search stays usable. Without entries the picker shows
   `emptyText` and the `children` only.
