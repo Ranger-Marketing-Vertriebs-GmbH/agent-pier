@@ -2658,6 +2658,7 @@
   "assistants:assistantCopy.status.stopping": "de:3dc5cb4a5456 en:a71ee1d4ac5c",
   "assistants:assistantCopy.status.uncertain": "de:61c56142fd44 en:164557364fc9",
   "assistants:assistantCopy.status.unconfirmed": "de:37e6cdacfc9a en:d0ae0b38eac6",
+  "assistants:assistantCopy.status.unknown": "de:fc7c03cf62fd en:4369c9ee6507",
   "assistants:assistantCopy.stop": "de:81ab44a792b1 en:d5ca579c1943",
   "assistants:assistantCopy.stopService": "de:3e2e9d3bd47b en:734ad1f5d8fe",
   "assistants:assistantCopy.stopShort": "de:39ff84785ea9 en:cae7d57bc067",
