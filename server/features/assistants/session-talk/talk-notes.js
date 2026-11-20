@@ -7,8 +7,10 @@ const outcomes = new Set(["accepted", "pending", "rejected"]);
 
 function outcomeOf(row) {
   if (row.op === "late") return row.phase === "late-dropped" ? "dropped" : null;
-  if (row.op === "send") return outcomes.has(row.status) ? row.status : "pending";
-  return null;
+  if (row.op !== "send") return null;
+  // A text-confirmed hand-off is final: the session took the message.
+  if (row.status === "handed-off" && row.settled) return "accepted";
+  return outcomes.has(row.status) ? row.status : "pending";
 }
 
 /** The notes of the talk rows of one chat (`TalkStore.forConversation`). */

@@ -12,6 +12,7 @@ import { TalkStore } from "./talk-store.js";
 import { noteLimit, talkBudgetRefusal } from "./talk-budget.js";
 import { sessionProjectId, talkAgent, talkAgentsFor, talkVia } from "./talk-reach.js";
 import { answerChars, talkPass } from "./talk-dispatch.js";
+import { followSends, seedFollowing } from "./talk-follow.js";
 
 export const talkTextChars = 8000;
 const pruneEveryMs = 60_000;
@@ -47,6 +48,9 @@ export class SessionTalk {
     // The checks of the asks waiting in this process.
     this.waits = new Set();
     this.closed = false;
+    // Sends whose delivery is still open, by row id (talk-follow.js).
+    this.following = new Set();
+    seedFollowing(this);
     // A process that ended while asks waited, or before a settled one was handed
     // over: nobody holds them any more, so their answers reach the session late.
     for (const row of this.store.unclaimedAsks())
@@ -241,6 +245,7 @@ export class SessionTalk {
             this.store.prune();
           }
           await talkPass(this);
+          await followSends(this);
           for (const check of [...this.waits]) check();
         } while (this.again);
       } finally {
