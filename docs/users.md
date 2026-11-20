@@ -21,7 +21,7 @@ A user's page offers:
 - **Reset password**: sets a new password and signs out all of her devices.
 - **Sign-in allowed**: off signs her out at once, ends her reminders, routines,
   check-ins and Telegram bots, and her chats take no new messages. Her agents and chats
-  stay.
+  stay. Turning it off asks first and counts what is removed; turning it on does not.
 - **Owner may read chats**: see [Privacy](#privacy).
 - **Agents**: her own and shared agents with her level each, **Add agent for this
   person** and **Add to a shared agent**.
@@ -230,7 +230,10 @@ Users sign in on the same page as the owner:
 ## Disable and delete
 
 **Sign-in allowed** off signs her out and keeps her account, agents and chats, so
-switching it on again lets her back in. Nothing runs as her meanwhile: her reminders,
+switching it on again lets her back in. Because the rest is lost for good, switching it
+off opens a confirmation (**Block sign-in**) that names what goes and counts her
+reminders, routines and check-ins and her Telegram bots
+(`GET /api/users/:id/disable-impact`, owner only); switching it on applies at once. Nothing runs as her meanwhile: her reminders,
 routines and check-ins end and her own Telegram bots are removed with their tokens, for
 good. After she is enabled again she sets them up anew.
 **Delete user** asks what happens to her own agents: **Archive** or **Keep under my

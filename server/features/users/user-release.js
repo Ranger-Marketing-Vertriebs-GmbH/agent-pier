@@ -157,33 +157,60 @@ function chatUser(assistants, conversationId) {
 }
 
 // Her own bots deliver into her chats: they go with her, token, texts and all.
-async function forgetChannels({ assistants, assistantChannels }, userId, agentId) {
-  if (!assistantChannels) return;
+async function forgetChannels(services, userId, agentId) {
+  for (const channel of channelsOf(services, userId, agentId))
+    await services.assistantChannels.forget(channel.id).catch(() => {});
+}
+
+function channelsOf({ assistants, assistantChannels }, userId, agentId) {
+  if (!assistantChannels) return [];
   const store = assistants.store;
-  for (const channel of assistantChannels.store.list()) {
-    if (agentId && channel.assistantId !== agentId) continue;
+  return assistantChannels.store.list().filter((channel) => {
+    if (agentId && channel.assistantId !== agentId) return false;
     let conversation = null;
     try {
       conversation = store.getConversation(channel.conversationId);
     } catch {
-      continue;
+      return false;
     }
-    if ((typeof conversation.userId === "string" ? conversation.userId : null) === userId)
-      await assistantChannels.forget(channel.id).catch(() => {});
-  }
+    return (
+      (typeof conversation.userId === "string" ? conversation.userId : null) === userId
+    );
+  });
 }
 
 async function endBindings(services, agents, userId, everything = true) {
   const reminders = services.assistants.reminders;
   if (!reminders) return;
-  for (const agent of agents)
-    for (const binding of reminders.bindings.list(agent.id)) {
-      const own = everything && agent.userAccess?.mode === "own";
-      if (revoked(binding) || (audienceOf(binding) !== userId && !own)) continue;
-      // Revoked at once, so a late run delivers nothing; its native job goes below.
-      reminders.bindings.patch(binding.id, { state: "revoked", userReleased: true });
-    }
+  for (const binding of bindingsOf(reminders, agents, userId, everything))
+    // Revoked at once, so a late run delivers nothing; its native job goes below.
+    reminders.bindings.patch(binding.id, { state: "revoked", userReleased: true });
   await retireReleased(services, agents);
+}
+
+function bindingsOf(reminders, agents, userId, everything) {
+  return agents.flatMap((agent) => {
+    const own = everything && agent.userAccess?.mode === "own";
+    return reminders.bindings
+      .list(agent.id)
+      .filter((binding) => !revoked(binding) && (own || audienceOf(binding) === userId));
+  });
+}
+
+/**
+ * What disabling a user would end (endUserBindings), counted for the owner's
+ * confirmation: her reminders, routines and check-ins, and her Telegram bots.
+ */
+export function userBindingsImpact(services, userId) {
+  const reminders = services.assistants?.reminders;
+  if (!services.assistants) return { schedules: 0, bots: 0 };
+  const agents = services.assistants.store
+    .listAssistants()
+    .filter((a) => memberLevel(a, userId));
+  return {
+    schedules: reminders ? bindingsOf(reminders, agents, userId, true).length : 0,
+    bots: channelsOf(services, userId).length,
+  };
 }
 
 const revoked = (binding) => ["revoked", "removed"].includes(binding.state);

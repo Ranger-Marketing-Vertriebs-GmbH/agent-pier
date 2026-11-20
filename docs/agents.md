@@ -2225,7 +2225,7 @@ Sign out). They never see sessions, pipelines, projects or system settings.
 
 - **Add user** asks for a display name, a username and a first password (12 characters
   or more). A user's page offers **Reset password** (signs out all of their devices),
-  **Sign-in allowed** (off signs them out and removes their reminders, routines and Telegram bots for good),
+  **Sign-in allowed** (off asks first, then signs them out and removes their reminders, routines and Telegram bots for good),
   **Owner may read chats** (they see it in their app; it applies from now on, never to
   older chats), their agents with a level each (**Chat only**, **Personalize**,
   **Extended**), **Add agent for this person**, **Add to a shared agent** and **Delete

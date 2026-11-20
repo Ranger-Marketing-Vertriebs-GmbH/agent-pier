@@ -11,6 +11,7 @@ import { formatTimestamp } from "../../lib/i18n/index.js";
 import { usersCopy as copy } from "../../lib/i18n/messages/users.js";
 import { agentsOf, ownerUsersApi, ownsAgents, withMember } from "./owner-users-api.js";
 import DeleteUserSheet from "./DeleteUserSheet.jsx";
+import DisableUserSheet from "./DisableUserSheet.jsx";
 
 const levels = ["chat", "personalize", "extended"];
 
@@ -79,7 +80,8 @@ function JoinShared({ user, shared, onDone, onCancel }) {
 /**
  * One restricted user: her account (Reset password, sign-in allowed), whether the
  * owner may read her chats, her own and shared agents with their level, and Delete.
- * Every change applies at once, as account actions do.
+ * Every change applies at once, as account actions do, except the two that remove her
+ * data for good: turning sign-in off and Delete ask first.
  */
 export default function UserDetail({ userId, users, agents, reload, onClose, frame }) {
   const crossLink = useCrossLink();
@@ -144,7 +146,11 @@ export default function UserDetail({ userId, users, agents, reload, onClose, fra
           sub={copy.activeSub}
           checked={!user.disabled}
           disabled={busy}
-          onChange={(on) => act(() => ownerUsersApi.update(user.id, { disabled: !on }))}
+          onChange={(on) =>
+            on
+              ? act(() => ownerUsersApi.update(user.id, { disabled: false }))
+              : setDialog("disable")
+          }
         />
         <ToggleRow
           label={copy.ownerMayRead}
@@ -237,6 +243,16 @@ export default function UserDetail({ userId, users, agents, reload, onClose, fra
           shared={otherShared}
           onCancel={() => setDialog(null)}
           onDone={async () => {
+            setDialog(null);
+            await reload();
+          }}
+        />
+      )}
+      {dialog === "disable" && (
+        <DisableUserSheet
+          user={user}
+          onCancel={() => setDialog(null)}
+          onDisabled={async () => {
             setDialog(null);
             await reload();
           }}

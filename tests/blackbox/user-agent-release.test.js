@@ -190,3 +190,26 @@ test("a disabled user's bot, reminders and turns end", async (t) => {
     { status: 404 },
   );
 });
+
+test("the owner learns what disabling a user removes before she does it", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, request, agent } = await annaOnTelegram(f);
+  const created = await request(`/api/me/agents/${agent.id}/reminders`, {
+    method: "POST",
+    body: reminderBody("dentist"),
+  });
+  assert.equal(created.status, 201, await created.clone().text());
+  const impact = () => f.request(`/api/users/${user.id}/disable-impact`);
+  const before = await impact();
+  assert.equal(before.status, 200, await before.clone().text());
+  assert.deepEqual(await before.json(), { schedules: 1, bots: 1 });
+  // Only the owner asks; her own session never learns the route exists.
+  assert.equal((await request(`/api/users/${user.id}/disable-impact`)).status, 404);
+  const disabled = await f.request(`/api/users/${user.id}`, {
+    method: "PATCH",
+    body: { disabled: true },
+  });
+  assert.equal(disabled.status, 200, await disabled.clone().text());
+  assert.deepEqual(await (await impact()).json(), { schedules: 0, bots: 0 });
+  assert.equal((await f.request("/api/users/nobody/disable-impact")).status, 404);
+});
