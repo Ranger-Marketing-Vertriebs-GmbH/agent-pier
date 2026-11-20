@@ -24,5 +24,6 @@ export default function useAsyncAction() {
     error,
     run,
     lock,
+    clear: () => setError(""),
   };
 }

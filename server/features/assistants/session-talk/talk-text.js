@@ -65,9 +65,20 @@ export function agentNote(agent, tools) {
     : `${who})`;
 }
 
+// A first line that copies the header AgentPier adds itself, as a model writes it
+// when it imitates the format: "[From agent "<its name>"]", quoted or not.
+function withoutOwnHeader(agent, text) {
+  const value = String(text ?? "");
+  const [first, ...rest] = value.split(lineBreaks);
+  const header = /^\s*\[From agent\s+"?(.*?)"?\s*\]\s*$/i.exec(first);
+  if (!header || header[1].trim() !== visibleLine(agent.name).trim() || !rest.length)
+    return value;
+  return rest.join("\n").replace(/^\s*\n/, "");
+}
+
 /** An agent's text as a session reads it: the header (and `lead`), fenced text, the note. */
 export const fromAgent = (agent, text, { tools, lead = "" } = {}) =>
-  `${agentHeader(agent.name)}${lead}\n${fenced(text)}\n\n${agentNote(agent, tools)}`;
+  `${agentHeader(agent.name)}${lead}\n${fenced(withoutOwnHeader(agent, text))}\n\n${agentNote(agent, tools)}`;
 
 /** An answer that came after the ask stopped waiting, pasted into the session. */
 export const lateAnswer = (agent, question, answer, tools) =>

@@ -39,6 +39,13 @@ async function fixture(page) {
     else if (url.pathname === "/api/pipeline-runs")
       data = { runs: [], total: 0, page: 1, pageSize: 20 };
     else if (url.pathname === "/api/pipeline-run-counts") data = runCountsAnswer([]);
+    else if (url.pathname.endsWith("/revisions"))
+      data = {
+        items: [{ ...recent, updatedAt: "2026-11-20T21:42:02.004Z" }],
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      };
     else if (url.pathname.endsWith("/entries")) {
       const query = url.searchParams.get("q") || "";
       const sort = url.searchParams.get("sort");
@@ -46,9 +53,11 @@ async function fixture(page) {
       const items =
         url.searchParams.get("archived") === "true"
           ? []
-          : query && sort === "relevance"
-            ? [relevant, recent]
-            : [recent, relevant];
+          : query === "nothing"
+            ? []
+            : query && sort === "relevance"
+              ? [relevant, recent]
+              : [recent, relevant];
       data = { projectId: project.id, items, page: 1, pageSize: 20, total: items.length };
     } else throw new Error(`Unexpected request: ${url.pathname}`);
     await route.fulfill({ json: data });
@@ -67,7 +76,7 @@ test("searching sorts by relevance by default and can switch to newest first", a
   // Without a search term there is no order to choose: the newest entries come first.
   await expect(page.getByRole("radio", { name: "Most relevant" })).toHaveCount(0);
   await page.getByRole("textbox", { name: "Search knowledge" }).fill("build");
-  await page.getByRole("button", { name: "Search knowledge" }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("radio", { name: "Most relevant" })).toBeChecked();
   await expect(titles(page)).toContainText(["Build command", "Release notes"]);
   await page.getByRole("radio", { name: "Newest first" }).check();
@@ -77,9 +86,38 @@ test("searching sorts by relevance by default and can switch to newest first", a
   await expect(page.getByRole("radio", { name: "Newest first" })).toBeChecked();
   // Clearing the term drops the order with it.
   await page.getByRole("textbox", { name: "Search knowledge" }).fill("");
-  await page.getByRole("button", { name: "Search knowledge" }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page).toHaveURL(`${baseURL}/projects/project-one?tab=knowledge`);
   await expect(page.getByRole("radio", { name: "Newest first" })).toHaveCount(0);
   expect(searches).toContain("relevance");
   expect(searches.at(-1)).toBe("newest");
 });
+
+for (const [width, height] of [
+  [1280, 800],
+  [390, 844],
+])
+  test(`typing searches, an empty search says so, history shows local times at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await fixture(page);
+    await page.goto(baseURL + "/projects/project-one?tab=knowledge");
+    await expect(titles(page)).toContainText(["Release notes", "Build command"]);
+    // No Enter: the search runs after a short pause.
+    await page.getByRole("textbox", { name: "Search knowledge" }).fill("nothing");
+    await expect(page).toHaveURL(/[?&]q=nothing/);
+    await expect(page.getByText("No entries match this search.")).toBeVisible();
+    await expect(page.getByText("No entries yet.")).toHaveCount(0);
+    await page.getByRole("textbox", { name: "Search knowledge" }).fill("");
+    await expect(titles(page)).toContainText(["Release notes", "Build command"]);
+    await titles(page).first().click();
+    await page.getByRole("button", { name: "Versions: Release notes" }).click();
+    const dialog = page.getByRole("dialog", { name: "Version history" });
+    await expect(dialog.locator("time")).toHaveAttribute(
+      "datetime",
+      "2026-11-20T21:42:02.004Z",
+    );
+    await expect(dialog).not.toContainText("2026-11-20T21:42");
+    await expect(dialog.locator("time")).toContainText("2026");
+  });

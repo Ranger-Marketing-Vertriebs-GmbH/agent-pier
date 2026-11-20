@@ -4,7 +4,10 @@ import GroupLabel from "../../components/GroupLabel.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { projectAgentBusCopy as copy } from "../../lib/i18n/messages/agentbus.js";
+import {
+  messageLogCopy,
+  projectAgentBusCopy as copy,
+} from "../../lib/i18n/messages/agentbus.js";
 import { projectOverviewCopy } from "../../lib/i18n/messages/projects.js";
 import { names } from "../../lib/providers.js";
 import { serverText } from "../../lib/server-messages.js";
@@ -171,7 +174,7 @@ export default function ProjectAgentBus({
           onPage={(next, replace = false) => onNavigate("messages", next, replace)}
         />
       ) : (
-        <p className="project-empty">{copy.missingProjectDescription}</p>
+        <p className="project-empty">{messageLogCopy.extensionEmpty}</p>
       )}
     </div>
   );

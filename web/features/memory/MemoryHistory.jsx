@@ -4,6 +4,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { formatTimestamp } from "../../lib/i18n/index.js";
 import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 import { memoryPaging, entryAuthor } from "./memory-presentation.js";
 import "./memory.css";
@@ -54,7 +55,10 @@ export default function MemoryHistory({ projectId, entry, close }) {
               {copy.version(revision.revision)} · {revision.title}
             </h3>
             <small>
-              {entryAuthor(revision)} · {revision.updatedAt}
+              {entryAuthor(revision)} ·{" "}
+              <time dateTime={revision.updatedAt}>
+                {formatTimestamp(revision.updatedAt)}
+              </time>
             </small>
             <pre>{revision.content}</pre>
           </article>

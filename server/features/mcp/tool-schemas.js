@@ -32,7 +32,7 @@ export const toolSchemas = {
   }),
   profile_save: tool(
     "definitions:write",
-    "Create or update a profile; updates require profile.expectedRevision. config selects accountId, cliTool, optional providerConnectionId, models {available,default}, prompts {role,kickoff,params}, permissions {mode}, run {autonomous}. Top-level name,description,enabled,phaseKey are supported.",
+    "Create or update a profile. To create one, omit id: AgentPier chooses the new id and returns it; an id you choose yourself is read as an existing profile and answers 404. Updates name the profile's id and require profile.expectedRevision. config selects accountId, cliTool, optional providerConnectionId, models {available,default}, prompts {role,kickoff,params}, permissions {mode}, run {autonomous}. Top-level name,description,enabled,phaseKey are supported.",
     { id: id.optional(), profile: record },
     false,
   ),
@@ -90,7 +90,7 @@ export const toolSchemas = {
   ),
   queue_remove: tool(
     "runs:cancel",
-    "Remove a waiting or failed item this grant queued, so it never starts. A started item's run is cancelled with run_cancel instead.",
+    "Remove a waiting or failed item this grant queued, so it never starts. An item starts as soon as the project's active-run limit allows, usually at once, so only items still waiting behind other active runs, or failed ones, can be removed; a started item answers 409, and its run is cancelled with run_cancel instead.",
     { projectId: id, itemId: id },
     false,
   ),

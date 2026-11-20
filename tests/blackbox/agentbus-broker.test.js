@@ -320,3 +320,20 @@ test("every model-facing AgentBus text is English", async (t) => {
   assert.match(read, /^1 new message\(s\)\. Sender details/);
   assert.doesNotMatch(read.split("\n")[0], german);
 });
+
+test("the message history names peers by session and clamps a page past the end", async (t) => {
+  const f = await busFixture(t);
+  const a = await registered(f, "named-a"),
+    b = await registered(f, "named-b");
+  f.rows.get(a.id).name = "Sender session";
+  f.rows.get(b.id).name = "Receiver session";
+  const key = text(await call(a, "peers_list")).match(/\(key ([^)]+)\)/)[1];
+  text(await call(a, "peer_send", { to: key, text: "Named" }));
+  const projectId = a.launch.agentbus.projectId;
+  const first = await f.bus.messages(projectId);
+  assert.equal(first.items[0].from.name, "Sender session");
+  assert.equal(first.items[0].to.name, "Receiver session");
+  const past = await f.bus.messages(projectId, { page: 99 });
+  assert.equal(past.page, 1);
+  assert.equal(past.items.length, 1);
+});
