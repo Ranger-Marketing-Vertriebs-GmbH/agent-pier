@@ -126,6 +126,10 @@
   border-top: 1px solid var(--line);
   padding-top: 16px;
 }
+/* The hint below a launch grant picker keeps its distance from the allowed list. */
+.ssh-launch > .grant-picker + p {
+  margin-top: var(--space-3);
+}
 @media (max-width: 600px) {
   .ssh-card {
     padding: 16px;
