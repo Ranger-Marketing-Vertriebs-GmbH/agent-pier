@@ -905,6 +905,22 @@ cross-version test checks schema 27 for a 2026.11.2 or later candidate.
   test of the shipped loop and by `tests/helpers/superseded-publication-guard.js`.
 - **Routine failures.** A run a Gateway restart interrupted records "Gateway
   stopping."; it maps to `gateway-restart`.
+- **Browser start in the contracts.** On ubuntu-latest the upload and compiled web
+  tools contracts failed now and then: `start` answered "timed out" and its repeat
+  "Failed to start Chrome CDP … http_unreachable", with at most one line of Chrome
+  output. A cold start of a managed profile first runs a bootstrap Chrome until its
+  preferences exist (10 s; on Linux Chrome writes them later, so the bootstrap always
+  takes all of it), then waits up to 15 s for the real launch's CDP port, while the
+  tool request had 15 s. OpenClaw coalesces starts of one profile, so the repeat only
+  joined the same launch and returned its failure; Chrome was never launched again.
+  A wrapper that lets the launch after the bootstrap die reproduces both answers
+  (2 Chrome starts). `tests/helpers/browser-start.js` now gives `start` a 50 s
+  `timeoutMs` (the whole cold start, 43 s at most) and starts the browser once more
+  after a failed launch, which is then a new launch of the bootstrapped profile (3
+  Chrome starts, the contract passes). Why Chrome sometimes never opens its port on
+  the runner was not reproduced: OpenClaw's own launch, with Chrome for Testing on
+  Ubuntu 24.04 arm64 and with Google Chrome amd64, started within 10–12.5 s on every
+  run, also with 4 CPUs under 16 busy processes and under memory pressure.
 - **Bundled skills.** 2026.11.2 reads an empty `skills.allowBundled` as "no bundled
   skill"; AgentPier no longer writes the key (without it every bundled skill passes on
   every version), and a skill the agent's own list leaves out is no longer shown as

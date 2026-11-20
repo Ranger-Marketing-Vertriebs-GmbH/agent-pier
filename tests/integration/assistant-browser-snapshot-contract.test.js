@@ -229,9 +229,10 @@ test(
     }
 
     try {
-      // Retried once after a timed-out start (helpers/browser-start.js).
-      const { offered, result: started } = await startBrowser((name) =>
-        turn({ name: "browser", arguments: { action: "start" } }, `snapshot-${name}`),
+      // A cold start's whole budget, started once more after a failed launch
+      // (helpers/browser-start.js).
+      const { offered, result: started } = await startBrowser((name, args) =>
+        turn({ name: "browser", arguments: args }, `snapshot-${name}`),
       );
       t.diagnostic(`offered=${JSON.stringify(offered)}`);
       // Code Mode would offer only its `exec` cell and `wait`.

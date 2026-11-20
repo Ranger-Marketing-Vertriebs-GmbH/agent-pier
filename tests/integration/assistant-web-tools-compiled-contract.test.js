@@ -455,9 +455,10 @@ test(
         assert.match(blocked, /browser navigation blocked by policy/);
         assert.equal(page.hits, 0);
         try {
-          // Retried once after a timed-out start (helpers/browser-start.js).
-          const { result: started } = await startBrowser((label) =>
-            call({ action: "start" }, label),
+          // A cold start's whole budget, started once more after a failed launch
+          // (helpers/browser-start.js).
+          const { result: started } = await startBrowser((label, args) =>
+            call(args, label),
           );
           const { result: running } = await call({ action: "status" }, "browser-running");
           const { running: launched, userDataDir } = JSON.parse(running);
