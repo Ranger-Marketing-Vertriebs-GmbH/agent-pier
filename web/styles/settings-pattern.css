@@ -171,16 +171,26 @@ label.list-row-main {
   padding: 0 8px;
   font-size: 13px;
 }
+/* A select sizes to its value but never past 60% of the row: a long option ends in an
+   ellipsis and the label keeps its room. */
 .list-row-select {
   position: relative;
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
+  min-width: 0;
+  max-width: 60%;
   margin-left: auto;
   color: #92949d;
 }
 .list-row-select select {
   appearance: none;
   width: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   height: 34px;
   padding: 0 20px 0 8px;
   border: 0;
