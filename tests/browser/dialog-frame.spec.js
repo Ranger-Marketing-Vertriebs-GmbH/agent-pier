@@ -10,7 +10,7 @@ const hosts = Array.from({ length: 12 }, (_, index) => ({
   port: 22,
 }));
 
-async function fixture(page) {
+async function fixture(page, { assignedIds = [] } = {}) {
   const state = { puts: [] };
   const session = {
     id: "frame",
@@ -51,7 +51,7 @@ async function fixture(page) {
       return route.fulfill({
         json: {
           tools: { state: "ready" },
-          assignedIds: [],
+          assignedIds,
           accesses: hosts,
           commands: [],
         },
@@ -135,11 +135,12 @@ test("dialog selects match the text inputs", async ({ page }) => {
 
 test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const state = await fixture(page);
+  // Every host assigned: the stacked GrantPicker's allowed list alone overflows.
+  const state = await fixture(page, { assignedIds: hosts.map((host) => host.id) });
   const dialog = await openDialog(page, "SSH accesses");
-  // On a phone the hosts are offered by the stacked GrantPicker's add field.
-  await dialog.getByRole("combobox", { name: "Add SSH access" }).click();
-  await expect(dialog.getByRole("option")).toHaveCount(hosts.length);
+  await expect(dialog.getByRole("button", { name: /^Remove host-/ })).toHaveCount(
+    hosts.length,
+  );
   const save = dialog.getByRole("button", { name: "Save", exact: true });
   await expect(save).toBeInViewport({ ratio: 1 });
   expect(await dialog.evaluate((element) => element.scrollTop)).toBe(0);
@@ -222,7 +223,7 @@ test.describe("touch", () => {
     await expect(rename.getByRole("textbox", { name: "New name" })).not.toBeFocused();
     await expect(rename.getByRole("button", { name: "Close dialog" })).not.toBeFocused();
   });
-  test("tapping anywhere on a check row toggles it", async ({ page }) => {
+  test("tapping anywhere on an add field option toggles it", async ({ page }) => {
     await fixture(page);
     const dialog = await openDialog(page, "SSH accesses");
     // On a phone the rows are the options of the stacked GrantPicker's add field.
