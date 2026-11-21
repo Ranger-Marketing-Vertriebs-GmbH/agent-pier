@@ -33,6 +33,9 @@ const definition = {
     notes: false,
   }),
   configFormat: "jsonc",
+  // The file a binding from Connections › MCP servers writes: the built-in local
+  // profile, i.e. the owner's own home configuration that every account shares.
+  mcpHomeConfig: "~/.config/opencode/opencode.json",
   protocol: "chatCompletions",
   capabilities: {
     accountTransfer: false,

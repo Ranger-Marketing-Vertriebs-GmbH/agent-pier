@@ -8,7 +8,7 @@ import { mcpPackageCopy } from "../../../lib/i18n/messages/mcp-packages.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { names } from "../../../lib/providers.js";
 import { shellLevel } from "../../assistants/shell-level.js";
-import { cliSupport, cliTarget, clis as allClis } from "../cli-support.js";
+import { cliHomeConfig, cliSupport, cliTarget, clis as allClis } from "../cli-support.js";
 import ConsentCard from "./ConsentCard.jsx";
 import { connectApi } from "./connect-api.js";
 import {
@@ -133,6 +133,7 @@ export function ConnectForm({
       onSubmit={() => (installing ? wait(true) : blocked ? refuse() : run())}
     >
       <p className="mcp-hint">{copy.connect.intro}</p>
+      <p className="mcp-hint">{copy.connect.clisHomeNote}</p>
       <ListCard label={copy.connect.clis}>
         {allClis.map((cli) => {
           const support = cliSupport(cli, target);
@@ -145,7 +146,7 @@ export function ConnectForm({
                 support.supported
                   ? locked && !bound
                     ? mcpPackageCopy.bindingLocked
-                    : copy.connect.cliHint
+                    : copy.connect.cliHint(cliHomeConfig(cli))
                   : mcpCliCopy.unsupported[support.reason]
               }
               checked={support.supported && clis.includes(cli)}

@@ -66,6 +66,7 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `sessionIdArgs(id)`              | Arguments that make AgentPier's session id the native one at launch (Claude Code `--session-id`), or `null`                                   |
 | `nativeSandbox`                  | The CLI's own sandbox mode for a session (Codex `workspace-write`, published as `AGENTRUNNER_SANDBOX`), or `null`                             |
 | `configFormat`                   | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                                                                     |
+| `mcpHomeConfig`                  | The home configuration file a Connections › MCP servers binding writes (`~/.claude.json`), named on the Connect step                          |
 | `protocol`                       | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                                                                        |
 | `mcpLoginCommand(name)`          | The command (or slash command) that signs MCP server `name` in inside the CLI                                                                 |
 | `mcpSetup({ endpoint, quoted })` | Manual steps that add AgentPier's MCP endpoint: `{ steps: [{ id, value, kind: "command" \| "config", label? }], removeNote? }`                |

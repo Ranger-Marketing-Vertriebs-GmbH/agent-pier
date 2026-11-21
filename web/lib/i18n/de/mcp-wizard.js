@@ -171,7 +171,10 @@ export const mcpWizardCopy = {
     title: "Prüfen und speichern",
     name: "Name",
     address: "Adresse",
-    command: "Befehl",
+    commandLine: "Befehlszeile",
+    workingDirectory: "Arbeitsverzeichnis",
+    settingNames: (names) => `${names} (Werte verborgen)`,
+    noSettings: "Keine",
     signIn: "Anmeldung",
     settings: "Einstellungen",
     settingsCount: (count) => `${count}, Werte nach dem Speichern verborgen`,
@@ -183,8 +186,9 @@ export const mcpWizardCopy = {
     intro:
       "Wähl die Coding-CLIs und Agents, die die Tools dieses Servers bekommen. Du kannst das jederzeit ändern.",
     clis: "Coding-CLIs",
-    cliHint:
-      "Wird in seine Einstellungen für alle Accounts eingetragen – klappt auch, wenn du ihn im Terminal startest.",
+    clisHomeNote:
+      "Eine Coding-CLI wird über ihr eingebautes lokales Profil verbunden: AgentPier trägt den Server in deine eigene Konfiguration im Home-Ordner dieses Rechners ein, die jeder Account dieser CLI nutzt, auch wenn du sie im Terminal startest.",
+    cliHint: (file) => `Schreibt in ${file}, für alle Accounts`,
     agents: "Agents",
     agentsLoading: "Agents werden geladen …",
     agentsFailed: "Die Agents konnten nicht geladen werden.",

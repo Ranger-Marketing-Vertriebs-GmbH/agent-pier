@@ -37,11 +37,13 @@
   gap: 6px;
   color: var(--muted);
 }
+/* Done stages read as plain text; only the current one carries the accent, so the
+   highlighted stage is the one the step counter names. */
 .mcp-wizard-steps li.is-done {
-  color: var(--accent);
+  color: var(--text);
 }
 .mcp-wizard-steps li[aria-current="step"] {
-  color: var(--text);
+  color: var(--accent);
   font-weight: 600;
 }
 .mcp-wizard-dot {
