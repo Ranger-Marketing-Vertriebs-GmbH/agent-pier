@@ -167,3 +167,20 @@ test("stored endpoints show their preset, or Custom endpoint without one", async
     "endpoint:llamacpp",
   );
 });
+
+// The help under a field is a <small> inside an 11px label, which the browser shrank to
+// 9.2px (AGENTPIER-470); no text may be smaller than 11px (docs/ui-guide.md).
+test("the connection and test hints keep the 11px floor", async ({ page }) => {
+  await fixture(page);
+  const dialog = await openNew(page);
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption({ label: "Azure OpenAI" });
+  const hints = dialog.locator(".connection-fields small, .endpoint-test small");
+  await expect(hints.first()).toBeVisible();
+  const sizes = await hints.evaluateAll((nodes) =>
+    nodes.map((node) => parseFloat(getComputedStyle(node).fontSize)),
+  );
+  expect(sizes.length).toBeGreaterThan(1);
+  for (const size of sizes) expect(size).toBeGreaterThanOrEqual(11);
+});
