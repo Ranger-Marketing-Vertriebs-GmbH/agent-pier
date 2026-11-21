@@ -632,3 +632,20 @@ only from a backup with a passphrase and history): the restore report lists each
 password)", **Settings › Users** marks them **Needs a new password**, and
 **Reset password** on their page lets them sign in again. A user list the server
 would refuse fails the restore.
+
+### Moving a data directory
+
+A restored data directory can be started from another folder than the one it was
+restored into, and an existing one can be moved or copied: AgentPier points the
+absolute paths it recorded into the data directory at the folder it is started from,
+on every start, before they are read. This covers the agent workspaces and
+every other path below `assistants/` in `openclaw.json` (with its `.bak*` and
+`.last-good` copies) and in OpenClaw's session indexes, OpenClaw's runtime
+selection, candidate and update journal, and packaged MCP servers (their command and
+program, toolchain folder, a PyPI environment's link to its Python and CPython's
+sysconfig). A Hermes installation cannot move, since uv's environment holds absolute
+paths: one built in another folder is installed again on the next start of a Hermes
+agent, as after a restore. Not followed: skills AgentPier installed into its
+own CLI profiles keep the old folder in their record, so after a move they show as
+read-only in **Extensions**, without their origin, and cannot be updated or removed
+there; the shared settings of managed CLI profiles are imported once more.

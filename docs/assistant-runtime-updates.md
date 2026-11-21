@@ -325,7 +325,11 @@ belong to; a restore drops them from older backups too. Absolute paths below `as
 OpenClaw's legacy session index (`state/agents/*/sessions/sessions.json`) are stored
 relative to that folder and point at the restored location after a restore; a path
 that would leave it rejects the archive. The Gateway's default workspace is set from
-the current installation on every start, whatever the configuration says.
+the current installation on every start, whatever the configuration says, and a data
+directory started from another folder than the one these files name (restored
+elsewhere, moved or copied) has every path below the recorded `assistants/` folder
+rewritten to its own on each start, together with the runtime selections
+([backups](backups.md#moving-a-data-directory)).
 Workspaces that exceed the backup budget are left out as a declared omission. When
 the remaining agent data alone exceeds it, the whole `assistants` component is left
 out with the declared omission "Agent data too large" instead of failing the host
