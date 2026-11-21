@@ -460,7 +460,8 @@ The information architecture is recorded in
     project, pipeline and task profile lists, read while the search is open
     (`useQuickOpenSources.js`). Actions: "New session", "Start run", "Open inbox", "New
     agent", "Add SSH access", "Add email account" and the other connection actions,
-    "Install skill", "Update CLI", "Chrome for Testing"; each agent's "Duplicate",
+    "Install skill", "Update CLI", "Chrome for Testing", "Upload" (Files, opens the
+    upload panel), "Send test notification" and "Install app"; each agent's "Duplicate",
     "Archive", "Restart main chat" and "Clear attachments"; each session's "Reload &
     resume", "Continue with another account", "AgentPier tools", "Stop" or "Remove" and
     "Background tasks". An action that needs its page ("New view", "Sign out", a chat's

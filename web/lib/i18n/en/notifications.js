@@ -32,6 +32,8 @@ export const notificationCopy = {
   sent: "Test notification sent.",
   testFailed: "The test notification could not be sent.",
   permissionRequired: "Browser permission was not granted.",
+  subscribeFailed:
+    "The browser did not register this device for notifications. Check the site permission in the browser settings or try again later.",
   storageFailed:
     "The device identifier could not be saved. Allow local site storage and try again.",
   unsubscribeFailed:

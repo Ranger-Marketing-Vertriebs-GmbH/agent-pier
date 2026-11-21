@@ -82,6 +82,11 @@ export async function notifications(
             return state.subscription;
           },
           subscribe: async () => {
+            // A browser refusal, as Chrome words it.
+            if (state.refuseSubscribe)
+              throw Object.assign(new Error("Registration failed - permission denied"), {
+                name: state.refuseSubscribe,
+              });
             state.subscription = subscription;
             return subscription;
           },

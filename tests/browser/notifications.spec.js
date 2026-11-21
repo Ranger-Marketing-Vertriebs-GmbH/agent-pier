@@ -89,3 +89,27 @@ test("an initial subscription read cannot overwrite a later successful opt-in", 
     page.getByText("Auf diesem Gerät aktiviert.", { exact: true }),
   ).toBeVisible();
 });
+
+// AGENTPIER-456: the browser's refusal shows in the app's language, not the browser's.
+for (const [label, viewport] of [
+  ["desktop", { width: 1440, height: 1000 }],
+  ["phone", { width: 390, height: 844 }],
+])
+  test(`a refused push registration is explained in the app's words (${label})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+    await notifications(page);
+    await page.goto(baseURL + "/settings/notifications");
+    await page.evaluate(() => (window.__pushFixture.refuseSubscribe = "AbortError"));
+    await page.getByRole("switch", { name: "Notifications", exact: true }).click();
+    const alert = page.getByRole("alert");
+    await expect(alert).toContainText(
+      "The browser did not register this device for notifications.",
+    );
+    await expect(alert).not.toContainText("Registration failed");
+    await page.evaluate(() => (window.__pushFixture.refuseSubscribe = "NotAllowedError"));
+    await page.getByRole("switch", { name: "Notifications", exact: true }).click();
+    await expect(alert).toContainText("Notifications are blocked in the browser.");
+  });

@@ -23,7 +23,8 @@ of the address together with the filters (`/artifacts[/<projectId>]?session=<id>
 so a reload or the viewer's **Back to AgentPier** returns to the same detail and list,
 including the page's way back to the session that opened it. The "no longer
 available" notice for a removed selection ends with the next tab, filter or search change. The detail shows a
-preview, **Open**, **Download**, **Copy link** (the link only works when signed in), the source
+preview, **Open**, **Download**, **Copy link** (the link only works when signed in; with
+remote access set up it uses the remote address, like the publish result), the source
 session and project, the pin switch, technical details and **Delete artifact**,
 which asks for confirmation. The preview loads the selected artifact only, once it
 is on screen, in an inert iframe with `sandbox=""`: scripts never run there, so pages
@@ -135,7 +136,11 @@ silent eviction.
 Each publication permits up to **50 MiB** and **500 files**. Managed storage is
 limited to **1 GiB**, including staged replacements and pending cleanup. Replacing
 a large artifact therefore requires temporary space for both versions. The UI
-shows total usage and pending cleanup. Abandoned generations and failed physical
+shows total usage and pending cleanup; once the last artifact and its files are gone the
+usage line disappears (`GET /api/artifacts/usage` also returns `artifacts`, the number of
+live artifacts). Each limit has its own error: `ARTIFACT_TOO_LARGE` (over 50 MiB) and
+`ARTIFACT_TOO_MANY_FILES` (over 500 files) ask for a smaller publication, only
+`ARTIFACT_LIMIT_EXCEEDED` (storage full) suggests deleting unused artifacts. Abandoned generations and failed physical
 deletions are retried at startup and every minute. Logical deletion immediately
 makes the artifact unavailable. An already opened tab may retain its loaded copy.
 

@@ -106,7 +106,11 @@ export const artifactCopy = {
     ARTIFACT_INVALID_SOURCE:
       "Wähle eine HTML-Datei, ein Bild oder einen Ausgabeordner im Session-Verzeichnis. Verknüpfungen und spezielle Dateien können nicht veröffentlicht werden.",
     ARTIFACT_LIMIT_EXCEEDED:
-      "Das Speicher- oder Veröffentlichungslimit wurde erreicht. Lösche ungenutzte Artifacts oder verkleinere die Dateien.",
+      "Der Artifact-Speicher (1 GiB) ist voll. Lösche ungenutzte Artifacts, um Platz zu schaffen.",
+    ARTIFACT_TOO_MANY_FILES:
+      "Ein Artifact darf höchstens 500 Dateien enthalten. Veröffentliche weniger Dateien, etwa einen kleineren Ausgabeordner.",
+    ARTIFACT_TOO_LARGE:
+      "Ein Artifact darf höchstens 50 MiB groß sein. Verkleinere die Dateien oder veröffentliche weniger davon.",
     ARTIFACT_STORAGE_FULL: "Nicht genügend Speicher für dieses Artifact.",
     ARTIFACT_SOURCE_CHANGED:
       "Die Quelldateien wurden während der Veröffentlichung geändert. Veröffentliche erneut mit einer neuen Anfrage-ID.",

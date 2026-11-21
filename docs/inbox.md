@@ -24,7 +24,9 @@ project folder and the first line of the run's task.
 
 ## Answering
 
-Select an item to open it in the detail pane. The pane shows the same card you would
+Select an item to open it in the detail pane. The pane is titled like its row (a CLI
+question by its header, other items by their own title or their kind) with the kind and
+source below. The pane shows the same card you would
 see in place: the native question or approval from the session's chat, the gate
 decision from the run (with the run's spec when it has one, see
 [pipelines](pipelines.md#spec-and-acceptance-criteria), the risky paths of a risk gate or why its check could not run,

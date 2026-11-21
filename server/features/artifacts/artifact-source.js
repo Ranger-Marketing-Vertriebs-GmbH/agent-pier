@@ -122,11 +122,11 @@ export async function copyArtifactSource(
         throw invalid("ARTIFACT_DUPLICATE_FILE", output);
       const mediaType = types[path.extname(output).toLowerCase()];
       if (!mediaType) throw invalid("ARTIFACT_UNSUPPORTED_FILE", output);
-      if (
-        files.length >= limits.files ||
-        info.size > BigInt(limits.publicationBytes - sizeBytes)
-      )
-        throw artifactError("ARTIFACT_LIMIT_EXCEEDED", 413);
+      // Each limit names itself: deleting artifacts frees storage, not a publication.
+      if (files.length >= limits.files)
+        throw artifactError("ARTIFACT_TOO_MANY_FILES", 413);
+      if (info.size > BigInt(limits.publicationBytes - sizeBytes))
+        throw artifactError("ARTIFACT_TOO_LARGE", 413);
       names.add(output.toLowerCase());
       const opened = await native.run("openFile", { directory: parent, path: name });
       const stored = `${files.length}`;
@@ -145,7 +145,9 @@ export async function copyArtifactSource(
           if (!chunk.length) break;
           length += chunk.length;
           sizeBytes += chunk.length;
-          if (sizeBytes > limits.publicationBytes || sizeBytes > availableBytes)
+          if (sizeBytes > limits.publicationBytes)
+            throw artifactError("ARTIFACT_TOO_LARGE", 413);
+          if (sizeBytes > availableBytes)
             throw artifactError("ARTIFACT_LIMIT_EXCEEDED", 413);
           await target.writeFile(chunk);
         }

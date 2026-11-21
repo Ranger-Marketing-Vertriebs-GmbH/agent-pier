@@ -14,7 +14,11 @@ import { projectsRoute } from "../projects/routes.js";
 import ArtifactFacts from "./ArtifactFacts.jsx";
 import ArtifactPreview from "./ArtifactPreview.jsx";
 import { ArtifactTime } from "./ArtifactRows.jsx";
-import { artifactSource, artifactTypeLabel } from "./artifact-presentation.js";
+import {
+  artifactShareUrl,
+  artifactSource,
+  artifactTypeLabel,
+} from "./artifact-presentation.js";
 import { artifactLink } from "./artifact-return-link.js";
 import { downloadArtifact } from "./artifact-download.js";
 import { writeClipboard } from "../../lib/clipboard.js";
@@ -118,6 +122,7 @@ export default function ArtifactDetail({
   onChanged,
   onRemoved,
   heading = true,
+  remoteUrl = null,
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -147,7 +152,7 @@ export default function ArtifactDetail({
     }
   }
   async function copyLink() {
-    const url = new URL(viewer, window.location.origin).href;
+    const url = artifactShareUrl(viewer, window.location.origin, remoteUrl);
     setCopied((await writeClipboard(url)) ? { ok: true } : { ok: false, url });
   }
   async function download() {

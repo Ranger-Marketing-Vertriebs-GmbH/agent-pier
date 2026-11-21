@@ -42,6 +42,7 @@ test("every routed area and its tabs have a search entry", () => {
     "/pipelines",
     ...pipelineTabs.filter((tab) => tab !== "runs").map((tab) => `/pipelines/${tab}`),
     "/files",
+    "/files?panel=trash",
     ...artifactTabs.map((tab) =>
       tab === "all" ? "/artifacts" : `/artifacts?tab=${tab}`,
     ),
@@ -88,6 +89,11 @@ test("every settings group inside a page has a search entry (en and de)", () => 
     ["AgentPier as an app", "AgentPier als App"],
     ["Notifications on this device", "Benachrichtigungen auf diesem Gerät"],
     ["Registered devices", "Angemeldete Geräte"],
+    ["Detail level", "Detailstufe"],
+    ["Grouping and quiet", "Bündeln und Ruhe"],
+    ["Quiet hours", "Ruhezeiten"],
+    // Files
+    ["Trash", "Papierkorb"],
     // Agents › Runtime › Advanced, Agents › All agents
     ["Tasks", "Aufträge"],
     ["Images and media", "Bilder und Medien"],
