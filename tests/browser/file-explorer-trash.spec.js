@@ -28,7 +28,9 @@ test("trash panel exposes restore and frozen permanent-delete consent", async ({
   );
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("checkbox", { name: "Select report.txt", exact: true }).check();
+  await page
+    .getByRole("checkbox", { name: /^Select \/home\/test\/report\.txt, deleted / })
+    .check();
   await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Delete permanently", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("/home/test/report.txt");
@@ -48,7 +50,9 @@ test("a Trash refresh keeps the listed selection actionable", async ({ page }) =
   });
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  const report = page.getByRole("checkbox", { name: "Select report.txt", exact: true });
+  const report = page.getByRole("checkbox", {
+    name: /^Select \/home\/test\/report\.txt, deleted /,
+  });
   await report.check();
   hold = true;
   await page.getByRole("button", { name: "Refresh trash", exact: true }).click();
@@ -68,7 +72,9 @@ test("restore preserves a colliding original until Keep both is decided", async 
   const f = await actionsFixture(page);
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("checkbox", { name: "Select report.txt", exact: true }).check();
+  await page
+    .getByRole("checkbox", { name: /^Select \/home\/test\/report\.txt, deleted / })
+    .check();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "File conflict", exact: true }),
@@ -94,7 +100,9 @@ test("missing original parent requires a deliberate target without creating fold
   f.missingParents.add("/missing");
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("checkbox", { name: "Select report.txt", exact: true }).check();
+  await page
+    .getByRole("checkbox", { name: /^Select \/missing\/report\.txt, deleted / })
+    .check();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "Choose restore destination",
@@ -128,8 +136,12 @@ test("restore destination keeps native selection and Trash selection ownership",
   f.missingParents.add("/missing");
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  const report = page.getByRole("checkbox", { name: "Select report.txt", exact: true });
-  const second = page.getByRole("checkbox", { name: "Select second.txt", exact: true });
+  const report = page.getByRole("checkbox", {
+    name: /^Select \/missing\/report\.txt, deleted /,
+  });
+  const second = page.getByRole("checkbox", {
+    name: /^Select \/home\/test\/second\.txt, deleted /,
+  });
   await report.check();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   const target = page
@@ -154,8 +166,7 @@ test("Trash select-all freezes only rendered selectable entries", async ({ page 
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
   const first = page.getByRole("checkbox", {
-    name: "Select entry-000.txt",
-    exact: true,
+    name: /^Select \/home\/test\/entry-000\.txt, deleted /,
   });
   await first.focus();
   await page.keyboard.press("ControlOrMeta+a");
@@ -252,7 +263,9 @@ test("cancelling purge stops later batches and keeps unresolved recovery rows vi
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/files?panel=trash");
   await expect(
-    page.getByRole("checkbox", { name: "interrupted.txt auswählen", exact: true }),
+    page.getByRole("checkbox", {
+      name: /^\/home\/test\/interrupted\.txt auswählen, gelöscht /,
+    }),
   ).toBeDisabled();
   await expect(
     page.getByRole("region", { name: "Papierkorb", exact: true }),
@@ -339,7 +352,9 @@ test("a stale restore decision can still be dismissed by cancelling its job", as
   );
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("checkbox", { name: "Select report.txt", exact: true }).check();
+  await page
+    .getByRole("checkbox", { name: /^Select \/home\/test\/report\.txt, deleted / })
+    .check();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "File conflict", exact: true });
   await dialog.getByRole("button", { name: "Keep both", exact: true }).click();

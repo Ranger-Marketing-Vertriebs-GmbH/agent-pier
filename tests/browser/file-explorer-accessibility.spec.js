@@ -351,7 +351,7 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
         expect(box.height).toBeGreaterThanOrEqual(40);
         expect(box.x + box.width).toBeLessThanOrEqual(390);
       }
-      await mobile.getByRole("tab").filter({ hasText: firstPath }).tap();
+      await mobile.getByRole("tab", { name: new RegExp(`^${firstPath}`) }).tap();
       await mobile
         .getByRole("button", {
           name: language === "en" ? "Save" : "Speichern",

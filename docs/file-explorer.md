@@ -22,7 +22,8 @@ The two entry points have different boundaries:
 - A session's **Files** tab is limited to that session's canonical working directory.
   A URL or request cannot widen the project boundary. Absolute project paths, `..`, and
   `~` are rejected. A followed symbolic link must also resolve inside the project.
-- A headless pipeline session exposes its project as read-only.
+- A headless pipeline session exposes its project as read-only: it offers no **New**
+  and no **Upload**.
 
 AgentPier is not a filesystem sandbox. Reads and writes use the effective rights of the
 user running the web service, including ACLs, mount options, and removable-media rights.
@@ -36,7 +37,9 @@ these browser endpoints.
 ## Browse and inspect
 
 The location field, breadcrumbs, favorites, project shortcuts, and directory tree change
-the current folder. Show hidden files explicitly when dot-prefixed names should appear.
+the current folder. The breadcrumbs keep the current folder in view on a long path, and
+the directory tree opens every folder on the way to it and marks it. Show hidden files
+explicitly when dot-prefixed names should appear.
 Sorting and paging operate on a 30-second directory snapshot. Refresh after a snapshot
 expires or when an external program changes the folder.
 
@@ -50,7 +53,8 @@ observed revision. A symbolic link is selected without following its leaf; previ
 read, and download follow its target within the current scope. Permission flags and
 revisions describe what AgentPier observed. They are not a complete ACL, xattr, generation,
 or file-history record, and identical inode/stat observations can hide inode reuse or a
-ctime-only change.
+ctime-only change. When the listing sees a new revision of the selected file, the panel
+reads its metadata and preview again, so the preview follows changes on disk.
 
 Names are limited to 255 UTF-8 bytes. `/`, control characters, `.` and `..` are invalid.
 
@@ -97,7 +101,15 @@ with the shared **Save changes?** sheet: **Save and continue**, **Discard**, **C
 An uncertain or failed save retains the exact attempted bytes for an explicit retry. Only
 `FILE_CONFLICT_CHANGED` opens the current-disk comparison. Choose the current version,
 edit manually, use **Save As**, or explicitly replace at the newly observed revision.
-There is no generic retry of a text save through the Operations job list.
+There is no generic retry of a text save through the **Activity** job list: editor saves
+report in the editor (saved, conflict, failed) and never appear in **Activity**, so a
+refused save leaves no **Needs attention** there. A save refused because the file changed
+on disk says so in words and opens the comparison; a **Save As** onto an existing entry
+asks to inspect and replace it or to choose another path.
+
+The editor uses the dark theme's syntax colours (`--syntax-*`, WCAG AA on the editor
+background). Its tabs show the file name; the full path is the tab's accessible name and
+tooltip.
 
 An open document learns of changes on disk through the live channel: the document
 metadata read (`GET .../metadata?view=document`) names the file's topic in its
@@ -126,10 +138,13 @@ Create, rename, copy, move, Trash, restore, purge, ZIP creation/extraction, sear
 and upload use bounded operations. New files use mode 0600 and new directories 0700,
 subject to the process umask.
 
-Long-running work appears under **Operations** with one of these states: `queued`,
+Long-running work appears under **Activity** with one of these states: `queued`,
 `running`, `waiting_for_conflict`, `cancelling`, `completed`, `partially_completed`,
 `failed`, `cancelled`, or `interrupted`. Conflict choices are **Replace**, **Skip**,
 **Keep both**, and **Cancel**.
+The conflict dialog names the **Source** and the **Destination**. Job results list
+completed, skipped and unfinished entries separately; a rename names its old and new path,
+a trashed entry its path once.
 Folder merge is available only for copy or move. A restore collision first needs **Keep
 both**; merge the retained directory later with an explicit copy or move.
 
@@ -170,7 +185,7 @@ swap or general online replay protection.
 
 Suppose `/example/reports/report.txt` is replaced. AgentPier may have published the new
 file and retained the previous version in Trash before the browser loses the response.
-Open **Files → Operations** after reconnecting and inspect the recovered job and both
+Open **Files → Activity** after reconnecting and inspect the recovered job and both
 displayed versions. Do not repeat the move just because the browser did not receive its
 reply. Open **Files → Trash**, compare the retained synthetic entry, and explicitly restore
 the desired copy when the UI marks it eligible. A pending, changed, or unavailable Trash
@@ -201,7 +216,13 @@ first output. A policy change during extraction can still leave a partial result
 
 Direct and ZIP downloads share the configured concurrent-transfer limit per owner. A ZIP
 download is shown only after its artifact is durably ready; the download request remains
-authoritative.
+authoritative. **Download as ZIP** starts the browser download by itself once the archive
+is ready (the job in **Activity** keeps a **Download archive** link). The ZIP is named
+after the single selected entry or, for several, after the current folder, and every entry
+keeps its modification time.
+
+The upload pickers are buttons in the app's language (**Upload files**, **Upload
+folder**); the browser's own file input stays hidden behind them.
 
 ## Limits and retention
 

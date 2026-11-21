@@ -1,12 +1,15 @@
 export const fileActionsCopy = {
   completedResults: "Abgeschlossene Einträge",
   unfinishedResults: "Unfertige Einträge",
+  skippedResults: "Übersprungene Einträge",
   moreResults: "Weitere Einzelergebnisse anzeigen",
   restored: "Wiederhergestellt",
 
   label: "Dateiaktionen",
   panels: "Explorer-Ansichten",
   select: (name) => `${name} auswählen`,
+  selectTrash: (path, time) => `${path} auswählen, gelöscht ${time}`,
+  source: (path) => `Quelle: ${path}`,
   menu: (name) => `Aktionen für ${name}`,
   newFile: "Neue Datei",
   newFolder: "Neuer Ordner",
@@ -22,7 +25,7 @@ export const fileActionsCopy = {
   clearSelection: "Auswahl aufheben",
   selection: (count) => `${count} ausgewählt.`,
   clipboard: (count, action) =>
-    `${action}: ${count} Verweise in der Explorer-Zwischenablage.`,
+    `${action}: ${count === 1 ? "1 Verweis" : `${count} Verweise`} in der Explorer-Zwischenablage.`,
   clipboardReady: "Auswahl in der Explorer-Zwischenablage gespeichert.",
   confirm: "Bestätigen",
   destination: (path) => `Ziel: ${path}`,
@@ -48,7 +51,7 @@ export const fileActionsCopy = {
     "Der Papierkorb hat keine automatische Ablaufzeit. Ersetzte Einträge und unterbrochene Wiederherstellungen bleiben hier sichtbar.",
   loadingTrash: "Alle Papierkorbseiten werden geladen …",
   usage: (bytes, unknown) =>
-    `${bytes} bekannte Bytes auf allen geladenen Papierkorbseiten; bei ${unknown} Einträgen ist der Speicherbedarf unbekannt oder ungeprüft.`,
+    `${bytes} bekannt auf allen geladenen Papierkorbseiten; bei ${unknown === 1 ? "1 Eintrag" : `${unknown} Einträgen`} ist der Speicherbedarf unbekannt oder ungeprüft.`,
   unknownSize: "Größe unbekannt oder ungeprüft",
   reasons: {
     deleted: "Gelöscht",
@@ -67,7 +70,7 @@ export const fileActionsCopy = {
   originalLocation: "Originalort anzeigen",
   moreTrash: "Weitere Papierkorbeinträge anzeigen",
   purgeConfirm: (count, excluded) =>
-    `Diese ${count} festgehaltenen Einträge endgültig entfernen? ${excluded} nicht wiederherstellbare Einträge sind ausgeschlossen. Reguläres Löschen ist hier nicht rückgängig zu machen und garantiert kein sicheres physisches Überschreiben.`,
+    `${count === 1 ? "Diesen festgehaltenen Eintrag endgültig entfernen?" : `Diese ${count} festgehaltenen Einträge endgültig entfernen?`} ${excluded === 1 ? "1 nicht wiederherstellbarer Eintrag ist ausgeschlossen." : `${excluded} nicht wiederherstellbare Einträge sind ausgeschlossen.`} Reguläres Löschen ist hier nicht rückgängig zu machen und garantiert kein sicheres physisches Überschreiben.`,
   batchPolicy:
     "Die bestätigte Auswahl wird in begrenzten Batches verarbeitet. Jeder Batch wird vor dem Entfernen geprüft; frühere Batches können abgeschlossen sein, wenn ein späterer fehlschlägt. Neue Einträge sind ausgeschlossen.",
   purgeResults: "Ergebnisse des endgültigen Löschens",

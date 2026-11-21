@@ -33,13 +33,14 @@ export default function FileEditorTabs({ tabs, activeId, activate, close }) {
             aria-controls={paneId(pane, "file-editor-panel")}
             onClick={() => activate(tab.id)}
             title={`${copy.scopeLabel(tab.scope.kind, tab.scope.root)}: ${tab.path}`}
+            aria-label={`${tab.path}${tab.dirty ? " •" : ""}`}
           >
-            {tab.path}
+            {tab.path.split("/").filter(Boolean).at(-1) || tab.path}
             {tab.dirty ? " •" : ""}
           </button>
           <button
             type="button"
-            className="file-editor-tab-close"
+            className="icon-button file-editor-tab-close"
             aria-label={copy.closeNamedTab(tab.path)}
             onClick={(event) => close(tab.id, event.currentTarget)}
           >

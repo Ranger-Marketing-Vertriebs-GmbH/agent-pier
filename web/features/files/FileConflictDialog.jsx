@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 
 export default function FileConflictDialog({ job, scopeId, jobs }) {
@@ -52,8 +53,8 @@ export default function FileConflictDialog({ job, scopeId, jobs }) {
       close={() => decide("cancel")}
       closeDisabled={pending}
     >
-      <p>{conflict.source}</p>
-      <p>{conflict.target}</p>
+      {conflict.source && <p>{copy.actions.source(conflict.source)}</p>}
+      {conflict.target && <p>{copy.actions.destination(conflict.target)}</p>}
       {conflict.sourceType && (
         <p>
           {copy.types[conflict.sourceType]} → {copy.types[conflict.targetType]}
@@ -64,14 +65,12 @@ export default function FileConflictDialog({ job, scopeId, jobs }) {
         <p>{copy.actions.restoreDirectory}</p>
       )}
       {applyRemaining && (
-        <label>
-          <input
-            type="checkbox"
-            checked={apply}
-            onChange={(event) => setApply(event.target.checked)}
-          />
-          {copy.actions.applyRemaining}
-        </label>
+        <Checkbox
+          className="file-conflict-apply"
+          label={copy.actions.applyRemaining}
+          checked={apply}
+          onChange={setApply}
+        />
       )}
       <ErrorMessage error={error?.message} />
       <div className="file-action-buttons">

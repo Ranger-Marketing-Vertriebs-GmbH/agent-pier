@@ -61,7 +61,10 @@ test("three XHRs bound multiple selections across folder navigation", async ({
       .getByLabel("Upload files", { exact: true })
       .setInputFiles([1, 2, 3, 4].map((n) => source(`${n}.txt`)));
     await expect.poll(() => f.raw.length).toBe(3);
-    await page.getByRole("button", { name: "docs", exact: true }).click();
+    await page
+      .locator(".explorer-entry")
+      .getByRole("button", { name: "docs", exact: true })
+      .click();
     await page
       .getByLabel("Upload files", { exact: true })
       .setInputFiles(source("new.txt"));

@@ -22,9 +22,12 @@ export const fileTransfersCopy = {
     "Fertige Ergebnisse bleiben erhalten. Unfertige oder ungewisse Einträge müssen geprüft werden; eine Unterbrechung setzt sie nicht automatisch fort.",
   noneExtracted:
     "Es wurden keine Einträge entpackt. Die übersprungenen oder leeren Ergebnisse prüfen.",
-  unknown: "unbekannt",
-  entries: (completed, total) => `${completed} von ${total} Einträgen abgeschlossen`,
-  bytes: (completed, total) => `${completed} von ${total} Bytes verarbeitet`,
+  entries: (completed, total) =>
+    total === null
+      ? `${completed} ${completed === 1 ? "Eintrag" : "Einträge"} abgeschlossen, Gesamtzahl unbekannt`
+      : `${completed} von ${total} ${total === 1 ? "Eintrag" : "Einträgen"} abgeschlossen`,
+  bytes: (completed, total) =>
+    total === null ? `${completed} verarbeitet` : `${completed} von ${total} verarbeitet`,
   downloadArchive: "Archiv herunterladen",
   artifactUnavailable:
     "Für dieses Archiv ist kein Download verfügbar. Seine gespeicherten Vorgangsergebnisse garantieren nicht, dass das Archiv noch existiert.",
@@ -38,7 +41,8 @@ export const fileTransfersCopy = {
   omissionsPolicy:
     "Diese Links und Spezialdateien werden nicht aufgenommen. Die Zustimmung gilt nur für diese vollständige, geprüfte Archivauswahl; eine geänderte Auswahl erfordert eine neue Prüfung.",
   loadingOmissions: "Alle Auslassungsseiten werden geladen und geprüft …",
-  omissionsCount: (count) => `${count} Einträge werden ausgelassen.`,
+  omissionsCount: (count) =>
+    count === 1 ? "1 Eintrag wird ausgelassen." : `${count} Einträge werden ausgelassen.`,
   omissionsConsent:
     "Ich habe die vollständige Liste geprüft und akzeptiere diese Auslassungen.",
   continueOmissions: "ZIP mit diesen Auslassungen erstellen",
@@ -49,7 +53,7 @@ export const fileTransfersCopy = {
     "Nur die unten angezeigte, vom Server geprüfte Auswahl wird als neue Anfrage wiederholt. Der ursprüngliche Vorgang und seine fertigen Ergebnisse bleiben unverändert. Ungeklärte Wiederherstellungsnachweise verhindern eine Wiederholung.",
   loadingRetry: "Quellreferenzen und gespeicherte Ergebnisse werden geprüft …",
   retryCount: (count) =>
-    `${count} wiederholbare Einträge in dieser vollständigen Auswahl.`,
+    `${count === 1 ? "1 wiederholbarer Eintrag" : `${count} wiederholbare Einträge`} in dieser vollständigen Auswahl.`,
   confirmRetry: "Neue Wiederholung bestätigen",
   retrySource: (path) => `Quelle: ${path}`,
 };

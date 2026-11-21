@@ -192,7 +192,9 @@ test("existing SaveAs target is inspected freshly and only the latest explicit c
   await page.getByRole("button", { name: "Open in editor", exact: true }).click();
   await page.getByLabel("Save As path", { exact: true }).fill("/home/test/existing.txt");
   await page.getByRole("button", { name: "Save new copy", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("FILE_CONFLICT_CHANGED");
+  await expect(page.getByRole("alert")).toContainText(
+    "An entry already exists at this path.",
+  );
   expect(writes.length).toBe(1);
   await page
     .getByRole("button", { name: "Inspect existing target", exact: true })

@@ -17,6 +17,10 @@ export const fileEditorCopy = {
   resolveManually: "Continue manual resolution",
   replaceCurrent: "Replace at current revision",
   externalChanged: "The selected document changed on disk.",
+  saveAsExists:
+    "An entry already exists at this path. Inspect it to replace it, or choose another path.",
+  saveConflict:
+    "The file changed on disk after you opened it. Compare your draft with the disk version below.",
   reloadCurrent: "Reload disk version",
   lineEnding: "Line endings",
   mixed: "Mixed",

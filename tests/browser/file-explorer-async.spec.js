@@ -41,7 +41,8 @@ test("a settled listing cannot restore the previous path", async ({ page }) => {
 
   await expect(page.getByRole("textbox", { name: "Pfad" })).toHaveValue("/b");
   await expect(page).toHaveURL(/path=%2Fb$/);
-  expect(requested).toEqual(["/a", "/b"]);
+  // The directory tree reads "/" once, open down to the current folder.
+  expect(requested.filter((path) => path !== "/")).toEqual(["/a", "/b"]);
 });
 
 test("favorite removals serialize against the latest returned list", async ({ page }) => {
@@ -227,7 +228,10 @@ test("an obsolete link open cannot replace the current selection", async ({ page
   });
 
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest");
-  await page.getByRole("button", { name: "linked-docs", exact: true }).click();
+  await page
+    .locator(".explorer-entry")
+    .getByRole("button", { name: "linked-docs", exact: true })
+    .click();
   await openFileDetails(page);
   await page.getByRole("button", { name: "Verknüpfungsziel öffnen" }).click();
   await directoryStarted.promise;
@@ -237,7 +241,10 @@ test("an obsolete link open cannot replace the current selection", async ({ page
   await expect(page.locator(".file-preview pre")).toHaveText("Hello explorer");
 
   probeMode = "preview";
-  await page.getByRole("button", { name: "linked-docs", exact: true }).click();
+  await page
+    .locator(".explorer-entry")
+    .getByRole("button", { name: "linked-docs", exact: true })
+    .click();
   await openFileDetails(page);
   await page.getByRole("button", { name: "Verknüpfungsziel öffnen" }).click();
   await fallbackStarted.promise;
@@ -303,7 +310,8 @@ test("tree paging discards a completion from an obsolete hidden view", async ({
   });
 
   await page.goto(baseURL + "/files?path=%2Fhome%2Ftest");
-  await page.getByRole("button", { name: "/ aufklappen" }).click();
+  // The tree starts open down to /home/test.
+  await expect(page.getByRole("button", { name: "/ zuklappen" })).toBeVisible();
   await page.getByRole("button", { name: "Weitere Ordner laden" }).click();
   await expect.poll(() => queries.some((query) => query.page === "2")).toBe(true);
   await openExplorerDisclosure(page, ".explorer-view-disclosure");

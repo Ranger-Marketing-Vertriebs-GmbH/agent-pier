@@ -30,8 +30,7 @@ test("Trash shortcuts own only the visible Trash selection", async ({ page }) =>
   const hiddenFile = page.getByRole("checkbox", { name: "Select a.txt", exact: true });
   await page.getByRole("button", { name: "Trash", exact: true }).click();
   const trashItem = page.getByRole("checkbox", {
-    name: "Select report.txt",
-    exact: true,
+    name: /^Select \/home\/test\/report\.txt, deleted /,
   });
   await trashItem.focus();
   await page.keyboard.press("ControlOrMeta+a");
@@ -122,14 +121,15 @@ for (const language of ["en", "de"])
       0,
     );
 
-    const expand = page.getByRole("button", { name: labels.expand, exact: true });
-    await tabTo(page, expand);
+    // The tree starts open down to the current folder: the root collapses first.
+    const collapse = page.getByRole("button", { name: labels.collapse, exact: true });
+    await tabTo(page, collapse);
     await page.keyboard.press("Enter");
     await expect(
-      page.getByRole("button", { name: labels.collapse, exact: true }),
+      page.getByRole("button", { name: labels.expand, exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(expand).toBeFocused();
+    await expect(collapse).toBeFocused();
 
     const checkbox = page.getByRole("checkbox", { name: labels.select, exact: true });
     await tabTo(page, checkbox);
@@ -239,10 +239,10 @@ test("compact touch controls cover multiselect tree favorite menu and confirmati
     await expect(page.getByRole("menu")).toBeVisible();
     await page.getByRole("menuitem", { name: "Abbrechen", exact: true }).tap();
     await page.getByRole("button", { name: "Ordnerbaum öffnen" }).tap();
-    const expand = page.getByRole("button", { name: "/ aufklappen", exact: true });
-    await expand.tap();
-    await expect(page.getByRole("button", { name: "/ zuklappen" })).toBeVisible();
-    await page.getByRole("button", { name: "/ zuklappen" }).tap();
+    // The tree starts open down to the current folder.
+    await page.getByRole("button", { name: "/ zuklappen", exact: true }).tap();
+    await expect(page.getByRole("button", { name: "/ aufklappen" })).toBeVisible();
+    await page.getByRole("button", { name: "/ aufklappen" }).tap();
     const filesURL = page.url();
     await page.getByRole("button", { name: "Favorit Mobil entfernen" }).tap();
     await expect(

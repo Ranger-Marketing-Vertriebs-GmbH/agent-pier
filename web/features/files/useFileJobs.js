@@ -27,5 +27,6 @@ export default function useFileJobs(client) {
     loadOmissions: session.operations.omissions,
     retryPreview: session.operations.retryPreview,
     retryJob: session.operations.retry,
+    archiveHref: (id) => client.archiveDownload(id),
   };
 }

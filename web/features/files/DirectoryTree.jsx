@@ -1,10 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
+import { containsPath } from "./file-action-utils.js";
 import { explorerNavigationCopy as copy } from "../../lib/i18n/messages/explorer-navigation.js";
 
-function TreeNode({ client, node, hidden, onNavigate }) {
-  const [open, setOpen] = useState(false);
+function TreeNode({ client, node, hidden, current, onNavigate }) {
+  const onPath = containsPath(node.path, current);
+  const [open, setOpen] = useState(onPath);
+  // Navigating into a folder opens the tree down to it; it never closes a node.
+  useEffect(() => {
+    if (onPath) setOpen(true);
+  }, [onPath]);
   const [listing, setListing] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +90,11 @@ function TreeNode({ client, node, hidden, onNavigate }) {
         >
           <Icon name="chevron" />
         </button>
-        <button type="button" onClick={() => onNavigate(node.path)}>
+        <button
+          type="button"
+          aria-current={node.path === current ? "location" : undefined}
+          onClick={() => onNavigate(node.path)}
+        >
           <Icon name={node.type === "symlink" ? "link" : "folder"} />
           <span>{node.name}</span>
         </button>
@@ -101,6 +111,7 @@ function TreeNode({ client, node, hidden, onNavigate }) {
                   client={client}
                   node={entry}
                   hidden={hidden}
+                  current={current}
                   onNavigate={onNavigate}
                 />
               ))}
@@ -128,6 +139,7 @@ export default function DirectoryTree({
   hidden,
   favorites,
   projects,
+  current,
   onNavigate,
   onRemoveFavorite,
   onClose,
@@ -193,7 +205,13 @@ export default function DirectoryTree({
       <section>
         <h3>{copy.directoryTree}</h3>
         <ul className="tree-root">
-          <TreeNode client={client} node={root} hidden={hidden} onNavigate={onNavigate} />
+          <TreeNode
+            client={client}
+            node={root}
+            hidden={hidden}
+            current={current}
+            onNavigate={onNavigate}
+          />
         </ul>
       </section>
     </nav>

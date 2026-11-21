@@ -19,6 +19,10 @@ export const fileEditorCopy = {
   resolveManually: "Manuell weiter auflösen",
   replaceCurrent: "Mit aktueller Revision ersetzen",
   externalChanged: "Das ausgewählte Dokument wurde auf dem Datenträger geändert.",
+  saveAsExists:
+    "An diesem Pfad gibt es schon einen Eintrag. Prüfe ihn, um ihn zu ersetzen, oder wähle einen anderen Pfad.",
+  saveConflict:
+    "Die Datei wurde nach dem Öffnen auf dem Datenträger geändert. Vergleiche deinen Entwurf unten mit der Version auf dem Datenträger.",
   reloadCurrent: "Version vom Datenträger neu laden",
   lineEnding: "Zeilenenden",
   mixed: "Gemischt",

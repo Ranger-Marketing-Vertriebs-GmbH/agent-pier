@@ -10,6 +10,7 @@ import useFileListing from "./useFileListing.js";
 import useFilePreferences from "./useFilePreferences.js";
 import ExplorerToolbar from "./ExplorerToolbar.jsx";
 import ExplorerDirectoryTree from "./ExplorerDirectoryTree.jsx";
+import useFileDetails from "./useFileDetails.js";
 import ExplorerListing from "./ExplorerListing.jsx";
 import useFileJobs from "./useFileJobs.js";
 import FileProperties from "./FileProperties.jsx";
@@ -165,11 +166,6 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     // Canonicalize server-resolved inputs such as ~ without creating a history entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.listing?.path, path]);
-  const [entryResult, setEntry] = useState(null);
-  const [propertiesError, setPropertiesError] = useState(null);
-  const [propertiesLoading, setPropertiesLoading] = useState(false);
-  const [previewResult, setPreviewResult] = useState(null);
-  const [previewError, setPreviewError] = useState(null);
   const scopeId = context?.scopeId;
   const uploads = useFileUploads({
     client,
@@ -219,58 +215,26 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
     selectionOwner.current.file !== route.file
   )
     selectionOwner.current = { client, scopeId, file: route.file };
-  const entry = entryResult?.owner === selectionOwner.current ? entryResult.value : null;
-  const preview =
-    previewResult?.owner === selectionOwner.current ? previewResult.value : null;
-
-  useEffect(() => {
-    const owner = selectionOwner.current;
-    const controller = new AbortController();
-    const cancelLink = () => {
-      linkOperation.current.controller?.abort();
-      linkOperation.current = {
-        generation: linkOperation.current.generation + 1,
-        controller: null,
-      };
-    };
-    const stop = () => {
-      controller.abort();
-      cancelLink();
-    };
-    cancelLink();
-    setEntry(null);
-    setPreviewResult(null);
-    setPropertiesError(null);
-    setPreviewError(null);
-    setPropertiesLoading(false);
-    if (!scopeId || !route.file) return stop;
-    setPropertiesLoading(true);
-    client
-      .get("/metadata", { path: route.file }, controller.signal)
-      .then(async (result) => {
-        if (controller.signal.aborted) return;
-        setEntry({ owner, value: result });
-        if (result.type === "file") {
-          try {
-            const value = await client.get(
-              "/preview",
-              { path: route.file },
-              controller.signal,
-            );
-            if (!controller.signal.aborted) setPreviewResult({ owner, value });
-          } catch (issue) {
-            if (!controller.signal.aborted) setPreviewError(issue);
-          }
-        }
-      })
-      .catch((issue) => {
-        if (!controller.signal.aborted) setPropertiesError(issue);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setPropertiesLoading(false);
-      });
-    return stop;
-  }, [client, scopeId, route.file]);
+  // The selected file's metadata and preview, read again when its revision changes.
+  const fileRevision = listing.listing?.entries?.find(
+    (item) => item.path === route.file,
+  )?.revision;
+  const {
+    entry,
+    preview,
+    previewError,
+    propertiesError,
+    propertiesLoading,
+    setPreviewResult,
+    setPreviewError,
+  } = useFileDetails({
+    client,
+    scopeId,
+    file: route.file,
+    revision: fileRevision,
+    owner: selectionOwner.current,
+    linkOperation,
+  });
 
   const startSearch = async (options) => {
     const owner = { client };
@@ -402,6 +366,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
       hidden={hidden}
       preferences={preferences}
       projects={projects}
+      current={path}
       open={treeOpen ? setTreeOpen : null}
       navigate={goPath}
     />

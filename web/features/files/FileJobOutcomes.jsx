@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import { filesCopy as copy, fileErrorMessage } from "../../lib/i18n/messages/files.js";
+import { outcomePath } from "./file-action-utils.js";
 
 export default function FileJobOutcomes({ job, rows }) {
   const [limit, setLimit] = useState(200);
   const completed = (row) =>
     row.status === "completed" && (job.kind !== "move" || row.sourceRemoved === true);
+  const skipped = (row) => row.status === "skipped";
   const finished = rows.filter(completed),
-    unfinished = rows.filter((row) => !completed(row));
+    skippedRows = rows.filter(skipped),
+    unfinished = rows.filter((row) => !completed(row) && !skipped(row));
   return (
     <details className="file-job-outcomes" open>
       <summary>{copy.actions.results}</summary>
       {[
         [copy.actions.completedResults, finished],
+        [copy.actions.skippedResults, skippedRows],
         [copy.actions.unfinishedResults, unfinished],
       ].map(
         ([title, entries]) =>
@@ -23,10 +27,7 @@ export default function FileJobOutcomes({ job, rows }) {
               <ul tabIndex={0} aria-label={title}>
                 {entries.slice(0, limit).map((entry) => (
                   <li key={entry.id}>
-                    <span>
-                      {entry.source || entry.path} →{" "}
-                      {job.kind === "archive" ? entry.name || entry.path : entry.path}
-                    </span>
+                    <span>{outcomePath(job, entry)}</span>
                     {" · "}
                     <span
                       role={
