@@ -19,7 +19,11 @@ import {
   parseLoginOutput,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "../helpers/assistant-model-server.js";
 import {
   authorize,
   exchanged,
@@ -71,7 +75,7 @@ test(
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-oauth-version-"));
     const store = new AssistantStore({ dataDir });
     const tool = { name: "none", arguments: {} };
-    const model = await assistantModelServer({ tool });
+    const model = await assistantModelServer({ tool, discover: "echo" });
     const oauth = await oauthMcpServer();
     const held = await holdPort();
     let runtime;
@@ -196,9 +200,10 @@ test(
       );
       assert.equal(done.status, "ok", label);
       const requests = model.requests.slice(from);
-      const offered = (requests[0]?.tools ?? [])
-        .map((d) => d.function.name)
-        .filter((n) => n.includes("__"));
+      const offered = [
+        ...offeredToolNames(requests[0]),
+        ...discoveredToolNames(requests),
+      ].filter((n) => n.includes("__"));
       const result = requests
         .flatMap((r) => r.messages || [])
         .filter((m) => m.role === "tool")

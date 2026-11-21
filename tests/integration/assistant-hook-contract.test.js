@@ -26,6 +26,7 @@ import {
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
 import { cronJobs } from "../helpers/native-cron-jobs.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 // AGENTPIER-216 against the pinned Gateway: an incoming hook event wakes its agent.
 // AgentHooks.deliver creates one disabled cron job per event and forces its run in
@@ -38,7 +39,7 @@ const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 const long = { timeoutMs: 60000 };
 const marker = "HOOK_NATIVE_CONTRACT";
 const json = (value) => JSON.stringify(value);
-const offered = (request) => request.tools?.map((tool) => tool.function.name) ?? [];
+const offered = (request) => grantedToolNames(request);
 const content = (m) =>
   typeof m?.content === "string"
     ? m.content

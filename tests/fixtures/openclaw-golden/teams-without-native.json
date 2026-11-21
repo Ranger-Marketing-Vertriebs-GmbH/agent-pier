@@ -71,7 +71,9 @@
       "agentpier_team_peer_delegate",
       "agentpier_team_report"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

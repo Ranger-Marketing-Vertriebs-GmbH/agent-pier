@@ -10,6 +10,7 @@ import {
   transcript,
 } from "../helpers/assistant-telegram-senders-gateway.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 // Qualifies OpenClaw 2026.9.8 for agents' own Telegram bots on AgentPier's compiled
 // path (openclaw-config/telegram-senders.js): per-account bindings, allowlists,
@@ -170,7 +171,7 @@ test("agents' own bots on the compiled path", options, async (t) => {
   await h.until(() => h.requests("[tool:session_status]").length, "session tool turn");
   await delay(2000);
   const sessionTurn = h.requests("[tool:session_status]");
-  const offeredToSender = sessionTurn[0].tools.map((d) => d.function.name);
+  const offeredToSender = grantedToolNames(sessionTurn[0]);
   t.diagnostic(`sender tools=${JSON.stringify(offeredToSender)}`);
   assert.equal(offeredToSender.includes("session_status"), false);
   assert.equal(
@@ -195,7 +196,7 @@ test("agents' own bots on the compiled path", options, async (t) => {
   const turn = await h.ownerTurn(owner, "o1");
   assert.equal(turn.status, "ok");
   assert.ok(turn.requests.length >= 1);
-  assert.ok(turn.requests[0].tools.some((d) => d.function.name === "session_status"));
+  assert.ok(grantedToolNames(turn.requests[0]).includes("session_status"));
   const team = await h.ownerTurn(owner, "o2", "[tool:agentpier_team_propose]");
   t.diagnostic(`team tools=${JSON.stringify(team.tools)}`);
   assert.equal(team.status, "ok");

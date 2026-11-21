@@ -37,7 +37,9 @@
     "allow": [
       "session_status"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

@@ -1,4 +1,5 @@
 import http from "node:http";
+import { offeredToolNames } from "./assistant-model-server.js";
 
 // Exercise the native tool loop, not a model's ability to choose or recall facts.
 export async function assistantMemoryModel() {
@@ -13,7 +14,7 @@ export async function assistantMemoryModel() {
     const input = JSON.parse(bytes);
     requests.push(input);
     const useTool =
-      input.tools?.some((tool) => tool.function?.name === "memory_search") &&
+      offeredToolNames(input).includes("memory_search") &&
       input.messages.findLastIndex((m) => m.role === "user") >
         input.messages.findLastIndex((m) => m.role === "tool");
     res.writeHead(200, { "content-type": "text/event-stream" });

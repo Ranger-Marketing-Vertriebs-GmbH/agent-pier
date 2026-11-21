@@ -35,7 +35,7 @@ const existing = () => ({
       },
     },
   },
-  tools: { codeMode: true },
+  tools: { codeMode: true, toolSearch: false },
 });
 const compile = (withTeams) =>
   compileOpenClawConfig({
@@ -53,7 +53,7 @@ for (const [label, withTeams] of [
   test(`${label} compiles Code Mode off and drops every agent or model override`, () => {
     const config = compile(withTeams);
     assert.equal(config.tools.codeMode, false);
-    assert.equal(config.tools.toolSearch, false);
+    assert.deepEqual(config.tools.toolSearch, { mode: "directory" });
     // Other model settings stay; only the activation goes.
     assert.deepEqual(config.agents.defaults.models, { [ref]: { alias: "astra" } });
     for (const [id, entry] of Object.entries(config.agents.entries)) {

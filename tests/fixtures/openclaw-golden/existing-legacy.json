@@ -184,7 +184,9 @@
       "web_fetch",
       "view_image"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

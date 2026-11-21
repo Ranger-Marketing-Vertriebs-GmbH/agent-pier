@@ -809,7 +809,10 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   earlier segments, so tool calls and the guard keep finding the chat AgentPier keys by
   an older id. Hermes's Tool Search would put plugin tools behind its
   `tool_search` bridge (`tools/tool_search.py`); an agent with team tools gets
-  `tools.tool_search.enabled: off`, so they are offered directly, as on OpenClaw.
+  `tools.tool_search.enabled: off`, so they are offered directly. OpenClaw agents
+  differ here: their Gateway runs OpenClaw's tool search in directory mode, which
+  lists the team tools by name in the system prompt instead of sending their schemas
+  ([OpenClaw tool search](assistant-gateway.md#openclaw-tool-search)).
 - **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name

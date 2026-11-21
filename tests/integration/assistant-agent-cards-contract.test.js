@@ -14,9 +14,11 @@ import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { AgentCards } from "../../server/features/assistants/agent-cards.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { deferredToolNames } from "../helpers/assistant-model-server.js";
 
-// Agent cards on the pinned Gateway (AGENTPIER_TEAM_CONTRACT_RUNTIME): OpenClaw offers
-// the installed plugin's agentpier_card with its schema, the model's call reaches
+// Agent cards on the pinned Gateway (AGENTPIER_TEAM_CONTRACT_RUNTIME): OpenClaw lists
+// the installed plugin's agentpier_card in its tool search directory and describes its
+// schema on request (tool_describe), the model's call by name reaches
 // AgentCards through the attempt-bound bridge, and the card lands in the turn's chat.
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
 const card = {
@@ -69,15 +71,21 @@ test(
       for await (const part of req) raw += part;
       const body = JSON.parse(raw);
       requests.push(body);
-      const tool = !body.messages.some((m) => m.role === "tool");
+      // First the card's schema, then the card itself, then the reply.
+      const step = body.messages.filter((m) => m.role === "tool").length;
+      const call = [
+        { name: "tool_describe", arguments: { id: "agentpier_card" } },
+        { name: "agentpier_card", arguments: card },
+      ][step];
+      const tool = !!call;
       const delta = tool
         ? {
             tool_calls: [
               {
                 index: 0,
-                id: "card-call",
+                id: `card-call-${step}`,
                 type: "function",
-                function: { name: "agentpier_card", arguments: JSON.stringify(card) },
+                function: { name: call.name, arguments: JSON.stringify(call.arguments) },
               },
             ],
           }
@@ -184,13 +192,15 @@ test(
       { timeoutMs: 65000 },
     );
     assert.equal(done.status, "ok");
-    const offered = requests[0].tools.find((t) => t.function.name === "agentpier_card");
-    assert.ok(offered, "OpenClaw offers agentpier_card");
-    assert.deepEqual(offered.function.parameters.properties.action.enum, [
-      "create",
-      "update",
-      "read",
-    ]);
+    assert.ok(deferredToolNames(requests[0]).includes("agentpier_card"), "listed");
+    const described = String(
+      requests.flatMap((r) => r.messages).find((m) => m.role === "tool").content,
+    );
+    t.diagnostic(`described=${described.slice(0, 1500)}`);
+    assert.match(
+      described.replaceAll("\\", ""),
+      /"enum":\s*\[\s*"create",\s*"update",\s*"read"\s*\]/,
+    );
     assert.ok(done.terminalReceipt.successfulToolNames.includes("agentpier_card"));
     const [stored] = assistants.cards.store.forConversation(chat.id);
     assert.equal(stored.title, "Infrastructure status");

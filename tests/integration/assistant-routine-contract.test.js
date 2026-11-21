@@ -26,12 +26,13 @@ import {
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
 import { cronJobs } from "../helpers/native-cron-jobs.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 const long = { timeoutMs: 60000 };
 const text = (request) => JSON.stringify(request.messages);
 const isRoutine = (request) => text(request).includes("ROUTINE_NATIVE_CONTRACT");
-const offered = (request) => request.tools?.map((tool) => tool.function.name) ?? [];
+const offered = (request) => grantedToolNames(request);
 const toolResults = (request) =>
   JSON.stringify(request.messages.filter((m) => m.role === "tool"));
 

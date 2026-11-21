@@ -9,6 +9,7 @@ import { createGatewaySession } from "../../server/features/assistants/runtimes/
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { projectDefinition } from "../../server/features/assistants/team-plugin/project-tool.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 // agentpier_project (AGENTPIER-273) against the pinned Gateway: AgentPier compiles the
 // tool for an own agent and never for a user agent, the Gateway offers it with its
@@ -39,7 +40,11 @@ test(
       tool: (input) => {
         const text = JSON.stringify(input.messages);
         const label = [...calls.keys()].find((l) => text.includes(`[cmd:${l}]`));
-        return label ? { name: tool, arguments: calls.get(label) } : null;
+        if (!label) return null;
+        // Tool search defers the tool's schema: tool_describe returns it whole.
+        return label === "describe"
+          ? { name: "tool_describe", arguments: { id: tool } }
+          : { name: tool, arguments: calls.get(label) };
       },
     });
     const { store, workflows, runtime, config } = h;
@@ -100,13 +105,14 @@ test(
       path: folder,
       coding: false,
     });
-    // The Gateway offers the tool with its whole description.
-    const offered = h.model.requests
-      .find((r) => JSON.stringify(r.messages).includes("[cmd:create]"))
-      ?.tools?.find((d) => d.function.name === tool);
-    assert.equal(
-      offered?.function.description,
-      projectDefinition.project.description,
+    // The Gateway describes the tool with its whole description.
+    calls.set("describe", {});
+    const described = (await h.settle(await h.send(owner, "describe", "unused"))).result;
+    t.diagnostic(`described=${described?.slice(0, 400)}`);
+    assert.ok(
+      described?.includes(
+        JSON.stringify(projectDefinition.project.description).slice(1, -1),
+      ),
       "description intact",
     );
     // The folder in the default folder, a Git repository, registered and granted.
@@ -170,7 +176,7 @@ test(
       if (!routine) await delay(200);
     }
     assert.ok(routine, "the routine run reached the model");
-    const routineOffered = routine.tools?.map((d) => d.function.name) ?? [];
+    const routineOffered = grantedToolNames(routine);
     t.diagnostic(`routine tools=${JSON.stringify(routineOffered)}`);
     assert.ok(!routineOffered.includes(tool), "a routine is never offered the tool");
   },

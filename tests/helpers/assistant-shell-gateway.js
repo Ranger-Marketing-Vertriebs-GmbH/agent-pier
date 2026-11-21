@@ -8,7 +8,7 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "./process-guard.j
 import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
-import { assistantModelServer } from "./assistant-model-server.js";
+import { assistantModelServer, grantedToolNames } from "./assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Shared fixture for the shell contract: an isolated Gateway on the deterministic
@@ -124,7 +124,7 @@ export async function shellGateway(t, installed, { prefix, environment, setup } 
       assert.equal(done.status, "ok");
       const requests = model.requests.slice(run.from);
       return {
-        offered: requests[0]?.tools?.map((d) => d.function.name) ?? [],
+        offered: grantedToolNames(requests[0]),
         result: requests
           .flatMap((r) => r.messages || [])
           .filter((m) => m.role === "tool")

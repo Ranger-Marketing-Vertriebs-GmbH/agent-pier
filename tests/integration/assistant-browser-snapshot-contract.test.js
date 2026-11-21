@@ -6,7 +6,10 @@ import path from "node:path";
 import { startBrowser } from "../helpers/browser-start.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  deferredToolNames,
+} from "../helpers/assistant-model-server.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
@@ -23,7 +26,10 @@ import { createGatewaySession } from "../../server/features/assistants/runtimes/
 // cell returns only its `details`, and the browser's snapshot puts the page into its
 // text content: an agent saw the snapshot's statistics but never the page. With Code
 // Mode compiled off, such a model is offered the browser itself, and its snapshot
-// result carries the page text. Provisioned like the web tools contracts.
+// result carries the page text. Tool search (directory mode) defers the browser's
+// schema: the model calls it by the name its directory lists, or through
+// dispatch_action, and both return the page text. Provisioned like the web tools
+// contracts.
 const installed = process.env.AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME;
 const contractDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 const options = {
@@ -225,19 +231,34 @@ test(
         .map((m) => String(m.content))
         .at(-1);
       t.diagnostic(`${name} result=${JSON.stringify(result?.slice(0, 400))}`);
-      return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
+      return {
+        schemas: requests[0]?.tools?.map((d) => d.function.name) ?? [],
+        deferred: deferredToolNames(requests[0]),
+        result,
+      };
     }
 
     try {
       // A cold start's whole budget, started once more after a failed launch
       // (helpers/browser-start.js).
-      const { offered, result: started } = await startBrowser((name, args, wait) =>
+      const {
+        schemas,
+        deferred,
+        result: started,
+      } = await startBrowser((name, args, wait) =>
         turn({ name: "browser", arguments: args }, `snapshot-${name}`, wait),
       );
-      t.diagnostic(`offered=${JSON.stringify(offered)}`);
-      // Code Mode would offer only its `exec` cell and `wait`.
-      assert.ok(offered.includes("browser"), JSON.stringify(offered));
-      assert.ok(!offered.includes("exec") && !offered.includes("wait"));
+      t.diagnostic(
+        `schemas=${JSON.stringify(schemas)} deferred=${JSON.stringify(deferred)}`,
+      );
+      // Code Mode would offer only its `exec` cell and `wait`; tool search lists the
+      // browser in its directory beside its own controls.
+      assert.ok(deferred.includes("browser"), JSON.stringify(deferred));
+      assert.ok(!schemas.includes("browser"), JSON.stringify(schemas));
+      for (const control of ["tool_search", "tool_describe", "dispatch_action"])
+        assert.ok(schemas.includes(control), JSON.stringify(schemas));
+      for (const name of ["exec", "wait"])
+        assert.ok(!schemas.includes(name) && !deferred.includes(name), name);
       const { result: status } = await turn(
         { name: "browser", arguments: { action: "status" } },
         "snapshot-status",
@@ -251,6 +272,18 @@ test(
       // The page structure itself, not only the snapshot's statistics.
       assert.match(snapshot, new RegExp(`button "${label}"`));
       assert.match(snapshot, new RegExp(text));
+      // The same snapshot through tool search's own call carries the page text too.
+      const { result: dispatched } = await turn(
+        {
+          name: "dispatch_action",
+          arguments: { id: "browser", args: { action: "snapshot", targetId: page.id } },
+        },
+        "snapshot-dispatch",
+      );
+      // Its result is the {tool, result} envelope, the snapshot text quoted as JSON.
+      assert.match(dispatched, /"name":"browser"/);
+      assert.match(dispatched, new RegExp(`button \\\\*"${label}`));
+      assert.match(dispatched, new RegExp(text));
     } finally {
       await browsers.stop(own);
     }

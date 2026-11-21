@@ -13,7 +13,7 @@ import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { assistantModelServer } from "./assistant-model-server.js";
+import { assistantModelServer, grantedToolNames } from "./assistant-model-server.js";
 import { listTree, ownerAccount } from "./assistant-shell-gateway.js";
 
 const fixtureModel = { connectionId: "fixture", modelId: "fixture-model" };
@@ -187,7 +187,7 @@ export async function compiledShell(t, installed, { prefix, tool: custom }) {
       );
       return {
         status: done.status,
-        offered: requests[0]?.tools?.map((d) => d.function.name) ?? [],
+        offered: grantedToolNames(requests[0]),
         result: requests
           .flatMap((r) => r.messages || [])
           .filter((m) => m.role === "tool")

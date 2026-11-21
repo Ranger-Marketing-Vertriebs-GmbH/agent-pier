@@ -1,4 +1,5 @@
 import http from "node:http";
+import { offeredToolNames } from "./assistant-model-server.js";
 
 // A model server that answers like an Azure OpenAI v1 resource with a reasoning
 // deployment (AGENTPIER-425): Chat Completions refuses function tools unless
@@ -24,7 +25,7 @@ const toolTurn = (items, isUser, isResult) =>
 
 function chatCompletions(res, input, name) {
   const useTool =
-    input.tools?.some((tool) => tool.function?.name === name) &&
+    offeredToolNames(input).includes(name) &&
     toolTurn(
       input.messages,
       (m) => m.role === "user",
@@ -58,7 +59,7 @@ function chatCompletions(res, input, name) {
 function responses(res, input, name) {
   const items = Array.isArray(input.input) ? input.input : [];
   const useTool =
-    input.tools?.some((tool) => tool.name === name) &&
+    offeredToolNames(input).includes(name) &&
     toolTurn(
       items,
       (item) => item.role === "user",

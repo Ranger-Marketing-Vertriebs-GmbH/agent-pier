@@ -11,7 +11,11 @@ import { selectedAssistantRuntime } from "../../server/features/assistants/runti
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { mcpServerConfig } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "../helpers/assistant-model-server.js";
 import { agentPierMcpLogin } from "../helpers/agentpier-mcp-login.js";
 import { leakedFiles } from "../helpers/mcp-test-servers.js";
 
@@ -37,7 +41,7 @@ for (const transport of ["http", "sse"])
       const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-proxy-"));
       const store = new AssistantStore({ dataDir });
       const tool = { name: "none", arguments: {} };
-      const model = await assistantModelServer({ tool });
+      const model = await assistantModelServer({ tool, discover: "echo" });
       const fixture = { connectionId: "fixture", modelId: "fixture-model" };
       const agent = store.createAssistant({
         name: "Bound",
@@ -142,7 +146,10 @@ for (const transport of ["http", "sse"])
         );
         assert.equal(done.status, "ok", label);
         const requests = model.requests.slice(from);
-        const offered = (requests[0]?.tools ?? []).map((d) => d.function.name);
+        const offered = [
+          ...offeredToolNames(requests[0]),
+          ...discoveredToolNames(requests),
+        ];
         const result = requests
           .flatMap((r) => r.messages || [])
           .filter((m) => m.role === "tool")

@@ -285,7 +285,9 @@
       "exec",
       "process"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

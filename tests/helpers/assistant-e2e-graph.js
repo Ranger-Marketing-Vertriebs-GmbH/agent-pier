@@ -22,6 +22,7 @@ import { fixtureProjectScope } from "./fixture-project-scope.js";
 import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.js";
 import { lastUserIndex } from "./openclaw-model-input.js";
+import { grantedToolNames } from "./assistant-model-server.js";
 
 /**
  * The production assistant graph (server/application/assistant-graph.js, constructed
@@ -212,7 +213,7 @@ export function turnOf(request) {
       .slice(last + 1)
       .filter((m) => m.role === "tool")
       .map((m) => text(m.content)),
-    tools: (request.tools || []).map((tool) => tool.function?.name),
+    tools: grantedToolNames(request),
   };
 }
 

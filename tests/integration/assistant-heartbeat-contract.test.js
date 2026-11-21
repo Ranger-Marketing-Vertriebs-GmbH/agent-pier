@@ -19,6 +19,7 @@ import {
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
 import { cronJobs } from "../helpers/native-cron-jobs.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
 const long = { timeoutMs: 60000 };
@@ -252,7 +253,7 @@ test(
       ]),
     );
     assert.deepEqual(
-      runRequest.tools.map((tool) => tool.function.name).sort(),
+      grantedToolNames(runRequest).sort(),
       ["memory_get", "memory_search"],
       "memory is reachable, read-only",
     );

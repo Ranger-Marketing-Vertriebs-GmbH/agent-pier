@@ -83,7 +83,7 @@ test("without an agent with shell only the global deny floor is added", () => {
   const plain = compileOpenClawConfig({ paths, port: 1, token: "t" });
   assert.deepEqual(plain.tools, {
     allow: ["session_status"],
-    toolSearch: false,
+    toolSearch: { mode: "directory" },
     codeMode: false,
     exec: { mode: "deny" },
     sessions: { visibility: "agent" },

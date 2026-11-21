@@ -19,6 +19,7 @@ import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { fixtureModels } from "../helpers/assistant-proactivity-model.js";
 import { lastUserIndex } from "../helpers/openclaw-model-input.js";
+import { offeredToolNames, grantedToolNames } from "../helpers/assistant-model-server.js";
 
 // Opt-in: a disposable pinned OpenClaw whose image provider is a local fake of the
 // OpenAI Images API (OpenClaw's own QA switch admits a loopback endpoint), so no
@@ -78,7 +79,7 @@ async function fakes(png) {
     const called = input.messages
       .slice(last + 1)
       .some((m) => m.role === "assistant" && m.tool_calls);
-    const tools = (input.tools || []).map((t) => t.function?.name);
+    const tools = offeredToolNames(input);
     const call =
       asked && !called && tools.includes("image_generate")
         ? {
@@ -252,7 +253,7 @@ test(
       { runId: sent.runId, timeoutMs: 60000 },
       { timeoutMs: 65000 },
     );
-    const offered = model.requests[0].tools.map((tool) => tool.function.name);
+    const offered = grantedToolNames(model.requests[0]);
     t.diagnostic(`agent tools=${JSON.stringify(offered)}`);
     assert.ok(offered.includes("image_generate"));
     // The tool guard audited the call: one generation, without the prompt.

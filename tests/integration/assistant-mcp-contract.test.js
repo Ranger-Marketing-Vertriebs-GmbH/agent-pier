@@ -13,7 +13,11 @@ import { selectedAssistantRuntime } from "../../server/features/assistants/runti
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { gatewayPath } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "../helpers/assistant-model-server.js";
 import {
   endStdioServers,
   httpMcpServer,
@@ -61,7 +65,7 @@ async function harness(t, { team }) {
   const store = new AssistantStore({ dataDir });
   const ledger = new RequestLedger(store.db);
   const tool = { name: "session_status", arguments: {} };
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, discover: "echo" });
   const fixture = { connectionId: "fixture", modelId: "fixture-model" };
   const create = (name) =>
     store.createAssistant({ name, instructions: "Use the tool.", model: fixture });
@@ -175,7 +179,7 @@ async function harness(t, { team }) {
       .filter((m) => m.role === "tool")
       .map((m) => String(m.content))
       .at(-1);
-    const offered = (requests[0]?.tools ?? []).map((d) => d.function.name);
+    const offered = [...offeredToolNames(requests[0]), ...discoveredToolNames(requests)];
     t.diagnostic(`${label} offered=${JSON.stringify(offered)} result=${result}`);
     return { offered, result };
   }
