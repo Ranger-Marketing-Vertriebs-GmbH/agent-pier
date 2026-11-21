@@ -33,6 +33,8 @@ export const notificationCopy = {
   sent: "Testbenachrichtigung versendet.",
   testFailed: "Die Testbenachrichtigung konnte nicht versendet werden.",
   permissionRequired: "Die Browser-Berechtigung wurde nicht erteilt.",
+  subscribeFailed:
+    "Der Browser hat dieses Gerät nicht für Benachrichtigungen angemeldet. Prüfe die Website-Berechtigung in den Browsereinstellungen oder versuche es später erneut.",
   storageFailed:
     "Die Gerätekennung konnte nicht gespeichert werden. Erlaube lokalen Website-Speicher und versuche es erneut.",
   unsubscribeFailed:

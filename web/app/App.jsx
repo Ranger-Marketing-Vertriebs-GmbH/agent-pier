@@ -354,6 +354,7 @@ function Application() {
                     onNavigate={navigate}
                     sessions={state.sessions}
                     tools={state.tools}
+                    remoteUrl={state.remoteUrl}
                     openNavigation={openNavigation}
                     navigationOpen={mobileNav}
                   />

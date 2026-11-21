@@ -15,7 +15,7 @@ import useNarrowViewport from "../accounts/useNarrowViewport.js";
 import ArtifactDetail from "./ArtifactDetail.jsx";
 import ArtifactEmpty from "./ArtifactEmpty.jsx";
 import ArtifactRows from "./ArtifactRows.jsx";
-import { storageWarning } from "./artifact-presentation.js";
+import { showsUsage, storageWarning } from "./artifact-presentation.js";
 import { formatBytes } from "../../lib/format-bytes.js";
 import { artifactSearchTerm, artifactsRoute } from "./routes.js";
 import useArtifacts from "./useArtifacts.js";
@@ -117,6 +117,7 @@ export default function ArtifactsPage({
   tools,
   openNavigation,
   navigationOpen = false,
+  remoteUrl = null,
 }) {
   const projects = useProjects();
   const narrow = useNarrowViewport();
@@ -193,7 +194,7 @@ export default function ArtifactsPage({
   const usage = list.usage;
   const warn = storageWarning(usage);
   const usageText =
-    usage &&
+    showsUsage(usage) &&
     copy.storage(
       formatBytes(usage.usedBytes, locale),
       formatBytes(usage.limitBytes, locale),
@@ -347,6 +348,7 @@ export default function ArtifactsPage({
               key={item.id}
               item={item}
               lists={lists}
+              remoteUrl={remoteUrl}
               heading={!subpage}
               returnTo={routePath({ ...route, artifact: item.id })}
               navigate={onNavigate}

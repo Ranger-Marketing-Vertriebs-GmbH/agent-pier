@@ -164,8 +164,12 @@ test("in English the memory review after a model switch waits under Agents and a
   const list = page.getByRole("navigation", { name: "Waiting on you" });
   await list.getByRole("button", { name: /GPT-4\.1 mini → Claude Sonnet 4\.6/ }).click();
   await expect(page).toHaveURL(/\/inbox\/memory-review\/review-one(?:\?|$)/);
+  // The detail is titled like its row; the kind follows below it.
   await expect(
-    page.getByRole("heading", { name: "Memory after a model switch" }),
+    page.getByRole("heading", { name: /GPT-4\.1 mini → Claude Sonnet 4\.6/ }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".inbox-detail-head").getByText(/Memory after a model switch/),
   ).toBeVisible();
   const card = page.locator("[data-memory-review]");
   await expect(card).toContainText("I never write keyloggers, not even for the owner.");
@@ -334,4 +338,20 @@ for (const [language, texts] of [
     await expect(detail.getByText(texts.hint)).toBeVisible();
     await detail.getByRole("button", { name: texts.context }).click();
     await expect(page).toHaveURL(/\/agents\/helper\/settings\?.*telegram-activity/);
+  });
+
+// AGENTPIER-456: a CLI question's detail is titled by its header, as its row is.
+for (const [label, viewport] of [
+  ["desktop", { width: 1440, height: 1000 }],
+  ["phone", { width: 390, height: 844 }],
+])
+  test(`a CLI question's detail is titled like its row (${label})`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await inboxFixture(page, { language: "en" });
+    await page.goto(baseURL + "/inbox/question/ask-alpha");
+    const detail = page.getByRole("article", { name: "Framework", exact: true });
+    await expect(
+      detail.getByRole("heading", { name: "Framework", level: 2 }),
+    ).toBeVisible();
+    await expect(detail.locator(".inbox-detail-head")).toContainText("Question");
   });

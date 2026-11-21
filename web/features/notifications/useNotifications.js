@@ -9,6 +9,7 @@ import { currentDevice, isLegacyLabel } from "./device-labels.js";
 import { deviceIdentity } from "./device-identity.js";
 import { applicationKey, rememberPushDevice } from "./push-reconcile.js";
 import { pushPerson } from "./usePushHealth.js";
+import { subscribePush } from "./push-subscribe.js";
 // The device's IANA time zone: quiet hours count in the device's own time.
 function timeZone() {
   try {
@@ -81,10 +82,14 @@ export default function useNotifications(base = "/notifications") {
       const registration = await getWorkerRegistration({ create: true });
       let current = await registration.pushManager.getSubscription();
       if (!current)
-        current = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: applicationKey(resource.data.publicKey),
-        });
+        current = await subscribePush(
+          registration.pushManager,
+          {
+            userVisibleOnly: true,
+            applicationServerKey: applicationKey(resource.data.publicKey),
+          },
+          copy,
+        );
       subscriptionGeneration.current++;
       setSubscription(current);
       const result = await api(`${base}/subscriptions`, "POST", {

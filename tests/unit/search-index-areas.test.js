@@ -224,3 +224,26 @@ test("a token with two swapped letters still finds its entry", () => {
   // Short tokens never match that way.
   assert.deepEqual(results("ssh x"), []);
 });
+
+test("Files › Trash, Upload and the notification settings are found (AGENTPIER-456)", () => {
+  for (const [query, path, id] of [
+    ["Trash", "/files?panel=trash", "page:files-trash"],
+    ["Papierkorb", "/files?panel=trash", "page:files-trash"],
+    ["Upload", "/files", "action:files-upload"],
+    ["Hochladen", "/files", "action:files-upload"],
+    ["Quiet hours", "/settings/notifications", "page:settings-app-quietHours"],
+    ["Ruhezeiten", "/settings/notifications", "page:settings-app-quietHours"],
+    ["Detail level", "/settings/notifications", "page:settings-app-levelGroup"],
+    ["Detailstufe", "/settings/notifications", "page:settings-app-levelGroup"],
+    ["Test notification", "/settings/notifications", "action:notification-test"],
+    ["Testbenachrichtigung", "/settings/notifications", "action:notification-test"],
+    ["Install app", "/settings/notifications", "action:install-app"],
+    ["App installieren", "/settings/notifications", "action:install-app"],
+  ]) {
+    const item = results(query).find((entry) => entry.id === id);
+    assert.ok(item, `${query} finds ${id}`);
+    assert.equal(pathOf(item), path, query);
+  }
+  const upload = index.find((entry) => entry.id === "action:files-upload");
+  assert.equal(upload.target.pending, "files-upload");
+});

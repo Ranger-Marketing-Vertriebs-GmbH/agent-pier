@@ -1,7 +1,8 @@
 // ⌘K entries for the tabs and groups inside the areas (AGENTPIER-418): the project
 // tabs, Artifacts › Pinned, the groups of Agents › Runtime › Advanced, Settings ›
-// Remote access and App & notifications, Pipelines, Craft Anything, the start page's
-// System status and the CLI accounts; and the actions that go with them.
+// Remote access and App & notifications, Files › Trash, Pipelines, Craft Anything, the
+// start page's System status and the CLI accounts; and the actions that go with them
+// (among them Upload, Send test notification and Install app).
 import { agentGroupsCopy } from "../lib/i18n/messages/agent-groups.js";
 import { agentSkillCatalogCopy } from "../lib/i18n/messages/agent-skill-catalog.js";
 import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
@@ -13,6 +14,8 @@ import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { craftCopy } from "../lib/i18n/messages/craft.js";
+import { explorerLayoutCopy } from "../lib/i18n/messages/explorer-layout.js";
+import { filesCopy } from "../lib/i18n/messages/files.js";
 import { loginCopy } from "../lib/i18n/messages/login.js";
 import { mailCopy } from "../lib/i18n/messages/mail.js";
 import { notificationCopy } from "../lib/i18n/messages/notifications.js";
@@ -131,10 +134,26 @@ export function areaPageEntries() {
     pageEntry("settings-remote-previews", () => previewCopy.title, remote, {
       route: settingsRoute("remote"),
     }),
-    ...["installTitle", "pushTitle", "devices"].map((group) =>
+    ...[
+      "installTitle",
+      "pushTitle",
+      "devices",
+      "levelGroup",
+      "behaviourGroup",
+      "quietHours",
+    ].map((group) =>
       pageEntry(`settings-app-${group}`, () => notificationCopy[group], app, {
         route: settingsRoute("notifications"),
       }),
+    ),
+    // Files › Trash: the explorer's second view (?panel=trash).
+    pageEntry(
+      "files-trash",
+      () => filesCopy.actions.trashTitle,
+      [bilingual(text.files)],
+      {
+        route: { view: "files", filePanel: "trash" },
+      },
     ),
     pageEntry(
       "pipelines-risk-rules",
@@ -176,8 +195,8 @@ export function areaPageEntries() {
 
 /**
  * The actions: Add email account, New view (offered while the sidebar's Views group
- * shows), Install skill, Update CLI, Chrome for Testing and Sign out (offered while
- * someone is signed in). `action` is search-entries.js' action builder.
+ * shows), Install skill, Update CLI, Chrome for Testing, Upload (Files), Send test
+ * notification, Install app and Sign out (offered while someone is signed in). `action` is search-entries.js' action builder.
  */
 export function areaActionEntries(action) {
   const clis = bilingual(text.clis);
@@ -235,6 +254,29 @@ export function areaActionEntries(action) {
       install,
       { route: codingRoute("install") },
       { suggested: false },
+    ),
+    // Files › Upload opens the explorer's upload panel (ExplorerWorkspace takes it).
+    action(
+      "files-upload",
+      () => explorerLayoutCopy.upload,
+      bilingual(text.files),
+      { route: { view: "files" }, pending: "files-upload" },
+      { suggested: false },
+    ),
+    ...[
+      ["notification-test", () => notificationCopy.test],
+      ["install-app", () => notificationCopy.install],
+    ].map(([id, label]) =>
+      action(
+        id,
+        label,
+        join(
+          bilingual(text.settings),
+          bilingual(() => operationsCopy.groups.app),
+        ),
+        { route: settingsRoute("notifications") },
+        { suggested: false },
+      ),
     ),
     action(
       "sign-out",

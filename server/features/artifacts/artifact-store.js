@@ -77,7 +77,8 @@ export class ArtifactStore {
       }
     }
     usedBytes += (await fs.stat(this.file).catch(() => ({ size: 0 }))).size;
-    return { usedBytes, pendingCleanupBytes };
+    // `artifacts`: the live ones; with none left the page shows no usage line.
+    return { usedBytes, pendingCleanupBytes, artifacts: live.size };
   }
   async cleanup(onError) {
     const directory = await fs.open(this.root, "r");

@@ -7,7 +7,7 @@ import {
   itemContext,
   itemIcon,
   itemTime,
-  kindLabel,
+  itemTitle,
 } from "./inbox-presentation.js";
 import {
   InboxActionDetail,
@@ -45,13 +45,14 @@ export default function InboxDetail({ type, id, item, navigate, reload }) {
     navigate(readRoute(url));
   };
   return (
-    <article className="inbox-detail" aria-label={kindLabel(item)}>
+    // Titled like its row: a CLI question by its header, the kind in the line below.
+    <article className="inbox-detail" aria-label={itemTitle(item)}>
       <header className="inbox-detail-head">
         <span className={`inbox-row-icon ${item.type}`} aria-hidden="true">
           <Icon name={itemIcon(item)} size={18} />
         </span>
         <div>
-          <h2>{kindLabel(item)}</h2>
+          <h2>{itemTitle(item)}</h2>
           <p>{itemContext(item)}</p>
           {agent && <p className="inbox-detail-agent">{agent}</p>}
           <small className={`inbox-row-time${time.urgent ? " urgent" : ""}`}>

@@ -18,7 +18,11 @@ export const artifacts = {
   ARTIFACT_INVALID_SOURCE:
     "Choose an HTML file, image or output folder inside the session workspace. Links and special files cannot be published.",
   ARTIFACT_LIMIT_EXCEEDED:
-    "Artifact storage or publication limits have been reached. Delete unused artifacts or make the files smaller.",
+    "Artifact storage (1 GiB) is full. Delete unused artifacts to make room.",
+  ARTIFACT_TOO_MANY_FILES:
+    "An artifact can contain at most 500 files. Publish fewer files, for example a smaller output folder.",
+  ARTIFACT_TOO_LARGE:
+    "An artifact can be at most 50 MiB. Make the files smaller or publish fewer of them.",
   ARTIFACT_STORAGE_FULL: "Not enough storage for this artifact.",
   ARTIFACT_SOURCE_CHANGED:
     "Source files changed during publication. Publish again with a new request ID.",

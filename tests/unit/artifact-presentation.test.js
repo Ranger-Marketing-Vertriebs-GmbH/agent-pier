@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import * as de from "../../web/lib/i18n/de/artifacts.js";
 import * as en from "../../web/lib/i18n/en/artifacts.js";
 import {
+  artifactShareUrl,
+  showsUsage,
   artifactDateGroup,
   artifactKind,
   artifactListQuery,
@@ -153,4 +155,40 @@ test("sizes, storage warning and short IDs", () => {
   assert.equal(storageWarning(undefined), false);
   assert.equal(shortId("3f2a9c1e-0000-4000-8000-00000000b6c5"), "3f2a9c1e…b6c5");
   assert.equal(shortId("example"), "example");
+});
+
+test("the usage line goes once the last artifact and its files are gone", () => {
+  assert.equal(showsUsage(null), false);
+  assert.equal(showsUsage({ usedBytes: 9, pendingCleanupBytes: 0, artifacts: 0 }), false);
+  assert.equal(showsUsage({ usedBytes: 9, pendingCleanupBytes: 5, artifacts: 0 }), true);
+  assert.equal(showsUsage({ usedBytes: 9, pendingCleanupBytes: 0, artifacts: 1 }), true);
+  // An older server sends no count: the line stays as before.
+  assert.equal(showsUsage({ usedBytes: 9, pendingCleanupBytes: 0 }), true);
+});
+
+test("Copy link uses the remote address like the publish result", () => {
+  const viewer = "/artifacts/view/a1";
+  assert.equal(
+    artifactShareUrl(viewer, "http://127.0.0.1:4380", "https://pier.example.ts.net"),
+    "https://pier.example.ts.net/artifacts/view/a1",
+  );
+  assert.equal(
+    artifactShareUrl(viewer, "http://127.0.0.1:4380", null),
+    "http://127.0.0.1:4380/artifacts/view/a1",
+  );
+});
+
+test("each artifact limit has its own message in both languages", () => {
+  for (const copy of [de.artifactCopy, en.artifactCopy]) {
+    const { ARTIFACT_LIMIT_EXCEEDED, ARTIFACT_TOO_MANY_FILES, ARTIFACT_TOO_LARGE } =
+      copy.errors;
+    assert.match(ARTIFACT_TOO_MANY_FILES, /500/);
+    assert.match(ARTIFACT_TOO_LARGE, /50 MiB/);
+    assert.equal(
+      new Set([ARTIFACT_LIMIT_EXCEEDED, ARTIFACT_TOO_MANY_FILES, ARTIFACT_TOO_LARGE])
+        .size,
+      3,
+    );
+    assert.doesNotMatch(ARTIFACT_TOO_LARGE, /[Ll]ösche|[Dd]elete/);
+  }
 });

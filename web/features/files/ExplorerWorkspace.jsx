@@ -23,6 +23,7 @@ import { useExplorerFileShortcuts, useOwnedListAction } from "./useFileShortcuts
 import { explorerLayoutCopy as layout } from "../../lib/i18n/messages/explorer-layout.js";
 import useExplorerDrag from "./useExplorerDrag.js";
 import useExplorerPreviewReturn from "./useExplorerPreviewReturn.js";
+import { usePageAction } from "../../app/page-action.js";
 import "./files.css";
 export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const kind = scopeRef.kind;
@@ -59,6 +60,12 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
   const [transferToolbarTarget, setTransferToolbarTarget] = useState(null);
   const [previewTarget, setPreviewTarget] = useState(null);
   const [uploadRequest, setUploadRequest] = useState(0);
+  // ⌘K › Upload opens the global explorer's upload panel.
+  usePageAction(
+    "files-upload",
+    () => setUploadRequest((value) => value + 1),
+    kind === "global" && Boolean(context) && !context.readOnly,
+  );
   const { explorerRef, previewOrigin } = useExplorerPreviewReturn(route.file);
   const previousScope = useRef(null);
   const path = route.filePath || "";

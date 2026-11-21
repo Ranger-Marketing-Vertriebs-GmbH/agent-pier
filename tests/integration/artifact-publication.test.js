@@ -64,9 +64,10 @@ test("failed replacement, revoked identity and foreign sessions preserve prior p
     { status: 403 },
   );
   await fs.writeFile(path.join(f.workspace, "report.html"), "x".repeat(41));
+  // Too large for one publication: the message says so instead of suggesting deletions.
   await assert.rejects(
     f.service.publish(f.context, input({ artifactId: first.id }), valid),
-    { status: 413 },
+    { status: 413, code: "ARTIFACT_TOO_LARGE" },
   );
   assert.equal(
     Buffer.from(
@@ -100,7 +101,7 @@ test("directory publications enforce entrypoint, file count and total storage bu
       input({ sourcePath: "site", entrypoint: "index.html" }),
       valid,
     ),
-    { status: 413 },
+    { status: 413, code: "ARTIFACT_TOO_MANY_FILES" },
   );
   await fs.rm(path.join(f.workspace, "site/style.css"));
   const result = await f.service.publish(
@@ -109,4 +110,15 @@ test("directory publications enforce entrypoint, file count and total storage bu
     valid,
   );
   assert.equal((await f.service.snapshot(result.id)).files.length, 2);
+  assert.equal((await f.service.usage()).artifacts, 1);
+});
+
+test("a full artifact storage says so and suggests deleting artifacts", async (t) => {
+  const f = await artifactFixture(t, { totalBytes: 30 });
+  await fs.writeFile(path.join(f.workspace, "report.html"), "x".repeat(40));
+  await assert.rejects(f.service.publish(f.context, input(), valid), {
+    status: 413,
+    code: "ARTIFACT_LIMIT_EXCEEDED",
+  });
+  assert.equal((await f.service.usage()).artifacts, 0);
 });

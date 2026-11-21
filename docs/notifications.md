@@ -13,7 +13,9 @@ devices you enable. Both are set up per device under
 - **iPhone and iPad** need iOS or iPadOS 16.4 or later, and push works only in the app
   added to the Home Screen, not in a Safari tab.
 - A browser with Web Push support. When the browser blocks notifications, change the
-  site permission in the browser settings and reload the page.
+  site permission in the browser settings and reload the page. When the browser refuses
+  to register the device, the settings say so in the app's language instead of showing
+  the browser's own error text.
 
 ## Install the app
 

@@ -98,6 +98,19 @@ export function storageWarning(usage) {
   return Boolean(usage?.limitBytes) && usage.usedBytes / usage.limitBytes > 0.8;
 }
 
+/** Whether the usage line shows: not once the last artifact and its files are gone. */
+export function showsUsage(usage) {
+  return Boolean(usage) && (usage.artifacts !== 0 || usage.pendingCleanupBytes > 0);
+}
+
+/**
+ * The link Copy link puts on the clipboard: on the remote address when one is set up,
+ * like the publish result, so it also opens on other devices; else on this page's.
+ */
+export function artifactShareUrl(viewer, origin, remoteUrl) {
+  return new URL(viewer, remoteUrl || origin).href;
+}
+
 /**
  * Where an artifact came from: its session (name and tool, or deleted) and project.
  * `sessions` and `projects` are the workspace lists; either may be missing.
