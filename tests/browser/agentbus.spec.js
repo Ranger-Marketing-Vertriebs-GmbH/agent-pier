@@ -1,5 +1,53 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
+
+// The message log of a project whose bus holds `total` messages, one of them listed.
+async function oneMessageLog(page, total) {
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/state")
+      return route.fulfill({
+        json: { accounts: [], tools: [], sessions: [], home: "/fixture" },
+      });
+    if (url.pathname === "/api/agentbus")
+      return route.fulfill({
+        json: {
+          bundled: true,
+          version: "0.1.0",
+          projects: [
+            { id: "demo", name: "Website", cwd: "/fixture/Website", sessions: [] },
+          ],
+        },
+      });
+    if (url.pathname === "/api/agentbus/projects/demo/messages")
+      return route.fulfill({
+        json: {
+          projectId: "demo",
+          page: 1,
+          pageSize: 20,
+          total,
+          items: [
+            {
+              id: "m1",
+              from: { name: "Claude review", tool: "claude", key: "claude:a" },
+              to: { name: "Codex build", tool: "codex", key: "codex:b" },
+              text: "Done",
+              createdAt: "2026-11-20T21:00:00.000Z",
+              status: "read",
+            },
+          ],
+        },
+      });
+    return route.fulfill({ json: {} });
+  });
+  await page.goto(`${base}/projects/demo?tab=agentbus&bus=messages`);
+  return page.locator(".section-heading > span");
+}
+
+test("the message log counts one entry in the singular", async ({ page }) => {
+  const count = await oneMessageLog(page, 1);
+  await expect(count).toHaveText("1 Eintrag");
+});
 test("bundled AgentBus status groups this project's sessions without consuming inboxes", async ({
   page,
 }) => {
@@ -166,6 +214,11 @@ test("a hub project without an AgentBus id shows the existing empty texts", asyn
 
 test.describe("English AgentBus status", () => {
   test.use({ locale: "en-GB" });
+
+  test("the message log counts one entry in the singular", async ({ page }) => {
+    const count = await oneMessageLog(page, 1);
+    await expect(count).toHaveText("1 entry");
+  });
 
   test("legacy sessions show a localized reload requirement", async ({
     page,
@@ -341,6 +394,7 @@ test.describe("English AgentBus status", () => {
       await expect(message).toContainText("Claude review");
       await expect(message.locator(".status-chip")).toHaveText("Retrieved");
       await expect(page.getByText("Page 2 / 2")).toBeVisible();
+      await expect(page.locator(".section-heading > span")).toHaveText("22 entries");
       await expect(page.getByRole("button", { name: /next page/i })).toBeDisabled();
       expect(pages[0]).toBe(99);
     });

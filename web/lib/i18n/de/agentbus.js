@@ -21,7 +21,7 @@ export const messageLogCopy = {
   retryMessages: "Nachrichten erneut laden",
   messagesLoading: "Nachrichten werden geladen …",
   sectionHeadingHeading: "Nachrichten in ",
-  sectionHeadingLabel: " Einträge",
+  sectionHeadingCount: (count) => (count === 1 ? "1 Eintrag" : `${count} Einträge`),
   agentbusMessageAriaLabel: "an",
   extensionEmpty: "In diesem Projekt sind noch keine AgentBus-Nachrichten vorhanden.",
 };

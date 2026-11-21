@@ -335,13 +335,13 @@ export class AgentBusBroker {
         if (error.code === "UNKNOWN_PEER")
           throw new PublicError(
             "UNKNOWN_PEER",
-            "No reachable peer matches to. Use peers_list and send to an exact peer key.",
+            `No reachable peer matches ${JSON.stringify(args.to)}. Use peers_list and send to an exact peer key.`,
             peers.filter((peer) => peer.key !== self.key),
           );
         if (error.code === "AMBIGUOUS")
           throw new PublicError(
             "AMBIGUOUS_PEER",
-            "Several peers match to. Choose an exact peer key from these candidates or peers_list.",
+            `Several peers match ${JSON.stringify(args.to)}. Choose an exact peer key from these candidates or peers_list.`,
             error.candidates,
           );
         throw error;

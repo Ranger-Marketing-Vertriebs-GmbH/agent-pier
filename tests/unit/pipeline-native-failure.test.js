@@ -75,3 +75,17 @@ test("the sign-in text is traced back to its English catalog entry", async () =>
     englishServerMessages.pipelines.nativeTurnFailedWith("Disk full"),
   );
 });
+
+test("the sign-in hint is set apart from the CLI's own text", async () => {
+  const { englishServerMessages } = await import("../../server/lib/i18n/catalog-en.js");
+  // The CLI's text ends without a full stop; the hint still starts a new sentence.
+  const error = "Not logged in · Please run /login";
+  assert.match(
+    englishServerMessages.pipelines.nativeTurnSignInFailed(error),
+    /\("Not logged in · Please run \/login"\)\. Sign the account in again/,
+  );
+  assert.match(
+    serverMessages.pipelines.nativeTurnSignInFailed(error),
+    /\(„Not logged in · Please run \/login“\)\. Bitte den Account/,
+  );
+});
