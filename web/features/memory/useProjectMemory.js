@@ -78,5 +78,7 @@ export default function useProjectMemory({
     error: error || projectError,
     loading,
     refresh: () => setRefreshVersion((value) => value + 1),
+    // How many memory.changed signals arrived: callers re-read what they derive too.
+    liveChanges: changed,
   };
 }

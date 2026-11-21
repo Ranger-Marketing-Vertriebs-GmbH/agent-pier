@@ -112,6 +112,15 @@ export default function ProjectKnowledge({
     setCountVersion((value) => value + 1);
     reloadHub();
   };
+  // A write elsewhere (memory.changed): the list reads itself again; the Active and
+  // Archive totals and the hub's Knowledge tab count follow it.
+  useEffect(() => {
+    if (!state.liveChanges) return;
+    setCountVersion((value) => value + 1);
+    reloadHub();
+    // Only a new signal re-reads; reloadHub is the hub's stable reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.liveChanges]);
   const lastPage = state.completedData ? memoryPageCount(state.completedData) : 0;
   const pageTarget =
     lastPage && page > lastPage
