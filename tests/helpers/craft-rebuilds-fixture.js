@@ -66,7 +66,15 @@ export function fakeTimers() {
 
 /** Claude accounts: two of the owner's own, and one that may not build. */
 export const testAccounts = [
-  { id: "local-claude", tool: "claude", kind: "local", name: "Local" },
+  // A generated name, with its message key as the account store gives it.
+  {
+    id: "local-claude",
+    tool: "claude",
+    kind: "local",
+    name: "Local",
+    nameKey: "accounts.localAccountName",
+    nameArgs: ["Claude Code"],
+  },
   { id: "acc-a", tool: "claude", kind: "managed", name: "A" },
   { id: "acc-b", tool: "claude", kind: "managed", name: "B" },
   { id: "acc-provider", tool: "claude", kind: "managed", name: "P", provider: "x" },

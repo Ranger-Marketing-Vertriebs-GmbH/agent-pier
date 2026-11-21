@@ -19,6 +19,7 @@ import useCraftPictures from "./useCraftPictures.js";
 import {
   clockTime,
   latestCheck,
+  roundChecks,
   similarityPercent,
   stepStates,
   usd,
@@ -94,6 +95,13 @@ export default function RebuildDetail({ id, onNavigate, onLaunch }) {
   );
 }
 
+// Craft Anything's own note of a paused build says to send a message; here the
+// Continue button resumes it.
+const shownNote = (rebuild) =>
+  rebuild.status === "paused" && /send a message to continue/i.test(rebuild.note || "")
+    ? copy.detail.pausedNote
+    : rebuild.note;
+
 function RebuildBody({
   rebuild,
   activity,
@@ -108,6 +116,12 @@ function RebuildBody({
   const questionsId = useId();
   const action = useAsyncAction();
   const questions = rebuild.questions || [];
+  // Answered in another tab or the inbox before this one: said once, until the next.
+  const [answeredElsewhere, setAnsweredElsewhere] = useState(false);
+  const gone = async () => {
+    setAnsweredElsewhere(true);
+    await written();
+  };
   return (
     <>
       <section className="craft-summary">
@@ -130,9 +144,9 @@ function RebuildBody({
             </li>
           ))}
         </ol>
-        {rebuild.note && (
+        {shownNote(rebuild) && (
           <p className="craft-text" dir="auto">
-            {rebuild.note}
+            {shownNote(rebuild)}
           </p>
         )}
         {rebuild.notAnsweringSince && (
@@ -179,7 +193,7 @@ function RebuildBody({
               <button
                 type="button"
                 className="button secondary"
-                onClick={() => onLaunch(rebuild.folder)}
+                onClick={() => onLaunch(rebuild.folder, rebuild.accountId)}
               >
                 {copy.detail.openSession}
               </button>
@@ -219,12 +233,20 @@ function RebuildBody({
                 key={question.id}
                 rebuildId={rebuild.id}
                 question={question}
-                onAnswered={written}
-                onGone={written}
+                onAnswered={async () => {
+                  setAnsweredElsewhere(false);
+                  await written();
+                }}
+                onGone={gone}
               />
             ))}
           </div>
         </section>
+      )}
+      {answeredElsewhere && (
+        <p className="craft-note" role="status">
+          {copy.detail.answeredElsewhere}
+        </p>
       )}
       {!running && rebuild.started && <FollowUp send={actions.followUp} />}
       <AutoMode rebuild={rebuild} set={actions.autoMode} />
@@ -305,6 +327,12 @@ function AutoMode({ rebuild, set }) {
       <p className="craft-row-note" id={`craft-auto-${rebuild.id}`}>
         {copy.start.autoModeHint}
       </p>
+      {rebuild.autoMode === true &&
+        (rebuild.questions || []).some((question) => question.kind !== "approval") && (
+          <p className="craft-row-note" role="note">
+            {copy.detail.autoModeWaiting}
+          </p>
+        )}
       <ErrorMessage error={action.error} />
     </section>
   );
@@ -313,17 +341,20 @@ function AutoMode({ rebuild, set }) {
 // The latest check with its similarity, the usage, the request and the last reply.
 function Facts({ rebuild }) {
   const check = latestCheck(rebuild.checks);
+  const round = roundChecks(rebuild.checks);
   const similarity = similarityPercent(rebuild.similarity);
   const usage = rebuild.usage || {};
   const number = (value) => new Intl.NumberFormat(locale).format(value || 0);
   const checkName = check?.name || copy.detail.checkName;
   const checkText = !check
     ? copy.detail.noCheck
-    : check.passed === false
-      ? copy.detail.checkFailed(checkName)
-      : check.passed === true
-        ? copy.detail.checkPassed(checkName)
-        : checkName;
+    : round.total > 1
+      ? copy.detail.checksPassed(round.passed, round.total)
+      : check.passed === false
+        ? copy.detail.checkFailed(checkName)
+        : check.passed === true
+          ? copy.detail.checkPassed(checkName)
+          : checkName;
   return (
     <section className="craft-section">
       <ListCard>
@@ -338,7 +369,11 @@ function Facts({ rebuild }) {
         <ListRow
           label={copy.detail.usage}
           sub={copy.detail.tokens(number(usage.inputTokens), number(usage.outputTokens))}
-          value={copy.detail.cost(usd(usage.costUsd || 0, locale))}
+          value={
+            usage.costUsd === null
+              ? copy.detail.costUnknown
+              : copy.detail.cost(usd(usage.costUsd || 0, locale))
+          }
         />
         <TextRow label={copy.detail.request} text={rebuild.request} />
         {rebuild.lastReply && (

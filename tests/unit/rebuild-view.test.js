@@ -165,3 +165,16 @@ test("the activity revision follows the line count and the last line", () => {
   );
   assert.equal(activityRevision(null), activityRevision({ lines: [] }));
 });
+
+test("unpriced usage (a subscription) has no cost instead of $0.00", () => {
+  const usage = (show) =>
+    sampledFields({ running: true, status: "building" }, show).usage;
+  // As Craft Anything 0.6.0 writes usage.json for a Claude subscription.
+  assert.deepEqual(
+    usage({
+      usage: { input_tokens: 117140, output_tokens: 1217, cost_usd: 0, priced: false },
+    }),
+    { inputTokens: 117140, outputTokens: 1217, costUsd: null },
+  );
+  assert.equal(usage({ usage: { cost_usd: 0.42, priced: true } }).costUsd, 0.42);
+});

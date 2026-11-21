@@ -247,7 +247,9 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
     page.getByText("If Claude Code asks for a login: open /mcp in Claude Code"),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Adopt search from OpenCode" }),
+    page.getByRole("button", {
+      name: "Take over OpenCode's own entry search: it becomes this server's definition",
+    }),
   ).toBeVisible();
 });
 

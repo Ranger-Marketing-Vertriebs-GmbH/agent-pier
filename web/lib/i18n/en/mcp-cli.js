@@ -36,7 +36,10 @@ export const mcpCliCopy = {
   adoptChange: "Adopt the change",
   adoptChangeFor: (cli, name) => `Adopt the change to ${name} from ${cli}`,
   adopt: "Adopt",
-  adoptFor: (cli, name) => `Adopt ${name} from ${cli}`,
+  // A name taken by another entry: adopting makes that entry this server's.
+  adoptTaken: "Take over the CLI's entry",
+  adoptTakenFor: (cli, name) =>
+    `Take over ${cli}'s own entry ${name}: it becomes this server's definition`,
   oauthConnected: (cli) => `Logged in in ${cli}`,
   // Codex status is read from the owner's own profile only (~/.codex).
   oauthConnectedCodex: "Logged in in your Codex profile (~/.codex)",

@@ -345,6 +345,13 @@ test("Craft Anything is an owner page only, not in the user's search", () => {
   );
 });
 
+test("the REA card is an owner entry only, not in the user's search", () => {
+  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
+  assert.ok(flat(searchEntries(owners, "REA")).some((item) => item.id === "page:rea"));
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.ok(!users.some((item) => item.id === "page:rea"));
+});
+
 test("Craft Anything page is owner only and found by its former names", () => {
   const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
   assert.equal(flat(searchEntries(owners, "craft"))[0].id, "page:craft");

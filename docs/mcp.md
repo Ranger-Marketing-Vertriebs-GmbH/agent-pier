@@ -183,8 +183,9 @@ absolute path), an optional `stack` and optional `pictures` (up to 10 screenshot
 photos of the original as paths inside the session's working folder; with no target
 the rebuild starts from them alone, see [Screenshots](craft.md#screenshots)), plus a
 `requestId` that makes a retry from the same session return the same rebuild; it creates the rebuild's project and returns its
-id and link. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
-step, note, folder, how many questions wait for you (never the questions) and
+id and link, a full address of AgentPier (its remote URL, else `http://127.0.0.1:<port>`)
+that the session can hand on. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
+step, note, folder, the same link, how many questions wait for you (never the questions) and
 `notAnsweringSince`, the time since which Craft Anything has not answered (null while it
 answers; the status is then the last one it reported). You answer
 them in AgentPier ([Craft Anything](craft.md)).
@@ -293,8 +294,8 @@ command is such a runner.
 - **Status per CLI.** _written_; _will be written_ (restored at the next save or
   session start); _edited by hand in the CLI_, with **Write AgentPier's version** or
   **Adopt the change** (the edit becomes the central definition for every bound CLI and
-  agent); _name taken_ by another entry, with **Adopt** (that entry becomes the
-  server's); _could not write_, with a reason: _unreadable_ (unreadable or symlinked
+  agent); _name taken_ by another entry, with **Take over the CLI's entry** (that entry
+  becomes the server's definition); _could not write_, with a reason: _unreadable_ (unreadable or symlinked
   file), _too-large_ (the file is larger than 64 MiB, the read limit for native CLI
   configurations; AgentPier neither reads nor writes it; a file of many MiB makes
   each save and session start slower, though an unchanged file is parsed only once),
@@ -831,7 +832,8 @@ parity.
 AgentPier can install [REA](https://github.com/morluto/rea) itself, with the analysis
 tools it needs, instead of the manual path in the
 [worked example](#worked-example-rea). The **REA** card sits with the other tools on
-the dashboard and under **CLIs and extensions › Installation**. **Install**
+the dashboard and under **CLIs and extensions › Installation**, and ⌘K/Ctrl+K finds it as
+**REA (reverse engineering)**. **Install**
 (or **Manage** once REA is installed) opens the REA dialog; the directory note on REA
 links there with **Install REA with AgentPier**.
 

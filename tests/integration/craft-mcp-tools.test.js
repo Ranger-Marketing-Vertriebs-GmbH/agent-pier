@@ -105,7 +105,8 @@ test("a session starts a rebuild, repeats it by requestId and reads its status",
     );
     assert.deepEqual(again, first);
     assert.equal(first.id, "r1");
-    assert.equal(first.link, "/craft/r1");
+    // A full address the session can hand on: AgentPier's own, not a path.
+    assert.match(first.link, /^http:\/\/127\.0\.0\.1:\d+\/craft\/r1$/);
     assert.equal(calls[0].options.source, "session");
     const status = data(
       await client.callTool({ name: "craft_rebuild_status", arguments: { id: "r1" } }),
@@ -121,7 +122,7 @@ test("a session starts a rebuild, repeats it by requestId and reads its status",
       folder: "/projects/clone",
       openQuestions: 1,
       notAnsweringSince: null,
-      link: "/craft/r1",
+      link: first.link,
     });
   });
 });

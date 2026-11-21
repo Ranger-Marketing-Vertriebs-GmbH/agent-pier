@@ -47,6 +47,12 @@
 .craft-actions .button {
   text-decoration: none;
 }
+/* "Defaults saved" beside Save defaults. */
+.craft-saved {
+  align-self: center;
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}
 /* A row with a label and a segmented choice (target, mode). */
 .craft-choice-row {
   flex-wrap: wrap;

@@ -120,23 +120,48 @@ export default function useCraftPictures() {
     held.current = [];
     setItems([]);
   }, [drop]);
+  // A picture the server refused (not a picture, too large) leaves the form; one that
+  // could not be sent stays marked for the next try. The error names it either way.
+  const failed = useCallback((item, error) => {
+    const message = craftCopy.pictures.uploadFailed(item.name, error.message);
+    const refused = error.status >= 400 && error.status < 500;
+    if (refused) URL.revokeObjectURL(item.previewUrl);
+    held.current = refused
+      ? held.current.filter((entry) => entry !== item)
+      : held.current.map((entry) =>
+          entry === item ? { ...entry, status: "failed", error: error.message } : entry,
+        );
+    setItems(held.current);
+    return Object.assign(new Error(message), { status: error.status });
+  }, []);
   const upload = useCallback(async () => {
     const ids = [];
     for (const item of held.current) {
       let id = staged.current.get(item.key);
       if (!id) {
-        id = await uploadPicture(item.file);
+        try {
+          id = await uploadPicture(item.file);
+        } catch (error) {
+          throw failed(item, error);
+        }
         // Removed while it uploaded: it is not sent.
         if (!held.current.includes(item)) {
           dropPicture(id);
           continue;
         }
         staged.current.set(item.key, id);
+        // Sent on a retry: no longer marked as failed.
+        if (item.status === "failed") {
+          held.current = held.current.map((entry) =>
+            entry === item ? { ...entry, status: "ready", error: "" } : entry,
+          );
+          setItems(held.current);
+        }
       }
       ids.push(id);
     }
     return ids;
-  }, []);
+  }, [failed]);
   const sent = useCallback(() => staged.current.clear(), []);
   return { items, error, add, remove, clear, upload, sent };
 }

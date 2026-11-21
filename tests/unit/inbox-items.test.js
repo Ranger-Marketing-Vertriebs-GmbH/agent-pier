@@ -338,7 +338,7 @@ test("a mail card item counts attachments and marks a forward", () => {
   );
 });
 
-test("a rebuild's open questions and approvals wait in the questions tab", async () => {
+test("a rebuild's open questions wait under Questions, its approvals under Approvals", async () => {
   const id = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
   const rebuild = {
     id,
@@ -369,7 +369,7 @@ test("a rebuild's open questions and approvals wait in the questions tab", async
     link: `/craft/${id}`,
   });
   assert.equal(approval.kind, "craft-approval");
-  assert.equal(approval.tab, "questions");
+  assert.equal(approval.tab, "approvals");
   // The command an approval would run never reaches the list.
   assert.equal(JSON.stringify(approval).includes('npm install"'), false);
   // In auto mode the supervisor allows approvals itself.
@@ -386,7 +386,8 @@ test("a rebuild's open questions and approvals wait in the questions tab", async
     [`${id}:q1`, `${id}:q2`],
   );
   const counts = countItems(craftItems(rebuild));
-  assert.equal(counts.questions, 2);
+  assert.equal(counts.questions, 1);
+  assert.equal(counts.approvals, 1);
   const items = await collectItems({ craftRebuilds: { list: () => [rebuild] } });
   assert.deepEqual(
     items.map((item) => item.id),

@@ -7,6 +7,7 @@ import Segmented from "../../components/Segmented.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import { isPlainClick } from "../../components/link-click.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
+import useLanguage from "../../lib/i18n/useLanguage.js";
 import { formatMessageTime } from "../../lib/i18n/index.js";
 import { craftCopy as copy } from "../../lib/i18n/messages/craft.js";
 import { routePath } from "../../app/routes.js";
@@ -29,6 +30,7 @@ export default function CraftPage({
   openNavigation,
   navigationOpen,
   onLaunch,
+  onOpenCraftAnything,
 }) {
   if (route.rebuildId)
     return (
@@ -42,13 +44,19 @@ export default function CraftPage({
   return (
     <RebuildsOverview
       onNavigate={onNavigate}
+      onOpenCraftAnything={onOpenCraftAnything}
       openNavigation={openNavigation}
       navigationOpen={navigationOpen}
     />
   );
 }
 
-function RebuildsOverview({ onNavigate, openNavigation, navigationOpen }) {
+function RebuildsOverview({
+  onNavigate,
+  onOpenCraftAnything,
+  openNavigation,
+  navigationOpen,
+}) {
   const { data, error, start, saveSettings } = useRebuilds();
   return (
     <SettingsShell
@@ -78,14 +86,20 @@ function RebuildsOverview({ onNavigate, openNavigation, navigationOpen }) {
                 onClick={(event) => {
                   if (!isPlainClick(event)) return;
                   event.preventDefault();
-                  onNavigate(codingRoute("install"));
+                  // Its card's dialog installs it here; the link opens the card.
+                  if (onOpenCraftAnything) onOpenCraftAnything();
+                  else onNavigate(codingRoute("install"));
                 }}
               >
                 {copy.openCraftAnything}
               </a>
             </div>
           )}
-          <RebuildList rebuilds={data.rebuilds || []} onNavigate={onNavigate} />
+          <RebuildList
+            rebuilds={data.rebuilds || []}
+            installed={data.installed}
+            onNavigate={onNavigate}
+          />
           {data.installed && (
             <CraftStartForm
               data={data}
@@ -100,13 +114,13 @@ function RebuildsOverview({ onNavigate, openNavigation, navigationOpen }) {
   );
 }
 
-function RebuildList({ rebuilds, onNavigate }) {
+function RebuildList({ rebuilds, installed, onNavigate }) {
   const id = useId();
   return (
     <section className="craft-section" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.list.title}</GroupLabel>
       {rebuilds.length === 0 ? (
-        <p className="craft-note">{copy.list.empty}</p>
+        <p className="craft-note">{installed ? copy.list.empty : copy.list.none}</p>
       ) : (
         <ListCard labelledBy={id}>
           {[...rebuilds].sort(byRecent).map((rebuild) => (
@@ -134,16 +148,22 @@ function RebuildList({ rebuilds, onNavigate }) {
 // The owner's defaults: account, mode and auto mode of new rebuilds, also those
 // sessions and agents start. A small draft with its own Save.
 function CraftDefaults({ data, save }) {
+  useLanguage(); // Generated account names, as in the start form.
   const id = useId();
   const action = useAsyncAction();
   const saved = data.settings || {};
   const [draft, setDraft] = useState(null);
+  // "Saved" until the next change of the draft.
+  const [done, setDone] = useState(false);
   const values = draft ?? saved;
   const accounts = data.accounts || [];
   const changed =
     draft !== null &&
     ["accountId", "mode", "autoMode"].some((key) => draft[key] !== saved[key]);
-  const set = (key) => (value) => setDraft({ ...values, [key]: value });
+  const set = (key) => (value) => {
+    setDone(false);
+    setDraft({ ...values, [key]: value });
+  };
   const submit = (event) => {
     event.preventDefault();
     action.run(async () => {
@@ -153,6 +173,7 @@ function CraftDefaults({ data, save }) {
         autoMode: values.autoMode === true,
       });
       setDraft(null);
+      setDone(true);
     });
   };
   return (
@@ -196,6 +217,9 @@ function CraftDefaults({ data, save }) {
           >
             {action.busy ? copy.defaults.saving : copy.defaults.save}
           </button>
+          <span className="craft-saved" role="status">
+            {done && !action.busy ? copy.defaults.saved : ""}
+          </span>
         </div>
       </form>
     </section>

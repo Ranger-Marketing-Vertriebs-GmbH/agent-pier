@@ -17,7 +17,8 @@ export function launchAccesses(state, tool) {
 }
 // An explicit CLI (per-CLI "new" action or task profile) keeps its CLI; a plain
 // "new session" starts with the CLI of the last successful launch if still installed.
-function initialChoice(state, tools, initialTool, initialProfile) {
+// An explicit account of that CLI (a rebuild's, `initialAccess`) is preselected.
+function initialChoice(state, tools, initialTool, initialProfile, initialAccess) {
   const explicit = tools.find((tool) => tool.id === initialTool)?.id;
   const remembered = initialTool ? null : rememberedLaunchTool(tools);
   const tool = explicit || remembered || tools[0]?.id || "";
@@ -26,6 +27,19 @@ function initialChoice(state, tools, initialTool, initialProfile) {
       tool,
       toolRemembered: false,
       accessId: profileLaunchAccess(state, initialProfile.config),
+      accessRemembered: false,
+      accessPicked: false,
+    };
+  if (
+    initialAccess &&
+    state.accounts.some(
+      (account) => account.id === initialAccess && account.tool === tool,
+    )
+  )
+    return {
+      tool,
+      toolRemembered: false,
+      accessId: initialAccess,
       accessRemembered: false,
       accessPicked: false,
     };
@@ -38,10 +52,15 @@ function initialChoice(state, tools, initialTool, initialProfile) {
     accessPicked: access.picked,
   };
 }
-export default function useLaunchAccess(state, initialTool, initialProfile) {
+export default function useLaunchAccess(
+  state,
+  initialTool,
+  initialProfile,
+  initialAccess,
+) {
   const tools = state.tools.filter((tool) => tool.installed);
   const [start] = useState(() =>
-    initialChoice(state, tools, initialTool, initialProfile),
+    initialChoice(state, tools, initialTool, initialProfile, initialAccess),
   );
   const [tool, setTool] = useState(start.tool),
     [toolRemembered, setToolRemembered] = useState(start.toolRemembered),

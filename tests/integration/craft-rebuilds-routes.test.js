@@ -54,7 +54,12 @@ test("GET /craft/rebuilds lists rebuilds, defaults, eligible accounts and stacks
     rebuilds: [],
     settings: { accountId: "local-claude", mode: "clean-room", autoMode: false },
     accounts: [
-      { id: "local-claude", name: "Local" },
+      {
+        id: "local-claude",
+        name: "Local",
+        nameKey: "accounts.localAccountName",
+        nameArgs: ["Claude Code"],
+      },
       { id: "acc-a", name: "A" },
       { id: "acc-b", name: "B" },
     ],

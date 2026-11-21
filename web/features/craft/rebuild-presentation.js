@@ -31,13 +31,35 @@ export function similarityPercent(value) {
   return Math.round(Math.min(100, value <= 1 ? value * 100 : value));
 }
 
+// A check's name: Craft Anything 0.6.0 writes it as `check` ("app-screenshot").
+const checkName = (check) =>
+  [check.name, check.check].find((value) => typeof value === "string" && value) ?? null;
+
 /** The latest check: `{ name, passed }` (passed true, false or null), or null. */
 export function latestCheck(checks) {
   const check = Array.isArray(checks) ? checks.at(-1) : null;
   if (!check || typeof check !== "object") return null;
   return {
-    name: typeof check.name === "string" && check.name ? check.name : null,
+    name: checkName(check),
     passed: typeof check.passed === "boolean" ? check.passed : null,
+  };
+}
+
+/**
+ * The checks of the latest round (Craft Anything runs several per round, each with
+ * its `round`): `{ passed, total }`, as its note says "1 of 2 checks pass".
+ */
+export function roundChecks(checks) {
+  const list = Array.isArray(checks)
+    ? checks.filter((check) => check && typeof check === "object")
+    : [];
+  const round = list.at(-1)?.round;
+  // Checks without a round count alone: the latest one.
+  const latest =
+    round === undefined ? list.slice(-1) : list.filter((check) => check.round === round);
+  return {
+    passed: latest.filter((check) => check.passed === true).length,
+    total: latest.length,
   };
 }
 

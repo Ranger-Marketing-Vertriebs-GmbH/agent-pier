@@ -4,7 +4,8 @@
 study an app, a website, a file or screenshots of a product and build your own version
 of it. Every rebuild gets its own project, and Craft Anything runs Claude on one of your Claude accounts to
 do the work. The page is for the owner only and never shows in the users' app. Until Craft Anything is
-[installed](mcp.md#managed-craft-anything) it shows a note instead of the form.
+[installed](mcp.md#managed-craft-anything) it shows a note instead of the form, and **Open Craft Anything** opens its install
+dialog.
 
 ![Craft Anything page with the start form and the list of rebuilds](screenshots/craft-rebuilds-list.png)
 
@@ -22,7 +23,7 @@ form says so next to **Start rebuild**.
 | **Claude account** | Any Claude account that can build: a local or managed account without a provider. The default is your default Claude account, else the local one.                                                                          |
 | **Mode**           | **Clean room** only looks at the target from outside. **Deep** may also look inside it, for example decompile it.                                                                                                          |
 | **Auto mode**      | See [Auto mode](#auto-mode).                                                                                                                                                                                               |
-| **Rounds**         | How many build and check rounds Craft Anything may use.                                                                                                                                                                    |
+| **Rounds**         | How many build and check rounds Craft Anything may use. Each round, the last one too, ends by improving what its checks found.                                                                                             |
 
 **Project name** names the rebuild's new project folder. The form suggests a few words
 from the request (or the target's host or file name), for example `counter-app`; edit it
@@ -56,7 +57,8 @@ pictures of the original in `reference/`, which every later round keeps in view;
 has no separate per-message attachments for follow-ups yet.
 
 **Defaults** on the same page keeps the account, mode and auto mode that new rebuilds
-start with (**Save defaults**). Without an eligible Claude account the page says so and
+start with (**Save defaults**, which confirms **Defaults saved**). The start form above
+takes the saved values at once, except those you already changed in it. Without an eligible Claude account the page says so and
 points to **CLIs & extensions › Accounts**.
 
 ## The project of a rebuild
@@ -81,14 +83,18 @@ and agents reading its status see `needs_you` too. A rebuild opens to its page:
 
 ![A rebuild with its steps, latest check, activity and usage](screenshots/craft-rebuilds-detail.png)
 
-- the request, the latest check (each check passed or failed, and how similar the
-  result is to the target), usage and Craft Anything's last reply;
+- the request, the latest check (each check passed or failed, how many checks of the
+  latest round pass, for example **1 of 2 checks pass**, and how similar the result is
+  to the target), usage (**No price known** when Craft Anything reports no price, as on
+  a Claude subscription) and Craft Anything's last reply;
 - **Activity**, which refreshes whenever the rebuild's view changes, and while the
   build runs also with every new line Craft Anything writes; when a refresh fails, the
   lines read before stay and an error shows below them;
-- **Pause** and **Continue**, **Ask for changes** (another round in the same
+- **Pause** and **Continue** (a paused build reads **Paused. Continue picks the build
+  up where it stopped.**), **Ask for changes** (another round in the same
   project, sent with **Send request**) and the **Auto mode** switch of this rebuild;
-- **Open project**, **Open folder** and **Open a session here**;
+- **Open project**, **Open folder** and **Open a session here**, which starts with the
+  rebuild's Claude account;
 - **Remove from list** (not while it runs: pause it first), see
   [Storage and removal](#storage-and-removal).
 
@@ -104,7 +110,8 @@ push notification, **A Craft Anything rebuild waits for you**
 ([notifications](notifications.md#what-notifies-you)). The notification names the
 rebuild and previews a question, never an approval. It has no Allow or Deny buttons:
 opening it shows the card. A question answered in two places at once is answered by
-the first; the second is refused as already answered. A question or approval belongs
+the first; the second is refused, and the rebuild's page says it was already answered
+elsewhere. A question or approval belongs
 to the build that asked it: when the build stops (**Pause**, a restart, a lost Craft
 Anything process) it leaves the page and the inbox, and **Continue** asks it again as
 a new one. Craft Anything (0.5.0 and 0.6.0) keeps listing the old one and would take
@@ -118,7 +125,9 @@ rebuild can change it.
 
 - **Off:** you answer every question and approval.
 - **On:** Craft Anything decides its questions itself and AgentPier allows its
-  approvals. Turn it on only for rebuilds you trust to run unattended.
+  approvals. Turn it on only for rebuilds you trust to run unattended. Turning it on
+  while the build runs allows the approvals already waiting; questions already asked still wait for you,
+  and the page says so.
 
 When allowing an approval fails three times in a row, AgentPier stops trying and
 leaves it to you like an approval without auto mode: on the rebuild's page, in the

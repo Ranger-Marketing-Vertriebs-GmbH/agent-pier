@@ -94,7 +94,8 @@ export function sampledFields(
     usage: {
       inputTokens: count(usage.input_tokens),
       outputTokens: count(usage.output_tokens),
-      costUsd: count(usage.cost_usd),
+      // Unpriced usage (`priced: false`, e.g. a subscription) has no cost: null.
+      costUsd: usage.priced === false ? null : count(usage.cost_usd),
     },
     lastReply: text(show?.last_reply),
     questions: Array.isArray(show?.questions)

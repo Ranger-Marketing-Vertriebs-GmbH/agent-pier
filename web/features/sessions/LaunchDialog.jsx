@@ -46,6 +46,7 @@ export default function LaunchDialog({
   tool,
   initialCwd,
   initialProfile,
+  initialAccess,
   close,
   created,
   update,
@@ -61,6 +62,7 @@ export default function LaunchDialog({
     launchState,
     initialProfile?.config.cliTool || tool,
     initialProfile,
+    initialAccess,
   );
   const profiles = useResource(
     access.tool === "shell" || ticket ? null : "/pipeline-profiles",

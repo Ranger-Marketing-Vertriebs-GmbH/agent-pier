@@ -394,7 +394,8 @@ but the item is listed at once ([coding sessions](assistant-workflows.md#coding-
 ## Questions from rebuilds
 
 A [Craft Anything rebuild](craft.md) that waits for you lists its question as
-**Question from a rebuild** or its approval as **Approval for a rebuild**. Answering
+**Question from a rebuild** under **Questions** or its approval as **Approval for a
+rebuild** under **Approvals**. The detail names the rebuild under the heading. Answering
 here and on the rebuild's page is the same: the first answer wins. A paused rebuild
 lists none; **Continue** asks them again. In auto mode the
 questions are decided by Craft Anything and approvals are allowed by AgentPier, so they

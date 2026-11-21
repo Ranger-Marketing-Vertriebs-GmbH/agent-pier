@@ -26,6 +26,8 @@ export const craftCopy = {
   list: {
     title: "Your rebuilds",
     empty: "No rebuilds yet. Start one below.",
+    // Without Craft Anything installed there is no start form below.
+    none: "No rebuilds yet.",
     sub: (step, time) => `${step} · updated ${time}`,
   },
   start: {
@@ -58,12 +60,23 @@ export const craftCopy = {
     autoModeHint:
       "Craft Anything decides its questions itself and AgentPier allows its approvals. When off, every question and approval waits for you.",
     rounds: "Rounds",
+    roundsHint:
+      "How many build and check rounds Craft Anything may use. Each round, the last one too, ends by improving what its checks found.",
     consent:
       "Starting a rebuild lets Craft Anything run Claude on the chosen account and use its tokens. Rebuild only software you own or are allowed to rebuild, and never bypass DRM, logins or anti-cheat systems.",
     noAccounts:
       "No Claude account can build. Add your own Claude account without a provider under CLIs & extensions › Accounts.",
     submit: "Start rebuild",
     starting: "Starting …",
+  },
+  // The stack choices of the start form; the values stay Craft Anything's.
+  stacks: {
+    builderChoice: "Builder's choice",
+    plainHtml: "Plain HTML and CSS",
+    rustConsole: "Rust (console)",
+    unity: "Unity",
+    unreal: "Unreal",
+    godot: "Godot",
   },
   pictures: {
     list: "Screenshots",
@@ -77,14 +90,25 @@ export const craftCopy = {
     tooMany: (max) => `A rebuild takes at most ${max} screenshots.`,
     tooLarge: (name) => `"${name}" is larger than 20 MB.`,
     unsupported: (name) => `"${name}" is not a PNG, JPEG, WebP or GIF picture.`,
+    uploadFailed: (name, reason) => `"${name}" could not be uploaded: ${reason}`,
   },
   defaults: {
     title: "Defaults",
     hint: "What new rebuilds use. Rebuilds your sessions and agents start always use these.",
     save: "Save defaults",
     saving: "Saving …",
+    saved: "Defaults saved. New rebuilds start with them.",
   },
   detail: {
+    pausedNote: "Paused. Continue picks the build up where it stopped.",
+    answeredElsewhere:
+      "This question was already answered elsewhere, in another tab or the inbox.",
+    // Auto mode switched on while questions already wait.
+    autoModeWaiting:
+      "Auto mode decides new questions. Answer the questions already waiting here.",
+    checksPassed: (passed, total) => `${passed} of ${total} checks pass`,
+    // Craft Anything reports no price (`priced: false`), e.g. on a subscription.
+    costUnknown: "No price known",
     request: "Request",
     checkTitle: "Latest check",
     noCheck: "No check yet.",
