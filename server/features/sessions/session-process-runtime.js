@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { accessSync, constants, statSync } from "node:fs";
 import { writeFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { withUtf8Locale } from "../../lib/session-locale.js";
@@ -11,6 +12,26 @@ export const safeEnvironment = () =>
         .map((key) => [key, process.env[key]]),
     ),
   );
+
+/**
+ * A bare command name resolved once against PATH to its absolute executable, so each
+ * spawn skips the failing execve attempts through earlier PATH entries. A name not
+ * found, or a path given already, stays as it is.
+ */
+export function resolveCommand(command, searchPath = process.env.PATH || "") {
+  if (typeof command !== "string" || command.includes("/")) return command;
+  for (const directory of searchPath.split(path.delimiter)) {
+    if (!path.isAbsolute(directory)) continue;
+    const candidate = path.join(directory, command);
+    try {
+      accessSync(candidate, constants.X_OK);
+      if (statSync(candidate).isFile()) return candidate;
+    } catch {
+      // Not in this PATH entry.
+    }
+  }
+  return command;
+}
 
 export function execute(command, args, { input, env = safeEnvironment(), cwd } = {}) {
   return new Promise((resolve, reject) => {

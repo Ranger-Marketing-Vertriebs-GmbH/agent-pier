@@ -9,7 +9,12 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { buildSessionLaunch } from "./session-creation.js";
 import { assertInteractiveSession } from "../pipelines/native-session.js";
 import { validId, validName, dimensions, textInput } from "./session-validation.js";
-import { safeEnvironment, execute, privateWrite } from "./session-process-runtime.js";
+import {
+  safeEnvironment,
+  execute,
+  privateWrite,
+  resolveCommand,
+} from "./session-process-runtime.js";
 import { replaceSession, blocksTerminalInput } from "./session-replacement.js";
 import {
   readTmuxServer,
@@ -17,6 +22,7 @@ import {
   tmuxServerGone,
 } from "./tmux-server-identity.js";
 import { SESSION_PREFIX, tmuxFormatLiteral, tmuxSocketPath } from "./tmux-naming.js";
+import { PANE_STATE_FORMAT, paneStatus, snapshotConfirms } from "./tmux-pane-state.js";
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -44,7 +50,7 @@ export class SessionManager {
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
     this.socketPath = tmuxSocketPath(dataDir);
-    this.tmuxPath = tmuxPath;
+    this.tmuxPath = resolveCommand(tmuxPath);
     this.configPath = path.join(this.directory, "tmux.conf");
     this.clients = new Set();
     this.onStopped = onStopped;
@@ -128,10 +134,8 @@ export class SessionManager {
     const current = await readTmuxServer(this).catch(() => null);
     return !!current && !sameTmuxServer(session.tmuxServer, current);
   }
-  async current(id) {
-    const session = await this.metadata(id);
-    let state;
-    let lost = false;
+  /** The pane state tmux reports now, and whether a missing pane means a lost server. */
+  async readPaneState(session, id) {
     const readState = async () =>
       (
         await this.tmux([
@@ -139,17 +143,18 @@ export class SessionManager {
           "-t",
           `${this.target(id)}:`,
           "-F",
-          "#{pane_dead}|#{pane_dead_status}|#{pane_dead_signal}",
+          PANE_STATE_FORMAT,
         ])
       ).trim();
     try {
-      state = await readState();
+      let state = await readState();
       if (state === "1||") {
         // tmux 3.4 + utempter can lose SIGCHLD. A no-output job wakes its reaper.
         // https://github.com/tmux/tmux/issues/4559
         await this.tmux(["run-shell", "-t", `${this.target(id)}:0.0`, ":"]);
         state = await readState();
       }
+      return { state, lost: false };
     } catch (error) {
       // Only a missing pane/server means stopped; executable/permission failures must surface.
       if (
@@ -157,20 +162,21 @@ export class SessionManager {
         !/can't find|no current target/i.test(error.message)
       )
         throw error;
-      state = null;
-      lost = await this.serverLost(session, error);
+      return { state: null, lost: await this.serverLost(session, error) };
     }
-    const [dead, code, signal] = state?.split("|") || [];
-    const exit =
-      dead === "1" && /^\d+$/.test(code) && Number(code) <= 255
-        ? Number(code)
-        : undefined;
-    // tmux 3.4 can close the PTY before waitpid supplies status or signal.
-    // See https://github.com/tmux/tmux/blob/3.4/format.c (pane_dead callbacks).
-    const status =
-      state === null || (dead === "1" && (exit !== undefined || signal))
-        ? "stopped"
-        : "running";
+  }
+  /**
+   * The session with its status reconciled against tmux. `panes`, a list's shared
+   * snapshot, spares the tmux process when it only confirms the stored status.
+   */
+  async current(id, panes) {
+    const session = await this.metadata(id);
+    const snapshot = panes?.get(this.sessionName(id)) ?? null;
+    const { state, lost } =
+      panes && snapshotConfirms(session, snapshot)
+        ? { state: snapshot, lost: false }
+        : await this.readPaneState(session, id);
+    const { status, exit } = paneStatus(state);
     let interrupted = false;
     // A live pane disproves a transient interruption; a later self-exit must not resume.
     if (status === "running" && session.interruption) {
