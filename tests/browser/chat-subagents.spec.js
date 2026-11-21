@@ -87,6 +87,28 @@ for (const locale of ["de-DE", "en-GB"]) {
       publish();
       await expect(old.locator("summary small")).toHaveText(text.unknown);
     });
+
+    test("following the end of a short chat never loads older messages by itself", async ({
+      page,
+    }) => {
+      const history = [];
+      page.on("request", (request) => {
+        if (request.url().includes("/chat/history")) history.push(request.url());
+      });
+      const { data, publish } = await subagentFixture(page, { older: true });
+      // A new reply makes the view follow its end: a scroll down, close to the top
+      // while the chat barely overflows. Only a scroll up loads older messages.
+      data.messages = [
+        ...data.messages,
+        { id: "more", role: "assistant", text: "Done." },
+      ];
+      publish();
+      await expect(page.locator(".chat-messages")).toContainText("Done.");
+      // The page clock stands still: wait in the test runner for the scroll event.
+      await page.waitForTimeout(300);
+      expect(history).toEqual([]);
+      await expect(page.getByRole("button", { name: text.older })).toBeVisible();
+    });
   });
 }
 

@@ -206,8 +206,19 @@ export default function ChatView({
             // Resizing can emit scroll before ResizeObserver runs. It must not
             // turn off bottom-following as though the user scrolled backwards.
             if (event.currentTarget.clientHeight !== outputHeight.current) return;
-            scroll.current = event.currentTarget.scrollTop;
-            if (scroll.current < 100 && !historyError && resetStatus !== "requested")
+            const element = event.currentTarget;
+            scroll.current = element.scrollTop;
+            // Following the end of a chat that barely overflows also lands near the
+            // top, but must not page by itself: whether it did would depend on when
+            // the live data arrived. Near the top and away from the end loads.
+            const atEnd =
+              element.scrollHeight - element.scrollTop - element.clientHeight < 2;
+            if (
+              !atEnd &&
+              scroll.current < 100 &&
+              !historyError &&
+              resetStatus !== "requested"
+            )
               void loadOlder();
             stick.current =
               event.currentTarget.scrollHeight -
