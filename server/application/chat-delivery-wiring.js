@@ -52,6 +52,7 @@ export function codexProxyAcceptance(sessionId, push, current) {
         at: Date.now(),
         imageNames: null,
         imageCount: push.imageCount,
+        ...(push.textHash ? { textHash: push.textHash } : {}),
         ...(push.reason ? { reason: push.reason } : {}),
       });
   } catch {

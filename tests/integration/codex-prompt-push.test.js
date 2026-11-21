@@ -138,7 +138,15 @@ test("prompt pushes are validated", () => {
     }),
     { type: "prompt", kind: "dropped", imageCount: 0 },
   );
+  const textHash = "a".repeat(64);
+  assert.deepEqual(
+    nativePushValue({ type: "prompt", kind: "accepted", imageCount: 0, textHash }),
+    { type: "prompt", kind: "accepted", imageCount: 0, textHash },
+  );
   for (const bad of [
+    { type: "prompt", kind: "accepted", imageCount: 0, textHash: "A".repeat(64) },
+    { type: "prompt", kind: "accepted", imageCount: 0, textHash: "a".repeat(63) },
+    { type: "prompt", kind: "accepted", imageCount: 0, textHash: 1 },
     { type: "prompt" },
     { type: "prompt", kind: "queued", imageCount: 0 },
     { type: "prompt", kind: "accepted", imageCount: -1 },
@@ -192,7 +200,83 @@ test("the Codex proxy reports prompt-ready and the prompts Codex took", async (t
   assert.deepEqual(JSON.parse(String((await frame)[0])), item);
   assert.equal(prompts.length, 2);
   assert.deepEqual(
-    { ...prompts[1], at: typeof prompts[1].at },
-    { type: "prompt", kind: "accepted", at: "number", imageNames: null, imageCount: 0 },
+    { ...prompts[1], at: typeof prompts[1].at, textHash: typeof prompts[1].textHash },
+    {
+      type: "prompt",
+      kind: "accepted",
+      at: "number",
+      imageNames: null,
+      imageCount: 0,
+      textHash: "string",
+    },
   );
+});
+
+test("two quick steers to a busy Codex session each confirm their own delivery", async (t) => {
+  const incoming = new PassThrough(),
+    outgoing = new PassThrough();
+  const written = [];
+  outgoing.on("data", (chunk) => written.push(...String(chunk).trim().split("\n")));
+  const matches = [];
+  const acceptance = new DeliveryAcceptance({
+    onMatch: (_sessionId, deliveryId, outcome) => matches.push([deliveryId, outcome]),
+  });
+  // The push crosses the native channel as the server validates it.
+  const channel = {
+    publish() {},
+    resolve() {},
+    prompt: (event) =>
+      codexProxyAcceptance(
+        "s1",
+        nativePushValue(JSON.parse(JSON.stringify(event))),
+        () => ({
+          acceptance,
+        }),
+      ),
+    close() {},
+  };
+  const proxy = await createCodexProxy({ input: incoming, output: outgoing, channel });
+  t.after(async () => {
+    await proxy.close();
+    incoming.destroy();
+    outgoing.destroy();
+  });
+  const tui = new WebSocket(proxy.url, {
+    headers: { Authorization: `Bearer ${proxy.authToken}` },
+  });
+  t.after(() => tui.terminate());
+  await once(tui, "open");
+  await until(() => acceptance.supports("s1"));
+  const steer = (id, clientId, text) => ({
+    id,
+    method: "turn/steer",
+    params: {
+      threadId: "t",
+      clientUserMessageId: clientId,
+      input: [{ type: "text", text }],
+      expectedTurnId: "u",
+    },
+  });
+  // Enter for each send in quick succession while a tool call keeps the turn busy.
+  const since = Date.now();
+  acceptance.expect("s1", { deliveryId: "d1", since, imageNames: [], text: "held 1" });
+  tui.send(JSON.stringify(steer(7, "c1", "held 1")));
+  acceptance.expect("s1", { deliveryId: "d2", since, imageNames: [], text: "held 2" });
+  tui.send(JSON.stringify(steer(8, "c2", "held 2")));
+  await until(() => written.length === 2);
+  // Codex takes both once the tool call ends: their items follow both Enters.
+  for (const clientId of ["c1", "c2"]) {
+    const item = {
+      method: "item/started",
+      params: { threadId: "t", turnId: "u", item: { type: "userMessage", clientId } },
+    };
+    const frame = once(tui, "message");
+    incoming.write(JSON.stringify(item) + "\n");
+    await frame;
+  }
+  await until(() => matches.length === 2);
+  assert.deepEqual(matches, [
+    ["d1", { kind: "accepted" }],
+    ["d2", { kind: "accepted" }],
+  ]);
 });

@@ -1,9 +1,21 @@
+import { createHash } from "node:crypto";
+
 /** Deliveries whose Enter lies this close before an event are candidates for it. */
 export const ASK_WINDOW_MS = 8000;
 export const EVENT_BUFFER_MS = 5000;
 export const EXPECTATION_TTL_MS = 600000;
 export const MAX_EXPECTATIONS = 32;
 export const MAX_EVENTS = 32;
+
+/**
+ * A prompt's identity by text, blind to whitespace the TUI may change (line endings,
+ * a trailing newline, indentation of a paste): a sha256 hex digest, so an event
+ * carries no prompt text.
+ */
+export function promptTextHash(text) {
+  if (typeof text !== "string") return undefined;
+  return createHash("sha256").update(text.replace(/\s+/g, "")).digest("hex");
+}
 
 function sameNames(left, right) {
   if (left.length !== right.length) return false;
@@ -23,6 +35,17 @@ function isFresh(expectation, event) {
 }
 
 /**
+ * The expectation an event names by its text (Codex reports the text the TUI sent):
+ * among the fitting ones, those with the same text hash. When they are exactly one,
+ * the event is that delivery's, whatever its time; when none, the text tells nothing
+ * (an image placeholder, a TUI rewrite) and time decides as below.
+ */
+function named(list, event) {
+  if (!event.textHash) return [];
+  return list.filter((entry) => fits(entry, event) && entry.textHash === event.textHash);
+}
+
+/**
  * The newest open expectation the event fits (latest `since`, the later one on a tie):
  * an event dated after two Enters belongs to the second, since the first had its
  * chance before. When the event fits two or more fresh expectations (Enter within
@@ -31,6 +54,13 @@ function isFresh(expectation, event) {
  * own late events cannot confirm another delivery, but are never the newest.
  */
 function resolve(list, event) {
+  const byText = named(list, event);
+  if (byText.length === 1)
+    return byText[0].tombstone
+      ? { newest: null, retired: true, ambiguous: false }
+      : { newest: byText[0], ambiguous: false };
+  // Two with the same text: only those can be the event's, by time as below.
+  if (byText.length > 1) list = byText;
   let newest = null;
   let fresh = 0;
   for (const expectation of list) {
@@ -39,7 +69,7 @@ function resolve(list, event) {
     if (expectation.tombstone) continue;
     if (!newest || expectation.since >= newest.since) newest = expectation;
   }
-  return { newest, ambiguous: fresh > 1 };
+  return { newest, retired: !newest && byText.length > 1, ambiguous: fresh > 1 };
 }
 
 /** Caps the list, evicting tombstones before open expectations. */
@@ -77,12 +107,15 @@ export class DeliveryAcceptance {
     return this.#sources.has(sessionId);
   }
 
-  expect(sessionId, { deliveryId, since, imageNames }) {
+  /** `text`, the delivered text, is kept only as its hash (promptTextHash). */
+  expect(sessionId, { deliveryId, since, imageNames, text }) {
     this.#prune(sessionId);
+    const textHash = promptTextHash(text);
     const expectation = {
       deliveryId,
       since,
       imageNames: [...imageNames],
+      ...(textHash ? { textHash } : {}),
       expiresAt: this.#now() + EXPECTATION_TTL_MS,
     };
     // A retried delivery replaces its earlier expectation.
@@ -141,16 +174,23 @@ export class DeliveryAcceptance {
    * fit.
    */
   #settle(sessionId, list, event) {
-    const { newest, ambiguous } = resolve(list, event);
+    const { newest, retired, ambiguous } = resolve(list, event);
+    // The late event of a delivery retired as ambiguous: it confirms nobody.
+    if (retired) return true;
     if (!newest) return false;
-    const kept = list.filter((entry) => entry.since > newest.since);
+    // Newer: a later Enter, or the same moment and registered later (as in resolve).
+    const at = list.indexOf(newest);
+    const newer = (entry, index) =>
+      entry.since > newest.since || (entry.since === newest.since && index > at);
+    const kept = list.filter(newer);
     if (ambiguous) {
       const tombstones = list
-        .filter((entry) => entry.since <= newest.since)
+        .filter((entry, index) => !newer(entry, index))
         .filter((entry) => fits(entry, event) && isFresh(entry, event))
-        .map(({ since, imageNames }) => ({
+        .map(({ since, imageNames, textHash }) => ({
           since,
           imageNames,
+          ...(textHash ? { textHash } : {}),
           tombstone: true,
           expiresAt: since + ASK_WINDOW_MS,
         }));

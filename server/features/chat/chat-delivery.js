@@ -503,7 +503,13 @@ export class ChatDelivery {
       ? []
       : ((await claudeImageMessage(text))?.images.map((image) => path.basename(image)) ??
         []);
-    this.acceptance.expect(id, { deliveryId: receipt.deliveryId, since, imageNames });
+    // The text lets a Codex event name its own delivery (delivery-acceptance.js).
+    this.acceptance.expect(id, {
+      deliveryId: receipt.deliveryId,
+      since,
+      imageNames,
+      text,
+    });
   }
 
   /**

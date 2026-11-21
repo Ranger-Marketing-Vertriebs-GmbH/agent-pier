@@ -5,6 +5,7 @@ import {
   ASK_WINDOW_MS,
   DeliveryAcceptance,
   EVENT_BUFFER_MS,
+  promptTextHash,
 } from "../../server/features/chat/delivery-acceptance.js";
 
 function setup() {
@@ -327,5 +328,94 @@ test("expect replaces an earlier expectation of the same delivery", () => {
   assert.deepEqual(
     matches.map((match) => match.deliveryId),
     ["a", "b"],
+  );
+});
+
+const said = (at, text, extra = {}) =>
+  accepted(at, [], { textHash: promptTextHash(text), ...extra });
+const expectText = (acceptance, deliveryId, since, text) =>
+  acceptance.expect("s1", { deliveryId, since, imageNames: [], text });
+
+test("two quick sends to a busy Codex session each settle on their own event", () => {
+  const { matches, acceptance } = setup();
+  // Both steers wait for the running tool call; their events follow both Enters.
+  expectText(acceptance, "d1", 1000, "held 1");
+  expectText(acceptance, "d2", 1800, "held 2");
+  acceptance.report("s1", said(4000, "held 1"));
+  acceptance.report("s1", said(4010, "held 2"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1", "d2"],
+  );
+});
+
+test("an event names its delivery by text also outside the ask window", () => {
+  const { matches, acceptance } = setup();
+  expectText(acceptance, "d1", 1000, "held 1");
+  expectText(acceptance, "d2", 1800, "held 2");
+  const late = 1800 + ASK_WINDOW_MS + 5000;
+  acceptance.report("s1", said(late, "held 1"));
+  acceptance.report("s1", said(late + 10, "held 2"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1", "d2"],
+  );
+});
+
+test("text identity ignores whitespace the TUI may change", () => {
+  const { matches, acceptance } = setup();
+  expectText(acceptance, "d1", 1000, "line one\r\nline two\n");
+  expectText(acceptance, "d2", 1005, "other");
+  acceptance.report("s1", said(1010, "line one\nline two"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1"],
+  );
+});
+
+test("a blocked steer never takes the next send's event by text", () => {
+  const { matches, acceptance } = setup();
+  // D1's steer is blocked by a hook (no event); D2 is taken.
+  expectText(acceptance, "d1", 1000, "held 1");
+  expectText(acceptance, "d2", 1800, "held 2");
+  acceptance.report("s1", said(4000, "held 2"));
+  acceptance.report("s1", said(4010, "held 1"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2"],
+  );
+});
+
+test("two sends with the same text stay ambiguous", () => {
+  const { matches, acceptance } = setup();
+  expectText(acceptance, "d1", 1000, "same");
+  expectText(acceptance, "d2", 1005, "same");
+  acceptance.report("s1", said(1010, "same"));
+  acceptance.report("s1", said(1020, "same"));
+  assert.deepEqual(matches, []);
+});
+
+test("a retired delivery's own event, named by text, confirms no other", () => {
+  const { matches, acceptance } = setup();
+  expectText(acceptance, "d1", 1000, "same");
+  expectText(acceptance, "d2", 1005, "same");
+  acceptance.report("s1", said(1010, "same"));
+  expectText(acceptance, "d3", 1100, "next");
+  // The second "same" event belongs to a retired delivery, not to D3.
+  acceptance.report("s1", said(1150, "same"));
+  acceptance.report("s1", said(1160, "next"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d3"],
+  );
+});
+
+test("an event whose text fits no delivery falls back to the newest fitting one", () => {
+  const { matches, acceptance } = setup();
+  expectText(acceptance, "d1", 1000, "with [Image #1]");
+  acceptance.report("s1", said(1010, "with an image placeholder"));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1"],
   );
 });

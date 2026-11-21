@@ -1,3 +1,5 @@
+import { promptTextHash } from "../chat/delivery-acceptance.js";
+
 // Prompts the TUI submits and still waits to hear about; the oldest is forgotten first.
 const maxPrompts = 64;
 const imageInputs = new Set(["image", "localImage"]);
@@ -14,7 +16,9 @@ function remember(map, key, value) {
  * `clientUserMessageId` (`accepted`); a start whose turn completes after a blocking
  * hook and without that item was `dropped`. A blocked steer has no reliable sign and
  * reports nothing; requests without a client id (title generation) are not prompts.
- * `onEvent({ kind, at, imageNames: null, imageCount, reason? })`.
+ * Each event names its prompt by the hash of the text the TUI sent (`textHash`), so
+ * two prompts submitted before Codex takes either still settle each its own delivery.
+ * `onEvent({ kind, at, imageNames: null, imageCount, textHash, reason? })`.
  */
 export function codexPromptAcceptance(onEvent) {
   // clientUserMessageId → { threadId, imageCount, start, turnId?, blocked?, reason? }
@@ -31,6 +35,7 @@ export function codexPromptAcceptance(onEvent) {
       at: Date.now(),
       imageNames: null,
       imageCount: prompt.imageCount,
+      textHash: prompt.textHash,
       ...extra,
     });
   return {
@@ -45,6 +50,12 @@ export function codexPromptAcceptance(onEvent) {
       remember(prompts, clientId, {
         threadId: params.threadId,
         imageCount: params.input.filter((input) => imageInputs.has(input?.type)).length,
+        textHash: promptTextHash(
+          params.input
+            .filter((input) => input?.type === "text" && typeof input.text === "string")
+            .map((input) => input.text)
+            .join("\n"),
+        ),
         start,
       });
       if (start && message.id !== undefined)

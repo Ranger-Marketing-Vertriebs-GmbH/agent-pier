@@ -143,13 +143,18 @@ export function nativePushValue(message) {
       !["accepted", "dropped"].includes(message.kind) ||
       !Number.isInteger(message.imageCount) ||
       message.imageCount < 0 ||
-      message.imageCount > 1000
+      message.imageCount > 1000 ||
+      (message.textHash !== undefined &&
+        !(
+          typeof message.textHash === "string" && /^[0-9a-f]{64}$/.test(message.textHash)
+        ))
     )
       invalid();
     return {
       type: "prompt",
       kind: message.kind,
       imageCount: message.imageCount,
+      ...(message.textHash ? { textHash: message.textHash } : {}),
       ...(message.kind === "dropped" && text(message.reason, 500) && message.reason
         ? { reason: message.reason }
         : {}),
