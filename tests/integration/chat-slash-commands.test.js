@@ -10,6 +10,9 @@ import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
 import { unconfirmedCommand } from "../../server/features/chat/delivery-commands.js";
 import { applicationFixture } from "../helpers/application.js";
 
+// tmux commands that only read state; everything else counts as input to the TUI.
+const stateReads = new Set(["list-panes", "capture-pane", "show-options"]);
+
 for (const tool of ["codex", "claude", "opencode"]) {
   test(`${tool}: chat slash commands reach the TUI exactly once without queueing or bracketed paste`, async (t) => {
     const f = await applicationFixture(t);
@@ -23,6 +26,8 @@ for (const tool of ["codex", "claude", "opencode"]) {
     manager.tmux = async (args) => {
       if (args[0] === "display-message")
         return capturedChatTuiScreen(nativeDraftScreen(tool, screen, typed));
+      // State reads (a session list's `list-panes -a`) are not input to the TUI.
+      if (stateReads.has(args[0])) return "";
       calls.push(args);
       if (args[0] === "send-keys") typed = args.includes("-l") ? args.at(-1) : "";
       return "";
@@ -44,7 +49,10 @@ for (const tool of ["codex", "claude", "opencode"]) {
       const send = () => f.request("/api/sessions/slash/input", { method: "POST", body });
       // Local commands send no native event: the cleared prompt confirms them.
       const settled = unconfirmedCommand(tool, text) ? "accepted" : "handed-off";
-      assert.equal((await (await send()).json()).status, settled);
+      // A background session list (the 2.5 s operations poll, a live topic) may read
+      // tmux state at any time; it must not count as keyboard input.
+      const [first] = await Promise.all([send(), manager.list()]);
+      assert.equal((await first.json()).status, settled);
       assert.equal((await (await send()).json()).status, settled);
       assert.deepEqual(
         calls.map((args) => args[0]),

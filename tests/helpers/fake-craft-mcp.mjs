@@ -25,6 +25,7 @@
  *   {
  *     "steps": [                        // run in order after each rebuild_start
  *       { "wait": 200 },                // pause (ms)
+ *       { "awaitMode": true },          // wait for project_questions_set
  *       { "activity": "Reading the target" },          // a build-activity.log line
  *       { "ask": "question", "title": "Which colour?", "detail": "…",
  *         "choices": ["Red", "Blue"], "allow_text": true },  // waits for an answer
@@ -59,13 +60,8 @@
  * `not_found`.
  */
 import { spawn } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  appendFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { busyGate } from "./fake-craft-busy.mjs";
 import { addPictures, checkPictures } from "./fake-craft-pictures.mjs";
@@ -236,6 +232,7 @@ function stopBuilder(entry) {
 
 function runSteps(entry) {
   const generation = entry.generation;
+  entry.awaitingMode = false;
   const next = (delay = 0) => {
     entry.timer = setTimeout(() => {
       if (entry.generation !== generation) return;
@@ -252,6 +249,7 @@ function runSteps(entry) {
 /** Performs one step; returns the delay before the next, or undefined to wait. */
 function perform(entry, step) {
   if (step.wait) return step.wait;
+  if (step.awaitMode && !entry.modeSet) return void (entry.awaitingMode = true);
   if (step.activity) activity(entry, step.activity);
   if (step.usage) {
     const usage = readUsage(entry);
@@ -464,6 +462,8 @@ const tools = {
       throw new ToolError("invalid_arguments", "mode must be ask, decide or default.");
     const entry = project(name);
     update(entry, (r) => (r.questions_mode = mode === "default" ? "ask" : mode));
+    entry.modeSet = true;
+    if (entry.awaitingMode && entry.builder) runSteps(entry);
     return { mode };
   },
   rebuild_stop({ project: name }) {
