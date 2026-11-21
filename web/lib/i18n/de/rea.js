@@ -2,6 +2,8 @@ export const reaCopy = {
   title: "REA",
   manage: "Verwalten",
   updateBadge: "Update verfügbar",
+  // A managed row's CLI binding is not in effect (install card, start page row).
+  cliError: "CLI-Fehler",
   working: "Läuft …",
   intro:
     "REA gibt Claude Code Tools, um Binärdateien zu analysieren. AgentPier lädt die Teile, die du wählst, prüft Größe und SHA-256 und legt sie in einen eigenen Ordner, getrennt von deiner eigenen Konfiguration. Die Installation trägt REA bei den CLIs ein, an die es gebunden ist (standardmäßig Claude Code), und kopiert seinen Skill in die Profile dieser CLIs, auch ins Standardprofil des Hosts.",

@@ -13,6 +13,7 @@ import {
   updateRequired as outdated,
 } from "./tool-actions.js";
 import { runToolAction, toolActionLabel } from "./tool-action-view.js";
+import { bindingLine } from "../mcp-servers/cli-status-text.js";
 
 const descriptions = () => ({
   codex: copy.toolGridCodex,
@@ -39,7 +40,8 @@ const lookOf = (action) =>
   looks[action.id] ??
   (DIALOG_TOOLS.includes(action.id) ? { className: undefined, icon: "arrow" } : null);
 // REA and Craft Anything update through their dialog: their card shows a badge instead.
-const warning = (tool) => outdated(tool) || dialogUpdate(tool);
+// Their row's CLI binding that is not in effect (`binding`) shows as a CLI error.
+const warning = (tool) => outdated(tool) || !!tool.binding || dialogUpdate(tool);
 
 /**
  * The coding CLIs and utilities with every install, start, update and remove action,
@@ -59,11 +61,13 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
               <StatusDot tone={warning(t) ? "warning" : t.installed ? "ok" : "idle"} />
               {outdated(t)
                 ? toolInstallerCopy.updateRequiredBadge
-                : dialogUpdate(t)
-                  ? reaCopy.updateBadge
-                  : t.installed
-                    ? commonCopy.ready
-                    : commonCopy.notInstalled}
+                : t.binding
+                  ? reaCopy.cliError
+                  : dialogUpdate(t)
+                    ? reaCopy.updateBadge
+                    : t.installed
+                      ? commonCopy.ready
+                      : commonCopy.notInstalled}
             </span>
           </div>
           <h3>{t.name}</h3>
@@ -78,6 +82,7 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
                   ` · ${toolInstallerCopy.minimumVersion(t.minimumVersion)}`}
               </small>
             )}
+          {t.binding && <small className="tool-binding">{bindingLine(t.binding)}</small>}
           <p>{descriptions()[t.id]}</p>
           {toolActions(t).map((action) => {
             const look = lookOf(action);

@@ -16,7 +16,7 @@ import {
 } from "./cli-native.js";
 import { loginCommand } from "./cli-oauth-status.js";
 import { CliMcpReconciler } from "./cli-reconciler.js";
-import { adoptFailure, reasonIdentity, statusView } from "./cli-status.js";
+import { adoptFailure, cliTrouble, reasonIdentity, statusView } from "./cli-status.js";
 import { resolveCommand } from "./command-resolution.js";
 import { requireOwnerPatch } from "./managed-servers.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
@@ -296,6 +296,13 @@ export class CliMcpBindings {
       fields: Object.keys(patch).filter((key) => key !== "revision"),
       stdioConfirmed: stdioChanged && confirmStdio === true,
     };
+  }
+  /** Server `id`'s first CLI binding that is not in effect, or null (cli-status.js). */
+  trouble(id) {
+    return cliTrouble(
+      { servers: this.servers, inspect: (cli) => this.reconciler.inspect(cli) },
+      id,
+    );
   }
   /** Ids of the servers whose AgentPier entry `cli` runs now. */
   inEffect(cli) {

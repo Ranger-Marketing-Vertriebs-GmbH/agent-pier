@@ -35,6 +35,7 @@ import { craftProxies, craftSessionRow, followProxies } from "./craft-proxy.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
+import { managedRowName, rowTrouble } from "./managed-row.js";
 
 const messages = serverMessages.craft;
 const tool = "craft-anything";
@@ -220,6 +221,7 @@ export class CraftTool {
       installed,
       serverId: id,
       serverName: server?.name ?? null,
+      binding: rowTrouble(this, id),
       updateAvailable: outdated.core || outdated.ghidra,
       components: {
         core: {
@@ -264,6 +266,7 @@ export class CraftTool {
         installed,
         version: this.component(tool)?.version ?? null,
         updateAvailable: installed && this.outdated(),
+        binding: installed ? rowTrouble(this, this.serverId()) : null,
       };
     } catch (error) {
       logFailure("read Craft Anything's state", error);
@@ -451,12 +454,9 @@ export class CraftTool {
   watchProxies() {
     followProxies(this);
   }
-  /** A free name: `craft-anything`, else `craft-anything-agentpier[-<n>]`. */
+  /** A name free centrally and in Claude Code's profiles (managed-row.js). */
   rowName() {
-    const taken = new Set(this.servers.list().map((server) => server.name.toLowerCase()));
-    let name = taken.has(tool) ? `${tool}-agentpier` : tool;
-    for (let n = 2; taken.has(name); n += 1) name = `${tool}-agentpier-${n}`;
-    return name;
+    return managedRowName(this, tool, ["claude"]);
   }
   async placeRow(settings, source) {
     const id = this.serverId();

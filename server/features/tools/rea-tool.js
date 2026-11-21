@@ -37,6 +37,7 @@ import { syncReaSkills } from "./rea-skills.js";
 import { startRea, uninstallRea } from "./rea-lifecycle.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
+import { managedRowName, rowTrouble } from "./managed-row.js";
 
 const messages = serverMessages.rea;
 const tool = "rea";
@@ -251,6 +252,7 @@ export class ReaTool {
       installed,
       serverId: id,
       serverName: server?.name ?? null,
+      binding: rowTrouble(this, id),
       updateAvailable: outdated.core || outdated.ghidra,
       components: {
         core: {
@@ -294,6 +296,7 @@ export class ReaTool {
         installed,
         version: this.record()?.version ?? null,
         updateAvailable: installed && this.outdated(),
+        binding: installed ? rowTrouble(this, this.serverId()) : null,
       };
     } catch (error) {
       logFailure("read REA's state", error);
@@ -455,12 +458,9 @@ export class ReaTool {
       held,
     });
   }
-  /** A free name for the new row: `rea`, else `rea-agentpier`, else `rea-agentpier-<n>`. */
+  /** A name free centrally and in Claude Code's profiles (managed-row.js). */
   rowName() {
-    const taken = new Set(this.servers.list().map((server) => server.name.toLowerCase()));
-    let name = taken.has(tool) ? "rea-agentpier" : tool;
-    for (let n = 2; taken.has(name); n += 1) name = `rea-agentpier-${n}`;
-    return name;
+    return managedRowName(this, tool, ["claude"]);
   }
   async placeCore({ components, settings, stored, update, source }) {
     let id = this.serverId();
