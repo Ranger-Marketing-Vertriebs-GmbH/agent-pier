@@ -52,6 +52,16 @@ function testBrowser() {
   return browser;
 }
 
+// A context window that holds the web agent's whole prompt with room to spare. The lead
+// is offered every team, capability and browser tool: about 82 KB of tool schemas and
+// 16 KB of system prompt, which OpenClaw 2026.11.3 prices at all but about 1,800 tokens
+// of a 32,768-token window. A browser `start` or `status` result (about 1,300 tokens of
+// state and graphics diagnostics) then left a few hundred, and a little more tool
+// description tipped the turn into OpenClaw's preemptive compaction. The deterministic
+// model answers no summary, so the turn compacted again and again (over a thousand
+// summarisation requests) until agent.wait answered "timeout".
+const fixtureContextWindow = 131072;
+
 const fixtureModel = (url) => ({
   baseUrl: url,
   api: "openai-completions",
@@ -61,7 +71,7 @@ const fixtureModel = (url) => ({
       id: "fixture-model",
       name: "Fixture",
       input: ["text", "image"],
-      contextWindow: 32768,
+      contextWindow: fixtureContextWindow,
       maxTokens: 4096,
     },
   ],
@@ -355,15 +365,23 @@ test(
         { runId: sent.runId, timeoutMs: waitMs },
         { timeoutMs: waitMs + 5000 },
       );
-      assert.equal(done.status, "ok", label);
       const requests = model.requests.slice(from);
+      // OpenClaw's summarisation request offers no tools; a turn that compacted ran
+      // out of the fixture's context window (fixtureContextWindow) and never ends.
+      const summaries = requests.filter((r) => !r.tools?.length).length;
+      assert.equal(summaries, 0, `${label}: compacted ${summaries} times`);
+      assert.equal(done.status, "ok", label);
       const result = requests
         .flatMap((r) => r.messages || [])
         .filter((m) => m.role === "tool")
         .map((m) => String(m.content))
         .at(-1);
       t.diagnostic(`${label} result=${JSON.stringify(result?.slice(0, 400))}`);
-      return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
+      return {
+        offered: requests[0]?.tools?.map((d) => d.function.name) ?? [],
+        result,
+        requests,
+      };
     }
 
     // web_search is offered with DuckDuckGo; it is not called (no real search).
@@ -379,6 +397,9 @@ test(
     assert.equal(fetched.offered.includes("browser"), browser.available);
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);
+    // The whole prompt fits with the full output budget to spare, so no tool result
+    // pushes a turn into compaction (fixtureContextWindow).
+    assert.equal(fetched.requests[0].max_completion_tokens, 4096);
 
     // Read PDFs: which model reads is pinned in assistant-pdf-own-model-contract; the
     // tool guard refuses a web address before asking AgentPier for a model.
