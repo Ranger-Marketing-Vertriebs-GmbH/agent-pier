@@ -8,6 +8,11 @@ import {
   writes,
 } from "./mcp-wizard-fixture.js";
 
+const fitsWidth = async (page) =>
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+
 for (const [label, use] of [
   ["desktop", {}],
   ["phone", phone],
@@ -137,6 +142,66 @@ for (const [label, use] of [
         confirmStdio: true,
         origin: "manual",
       });
+    });
+
+    test("the confirmation shows the full command line and names settings without values", async ({
+      page,
+    }) => {
+      await wizardSetup(page);
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, /Own command/);
+      await wizard.getByLabel("Name", { exact: true }).fill("tool");
+      await wizard.getByLabel("Command").fill("uvx");
+      await expect(primary(wizard)).toBeEnabled();
+      await primary(wizard).click();
+      await wizard.getByRole("button", { name: "Add a setting" }).click();
+      const setting = wizard.locator(".mcp-setting");
+      await setting.getByLabel("Name", { exact: true }).fill("API_TOKEN");
+      await setting.getByLabel("Value", { exact: true }).fill("very-secret-value");
+      await wizard.getByText(/^Arguments and working directory/).click();
+      for (const [index, value] of [
+        "/srv/mcp/echo server.mjs",
+        "--read-only",
+      ].entries()) {
+        await wizard.getByRole("button", { name: "Add an argument" }).click();
+        await wizard.getByLabel(`Argument ${index + 1}`, { exact: true }).fill(value);
+      }
+      await primary(wizard).click();
+      await expect(wizard.getByText("Run a local command?")).toBeVisible();
+      const review = wizard.locator(".mcp-wizard-review");
+      await expect(
+        review.getByText("Command line", { exact: true }).locator("+ dd"),
+      ).toHaveText("uvx '/srv/mcp/echo server.mjs' --read-only");
+      await expect(
+        review.getByText("Settings", { exact: true }).locator("+ dd"),
+      ).toHaveText("API_TOKEN (values hidden)");
+      await expect(wizard).not.toContainText("very-secret-value");
+      // The highlighted stage is the one the counter names.
+      const current = wizard.locator('li[aria-current="step"]');
+      await expect(current).toHaveText("Set up");
+      await expect(wizard.getByText("Step 2 of 3")).toBeAttached();
+      const colour = (locator) =>
+        locator.evaluate((node) => getComputedStyle(node).color);
+      const accent = await page.evaluate(() => {
+        const probe = document.createElement("i");
+        probe.style.color = "var(--accent)";
+        document.body.append(probe);
+        const value = getComputedStyle(probe).color;
+        probe.remove();
+        return value;
+      });
+      expect(await colour(current)).toBe(accent);
+      expect(await colour(wizard.locator(".mcp-wizard-steps li.is-done"))).not.toBe(
+        accent,
+      );
+      await wizard.getByRole("button", { name: "Allow and save" }).click();
+      await expect(page).toHaveURL(/step=connect/);
+      await expect(wizard.getByText(/built-in local profile/)).toBeVisible();
+      for (const file of ["~/.claude.json", "~/.codex/config.toml"])
+        await expect(
+          wizard.getByText(`Writes into ${file}, for all accounts`),
+        ).toBeVisible();
+      await fitsWidth(page);
     });
 
     test("an npx command offers to install the package instead", async ({ page }) => {

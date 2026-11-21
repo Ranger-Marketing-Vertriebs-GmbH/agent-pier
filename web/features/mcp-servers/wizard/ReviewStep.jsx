@@ -3,6 +3,7 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { savedNotice } from "../mcp-notices.js";
+import { commandLine, environmentNames } from "./command-line.js";
 import { storedCount } from "./setting-hints.js";
 import { refusedField, saveNewServer } from "./wizard-save.js";
 import { stepOfField } from "./wizard-state.js";
@@ -15,6 +16,8 @@ export default function ReviewStep({ state, dispatch, go, headingRef, data, noti
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const rows = stdio ? draft.env : draft.headers;
+  const names = stdio ? environmentNames(draft.env) : [];
+  const cwd = stdio ? (draft.cwd ?? "").trim() : "";
   const save = async () => {
     setBusy(true);
     setError("");
@@ -48,8 +51,16 @@ export default function ReviewStep({ state, dispatch, go, headingRef, data, noti
       <dl className="mcp-details mcp-wizard-review">
         <dt>{copy.review.name}</dt>
         <dd>{draft.name}</dd>
-        <dt>{stdio ? copy.review.command : copy.review.address}</dt>
-        <dd className="mcp-wizard-mono">{stdio ? draft.command : draft.url}</dd>
+        <dt>{stdio ? copy.review.commandLine : copy.review.address}</dt>
+        <dd className="mcp-wizard-mono">
+          {stdio ? commandLine(draft.command, draft.argRows) : draft.url}
+        </dd>
+        {cwd && (
+          <>
+            <dt>{copy.review.workingDirectory}</dt>
+            <dd className="mcp-wizard-mono">{cwd}</dd>
+          </>
+        )}
         {!stdio && (
           <>
             <dt>{copy.review.signIn}</dt>
@@ -57,7 +68,13 @@ export default function ReviewStep({ state, dispatch, go, headingRef, data, noti
           </>
         )}
         <dt>{copy.review.settings}</dt>
-        <dd>{copy.review.settingsCount(storedCount(rows))}</dd>
+        <dd>
+          {!stdio
+            ? copy.review.settingsCount(storedCount(rows))
+            : names.length
+              ? copy.review.settingNames(names.join(", "))
+              : copy.review.noSettings}
+        </dd>
       </dl>
       {stdio && (
         <section

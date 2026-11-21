@@ -154,7 +154,10 @@ export const mcpWizardCopy = {
     title: "Check and save",
     name: "Name",
     address: "Address",
-    command: "Command",
+    commandLine: "Command line",
+    workingDirectory: "Working directory",
+    settingNames: (names) => `${names} (values hidden)`,
+    noSettings: "None",
     signIn: "Sign-in",
     settings: "Settings",
     settingsCount: (count) => `${count}, values hidden after saving`,
@@ -166,8 +169,9 @@ export const mcpWizardCopy = {
     intro:
       "Choose the coding CLIs and agents that get this server's tools. You can change this at any time.",
     clis: "Coding CLIs",
-    cliHint:
-      "Written into its settings for all accounts; also works when you start it in a terminal.",
+    clisHomeNote:
+      "A coding CLI is bound through its built-in local profile: AgentPier writes the server into your own configuration in your home folder on this computer, which every account of that CLI uses, also when you start it in a terminal.",
+    cliHint: (file) => `Writes into ${file}, for all accounts`,
     agents: "Agents",
     agentsLoading: "Loading agents …",
     agentsFailed: "The agents could not be loaded.",

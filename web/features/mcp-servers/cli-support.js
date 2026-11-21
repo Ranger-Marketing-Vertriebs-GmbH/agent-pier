@@ -21,3 +21,7 @@ export const cliTarget = (server) => ({
   cwd: server.cwd || "",
   agentPlaceholders: server.agentPlaceholders === true,
 });
+
+// The file a CLI binding writes: the CLI's built-in local profile, which is the
+// owner's own home configuration and the one every account of that CLI shares.
+export const cliHomeConfig = (cli) => cliDefinition(cli).mcpHomeConfig;

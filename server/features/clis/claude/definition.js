@@ -37,6 +37,9 @@ const definition = {
     notes: true,
   }),
   configFormat: "json",
+  // The file a binding from Connections › MCP servers writes: the built-in local
+  // profile, i.e. the owner's own home configuration that every account shares.
+  mcpHomeConfig: "~/.claude.json",
   protocol: "messages",
   capabilities: {
     accountTransfer: true,

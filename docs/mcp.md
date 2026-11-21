@@ -215,7 +215,8 @@ CLIs** on the wizard's **Connect** step). A server bound to a CLI is written int
 configuration (`~/.claude.json` `mcpServers`, `~/.codex/config.toml` `mcp_servers`,
 `~/.config/opencode/opencode.json(c)` `mcp`), so it also works when the CLI is started
 in a terminal, and the shared CLI profile carries it to every AgentPier account of that
-CLI. AgentPier writes at every save and before every session start; running sessions
+CLI. These files belong to the CLI's built-in local profile, which is the owner's own home
+configuration, not a copy AgentPier keeps for one account. AgentPier writes at every save and before every session start; running sessions
 see a change after a restart. The list, the CLI bindings and the finds work with or
 without agents; agent OAuth logins need agents. A local (stdio) command given to a CLI
 needs the owner's confirmation, because every session of that CLI starts it.
@@ -233,8 +234,15 @@ this page.
 
 **Add MCP server** opens a wizard: **Source** (package from npm or PyPI, server on the
 internet, own command, or [the MCP directory](#mcp-directory)), **Set up**, **Settings**, then **Install** (package) or
-**Check and save**, **Connect** and a result screen. Connect lists the coding CLIs and,
-with agents on, every owner-managed agent; one card **What this allows** names what a
+**Check and save**, **Connect** and a result screen. For an own command, **Check and save**
+shows the full **Command line** (the command and every argument, quoted as a shell would
+read them), the working directory when one is set, and under **Settings** the names of
+the environment settings without their values, before **Allow and save** confirms that
+AgentPier may run it. The step list highlights the step the counter names. Connect lists
+the coding CLIs and, with agents on, every owner-managed agent. Above the CLIs it says
+that a CLI is bound through its built-in local profile: the server goes into the
+owner's own configuration in the home folder (each CLI row names the file, such as
+`~/.claude.json`), which every account of that CLI uses; one card **What this allows** names what a
 local server may do (your user's rights, the server's own write switch, and that shell
 access is separate). The server is saved first, then the CLIs (one change), then each
 agent on its own; the result screen shows every target and offers **Try again** for the
