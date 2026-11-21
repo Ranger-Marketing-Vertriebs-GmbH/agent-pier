@@ -200,7 +200,7 @@ test(
       "preferred",
     );
 
-    async function turn(call, name) {
+    async function turn(call, name, { waitMs = 60000 } = {}) {
       Object.assign(tool, call);
       const from = model.requests.length;
       const session = await createGatewaySession(runtime.client, {
@@ -214,8 +214,8 @@ test(
       });
       const done = await runtime.client.call(
         "agent.wait",
-        { runId: sent.runId, timeoutMs: 60000 },
-        { timeoutMs: 65000 },
+        { runId: sent.runId, timeoutMs: waitMs },
+        { timeoutMs: waitMs + 5000 },
       );
       assert.equal(done.status, "ok", name);
       const requests = model.requests.slice(from);
@@ -231,8 +231,8 @@ test(
     try {
       // A cold start's whole budget, started once more after a failed launch
       // (helpers/browser-start.js).
-      const { offered, result: started } = await startBrowser((name, args) =>
-        turn({ name: "browser", arguments: args }, `snapshot-${name}`),
+      const { offered, result: started } = await startBrowser((name, args, wait) =>
+        turn({ name: "browser", arguments: args }, `snapshot-${name}`, wait),
       );
       t.diagnostic(`offered=${JSON.stringify(offered)}`);
       // Code Mode would offer only its `exec` cell and `wait`.

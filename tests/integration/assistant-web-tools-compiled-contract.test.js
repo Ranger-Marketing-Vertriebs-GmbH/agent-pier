@@ -338,7 +338,7 @@ test(
 
     // One turn of `agent` on the deterministic model; returns what it was offered
     // and the tool result OpenClaw sent back.
-    async function turn(agent, call, label) {
+    async function turn(agent, call, label, { waitMs = 60000 } = {}) {
       Object.assign(tool, call);
       const from = model.requests.length;
       const session = await createGatewaySession(runtime.client, {
@@ -352,8 +352,8 @@ test(
       });
       const done = await runtime.client.call(
         "agent.wait",
-        { runId: sent.runId, timeoutMs: 60000 },
-        { timeoutMs: 65000 },
+        { runId: sent.runId, timeoutMs: waitMs },
+        { timeoutMs: waitMs + 5000 },
       );
       assert.equal(done.status, "ok", label);
       const requests = model.requests.slice(from);
@@ -421,8 +421,8 @@ test(
       "the browser runs only the agent's own profile inside the data dir",
       async (st) => {
         if (!browser.available) return st.skip("no Chromium-based browser installed");
-        const call = (args, label) =>
-          turn(web, { name: "browser", arguments: args }, label);
+        const call = (args, label, wait) =>
+          turn(web, { name: "browser", arguments: args }, label, wait);
         const { result: status } = await call({ action: "status" }, "browser-status");
         const state = JSON.parse(status);
         const own = `agent-${web.id}`;
@@ -457,8 +457,8 @@ test(
         try {
           // A cold start's whole budget, started once more after a failed launch
           // (helpers/browser-start.js).
-          const { result: started } = await startBrowser((label, args) =>
-            call(args, label),
+          const { result: started } = await startBrowser((label, args, wait) =>
+            call(args, label, wait),
           );
           const { result: running } = await call({ action: "status" }, "browser-running");
           const { running: launched, userDataDir } = JSON.parse(running);
