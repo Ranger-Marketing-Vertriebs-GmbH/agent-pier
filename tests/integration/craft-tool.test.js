@@ -89,6 +89,7 @@ test("first install places the binary and creates a managed row bound to Claude"
     version: "0.5.0",
     pinnedVersion: "0.5.0",
     updateAvailable: false,
+    binding: null,
     status: "succeeded",
   });
   // The tool's own row fields stay locked against owner patches.

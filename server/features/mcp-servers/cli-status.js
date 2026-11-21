@@ -113,3 +113,18 @@ export function adoptFailure(error, warn) {
   }
   return { reason, error: message, ...messageIdentity(message) };
 }
+
+// Statuses of a binding that is, or is about to be, in effect.
+const fine = new Set(["written", "pending"]);
+/**
+ * The first CLI binding of server `serverId` that is not in effect, as `{ cli,
+ * status, reason, messageKey }`, or null; `inspect(cli)` is the reconciler's read-only
+ * look at one CLI (CliMcpReconciler.inspect).
+ */
+export function cliTrouble({ servers, inspect }, serverId) {
+  for (const cli of servers.targetsOf(serverId).clis) {
+    const status = inspect(cli).statuses[serverId];
+    if (status && !fine.has(status.status)) return { cli, ...statusView(status) };
+  }
+  return null;
+}

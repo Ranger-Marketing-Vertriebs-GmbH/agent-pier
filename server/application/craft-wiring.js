@@ -92,6 +92,9 @@ export function createManagedTools(options) {
   const rea = createReaTool(options);
   const craft = createCraftTool(options);
   joinManagedTools({ rea, craft, live: () => options.services?.()?.live });
+  // The card shows a CLI binding of the managed row that is not in effect.
+  for (const one of [rea, craft])
+    if (one) one.cliTrouble = (id) => options.services?.()?.cliMcp?.trouble(id) ?? null;
   return { rea, craft };
 }
 

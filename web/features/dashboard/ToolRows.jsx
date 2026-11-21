@@ -8,6 +8,7 @@ import { routePath } from "../../app/routes.js";
 import { codingRoute } from "../coding/routes.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { bindingLine } from "../mcp-servers/cli-status-text.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
@@ -34,6 +35,7 @@ function stateLine(tool) {
       .filter(Boolean)
       .join(" · ");
   if (!tool.installed) return commonCopy.notInstalled;
+  if (tool.binding) return [reaCopy.cliError, bindingLine(tool.binding)].join(" · ");
   if (dialogUpdate(tool))
     return [reaCopy.updateBadge, tool.version].filter(Boolean).join(" · ");
   return [commonCopy.ready, tool.version].filter(Boolean).join(" · ");
@@ -42,7 +44,7 @@ function stateLine(tool) {
 function ToolRow({ tool, effects }) {
   const menu = useRowMenu();
   const { primary, more } = splitToolActions(toolActions(tool));
-  const outdated = updateRequired(tool) || dialogUpdate(tool);
+  const outdated = updateRequired(tool) || !!tool.binding || dialogUpdate(tool);
   return (
     <li className={`start-tool ${tool.installed ? "" : "unavailable"}`}>
       <ProviderMark tool={tool.id} size="row" />

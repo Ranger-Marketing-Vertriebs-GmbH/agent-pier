@@ -2,6 +2,8 @@ export const reaCopy = {
   title: "REA",
   manage: "Manage",
   updateBadge: "Update available",
+  // A managed row's CLI binding is not in effect (install card, start page row).
+  cliError: "CLI error",
   working: "Working …",
   intro:
     "REA gives Claude Code tools to analyze binaries. AgentPier downloads the parts you choose, checks their size and SHA-256 and keeps them in its own folder, apart from your own configuration. Installing REA registers it with the CLIs it is bound to (Claude Code by default) and copies its skill into those CLIs' profiles, including the host's default profile.",

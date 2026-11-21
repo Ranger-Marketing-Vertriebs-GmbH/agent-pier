@@ -19,6 +19,7 @@ import { safePath } from "../extensions/mcp-config.js";
 import { fingerprint, synchronize } from "./synchronization.js";
 import { seedBundledSkills } from "./bundled-skills.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { withoutForeignEntries } from "./foreign-entries.js";
 
 /**
  * `incoming` with AgentPier's own MCP entries (`owned`: `{ key, names }`) as the
@@ -83,7 +84,11 @@ export class SharedCliProfiles {
         conflicts = [];
       const current = readShared(target),
         incoming = keepOwned(
-          rebaseExtensions(readShared(source), source, target),
+          withoutForeignEntries(
+            rebaseExtensions(readShared(source), source, target),
+            this.accounts.dataDir,
+            current,
+          ),
           current,
           owned,
         );
@@ -138,7 +143,8 @@ export class SharedCliProfiles {
         fs.chmodSync(backup, 0o600);
       }
     }
-    applyShared(target, readShared(source));
+    // Another AgentPier instance's entries in the canonical profile stay there.
+    applyShared(target, withoutForeignEntries(readShared(source), this.accounts.dataDir));
     linkAssets(source, target);
     const state = readJSON(this.file, {});
     state[account.id].profiles[target.root].baseline = fingerprint(readShared(target));

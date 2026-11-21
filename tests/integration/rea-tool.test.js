@@ -75,6 +75,7 @@ test("first install with confirmInstall creates the managed row bound to Claude 
     version: "6.8.0",
     pinnedVersion: "6.8.0",
     updateAvailable: false,
+    binding: null,
     status: "succeeded",
   });
 });

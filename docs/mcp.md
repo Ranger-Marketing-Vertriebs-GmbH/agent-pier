@@ -898,14 +898,20 @@ Anything runs), and removes the folder once its last process exited. Running pro
 are never stopped for this. When the process list cannot be read, every old folder
 stays until a later look succeeds.
 
-**The MCP server row.** REA's row is named `rea`, or `rea-agentpier` when you already
-have a server called `rea` (for example one added from the directory, which stays as it
-is). On its first install it is bound to Claude Code; bind it to other CLIs and agents
+**The MCP server row.** REA's row is named `rea`, or `rea-agentpier` (then
+`rea-agentpier-2` and so on) when that name is taken: by a server in the central list
+(for example one added from the directory, which stays as it is) or by an entry in
+Claude Code's own configuration, in the canonical profile or a managed account's, such
+as one another AgentPier instance wrote. That entry is left alone. On its first install it is bound to Claude Code; bind it to other CLIs and agents
 like any server. The MCP pages mark it as managed by AgentPier and link to **Manage
 REA** instead of offering **Remove**: its name, command, package and the environment
 keys AgentPier sets cannot be changed there, and those keys show **managed by
 AgentPier**. You can still add your own environment keys; they survive every
-component change.
+component change. When the row does not reach a CLI it is bound to (its name is taken
+there, its entry was edited by hand, or the file cannot be written), the REA card under
+**CLIs and extensions › Installation** and its row on the start page show **CLI error**
+with the reason instead of **Ready**; resolve it under **Connections › MCP servers**.
+Craft Anything's card does the same.
 
 AgentPier starts REA with a controlled environment, so REA never reads or writes your
 CLIs' own configuration: `HOME`, `TMPDIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`,
@@ -1020,7 +1026,8 @@ it, and `java_home` is removed. Craft Anything otherwise searches the home folde
 macOS also Desktop and Downloads) for a Ghidra and hangs for minutes.
 
 **The MCP server row and the skill.** The row is named `craft-anything`, or
-`craft-anything-agentpier` when that name is taken, and is bound to Claude Code on the
+`craft-anything-agentpier` when that name is taken (in the central list or in Claude
+Code's own configuration, as for [REA's row](#managed-rea)), and is bound to Claude Code on the
 first install; bind it to other CLIs and agents like any server. The MCP pages mark it
 as managed by AgentPier and link to **Manage** on the Craft Anything card instead of offering
 **Remove**. AgentPier copies the skill `craft-anything` into the skill profiles of every
