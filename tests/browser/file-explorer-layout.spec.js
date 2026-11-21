@@ -227,3 +227,33 @@ for (const language of ["de", "en"])
     }
     expect(issues).toEqual([]);
   });
+
+// A deep path loaded first left the current folder under the toolbar's actions: the
+// trail scrolled to its end before the toolbar had its final width (AGENTPIER-468).
+test("the breadcrumbs keep a deep current folder in view while the toolbar settles", async ({
+  page,
+}) => {
+  await explorerFixture(page);
+  await selectEnglish(page);
+  const deep =
+    "/home/test/projects/agentpier-workspace/services/backend-gateway/src/modules/billing/invoices/archive-2026";
+  await page.goto(baseURL + `/files?path=${encodeURIComponent(deep)}`);
+  const crumbs = page.getByRole("navigation", { name: "Path segments", exact: true });
+  const current = crumbs.locator('[aria-current="location"]');
+  await expect(current).toHaveText("archive-2026");
+  const atEnd = () =>
+    crumbs.evaluate((nav) => {
+      const end = nav.querySelector('[aria-current="location"]').getBoundingClientRect();
+      const box = nav.getBoundingClientRect();
+      return (
+        nav.scrollWidth > nav.clientWidth &&
+        Math.abs(nav.scrollLeft + nav.clientWidth - nav.scrollWidth) <= 1 &&
+        end.right <= box.right + 1
+      );
+    });
+  await expect.poll(atEnd).toBe(true);
+  // The toolbar narrows after the first layout: the trail follows to its end again.
+  await crumbs.evaluate((nav) => (nav.scrollLeft = 0));
+  await page.setViewportSize({ width: 1100, height: 1000 });
+  await expect.poll(atEnd).toBe(true);
+});
