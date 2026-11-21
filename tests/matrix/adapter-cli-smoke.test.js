@@ -24,6 +24,7 @@ import {
   SMOKE_ANSWER,
   SMOKE_FILE_CONTENT,
 } from "../helpers/smoke-upstreams.js";
+import { CODEX_NO_PLUGIN_SYNC } from "../helpers/codex-cli.js";
 
 const KEY = "smoke-placeholder-key";
 const DEAD_PROXY = "http://127.0.0.1:9";
@@ -285,7 +286,11 @@ for (const [source, toolName, toolInput, expectResult] of codexRows)
       const ws = workspace(t);
       const up = await smokeUpstream(t, source, { toolName, toolInput, expectResult });
       const started = Date.now();
-      const launch = prepare("codex", up, source, ws, ["exec", "--skip-git-repo-check"]);
+      const launch = prepare("codex", up, source, ws, [
+        "exec",
+        "--skip-git-repo-check",
+        ...CODEX_NO_PLUGIN_SYNC,
+      ]);
       const prompt =
         toolName === "get_goal"
           ? "Check the current goal and answer."
