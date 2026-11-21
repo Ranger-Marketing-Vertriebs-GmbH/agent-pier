@@ -15,6 +15,8 @@ const uuid = "0123abcd-0123-4abc-8def-0123456789ab";
 const addresses = [
   "/",
   "/agents",
+  // The bare agent address redirects in the app; the server must not 404 it first.
+  "/agents/a-1",
   ...["settings", "browser", "pinboard", "chats/c-1", "teams/t-1"].map(
     (rest) => `/agents/a-1/${rest}`,
   ),
