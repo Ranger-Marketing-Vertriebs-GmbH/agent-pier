@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { codexPromptAcceptance } from "../../server/features/requests/codex-prompt-acceptance.js";
+import { promptTextHash } from "../../server/features/chat/delivery-acceptance.js";
 
 const fixtures = new URL("../fixtures/codex-prompt-acceptance/", import.meta.url);
 
@@ -25,8 +26,9 @@ function replay(rows) {
 }
 
 function shape(events) {
-  return events.map(({ at, ...event }) => {
+  return events.map(({ at, textHash, ...event }) => {
     assert.equal(typeof at, "number");
+    assert.match(textHash, /^[0-9a-f]{64}$/);
     return event;
   });
 }
@@ -43,6 +45,18 @@ for (const [name, expected] of [
   test(`Codex prompt acceptance: ${name} prompts are accepted once`, () => {
     assert.deepEqual(shape(replay(recorded(name))), expected);
   });
+
+test("Codex prompt acceptance: each steer names its prompt by the text the TUI sent", () => {
+  const rows = recorded("steer");
+  const texts = rows
+    .filter(({ dir }) => dir === "out")
+    .map(({ m }) => m.params.input.map((input) => input.text).join("\n"));
+  assert.equal(texts.length, 2);
+  assert.deepEqual(
+    replay(rows).map((event) => event.textHash),
+    texts.map(promptTextHash),
+  );
+});
 
 test("Codex prompt acceptance: the title-generation turn is ignored", () => {
   const rows = recorded("text");
