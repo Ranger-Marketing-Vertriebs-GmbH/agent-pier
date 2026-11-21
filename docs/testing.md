@@ -84,6 +84,8 @@ The tmux safety net (`tests/helpers/tmux-reaper.js`, loaded by the runner and by
 
 Fixtures that start long-lived or signal-ignoring processes register them with `guardProcess(t, child, { group })` from `tests/helpers/process-guard.js`: the test's `t.after` sends SIGTERM and then SIGKILL, and a process still registered when the test process exits (after a failure, timeout or `process.exit`) is killed outright. `GuardedRuntimeSupervisor` from the same helper guards every Gateway a contract test starts. Stopping it also waits (up to 10 s, then SIGKILL) for the OpenClaw worker processes (`openclaw/dist/**/*.worker.js`) the Gateway had when the stop began, so a contract can remove its data directory right after `runtime.close()`; exec commands, such as a background exec that outlives a restart on macOS, are left alone. A fixture that uses the assistant graph's own supervisor gets the same wait from `guardRuntimeWorkers(runtime)`.
 
+Tests that start the real Codex use `tests/helpers/codex-cli.js`. On startup Codex syncs its curated plugin marketplace with `git ls-remote` and `git fetch` of `github.com/openai/plugins` into `CODEX_HOME/.tmp/plugins`; a test that ends Codex before that finishes leaves the Git processes behind and the leak sweep fails the run. `CODEX_NO_PLUGIN_SYNC` (`-c features.plugins=false`) turns the sync off, and `runCodex(t, args, { cwd, env })` adds it, closes stdin, starts Codex as its own process group and stops the whole group at its timeout and when the test ends.
+
 Only a persistent instance writes its marked block into `~/.ssh/config` (for bare
 `ssh <alias>` in sessions with an SSH agent). Dev runs (`AGENTPIER_DEV=1`) and data folders
 under the temp folder (test servers, `applicationFixture`) never do. A separate spike or

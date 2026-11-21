@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { prepareProviderLaunch } from "../../server/features/providers/provider-launch.js";
 import { validateEndpoint } from "../../server/features/providers/endpoint-config.js";
+import { runCodex } from "../helpers/codex-cli.js";
 
 const codex = spawnSync("codex", ["--version"], { encoding: "utf8" });
 const installed = codex.status === 0;
@@ -14,7 +15,7 @@ const installed = codex.status === 0;
 test(
   "the installed Codex CLI accepts the generated endpoint model catalog",
   { skip: installed ? false : "codex CLI is not installed" },
-  (t) => {
+  async (t) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-codex-catalog-"));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const endpoint = validateEndpoint({
@@ -46,12 +47,15 @@ test(
       { command: "codex", args: [], env: { PATH: process.env.PATH, HOME: root } },
       { root, catalog: new ProviderCatalog(), endpoint, connectionName: "Fixture" },
     );
-    const result = spawnSync(
-      "codex",
+    const result = await runCodex(
+      t,
       ["exec", "--skip-git-repo-check", ...launch.args, "ping"],
-      { cwd: root, env: launch.env, encoding: "utf8", timeout: 20000 },
+      { cwd: root, env: launch.env },
     );
     const output = `${result.stdout}\n${result.stderr}`;
     assert.equal(/model_catalog_json|unknown variant/i.test(output), false, output);
+    // The curated plugin sync (git processes that outlived the test) never started.
+    const plugins = path.join(launch.env.CODEX_HOME, ".tmp", "plugins");
+    assert.equal(fs.existsSync(plugins), false, `${plugins} exists`);
   },
 );
