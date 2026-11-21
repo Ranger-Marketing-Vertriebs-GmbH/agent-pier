@@ -4,7 +4,8 @@
 // that call SubagentHandback, a peer hand-back (origin.kind "peer"). Both records
 // stay out of the visible chat; they only feed the subagent's state and report.
 // While the parent is mid-turn, Claude writes the same completions as
-// queued-command attachments instead (see lifecycleRecord).
+// queued-command attachments instead (see lifecycleRecord), and after a context
+// compaction it lists the tasks it still tracks (see createCompactionListing).
 const REPORT_LIMIT = 256 * 1024;
 const REPORT_MARKER = "The report follows:\n";
 const HANDBACK_PREFIX = "[Subagent hand-back]";
@@ -19,7 +20,15 @@ const nativeId = (value) =>
     ? value
     : null;
 
+// The agent type Claude's Agent tool launches when a call names none
+// (`subagent_type ?? "general-purpose"`; the agent's meta file records it).
+const DEFAULT_AGENT_TYPE = "general-purpose";
+
 export const isSubagentTool = (name) => SUBAGENT_TOOLS.has(name);
+
+/** The label of an Agent/Task call: its name or type, else Claude's default type. */
+export const subagentLabel = (input) =>
+  string(object(input).name || object(input).subagent_type) || DEFAULT_AGENT_TYPE;
 
 /** The Agent tool result of a background launch, not of a finished foreground run. */
 export function asyncLaunch(result) {
@@ -115,11 +124,69 @@ export function lifecycleRecord(record) {
   };
 }
 
+// After a context compaction Claude sends no <task-notification> for what finished
+// meanwhile. Right after the continuation (compact summary) prompt it writes one
+// `task_status` attachment per background task it still tracks: running agents and
+// shells, and agents that completed without their result being delivered yet.
+const LISTED_TASKS = new Set(["local_agent", "remote_agent", "local_bash"]);
+function taskStatusEntry(record) {
+  const attachment = object(record?.attachment);
+  if (
+    !record ||
+    record.isSidechain ||
+    record.type !== "attachment" ||
+    attachment.type !== "task_status" ||
+    !LISTED_TASKS.has(attachment.taskType) ||
+    !nativeId(attachment.taskId)
+  )
+    return null;
+  return { taskId: attachment.taskId, status: string(attachment.status) };
+}
+
+/**
+ * Follows compactions: from a compact boundary up to the continued conversation
+ * (its first assistant record or non-summary user record) it collects the task ids
+ * Claude lists. `record` returns that set once the listing is complete, else null.
+ * A task launched before the boundary and missing from the set is no longer
+ * tracked by the CLI: it will never notify again.
+ */
+export function createCompactionListing() {
+  let listed = null;
+  return {
+    record(record) {
+      if (!record || record.isSidechain) return null;
+      if (record.type === "system" && record.subtype === "compact_boundary") {
+        const closed = listed;
+        listed = new Set();
+        return closed;
+      }
+      if (!listed) return null;
+      const entry = taskStatusEntry(record);
+      if (entry) listed.add(entry.taskId);
+      if (
+        record.type === "assistant" ||
+        (record.type === "user" && !record.isCompactSummary)
+      ) {
+        const closed = listed;
+        listed = null;
+        return closed;
+      }
+      return null;
+    },
+  };
+}
+
 /**
  * Cheap identification of a lifecycle record: its kind and native ids only.
  * The history index uses it per record; reports are built only by the tracker.
  */
 export function subagentKey(source) {
+  // A task listed as settled after a compaction stands for its notification.
+  const listed = taskStatusEntry(source);
+  if (listed)
+    return notificationStatus(listed.status) === "unknown"
+      ? null
+      : { kind: "notification", taskId: listed.taskId, toolUseId: null };
   const record = lifecycleRecord(source);
   if (!record) return null;
   const origin = object(record.origin);
@@ -148,6 +215,19 @@ export function subagentKey(source) {
 
 /** A subagent lifecycle event with its state (and report for hand-backs), or null. */
 export function subagentEvent(source) {
+  const listed = taskStatusEntry(source);
+  if (listed) {
+    const key = subagentKey(source);
+    return key
+      ? {
+          ...key,
+          status: notificationStatus(listed.status),
+          summary: "",
+          durationMs: null,
+          toolUses: null,
+        }
+      : null;
+  }
   const record = lifecycleRecord(source);
   const key = subagentKey(record);
   if (key?.kind === "notification") {
@@ -192,8 +272,7 @@ export function createSubagentTracker() {
   return {
     record(source) {
       const record = lifecycleRecord(source);
-      if (!record) return;
-      if (record.toolUseResult) {
+      if (record?.toolUseResult) {
         const block = list(record.message?.content).find(
           (item) => item?.type === "tool_result" && nativeId(item.tool_use_id),
         );
@@ -203,7 +282,7 @@ export function createSubagentTracker() {
         // A launch reusing an agent id never inherits an earlier run's events.
         if (block && async && agentId) states.set(agentId, { status: "running" });
       }
-      const event = subagentEvent(record);
+      const event = subagentEvent(record || source);
       if (!event) return;
       const id =
         event.kind === "notification"
@@ -222,7 +301,10 @@ export function createSubagentTracker() {
       const launch = launches.get(row.id);
       const subagent = {
         description: string(input.description).slice(0, 300),
-        type: string(input.subagent_type || input.name).slice(0, 120),
+        type: string(input.subagent_type || input.name || DEFAULT_AGENT_TYPE).slice(
+          0,
+          120,
+        ),
         status: row.status,
         ...(launch?.agentId ? { agentId: launch.agentId } : {}),
       };
