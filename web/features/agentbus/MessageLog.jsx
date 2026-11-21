@@ -41,10 +41,7 @@ export default function MessageLog({ project, page, onPage, onTotal = () => {} }
                 {copy.sectionHeadingHeading}
                 {project.name}
               </h2>
-              <span>
-                {data.total}
-                {copy.sectionHeadingLabel}
-              </span>
+              <span>{copy.sectionHeadingCount(data.total)}</span>
             </div>
             {data.note && (
               <p className="field-description">{serverText(data.note, data.noteKey)}</p>

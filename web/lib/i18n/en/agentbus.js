@@ -20,7 +20,7 @@ export const messageLogCopy = {
   retryMessages: "Reload messages",
   messagesLoading: "Loading messages …",
   sectionHeadingHeading: "Messages in ",
-  sectionHeadingLabel: " entries",
+  sectionHeadingCount: (count) => (count === 1 ? "1 entry" : `${count} entries`),
   agentbusMessageAriaLabel: "to",
   extensionEmpty: "No AgentBus messages in this project yet.",
 };

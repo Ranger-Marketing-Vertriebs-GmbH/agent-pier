@@ -93,7 +93,7 @@ test("tool validation returns distinct safe errors and bounded scoped peer hints
   const peer = hostRegister(f, target, "target-native", "shared");
   hostRegister(f, second, "second-native", "shared");
   const cases = [
-    ["missing-private-marker", "ok", {}, "UNKNOWN_PEER"],
+    ["missing-peer", "ok", {}, "UNKNOWN_PEER"],
     ["shared", "ok", {}, "AMBIGUOUS_PEER"],
     [self.key, "ok", {}, "SELF_SEND"],
     [peer.key, "", {}, "EMPTY_TEXT"],
@@ -111,6 +111,11 @@ test("tool validation returns distinct safe errors and bounded scoped peer hints
       JSON.stringify(error),
       /private-marker|pidStart|token|socket|cwd/,
     );
+    // A peer error names the value the sender gave as `to`, its own input.
+    if (code === "UNKNOWN_PEER")
+      assert.match(error.message, /^No reachable peer matches "missing-peer"\./);
+    if (code === "AMBIGUOUS_PEER")
+      assert.match(error.message, /^Several peers match "shared"\./);
     if (error.peers) {
       assert.ok(error.peers.length <= 10);
       for (const hint of error.peers)
