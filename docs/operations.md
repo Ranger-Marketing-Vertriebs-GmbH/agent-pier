@@ -35,7 +35,7 @@ Every audit event must pass `server/features/audit/audit-schema.js`: the action 
 
 Audit import validates records, preserves IDs/timestamps, and writes transactionally into the empty target audit store. AgentBus messages are placed under `imported-history/agentbus`, with no runtime launches or peers. They are accessible read-only through `/api/operations/imported-history/agentbus` and the per-project endpoint; pending-at-backup messages are never delivered again.
 
-The restore report lists account/repository credential IDs needing login, project mappings and omissions. Repository content and uncommitted files need a separate project transfer. Native CLI histories copied inside an encrypted profile are retained as files, but migration does not claim native resume compatibility across changed paths or CLI versions. When the backup held password SFTP hosts, the report also has `sftpHosts: { restored, withoutProject }`.
+The restore report lists account/repository credential IDs needing login, project mappings and omissions. Repository content and uncommitted files need a separate project transfer. Native CLI histories copied inside an encrypted profile are retained as files, but migration does not claim native resume compatibility across changed paths or CLI versions. When the backup held password SFTP hosts, the report also has `sftpHosts: { restored, withoutProject }`. Its `settings` field names the `config.json` settings it `restored` from the backup (pipeline and preview settings and port ranges, the label rule interval, file limits; Tailscale address, owner login and network mode only when the backup comes from this machine), those taken `fromThisInstance` (the port, and any host-bound setting the restoring instance has, so the address the owner used stays reachable, a tailnet URL included) and those to `setAgain` on another machine; see [Settings in config.json](backups.md#settings-in-configjson).
 
 ## MacBook to another Mac or Linux host
 
@@ -43,7 +43,7 @@ The restore report lists account/repository credential IDs needing login, projec
 2. Transfer or clone project repositories separately. Preserve uncommitted work separately; a Git clone alone does not transfer it.
 3. Install the target platform release and tools. Inspect the archive, map old project IDs to target directories, then restore into a new data directory.
 4. Use the new directory for the target service. Reauthenticate local/Keychain-backed native accounts, reinstall missing CLI binaries, and enable notifications on each target browser again.
-5. Configure remote access for the target host separately. No source Tailscale identity, Serve configuration or machine-specific owner URL is overwritten by restore.
+5. Configure remote access for the target host separately: the restore report lists the Tailscale address, owner login and network mode under **Set again in the restored instance**. A restore never carries a source Tailscale identity or Serve configuration, and never replaces the remote settings of the instance that runs it.
 6. Start new sessions explicitly. Source native sessions keep running; processes and tmux sockets do not migrate between machines.
 
 ## Release implementation

@@ -143,6 +143,12 @@ export function operationResponse(state, path, method, body, query) {
       projectMappings: body.projectMap,
       importedSessions: 2,
       importedRuns: 1,
+      settings: {
+        sameHost: false,
+        restored: ["pipelines", "previews"],
+        fromThisInstance: ["port"],
+        setAgain: ["remoteUrl", "ownerLogin"],
+      },
       omissions: state.inspection.omissions,
     });
   if (operation.startsWith("/jobs/"))

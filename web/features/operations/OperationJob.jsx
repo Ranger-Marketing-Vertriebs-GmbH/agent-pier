@@ -5,6 +5,7 @@ import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { serverText } from "../../lib/server-messages.js";
 import { reportRows, reportValue } from "./restore-report.js";
 import { terminalJob } from "./operation-job-status.js";
+import RestoreSettingsReport from "./RestoreSettingsReport.jsx";
 
 /**
  * The job `id` follows the live `job.operation:<id>` topic (without the channel, its
@@ -61,6 +62,7 @@ export default function OperationJob({ id, onComplete, onState }) {
                   </React.Fragment>
                 ))}
               </dl>
+              <RestoreSettingsReport settings={job.result.settings} />
               {job.status === "succeeded" && (
                 <>
                   <h3>{copy.restoreNextSteps}</h3>

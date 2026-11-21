@@ -25,6 +25,7 @@ import {
 import { captureSftpHosts, sftpHostsMember } from "../ssh/sftp-backup.js";
 import { captureSecrets, secretsMember } from "../secrets/secret-backup.js";
 import { captureMailAccounts, mailAccountsMember } from "../mail/mail-backup.js";
+import { captureConfig } from "./config-backup.js";
 
 export const omissions = [
   "File trash, file journals and transfer bytes",
@@ -155,6 +156,7 @@ export function capture({
   audit,
   scratch: shared,
   plan: sharedPlan,
+  hostId = null,
 }) {
   const scratch =
     shared || folder(path.join(dataDir, "operations", `.snapshot-${randomUUID()}`));
@@ -196,7 +198,7 @@ export function capture({
     addJson("project-groups.json");
     addJson("views.json");
     addJson("pipelines/definitions.json");
-    addJson("config.json", (value) => ({ port: value.port }));
+    addJson("config.json", (value) => captureConfig(value, hostId));
     // Users without their password hashes; those go only into the capsule.
     const users = captureUsers(dataDir, withCredentials);
     if (users) {

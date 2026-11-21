@@ -34,7 +34,8 @@ Always, as public (unencrypted) members:
   [Label rules](ticket-sources.md#label-rules)),
   preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their
-  folder paths along), pipeline definitions, the port from `config.json`.
+  folder paths along), pipeline definitions and the settings of `config.json`
+  (see [Settings in config.json](#settings-in-configjson)).
 - Project memory as a consistent SQLite snapshot (without capabilities), the audit
   log, pinned artifacts (with a tombstone for every other record, and no publish
   receipt of an unpinned one), the sanitized MCP server store.
@@ -546,6 +547,48 @@ history, that differ only in letter case or Unicode normalization (possible in a
 backup from Linux) are both restored on a file system that tells them apart. On a
 file system that ignores the difference, such as APFS, they cannot both be
 restored; the restore stops with a message that says so.
+
+## Settings in config.json
+
+A backup archives the known settings of the data directory's `config.json`;
+unknown keys are left out. A restore decides each key on its own and lists the
+outcome in the report's `settings` field (`restored`, `fromThisInstance`,
+`setAgain`, `sameHost`), which Settings → Operations → Backups shows under
+**Settings** after the restore.
+
+| Key                                               | Kind             | After a restore                                        |
+| ------------------------------------------------- | ---------------- | ------------------------------------------------------ |
+| `pipelines` (timeouts and the stage port range)   | host-independent | as saved                                               |
+| `previews` (switch and port range)                | host-independent | as saved                                               |
+| `ticketRules` (poll interval)                     | host-independent | as saved                                               |
+| `files.limits`                                    | host-independent | as saved                                               |
+| `port`                                            | address          | always the value of the instance that runs the restore |
+| `remoteUrl` (Tailscale address)                   | host-bound       | see below                                              |
+| `ownerLogin` (owner's Tailscale account)          | host-bound       | see below                                              |
+| `network` (network mode, bind address, host list) | host-bound       | see below                                              |
+
+Host-bound settings describe how one machine is reached. For each of them the
+restore takes, in this order:
+
+1. The value of the instance that runs the restore. The restored data directory
+   lives on the same machine, so the address the owner used to start the restore,
+   including a tailnet URL and the network mode, keeps working after switching the
+   service to it.
+2. Otherwise the backup's value, when the backup was made on this same machine.
+   Backups record a one-way fingerprint of the machine (a hash of Linux's
+   `/etc/machine-id` or the macOS platform UUID) next to these settings; a machine
+   that names neither never counts as the same.
+3. Otherwise nothing: the report lists the key under **Set again in the restored
+   instance**, with a link to **Settings › Remote access**. For Tailscale, run
+   `npm run tailscale` on the new machine (see [remote access](remote-access.md)).
+
+The port never comes from the backup: it is the address itself. A value that
+AgentPier would refuse at start (an invalid `files.limits` or `network` block, a
+malformed `remoteUrl`) is dropped. The archive keeps the host-bound settings under
+`backupHost` in `config.json`, which earlier AgentPier versions ignore when they
+restore such a backup: they copy the file as it is and start with its
+host-independent settings and its port. Older backups hold only the port, so their
+restore brings back no settings.
 
 ## Restore
 
