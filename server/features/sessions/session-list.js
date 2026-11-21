@@ -1,4 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
+import { readPaneSnapshot } from "./tmux-pane-state.js";
 
 // Replacement preflight owns the exclusive lock; ordinary lists lock each session.
 export async function listSessions(manager, read = (id) => manager.current(id)) {
@@ -16,15 +17,35 @@ export async function listSessions(manager, read = (id) => manager.current(id)) 
   return sessions.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+/**
+ * Lists every session with one shared tmux snapshot. Callers arriving while a list
+ * runs share the single next list, which starts after their call, so each still sees
+ * every change made before it asked. Each caller receives its own copy.
+ */
 export function getSessionList(manager) {
   manager.listings ||= new Set();
-  const listing = Promise.all([manager.ready, manager.operations.barrier])
-    .then(() => listSessions(manager, (id) => manager.get(id)))
-    .finally(() => {
-      manager.listings.delete(listing);
-    });
-  manager.listings.add(listing);
-  return listing;
+  if (!manager.nextListing) {
+    const previous = manager.activeListing?.catch(() => {}) ?? Promise.resolve();
+    const listing = previous
+      .then(() => {
+        manager.nextListing = null;
+        manager.activeListing = listing;
+        return Promise.all([manager.ready, manager.operations.barrier]);
+      })
+      .then(async () => {
+        const panes = await readPaneSnapshot(manager);
+        return listSessions(manager, (id) =>
+          manager.serial(() => manager.current(id, panes), id),
+        );
+      })
+      .finally(() => {
+        if (manager.activeListing === listing) manager.activeListing = null;
+        manager.listings.delete(listing);
+      });
+    manager.nextListing = listing;
+    manager.listings.add(listing);
+  }
+  return manager.nextListing.then((sessions) => structuredClone(sessions));
 }
 
 export async function drainSessionLists(manager) {
