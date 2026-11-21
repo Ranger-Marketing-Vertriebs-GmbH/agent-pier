@@ -197,6 +197,11 @@
 .endpoint-protocols small {
   display: block;
 }
+/* Help under a field: the browser's <small> shrank the 11px label's text to 9.2px. */
+.connection-fields label > small,
+.endpoint-test small {
+  font-size: var(--font-size-xs);
+}
 .endpoint-adapter {
   display: grid;
   gap: 10px;
