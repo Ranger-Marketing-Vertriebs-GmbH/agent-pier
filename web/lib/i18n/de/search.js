@@ -121,5 +121,8 @@ export const searchCopy = {
     memory: "Gedächtnis",
     // Die Zeile im Gefahrenbereich des Überblicks eines Agenten.
     restartMainChat: "Hauptchat neu starten",
+    // Die Sicherungen heißen im Alltag oft Backup.
+    restoreBackup: "Backup wiederherstellen",
+    createBackup: "Backup erstellen",
   },
 };

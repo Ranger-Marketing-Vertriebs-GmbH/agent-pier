@@ -292,6 +292,12 @@ test("actions open the right dialog or page", () => {
   assert.equal(action("GitHub-Zugang hinzufügen").target.pending, "github-add");
   assert.equal(action("Plane-Zugang hinzufügen").target.pending, "plane-add");
   assert.equal(action("Add Plane connection").target.pending, "plane-add");
+  for (const [query, kind] of Object.entries({
+    "Backup wiederherstellen": "restore",
+    "Restore from backup": "restore",
+    "Backup erstellen": "create",
+  }))
+    assert.equal(action(query).target.pending, `backup-${kind}`, query);
 });
 
 test("Start tickets is an action that opens the ticket selection", () => {

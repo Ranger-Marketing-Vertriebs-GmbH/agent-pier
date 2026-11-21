@@ -121,5 +121,8 @@ export const searchCopy = {
     memory: "Memory",
     // The danger zone row of an agent's Overview.
     restartMainChat: "Restart main chat",
+    // Everyday names of the Backups settings actions.
+    restoreBackup: "Restore from backup",
+    createBackup: "Make a backup",
   },
 };
