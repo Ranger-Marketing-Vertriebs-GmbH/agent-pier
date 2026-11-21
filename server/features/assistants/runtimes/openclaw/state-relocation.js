@@ -39,17 +39,45 @@ export function recordedRoot(config) {
   return path.basename(normalized) === "workspaces" ? path.dirname(normalized) : null;
 }
 
+// The assistants folder an agent entry's workspace (`<root>/workspaces/<id>`) or
+// agentDir (`<root>/state/agents/<id>/agent`) was written below; null otherwise.
+function entryRoot(value) {
+  if (typeof value !== "string" || !path.isAbsolute(value)) return null;
+  const normalized = path.normalize(value).replace(/\/+$/, "");
+  const match =
+    /^(.+)\/workspaces(?:\/[^/]+)?$/.exec(normalized) ||
+    /^(.+)\/state\/agents\/[^/]+\/agent$/.exec(normalized);
+  return match ? match[1] : null;
+}
+
+/**
+ * Every assistants folder the Gateway's state names: the defaults' one and each agent
+ * entry's. A start with an older AgentPier after a move rewrote the defaults but kept
+ * the entries, so the entries can name the old folder alone.
+ */
+export function recordedRoots(config) {
+  const roots = new Set();
+  const root = recordedRoot(config);
+  if (root) roots.add(root);
+  for (const entry of Object.values(config?.agents?.entries ?? {}))
+    for (const value of [entry?.workspace, entry?.agentDir]) {
+      const found = entryRoot(value);
+      if (found) roots.add(found);
+    }
+  return [...roots];
+}
+
 /**
  * A data directory restored into one folder and started from another (moved, copied
  * or restored elsewhere) keeps the first folder's absolute paths in the Gateway's
  * state: its agents would work in, and OpenClaw would recreate, the old folder
- * (AGENTPIER-467). Before a Gateway start this rewrites every path below the recorded
- * assistants folder to this start's one. Returns the folder it moved from, or null.
+ * (AGENTPIER-467). Before a Gateway start this rewrites every path below each recorded
+ * assistants folder to this start's one. Returns the folders it moved from.
  */
 export function relocateRuntimeState(paths, config) {
-  const from = recordedRoot(config);
   const to = path.resolve(paths.root);
-  if (!from || from === to) return null;
+  const from = recordedRoots(config).filter((root) => root !== to);
+  if (!from.length) return [];
   for (const file of stateFiles(paths)) {
     let value;
     try {
@@ -59,7 +87,8 @@ export function relocateRuntimeState(paths, config) {
       continue;
     }
     let moved = false;
-    const next = relocatePaths(value, from, to, () => (moved = true));
+    let next = value;
+    for (const root of from) next = relocatePaths(next, root, to, () => (moved = true));
     if (moved) writePrivate(file, next);
   }
   return from;
