@@ -11,6 +11,19 @@ const closer = (server) => () =>
   });
 const now = () => Math.floor(Date.now() / 1000);
 
+// The request body, or null once the client went away before sending all of it: a
+// Hermes gateway AgentPier stops or restarts mid-request. Node then rejects the read
+// with ECONNRESET "aborted"; unhandled, it would fail whichever test is running.
+async function bodyOf(req) {
+  const chunks = [];
+  try {
+    for await (const part of req) chunks.push(part);
+  } catch {
+    return null;
+  }
+  return Buffer.concat(chunks);
+}
+
 // A multipart upload's fields; a file field becomes { name, type, bytes }.
 async function multipart(body, type) {
   const form = await new Response(body, { headers: { "content-type": type } }).formData();
@@ -43,9 +56,8 @@ export async function fakeBotApi(bots) {
   const conflicted = new Set();
   let sequence = 1000;
   const server = http.createServer(async (req, res) => {
-    const chunks = [];
-    for await (const part of req) chunks.push(part);
-    const raw = Buffer.concat(chunks);
+    const raw = await bodyOf(req);
+    if (!raw) return;
     const body = raw.toString();
     const url = new URL(req.url, "http://fake");
     const file = url.pathname.match(/^\/file\/bot([^/]+)\/(.+)$/);
@@ -229,9 +241,13 @@ export async function fakeBotApi(bots) {
 export async function fakeDeepgram(transcript) {
   const requests = [];
   const server = http.createServer(async (req, res) => {
-    let size = 0;
-    for await (const part of req) size += part.length;
-    requests.push({ url: req.url, authorization: req.headers.authorization, size });
+    const body = await bodyOf(req);
+    if (!body) return;
+    requests.push({
+      url: req.url,
+      authorization: req.headers.authorization,
+      size: body.length,
+    });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({ results: { channels: [{ alternatives: [{ transcript }] }] } }),
