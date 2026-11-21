@@ -19,6 +19,7 @@ import {
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
 import { lastUserIndex } from "../helpers/openclaw-model-input.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 // The whole approval hold plus a command (agent-ssh-approvals.js), or a quick 12 s.
@@ -27,7 +28,7 @@ const long = { timeoutMs: 60000 };
 const text = (request) => JSON.stringify(request.messages);
 const toolResults = (request) =>
   JSON.stringify(request.messages.filter((m) => m.role === "tool"));
-const offered = (request) => request.tools?.map((tool) => tool.function.name) ?? [];
+const offered = (request) => grantedToolNames(request);
 const first = (requests, marker) => requests.find((r) => text(r).includes(marker));
 // The SSH access proposal the model makes in the owner's turn (agent-ssh-proposals.js).
 const proposal = {

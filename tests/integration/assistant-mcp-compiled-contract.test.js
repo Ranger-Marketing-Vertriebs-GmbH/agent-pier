@@ -15,7 +15,11 @@ import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-sto
 import { readMcpInputs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "../helpers/assistant-model-server.js";
 import {
   endStdioServers,
   httpMcpServer,
@@ -65,7 +69,7 @@ async function harness(t, { tool }) {
   const store = new AssistantStore({ dataDir });
   // A bare `node` resolves on this PATH, as on the service's own PATH.
   const servers = new McpServerStore({ dataDir, pathEnv: path.dirname(node) });
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, discover: "echo" });
   const runtime = new RuntimeSupervisor({
     dataDir,
     install: async () => {
@@ -186,7 +190,7 @@ async function harness(t, { tool }) {
       .filter((m) => m.role === "tool")
       .map((m) => String(m.content))
       .at(-1);
-    const offered = (requests[0]?.tools ?? []).map((d) => d.function.name);
+    const offered = [...offeredToolNames(requests[0]), ...discoveredToolNames(requests)];
     t.diagnostic(`${label} offered=${JSON.stringify(offered)} result=${result}`);
     return { offered, result };
   }
@@ -402,7 +406,7 @@ test(
     // The lead proposes through the team plugin tool; an agent without team tools
     // (the member) calls the docs server.
     const tool = (input) => {
-      const names = (input.tools || []).map((d) => d.function.name);
+      const names = offeredToolNames(input);
       if (names.includes("agentpier_team_propose"))
         return JSON.stringify(input.messages).includes("PROPOSE_TEAM")
           ? { name: "agentpier_team_propose", arguments: proposal }
@@ -442,10 +446,13 @@ test(
       () => assistants.ledger.getAttempt(sent.attempt.id).state === "completed",
       "lead turn",
     );
-    const leadRequest = h.model.requests.find((r) =>
+    const leadRequests = h.model.requests.filter((r) =>
       JSON.stringify(r.messages).includes("PROPOSE_TEAM"),
     );
-    const leadOffered = leadRequest.tools.map((d) => d.function.name);
+    const leadOffered = [
+      ...offeredToolNames(leadRequests[0]),
+      ...discoveredToolNames(leadRequests),
+    ];
     assert.ok(leadOffered.includes("agentpier_team_propose"));
     assert.ok(leadOffered.includes("docs__echo"));
     const [team] = teams.store.list();
@@ -471,14 +478,16 @@ test(
       http.calls.find((c) => c.text === "from-member").headers["x-fixture-marker"],
       headerValue,
     );
-    const memberRequest = h.model.requests.find(
+    const memberRequests = h.model.requests.filter(
       (r) =>
         JSON.stringify(r.messages).includes(proposal.members[0].assignment) &&
-        !(r.tools || []).some((d) => d.function.name === "agentpier_team_propose"),
+        !offeredToolNames(r).includes("agentpier_team_propose"),
     );
-    assert.deepEqual(mcpTools(memberRequest.tools.map((d) => d.function.name)), [
-      "docs__echo",
-    ]);
+    const memberOffered = [
+      ...offeredToolNames(memberRequests[0]),
+      ...discoveredToolNames(memberRequests),
+    ];
+    assert.deepEqual(mcpTools(memberOffered), ["docs__echo"]);
 
     // Once the member ends, its binding, its glob and its tools are gone, while the
     // lead keeps the server.

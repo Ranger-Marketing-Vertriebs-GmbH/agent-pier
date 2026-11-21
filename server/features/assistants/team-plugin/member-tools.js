@@ -35,6 +35,9 @@ export const memberDefinitions = {
     ),
   },
   report: {
+    // The only way a member's result reaches its lead: it stays outside OpenClaw's
+    // tool search directory (runtime-config.js), so the model always sees it.
+    catalogMode: "direct-only",
     description:
       "Report to your lead on your own: kind result for a finished result, problem for something your lead must know or decide. text says what happened, at most 32768 characters; a longer text is refused and nothing is sent, so put long details into a project file you may write and name it in files, or send the rest as a second report. files names up to 10 project files that hold it (your lead reads them itself). It reaches your lead as a separate message, one report at a time; do not send the same report again. The owner sees every report.",
     parameters: schema(

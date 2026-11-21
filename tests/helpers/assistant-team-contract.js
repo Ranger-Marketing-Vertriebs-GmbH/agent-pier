@@ -7,6 +7,7 @@ import { assistantTeamModel } from "./assistant-team-model.js";
 import { ChannelOutbox } from "../../server/features/assistant-channels/channel-outbox.js";
 import { profileTools } from "../../server/features/assistants/native-capabilities.js";
 import { lastUser } from "./openclaw-model-input.js";
+import { grantedToolNames } from "./assistant-model-server.js";
 // OpenClaw offers apply_patch wherever write is allowed (writeAllowsApplyPatch); the
 // plugin guards it like write (team-plugin/tool-guard.js writeTools).
 const offeredTools = (assistant) => {
@@ -100,7 +101,7 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
     assert.equal(model.maxConcurrent, 4);
     assert.ok(members.every((m) => m.phase === "completed"));
     assert.deepEqual(
-      model.requests[0].tools.map((t) => t.function.name).sort(),
+      grantedToolNames(model.requests[0]).sort(),
       // The parent's tools come from its compiled profile (team tools plus the always-on
       // workspace tool); deriving them keeps this contract from drifting.
       offeredTools(parent),
@@ -119,7 +120,7 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       const member = members.find((m) => text.includes(m.assignment.split(":")[0]));
       assert.ok(member, "member turn matches a member assignment");
       assert.deepEqual(
-        r.tools.map((t) => t.function.name).sort(),
+        grantedToolNames(r).sort(),
         offeredTools(a.store.getAssistant(member.assistantId)),
       );
     }

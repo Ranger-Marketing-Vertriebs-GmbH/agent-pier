@@ -12,6 +12,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantProviderServer } from "../helpers/assistant-provider-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { offeredToolNames } from "../helpers/assistant-model-server.js";
 
 // Reuse only immutable app/node binaries. Every state, account and config path is
 // freshly generated; this test never opens an installed runtime's user data.
@@ -190,12 +191,7 @@ test(
                 scenario.apiKey,
               );
             if (request.input.tools)
-              assert.ok(
-                request.input.tools.some(
-                  ({ type, function: fn }) =>
-                    type === "function" && fn.name === "session_status",
-                ),
-              );
+              assert.ok(offeredToolNames(request.input).includes("session_status"));
             if (scenario.apiKey)
               assert.equal(
                 JSON.stringify(request.input).includes(scenario.apiKey),

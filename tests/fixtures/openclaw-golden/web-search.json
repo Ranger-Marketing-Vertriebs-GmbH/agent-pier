@@ -199,7 +199,9 @@
       "pdf",
       "image_generate"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

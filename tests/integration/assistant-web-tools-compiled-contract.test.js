@@ -24,7 +24,10 @@ import {
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  grantedToolNames,
+} from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
@@ -378,7 +381,7 @@ test(
         .at(-1);
       t.diagnostic(`${label} result=${JSON.stringify(result?.slice(0, 400))}`);
       return {
-        offered: requests[0]?.tools?.map((d) => d.function.name) ?? [],
+        offered: grantedToolNames(requests[0]),
         result,
         requests,
       };

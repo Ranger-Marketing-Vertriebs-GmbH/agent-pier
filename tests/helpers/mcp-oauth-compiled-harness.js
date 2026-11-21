@@ -26,7 +26,11 @@ import {
   mcpOAuthCallbackRoutes,
   mcpOAuthRoutes,
 } from "../../server/http/routes/mcp-oauth.js";
-import { assistantModelServer } from "./assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "./assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 import { OfflineCommands } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
@@ -58,7 +62,7 @@ export async function harness(t, { tool, installed, contractDir }) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-oauth-compiled-"));
   const store = new AssistantStore({ dataDir });
   const servers = new McpServerStore({ dataDir });
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, discover: "echo" });
   const runtime = new RuntimeSupervisor({
     dataDir,
     install: async () => {
@@ -290,7 +294,10 @@ export async function harness(t, { tool, installed, contractDir }) {
       .filter((m) => m.role === "tool")
       .map((m) => String(m.content))
       .at(-1);
-    const offered = mcpTools((requests[0]?.tools ?? []).map((d) => d.function.name));
+    const offered = mcpTools([
+      ...offeredToolNames(requests[0]),
+      ...discoveredToolNames(requests),
+    ]);
     t.diagnostic(`${label} offered=${JSON.stringify(offered)} result=${result}`);
     return { offered, result };
   }

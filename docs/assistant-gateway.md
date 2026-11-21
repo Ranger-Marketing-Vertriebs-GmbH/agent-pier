@@ -5060,8 +5060,31 @@ calls.
 OpenClaw session tools (members run in their own sessions and report through the
 AgentPier bridge), and the team plugin contract passes with it.
 
-`tools.toolSearch` and `tools.codeMode` are `false` on every Gateway, so the model is
-offered each granted tool directly. OpenClaw 2026.10 engages Code Mode while
+<a id="openclaw-tool-search"></a>
+
+Every Gateway compiles `tools.toolSearch: { mode: "directory" }`. OpenClaw's tool
+search is experimental on the pinned runtime and turns itself on in its plain
+`"tools"` mode while the key is absent, so AgentPier writes the mode it wants. In
+directory mode the model receives the schemas of the core file tools (`read`,
+`write`, `edit`, `apply_patch`, and `exec` and `process` for an agent with shell),
+`message`, every tool marked `catalogMode: "direct-only"` and the three controls
+`tool_search`, `tool_describe` and `dispatch_action`. Every other granted OpenClaw and
+plugin tool stands as one line in a directory in the system prompt (`- name (owner):
+description`); MCP tools are not listed and are found through `tool_search`. A call of
+a listed tool by its exact name is loaded and runs like a direct one, through the same
+policy and AgentPier's `before_tool_call` guard, and `dispatch_action` returns the
+tool's own text, so a browser snapshot's page still reaches the model. It cut a lead's
+first request from about 21k to about 8k prompt tokens, and lets a 32k-context model
+work at all; the plain `"tools"` mode left small models unable to find their tools.
+The team plugin marks `agentpier_team_report` direct-only, as a member's only way to
+deliver its result. OpenClaw 2026.11.3 has no setting that marks a core tool
+(`web_search`, `web_fetch`) or the bundled browser plugin's `browser` direct-only:
+`catalogMode` is a property the tool's own code sets, and the runtime keeps only
+`message` (plus `web_search` and `web_fetch` for a native Ollama model while the key
+is absent) visible by name. These tools therefore stand in the directory and are
+called by name.
+
+`tools.codeMode` is `false` on every Gateway. OpenClaw 2026.10 engages Code Mode while
 `tools.codeMode` is absent (`"auto"`) for models whose catalog entry prefers it, such
 as ChatGPT's: the model then sees only `exec` and `wait`, and a tool called from the
 JavaScript cell returns only its `details`, never its text content. The browser's
@@ -5071,7 +5094,8 @@ tools would be lost the same way. Both paths are locked (`tools`), and every sta
 removes an agent's own `tools.codeMode` and any `models.<ref>.codeMode` in an agent
 entry or `agents.defaults`, which OpenClaw ranks above the global switch.
 `assistant-browser-snapshot-contract.test.js` proves on the pinned runtime that a
-Code Mode preferred model is offered the browser and receives the page text.
+Code Mode preferred model finds the browser in the tool search directory and
+receives the page text, both from a call by name and through `dispatch_action`.
 
 <a id="dreaming-is-not-offered"></a>
 

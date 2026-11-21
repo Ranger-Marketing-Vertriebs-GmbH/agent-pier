@@ -9,6 +9,7 @@ import { createGatewaySession } from "../../server/features/assistants/runtimes/
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
+import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 // agentpier_coding_session (AGENTPIER-225) against the pinned Gateway: AgentPier
 // compiles the tool for an own agent and never for a user agent, names the agent's
@@ -149,7 +150,7 @@ test(
       if (!routine) await delay(200);
     }
     assert.ok(routine, "the routine run reached the model");
-    const routineOffered = routine.tools?.map((d) => d.function.name) ?? [];
+    const routineOffered = grantedToolNames(routine);
     t.diagnostic(`routine tools=${JSON.stringify(routineOffered)}`);
     assert.ok(routineOffered.includes(tool), "toolsAllow admits the tool");
     assert.ok(!routineOffered.includes("exec"), "the run stays capped");

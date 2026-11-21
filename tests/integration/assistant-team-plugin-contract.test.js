@@ -16,6 +16,7 @@ import { teamTools } from "../../server/features/assistants/runtimes/openclaw/ru
 import { memberTeamTools } from "../../server/features/assistants/native-capabilities.js";
 import plugin from "../../server/features/assistants/team-plugin/index.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { grantedToolNames, offeredToolNames } from "../helpers/assistant-model-server.js";
 
 test("plugin guard rejects a prepare response after native invocation retirement", async (t) => {
   let live = true,
@@ -254,12 +255,12 @@ test(
     assert.equal(teams.list()[0].parentAttemptId, attempt.id);
     assert.equal(teams.list()[0].phase, "awaiting_approval");
     assert.deepEqual(
-      requests[0].tools.map((t) => t.function.name).sort(),
+      grantedToolNames(requests[0]).sort(),
       // The lead holds every team tool except the members' own.
       teamTools.filter((tool) => !memberTeamTools.includes(tool)).sort(),
     );
     // A model-emitted alternate delegation name must not gain capabilities.
-    const tools = requests[0].tools.map((t) => t.function.name);
+    const tools = offeredToolNames(requests[0]);
     assert.ok(
       !tools.some((n) =>
         ["sessions_spawn", "sessions_send", "gateway", "exec"].includes(n),

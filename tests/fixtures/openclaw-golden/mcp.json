@@ -204,7 +204,9 @@
       "view_image",
       "bundle-mcp"
     ],
-    "toolSearch": false,
+    "toolSearch": {
+      "mode": "directory"
+    },
     "codeMode": false,
     "exec": {
       "mode": "deny"

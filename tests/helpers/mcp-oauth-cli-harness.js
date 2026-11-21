@@ -6,7 +6,11 @@ import os from "node:os";
 import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "./process-guard.js";
 import { contractTimeout } from "./contract-timeout.js";
-import { assistantModelServer } from "./assistant-model-server.js";
+import {
+  assistantModelServer,
+  offeredToolNames,
+  discoveredToolNames,
+} from "./assistant-model-server.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
@@ -43,7 +47,7 @@ export async function harness(t, { installed, contractDir }) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-mcp-oauth-"));
   const store = new AssistantStore({ dataDir });
   const tool = { name: "none", arguments: {} };
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, discover: "echo" });
   const fixture = { connectionId: "fixture", modelId: "fixture-model" };
   const agent = store.createAssistant({
     name: "Bound",
@@ -132,7 +136,10 @@ export async function harness(t, { installed, contractDir }) {
       .filter((m) => m.role === "tool")
       .map((m) => String(m.content))
       .at(-1);
-    const offered = mcpTools((requests[0]?.tools ?? []).map((d) => d.function.name));
+    const offered = mcpTools([
+      ...offeredToolNames(requests[0]),
+      ...discoveredToolNames(requests),
+    ]);
     t.diagnostic(
       `${label} offered=${JSON.stringify(offered)} result=${result} ms=${Date.now() - began}`,
     );

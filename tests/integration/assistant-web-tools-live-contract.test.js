@@ -18,7 +18,10 @@ import { hasDocumentExtract } from "../../server/features/assistants/runtimes/op
 import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
-import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import {
+  assistantModelServer,
+  grantedToolNames,
+} from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 
@@ -227,7 +230,7 @@ test(
         ? result
         : result?.slice(0, 300);
       t.diagnostic(`${label} result=${JSON.stringify(shown)}`);
-      return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
+      return { offered: grantedToolNames(requests[0]), result };
     }
     try {
       // A cold start's whole budget, started once more after a failed launch

@@ -237,9 +237,17 @@ export function compileOpenClawConfig({
   // `wait`, and a tool called from the cell returns only its `details`, never its text
   // content: a browser snapshot's page structure and the text results of AgentPier's
   // own tools would not reach the model.
+  // Tool search runs in directory mode: the model gets a compact directory of tool
+  // names plus tool_search, tool_describe and dispatch_action, while the core file
+  // tools, `message` and tools marked `catalogMode: "direct-only"` stay visible. An
+  // exact call of a listed tool is loaded and runs through the same hooks, and
+  // dispatch_action returns the tool's text, so a browser snapshot still reaches the
+  // model. It cuts a lead's first request from about 21k to 8k prompt tokens; the
+  // plain "tools" mode (OpenClaw's default while the key is absent) left small models
+  // unable to find their tools.
   config.tools = {
     allow: enabled ? teamTools : ["session_status"],
-    toolSearch: false,
+    toolSearch: { mode: "directory" },
     codeMode: false,
     exec: { mode: "deny" },
     sessions: { visibility: "agent" },

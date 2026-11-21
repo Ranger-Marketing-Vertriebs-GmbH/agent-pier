@@ -33,7 +33,7 @@ test("without teams the Gateway gets only session_status and no plugins", (t) =>
   // are limited to the calling agent's own sessions (default "all").
   assert.deepEqual(config.tools, {
     allow: ["session_status"],
-    toolSearch: false,
+    toolSearch: { mode: "directory" },
     codeMode: false,
     exec: { mode: "deny" },
     sessions: { visibility: "agent" },

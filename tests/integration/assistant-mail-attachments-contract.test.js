@@ -37,7 +37,11 @@ test(
       tool: (input) => {
         const text = JSON.stringify(input.messages);
         const label = [...calls.keys()].find((l) => text.includes(`[cmd:${l}]`));
-        return label ? { name: tool, arguments: calls.get(label) } : null;
+        if (!label) return null;
+        // Tool search defers the tool's schema: tool_describe returns it whole.
+        return label === "describe"
+          ? { name: "tool_describe", arguments: { id: tool } }
+          : { name: tool, arguments: calls.get(label) };
       },
     });
     const { workflows, runtime, config } = h;
@@ -141,15 +145,15 @@ test(
 
     // 1. read lists each attachment's part, name and type, never its content.
     const read = await call("read", { action: "read", ...base });
-    // The Gateway offers the tool with its whole description.
-    const offered = h.model.requests
-      .find((r) => JSON.stringify(r.messages).includes("[cmd:read]"))
-      ?.tools?.find((d) => d.function.name === tool);
+    // The Gateway describes the tool with its whole description.
+    calls.set("describe", {});
+    const described = (await h.settle(await h.send(owner, "describe", "unused"))).result;
+    t.diagnostic(`described=${described?.slice(0, 400)}`);
     const description = mailDefinition.mail.description;
-    t.diagnostic(
-      `description=${offered?.function.description?.length}/${description.length}`,
+    assert.ok(
+      described?.includes(JSON.stringify(description).slice(1, -1)),
+      "description intact",
     );
-    assert.equal(offered?.function.description, description, "description intact");
     const parts = Object.fromEntries(
       read.json.message.attachments.map((a) => [a.name, a.part]),
     );

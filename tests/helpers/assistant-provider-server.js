@@ -1,4 +1,5 @@
 import http from "node:http";
+import { offeredToolNames } from "./assistant-model-server.js";
 export async function assistantProviderServer() {
   const requests = [];
   const server = http.createServer(async (req, res) => {
@@ -13,7 +14,7 @@ export async function assistantProviderServer() {
     const input = JSON.parse(bytes);
     requests.push({ url: req.url, headers: req.headers, input });
     const useTool =
-      input.tools?.some((tool) => tool.function?.name === "session_status") &&
+      offeredToolNames(input).includes("session_status") &&
       input.messages.findLastIndex((message) => message.role === "user") >
         input.messages.findLastIndex((message) => message.role === "tool");
     res.writeHead(200, { "content-type": "text/event-stream" });

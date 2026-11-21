@@ -15,6 +15,7 @@ import {
   AZURE_TOOLS_REFUSAL,
   azureReasoningServer,
 } from "../helpers/azure-reasoning-server.js";
+import { offeredToolNames } from "../helpers/assistant-model-server.js";
 
 // AGENTPIER-425: an Azure reasoning deployment refuses function tools together with
 // `reasoning_effort` on Chat Completions. A keyed connection that offers Responses runs
@@ -142,11 +143,7 @@ test(
       }
       const toolRequests = requests.filter(({ input }) => input.tools?.length);
       assert.equal(toolRequests.length, 2);
-      assert.ok(
-        toolRequests[0].input.tools.some(
-          ({ type, name }) => type === "function" && name === "session_status",
-        ),
-      );
+      assert.ok(offeredToolNames(toolRequests[0].input).includes("session_status"));
       assert.ok(
         toolRequests[1].input.input.some(
           (item) =>

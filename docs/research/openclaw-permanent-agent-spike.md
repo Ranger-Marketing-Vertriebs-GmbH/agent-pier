@@ -78,7 +78,10 @@ credentials, local account data or host-specific paths are included in this reco
   successful probes used model tool execution; this RPC is not a proven substitute.
 - Tool search deferred the model-visible schemas by default. The deterministic
   tool-call probe explicitly used `tools.toolSearch: false`; production integration
-  still needs capability testing with its chosen model and tool surface.
+  still needs capability testing with its chosen model and tool surface. (Later
+  outcome: AgentPier compiled `false` until it measured both modes on 2026.11.3 and
+  switched every Gateway to `{ mode: "directory" }`; see
+  [OpenClaw tool search](../assistant-gateway.md#openclaw-tool-search).)
 - Hidden children used `cleanup: "keep"` and auto-archive was disabled for the
   experiment. Their survival here does not establish indefinite retention under
   default cleanup settings. The visible path creates an ordinary persistent session.
