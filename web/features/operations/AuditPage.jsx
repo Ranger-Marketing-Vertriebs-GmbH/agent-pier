@@ -7,6 +7,8 @@ import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { codingRoute, codingRoutePath } from "../coding/routes.js";
 import { auditActor, auditSummary } from "./audit-actor.js";
+import { actionOptions, auditActionLabel } from "./audit-action-label.js";
+
 export default function AuditPage({ route, navigate }) {
   const query = new URLSearchParams({ page: String(route.auditPage || 1) });
   for (const [field, name] of [
@@ -26,6 +28,8 @@ export default function AuditPage({ route, navigate }) {
     [session, setSession] = useState(route.sessionIdFilter || ""),
     [project, setProject] = useState(route.projectIdFilter || ""),
     [resourceFilter, setResourceFilter] = useState(route.resourceIdFilter || "");
+  // The actions the log holds, as the filter's choices.
+  const actions = useResource("/audit/actions");
   useEffect(() => {
     setAction(route.auditAction || "");
     setSession(route.sessionIdFilter || "");
@@ -59,10 +63,11 @@ export default function AuditPage({ route, navigate }) {
       >
         <label>
           {copy.action}
-          <input
-            maxLength={100}
+          <AnchoredSelect
+            label={copy.action}
             value={action}
-            onChange={(event) => setAction(event.target.value)}
+            onChange={setAction}
+            options={actionOptions(actions.data?.actions, action)}
           />
         </label>
         <label>
@@ -138,7 +143,7 @@ export default function AuditPage({ route, navigate }) {
       {data?.events.map((event) => (
         <article className="operations-card" key={event.id}>
           <header>
-            <strong>{event.action}</strong>
+            <strong>{auditActionLabel(event.action)}</strong>
             <span>{event.outcome === "success" ? copy.success : copy.failure}</span>
           </header>
           <p>
@@ -147,7 +152,7 @@ export default function AuditPage({ route, navigate }) {
           </p>
           {auditSummary(event) && <p>{auditSummary(event)}</p>}
           <p>
-            {event.resourceType}
+            <code>{event.action}</code> · {event.resourceType}
             {event.resourceId && ` · ${event.resourceId}`}
           </p>
           {event.sessionId && (

@@ -87,3 +87,27 @@ test("named keys are reused by hosts, renamed independently and protected while 
   );
   assert.equal(remaining[0].hosts[0].id, hosts[0].id);
 });
+
+test("a second key of the same owner may not take a key's name (W8 B13)", async (t) => {
+  const f = await applicationFixture(t);
+  const create = (name) => f.request("/api/ssh-keys", { method: "POST", body: { name } });
+  const first = await create("w8-gen");
+  assert.equal(first.status, 201);
+  const duplicate = await create("  W8-GEN ");
+  assert.equal(duplicate.status, 409);
+  assert.match((await duplicate.json()).error, /w8-gen|W8-GEN/i);
+  const other = await (await create("other")).json();
+  const rename = await f.request(`/api/ssh-keys/${other.id}`, {
+    method: "PATCH",
+    body: { name: "w8-gen" },
+  });
+  assert.equal(rename.status, 409);
+  // A key keeps its own name when renamed to it again.
+  const key = await first.json();
+  const same = await f.request(`/api/ssh-keys/${key.id}`, {
+    method: "PATCH",
+    body: { name: "w8-gen" },
+  });
+  assert.equal(same.status, 200);
+  assert.equal((await (await f.request("/api/ssh-keys")).json()).keys.length, 2);
+});

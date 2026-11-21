@@ -20,13 +20,27 @@ const hostOf = (baseUrl) => {
   }
 };
 
-function ConnectionRow({ connection, onEdit, onRemove }) {
+// What the last check of a connection found, as its row shows it.
+function checkView(check) {
+  if (!check) return {};
+  if (check.state === "checking") return { value: copy.checking };
+  if (check.state === "ok")
+    return { status: { tone: "ok", text: copy.checkOk(check.count) } };
+  return { status: { tone: "error", text: copy.checkFailed }, detail: check.message };
+}
+
+function ConnectionRow({ connection, check, onEdit, onCheck, onRemove }) {
   const menu = useRowMenu();
+  const { detail, ...trailing } = checkView(check);
+  const place = `${connection.workspaceSlug} · ${hostOf(connection.baseUrl)}`;
   return (
     <div className="row-menu-anchor">
       <ListRow
         label={connection.name}
-        sub={`${connection.workspaceSlug} · ${hostOf(connection.baseUrl)}`}
+        sub={detail ? `${place} · ${detail}` : place}
+        onClick={onEdit}
+        chevron={false}
+        {...trailing}
         menu={{
           label: copy.rowActions(connection.name),
           expanded: menu.open,
@@ -38,6 +52,7 @@ function ConnectionRow({ connection, onEdit, onRemove }) {
         state={menu}
         items={[
           { id: "edit", label: copy.editRow, run: onEdit },
+          { id: "check", label: copy.check, run: onCheck },
           { id: "remove", label: copy.remove, danger: true, run: onRemove },
         ]}
       />
@@ -46,13 +61,23 @@ function ConnectionRow({ connection, onEdit, onRemove }) {
 }
 
 /**
- * Connections › Ticket sources: the Plane connections (add, edit, delete). `live` is the
+ * Connections › Ticket sources: the Plane connections (add, edit, check, delete). A row
+ * opens its edit dialog; saving checks the connection by listing its Plane projects. `live` is the
  * parent's reader of the `tickets.connections` live topic; the API key never reaches
  * the browser.
  */
 export default function PlaneConnectionsPage({ emptyState, onChanged, live }) {
   const [modal, setModal] = useState(null);
   const [removing, setRemoving] = useState(null);
+  // Per connection: the last check that reads its Plane projects with the saved key.
+  const [checks, setChecks] = useState({});
+  const check = (id) => {
+    setChecks((current) => ({ ...current, [id]: { state: "checking" } }));
+    api(`/ticket-connections/${encodeURIComponent(id)}/projects`)
+      .then((result) => ({ state: "ok", count: result.projects?.length || 0 }))
+      .catch((error) => ({ state: "error", message: error.message }))
+      .then((result) => setChecks((current) => ({ ...current, [id]: result })));
+  };
   const connections = live.data?.connections;
   const ready = Array.isArray(connections);
   usePageAction("plane-add", () => setModal({}), ready);
@@ -63,11 +88,9 @@ export default function PlaneConnectionsPage({ emptyState, onChanged, live }) {
     onChanged?.(deletedId);
   };
   return (
-    <div className="page plane-connections-page">
-      <header className="page-heading">
-        <div>
-          <p>{copy.description}</p>
-        </div>
+    <div className="plane-connections">
+      <header className="connections-intro">
+        <p>{copy.description}</p>
         {!empty && (
           <button
             className="button primary"
@@ -99,7 +122,9 @@ export default function PlaneConnectionsPage({ emptyState, onChanged, live }) {
             <ConnectionRow
               key={connection.id}
               connection={connection}
+              check={checks[connection.id]}
               onEdit={() => setModal({ connection })}
+              onCheck={() => check(connection.id)}
               onRemove={() => setRemoving(connection)}
             />
           ))}
@@ -109,7 +134,11 @@ export default function PlaneConnectionsPage({ emptyState, onChanged, live }) {
         <PlaneConnectionDialog
           connection={modal.connection}
           close={() => setModal(null)}
-          saved={() => changed()}
+          // A saved connection is checked at once: a wrong address or key shows here.
+          saved={(connection) => {
+            changed();
+            if (connection?.id) check(connection.id);
+          }}
         />
       )}
       {removing && (

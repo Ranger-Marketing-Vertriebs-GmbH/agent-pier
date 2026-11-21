@@ -75,6 +75,13 @@ export class AuditStore {
       .map((row) => ({ ...JSON.parse(row.document), id: String(row.id) }));
     return { events, total, page, pageSize: 25, before: String(boundary) };
   }
+  /** The distinct actions the log holds, for the filter's suggestions (at most 500). */
+  actions() {
+    return this.db
+      .prepare("SELECT DISTINCT action FROM events ORDER BY action LIMIT 500")
+      .all()
+      .map((row) => row.action);
+  }
   /**
    * The newest successful event since `since` (ISO time) with one of `actions` that
    * names `id` as its resource or as the decided action, or null. Events are appended

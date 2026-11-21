@@ -114,21 +114,22 @@ export default function AssistantModelFields({
     <div className="assistant-model-fields">
       <label>
         {copy.connection}
-        <select
+        <AnchoredSelect
+          label={copy.connection}
           required
           value={connectionId}
-          onChange={(e) => chooseConnection(e.target.value)}
-        >
-          <option value="">{copy.chooseConnection}</option>
-          {models.map((m) => (
-            <option key={m.id} value={m.id} disabled={!m.available}>
-              {connectionLabel(m)}
-              {assistantWorkflowCopy.providerReasons[m.reason]
-                ? ` · ${assistantWorkflowCopy.providerReasons[m.reason]}`
-                : ""}
-            </option>
-          ))}
-        </select>
+          onChange={chooseConnection}
+          options={[
+            { value: "", label: copy.chooseConnection },
+            ...models.map((m) => ({
+              value: m.id,
+              disabled: !m.available,
+              label: assistantWorkflowCopy.providerReasons[m.reason]
+                ? `${connectionLabel(m)} · ${assistantWorkflowCopy.providerReasons[m.reason]}`
+                : connectionLabel(m),
+            })),
+          ]}
+        />
       </label>
       {/* An endpoint whose models lack a context size links straight to the first one. */}
       {models

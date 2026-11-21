@@ -22,3 +22,25 @@ export function reportValue(key, value) {
   if (typeof value === "boolean") return value ? copy.yes : copy.no;
   return String(value);
 }
+
+// The report rows a finished restore shows, in this order.
+const REPORT_KEYS = [
+  "credentialsRestored",
+  "credentialsNeedingLogin",
+  "importedSessions",
+  "importedRuns",
+  "changedFilesLeftOut",
+];
+
+/**
+ * The `[key, value]` rows of a restore report worth showing: a missing value and an
+ * empty list (nobody needs to sign in again) leave their row out.
+ */
+export function reportRows(result) {
+  return REPORT_KEYS.filter((key) => {
+    const value = result?.[key];
+    return (
+      value !== undefined && value !== null && !(Array.isArray(value) && !value.length)
+    );
+  }).map((key) => [key, result[key]]);
+}

@@ -6,9 +6,14 @@ const UNITS = [
   ["megabyte", 1024 ** 2, 0],
   ["kilobyte", 1024, 0],
 ];
-/** A size in the active locale, such as "1.2 GB". */
+/**
+ * A size in the active locale, such as "1.2 GB". Below a kilobyte it reads "0 B" in
+ * both languages: Intl's "byte" unit spells out "0 byte" and "0 Byte".
+ */
 export function statusBytes(bytes = 0) {
-  const [unit, size, digits] = UNITS.find(([, size]) => bytes >= size) || ["byte", 1, 0];
+  const found = UNITS.find(([, size]) => bytes >= size);
+  if (!found) return `${formatNumber(Math.max(0, Math.round(bytes) || 0))} B`;
+  const [unit, size, digits] = found;
   return formatNumber(bytes / size, {
     style: "unit",
     unit,
@@ -47,3 +52,5 @@ export const clampPercent = (value) =>
 /** A cleanup summary answer (GET /system-status/cleanup/summary), else null. */
 export const usableCleanupSummary = (data) =>
   data && typeof data === "object" && typeof data.state === "string" ? data : null;
+/** Whether a measured cleanup group has nothing to delete: its list would only repeat that. */
+export const nothingToClean = (group) => Boolean(group) && !group.count;

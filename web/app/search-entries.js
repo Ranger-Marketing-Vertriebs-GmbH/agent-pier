@@ -1,6 +1,7 @@
 // Bilingual quick-open index: pages, agent settings, connections and actions.
 // Old labels remain searchable as aliases.
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { assistantPdfCopy } from "../lib/i18n/messages/assistant-pdf.js";
 import { agentGroupSearchAction } from "../features/assistants/groups/group-search.js";
 import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
 import { assistantDreamingCopy } from "../lib/i18n/messages/assistant-dreaming.js";
@@ -221,9 +222,27 @@ export function pageEntries() {
             ssh: [alias("settingsSsh"), alias("sshAccesses")],
             secrets: [alias("settingsSecrets")],
             github: [alias("settingsGithub")],
-            tickets: [alias("planeConnections")],
+            tickets: [alias("planeConnections"), alias("planeConnection")],
+            mail: [alias("mailAccount")],
           }[section],
+          // The plural people type, kept out of the catalogs: the glossary bans
+          // "Konten" as a label (docs/ui-glossary.md), not as a search word.
+          ...(section === "mail" ? { extra: ["E-Mail-Konten"] } : {}),
         },
+      ),
+    ),
+    // Services for agents: each service opens its own detail.
+    ...[
+      ["speech", () => assistantCopy.speech.title],
+      ["web-search", () => assistantCopy.webSearch.title],
+      ["pdf-model", () => assistantPdfCopy.title],
+    ].map(([item, label]) =>
+      pageEntry(
+        `connections-services-${item}`,
+        label,
+        [...connections, bilingual(() => connectionsAreaCopy.sections.services)],
+        { route: connectionsRoute("services", item) },
+        { agentsOnly: true },
       ),
     ),
     pageEntry(
@@ -263,9 +282,13 @@ export function pageEntries() {
       ["mcp-directory", () => mcpDirectoryCopy.settingsTitle],
       ["features", () => settingsHubCopy.featuresGroup],
     ].map(([id, label]) =>
-      pageEntry(`settings-general-${id}`, label, general, {
-        route: settingsRoute("general"),
-      }),
+      pageEntry(
+        `settings-general-${id}`,
+        label,
+        general,
+        { route: settingsRoute("general") },
+        id === "directory" ? { aliases: [alias("defaultFolder")] } : undefined,
+      ),
     ),
     ...["diagnostics", "backups", "updates", "audit"].map((section) =>
       pageEntry(
@@ -281,6 +304,21 @@ export function pageEntries() {
       route: { view: "settings", settingsSection: "general", settingsTab: "operations" },
       pending: "storage-cleanup",
     }),
+    // System status › Storage › Free up space: the same place, by its own name.
+    pageEntry(
+      "settings-free-space",
+      () => systemStatusCopy.cleanup.heading,
+      [...operations, bilingual(() => operationsCopy.sections.storage)],
+      {
+        route: {
+          view: "settings",
+          settingsSection: "general",
+          settingsTab: "operations",
+        },
+        pending: "storage-cleanup",
+      },
+      { aliases: [alias("freeUpSpace")] },
+    ),
     pageEntry("settings-components", () => galleryCopy.title, operations, {
       route: settingsRoute("components"),
     }),
@@ -371,10 +409,32 @@ export function actionEntries() {
       route: connectionsRoute("secrets"),
       pending: "secret-add",
     }),
-    action("add-plane", () => searchCopy.actions.addPlane, inSection("tickets"), {
-      route: connectionsRoute("tickets"),
-      pending: "plane-add",
-    }),
+    action(
+      "add-plane",
+      () => searchCopy.actions.addPlane,
+      inSection("tickets"),
+      { route: connectionsRoute("tickets"), pending: "plane-add" },
+      { aliases: [alias("addPlaneConnection")].map(bilingual) },
+    ),
+    ...["restore", "create"].map((kind) =>
+      action(
+        `${kind}-backup`,
+        () => searchCopy.actions[`${kind}Backup`],
+        join(
+          bilingual(text.settings),
+          bilingual(() => operationsCopy.groups.operations),
+          bilingual(() => operationsCopy.sections.backups),
+        ),
+        { route: settingsRoute("backups"), pending: `backup-${kind}` },
+        {
+          aliases: [
+            kind === "restore"
+              ? () => operationsCopy.inspectArchive
+              : () => operationsCopy.createBackup,
+          ].map(bilingual),
+        },
+      ),
+    ),
     ...projectActionEntries(action, bilingual(text.projects), bilingual),
     ...areaActionEntries(action),
     action(

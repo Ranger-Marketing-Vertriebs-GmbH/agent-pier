@@ -4,7 +4,10 @@ import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import ListCard from "../../components/ListCard.jsx";
+import { SelectRow } from "../../components/ListRow.jsx";
 import Switch from "../../components/Switch.jsx";
+import NetworkHosts from "./NetworkHosts.jsx";
 import PreviewSettingsCard from "../previews/PreviewSettingsCard.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -16,7 +19,6 @@ export default function RemoteSettings() {
   const resource = useResource("/remote");
   const action = useAsyncAction();
   const [draft, setDraft] = useState(null);
-  const [hostInput, setHostInput] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [notice, setNotice] = useState("");
   const [restart, setRestart] = useState(null);
@@ -33,13 +35,6 @@ export default function RemoteSettings() {
     setNotice("");
     if (!draft.enabled) setConfirm(true);
     else setDraft({ ...draft, enabled: false });
-  };
-  const addHost = () => {
-    const host = hostInput.trim().toLowerCase();
-    if (!host || draft.hosts.includes(host)) return;
-    setNotice("");
-    setDraft({ ...draft, hosts: [...draft.hosts, host] });
-    setHostInput("");
   };
   const save = () =>
     action.run(async () => {
@@ -110,56 +105,29 @@ export default function RemoteSettings() {
         {locked && <p role="status">{copy.locked}</p>}
         {!locked && (
           <>
-            <label>
-              {copy.bind}
-              <select
+            <ListCard label={copy.network}>
+              <SelectRow
+                label={copy.bind}
                 value={draft.bind}
-                onChange={(event) => {
+                disabled={action.busy}
+                onChange={(bind) => {
                   setNotice("");
-                  setDraft({ ...draft, bind: event.target.value });
+                  setDraft({ ...draft, bind });
                 }}
-              >
-                <option value="0.0.0.0">{copy.bindAll}</option>
-                <option value="::">{copy.bindAllV6}</option>
-              </select>
-            </label>
-            <h3>{copy.hosts}</h3>
-            <p>{copy.hostsDescription}</p>
-            <ul className="chip-list">
-              {draft.hosts.map((host) => (
-                <li key={host}>
-                  <span>{host}</span>
-                  <button
-                    type="button"
-                    className="button secondary compact"
-                    aria-label={copy.removeHost(host)}
-                    onClick={() => {
-                      setNotice("");
-                      setDraft({
-                        ...draft,
-                        hosts: draft.hosts.filter((h) => h !== host),
-                      });
-                    }}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="remote-form-row">
-              <input
-                type="text"
-                aria-label={copy.hostInput}
-                value={hostInput}
-                onChange={(event) => setHostInput(event.target.value)}
-                onKeyDown={(event) =>
-                  event.key === "Enter" && (event.preventDefault(), addHost())
-                }
+                options={[
+                  { value: "0.0.0.0", label: copy.bindAll },
+                  { value: "::", label: copy.bindAllV6 },
+                ]}
               />
-              <button type="button" className="button secondary" onClick={addHost}>
-                {copy.addHost}
-              </button>
-            </div>
+            </ListCard>
+            <NetworkHosts
+              hosts={draft.hosts}
+              disabled={action.busy}
+              onChange={(hosts) => {
+                setNotice("");
+                setDraft({ ...draft, hosts });
+              }}
+            />
           </>
         )}
         {network.urls.length > 0 && (

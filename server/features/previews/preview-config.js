@@ -1,6 +1,7 @@
 import { readJSON } from "../../lib/storage.js";
 import { updateStoredConfig } from "../../lib/config.js";
 import path from "node:path";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { previewError } from "./preview-errors.js";
 import { listenerPort, TAILSCALE_LISTENER_OFFSET } from "./preview-slots.js";
 
@@ -14,6 +15,10 @@ const defaults = (enabled = false) => ({
   portRangeEnd: DEFAULT_PREVIEW_RANGE.end,
 });
 const invalid = () => previewError("PREVIEW_RANGE_INVALID", 400);
+/** PREVIEW_RANGE_INVALID with the message of the one rule the range breaks. */
+const refused = (message) =>
+  Object.assign(new Error(message), { code: "PREVIEW_RANGE_INVALID", status: 400 });
+const range = serverMessages.previews;
 
 /** The port of a remote URL (443 when it names none); null without a remote URL. */
 export function tailscaleHttpsPort(remoteUrl) {
@@ -37,25 +42,35 @@ export function normalizePreviewConfig(
   if (typeof enabled !== "boolean") throw invalid();
   const start = raw.portRangeStart ?? DEFAULT_PREVIEW_RANGE.start;
   const end = raw.portRangeEnd ?? DEFAULT_PREVIEW_RANGE.end;
-  if (!Number.isInteger(start) || !Number.isInteger(end)) throw invalid();
+  if (!Number.isInteger(start) || !Number.isInteger(end))
+    throw refused(range.rangeNotNumbers);
   // With Tailscale the listeners take slot + 1000 (preview-slots.js): checked always,
   // so a later `npm run tailscale` never makes a saved range unusable.
   const listener = (port) => listenerPort(port, { offset: TAILSCALE_LISTENER_OFFSET });
-  if (
-    start < 1024 ||
-    listener(end) > 65535 ||
-    end < start ||
-    end - start + 1 > MAX_PREVIEW_PORTS
-  )
-    throw invalid();
-  for (const [low, high] of [
-    [start, end],
-    [listener(start), listener(end)],
+  const highest = 65535 - TAILSCALE_LISTENER_OFFSET;
+  if (start < 1024 || listener(end) > 65535)
+    throw refused(range.rangeBounds(1024, highest));
+  if (end < start) throw refused(range.rangeOrder);
+  if (end - start + 1 > MAX_PREVIEW_PORTS)
+    throw refused(range.rangeSize(MAX_PREVIEW_PORTS));
+  // Each rule names the port it hit; a listener's port is named with its slot.
+  for (const [low, high, offset] of [
+    [start, end, 0],
+    [listener(start), listener(end), TAILSCALE_LISTENER_OFFSET],
   ]) {
     const inside = (port) => Number.isInteger(port) && port >= low && port <= high;
-    if (inside(hostPort) || inside(httpsPort)) throw invalid();
+    const named = (port, direct, viaListener) =>
+      offset ? viaListener(port - offset, port) : direct(port);
+    if (inside(hostPort))
+      throw refused(named(hostPort, range.rangeHostPort, range.rangeHostPortListener));
+    if (inside(httpsPort))
+      throw refused(named(httpsPort, range.rangeHttpsPort, range.rangeHttpsPortListener));
     if (pipelineRange && low <= pipelineRange.end && high >= pipelineRange.start)
-      throw invalid();
+      throw refused(
+        offset
+          ? range.rangePipelinesListener(pipelineRange.start, pipelineRange.end)
+          : range.rangePipelines(pipelineRange.start, pipelineRange.end),
+      );
   }
   return { enabled, portRangeStart: start, portRangeEnd: end };
 }

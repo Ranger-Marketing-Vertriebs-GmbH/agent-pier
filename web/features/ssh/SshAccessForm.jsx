@@ -1,5 +1,6 @@
 import React, { useId, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import Modal from "../../components/Modal.jsx";
 import SaveBar from "../../components/SaveBar.jsx";
 import Segmented from "../../components/Segmented.jsx";
@@ -106,20 +107,16 @@ export default function SshAccessForm({
   const keySelect = (
     <label>
       {copy.keyMode}
-      <select
+      <AnchoredSelect
+        label={copy.keyMode}
         required
         value={draft.keyId}
-        onChange={(event) => change("keyId", event.target.value)}
-      >
-        <option value="" disabled>
-          {copy.selectKey}
-        </option>
-        {ownedKeys.map((key) => (
-          <option key={key.id} value={key.id}>
-            {key.name}
-          </option>
-        ))}
-      </select>
+        onChange={(keyId) => change("keyId", keyId)}
+        options={[
+          { value: "", label: copy.selectKey, disabled: true },
+          ...ownedKeys.map((key) => ({ value: key.id, label: key.name })),
+        ]}
+      />
       {access?.keyMissing && !draft.keyId && (
         <small className="ssh-action-hint">{copy.keyMissing}</small>
       )}
@@ -180,24 +177,24 @@ export default function SshAccessForm({
         {!access && (
           <label>
             {projectCopy.owner}
-            <select
+            <AnchoredSelect
+              label={projectCopy.owner}
               value={owner}
-              onChange={(event) => {
-                const value = event.target.value;
+              onChange={(value) => {
                 setOwner(value);
                 setDraft((current) => ({
                   ...current,
                   keyId: keys.find((key) => (key.projectId || "") === value)?.id || "",
                 }));
               }}
-            >
-              <option value="">{projectCopy.global}</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: projectCopy.global },
+                ...projects.map((project) => ({
+                  value: project.id,
+                  label: project.name,
+                })),
+              ]}
+            />
           </label>
         )}
         <div className="ssh-field">

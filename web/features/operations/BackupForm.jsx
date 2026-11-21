@@ -1,5 +1,5 @@
 import BackupContents, { backupDescription } from "./BackupContents.jsx";
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
@@ -7,11 +7,18 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Checkbox from "../../components/Checkbox.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { PASSPHRASE_MIN, passphraseProblem } from "./backup-form-rules.js";
 export default function BackupForm({ close, started }) {
+  const historyNote = useId(),
+    passphraseErrorId = useId();
   const [includeHistory, setHistory] = useState(true),
     [withCredentials, setCredentials] = useState(false),
     [passphrase, setPassphrase] = useState(""),
-    [plan, setPlan] = useState(null);
+    [plan, setPlan] = useState(null),
+    // Explained in place instead of the browser's own bubble (docs/ui-guide.md).
+    [passphraseError, setPassphraseError] = useState("");
+  // History is backed up only encrypted, so it needs the credentials' passphrase.
+  const history = includeHistory && withCredentials;
   const action = useAsyncAction(),
     dismiss = () => {
       if (!action.lock.current) close();
@@ -20,19 +27,25 @@ export default function BackupForm({ close, started }) {
     <Modal title={copy.createBackup} close={dismiss} closeDisabled={action.busy} wide>
       <form
         className="operations-form"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
+          if (plan?.requiresPassphrase) {
+            const problem = passphraseProblem(passphrase);
+            setPassphraseError(problem);
+            if (problem) return event.currentTarget.elements.passphrase?.focus();
+          }
           action.run(async () => {
             if (!plan) {
               const result = await api("/operations/backups/plan", "POST", {
-                includeHistory,
+                includeHistory: history,
                 withCredentials,
               });
               setPlan(result.plan);
               return;
             }
             const result = await api("/operations/backups", "POST", {
-              includeHistory,
+              includeHistory: history,
               withCredentials,
               ...(withCredentials ? { passphrase } : {}),
             });
@@ -44,7 +57,9 @@ export default function BackupForm({ close, started }) {
         <fieldset disabled={action.busy}>
           <Checkbox
             label={copy.includeHistory}
-            checked={includeHistory}
+            checked={history}
+            disabled={!withCredentials}
+            aria-describedby={withCredentials ? undefined : historyNote}
             onChange={(checked) => {
               setHistory(checked);
               setPlan(null);
@@ -59,8 +74,8 @@ export default function BackupForm({ close, started }) {
             }}
           />
           <p className="field-description">{copy.backupPrivacy}</p>
-          {includeHistory && !withCredentials && (
-            <p className="field-description" role="note">
+          {!withCredentials && (
+            <p id={historyNote} className="field-description" role="note">
               {copy.historyNeedsPassphrase}
             </p>
           )}
@@ -76,17 +91,27 @@ export default function BackupForm({ close, started }) {
               <h3>{copy.consistency}</h3>
               <p>{backupDescription(plan.consistency)}</p>
               {plan.requiresPassphrase && (
-                <label>
-                  {copy.passphrase}
-                  <input
-                    type="password"
-                    minLength={12}
-                    required
-                    value={passphrase}
-                    autoComplete="new-password"
-                    onChange={(event) => setPassphrase(event.target.value)}
-                  />
-                </label>
+                <>
+                  <label>
+                    {copy.passphrase}
+                    <input
+                      name="passphrase"
+                      type="password"
+                      minLength={PASSPHRASE_MIN}
+                      required
+                      value={passphrase}
+                      autoComplete="new-password"
+                      aria-invalid={passphraseError ? true : undefined}
+                      aria-describedby={passphraseError ? passphraseErrorId : undefined}
+                      onChange={(event) => {
+                        setPassphrase(event.target.value);
+                        if (passphraseError)
+                          setPassphraseError(passphraseProblem(event.target.value));
+                      }}
+                    />
+                  </label>
+                  <ErrorMessage id={passphraseErrorId} error={passphraseError} />
+                </>
               )}
             </>
           )}

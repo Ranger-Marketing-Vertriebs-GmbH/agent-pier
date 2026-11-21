@@ -3,7 +3,7 @@ import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { serverText } from "../../lib/server-messages.js";
-import { reportValue } from "./restore-report.js";
+import { reportRows, reportValue } from "./restore-report.js";
 import { terminalJob } from "./operation-job-status.js";
 
 /**
@@ -52,26 +52,25 @@ export default function OperationJob({ id, onComplete, onState }) {
               <h3>{copy.restored}</h3>
               <p>{job.result.targetDataDir}</p>
               <dl className="operations-metadata">
-                {[
-                  "credentialsRestored",
-                  "credentialsNeedingLogin",
-                  "importedSessions",
-                  "importedRuns",
-                  "changedFilesLeftOut",
-                ].map(
-                  (key) =>
-                    job.result[key] !== undefined && (
-                      <React.Fragment key={key}>
-                        <dt>
-                          {key === "credentialsNeedingLogin"
-                            ? copy.needsLogin
-                            : copy[key]}
-                        </dt>
-                        <dd>{reportValue(key, job.result[key])}</dd>
-                      </React.Fragment>
-                    ),
-                )}
+                {reportRows(job.result).map(([key, value]) => (
+                  <React.Fragment key={key}>
+                    <dt>
+                      {key === "credentialsNeedingLogin" ? copy.needsLogin : copy[key]}
+                    </dt>
+                    <dd>{reportValue(key, value)}</dd>
+                  </React.Fragment>
+                ))}
               </dl>
+              {job.status === "succeeded" && (
+                <>
+                  <h3>{copy.restoreNextSteps}</h3>
+                  <ol>
+                    <li>{copy.restoreStepStop}</li>
+                    <li>{copy.restoreStepStart(job.result.targetDataDir)}</li>
+                    <li>{copy.restoreStepOwner}</li>
+                  </ol>
+                </>
+              )}
             </>
           )}
           {job.status === "succeeded" && job.result?.activated === true && (

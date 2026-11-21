@@ -1,14 +1,12 @@
 import net from "node:net";
 import { problem } from "./storage.js";
 import { serverMessages } from "./i18n/de.js";
+import { networkHost } from "./network-host.js";
 
 const MAX_HOSTS = 20;
 /** Only wildcards: a fixed interface address silently loses reachability on a new lease. */
 const binds = ["0.0.0.0", "::"];
 const keys = ["enabled", "bind", "hosts"];
-// A DNS label is at most 63 characters, the whole name at most 253.
-const hostPattern =
-  /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
 const invalid = () => problem(serverMessages.settings.invalidNetworkConfig);
 
 /** Accepts the stored or submitted `network` block; missing means disabled. */
@@ -26,7 +24,9 @@ export function normalizeNetworkConfig(raw) {
   const normalized = hosts.map((host) => {
     if (typeof host !== "string") throw invalid();
     const value = host.toLowerCase();
-    if (net.isIP(value) === 0 && !hostPattern.test(value)) throw invalid();
+    // The refusal names the host, so a list of several says which one to fix.
+    if (net.isIP(value) === 0 && networkHost(value) !== value)
+      throw problem(serverMessages.settings.invalidNetworkHost(host.slice(0, 80)));
     return value;
   });
   return { enabled, bind, hosts: [...new Set(normalized)] };

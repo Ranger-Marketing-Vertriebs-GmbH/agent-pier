@@ -46,7 +46,7 @@ test("the moved group links the new places and counts MCP clients", (t) => {
     rows.map((row) => [row.id, routePath(row.route)]),
     [
       ["agents", "/agents?tab=runtime"],
-      ["connections", "/connections"],
+      ["connections", "/connections?section=ssh"],
       ["mcp", "/coding/clis?tab=mcp"],
     ],
   );

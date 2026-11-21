@@ -1,4 +1,4 @@
-import { checkLabel, remedyText } from "./diagnostic-labels.js";
+import { checkLabel, remedyText, summaryText } from "./diagnostic-labels.js";
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
@@ -10,7 +10,8 @@ import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import Checkbox from "../../components/Checkbox.jsx";
 export default function DiagnosticsPage() {
   const resource = useResource("/operations/doctor"),
-    projects = useResource("/repositories"),
+    // The projects of the Projects page; Doctor checks the same ones.
+    projects = useResource("/memory/projects"),
     action = useAsyncAction();
   const [scope, setScope] = useState("host"),
     [projectId, setProjectId] = useState(""),
@@ -90,10 +91,10 @@ export default function DiagnosticsPage() {
               key={check.id}
             >
               <header>
-                <strong>{checkLabel(check.id)}</strong>
+                <strong>{checkLabel(check)}</strong>
                 <span>{copy.checkStatuses[check.status] || copy.unknown}</span>
               </header>
-              <p>{check.summary}</p>
+              <p>{summaryText(check)}</p>
               {remedyText(check) && (
                 <>
                   <h2>{copy.remedy}</h2>

@@ -142,7 +142,8 @@ export default function SshCategory({
     () => {
       setView(canAdd ? "accesses" : "keys");
       if (canAdd) setEditing({});
-      else if (ownerAvailable) setEditingKey({});
+      // No key yet: the key dialog opens first and says why.
+      else if (ownerAvailable) setEditingKey({ forAccess: true });
     },
     catalog.ready,
   );
@@ -362,6 +363,7 @@ export default function SshCategory({
       {editingKey && (
         <SshKeyForm
           sshKey={editingKey.id ? editingKey : null}
+          forAccess={Boolean(editingKey.forAccess)}
           projects={catalog.projects}
           projectId={projectFilter ? owner || null : null}
           close={() => setEditingKey(null)}
@@ -372,9 +374,15 @@ export default function SshCategory({
                 result,
               ],
             }));
+            setEditingKey(null);
+            // Opened for "Add SSH access": the access form follows with the new key.
+            if (editingKey.forAccess && !editingKey.id) {
+              setView("accesses");
+              setEditing({});
+              return;
+            }
             setView("keys");
             setKeyId(result.id);
-            setEditingKey(null);
           }}
         />
       )}

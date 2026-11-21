@@ -461,3 +461,24 @@
     display: none;
   }
 }
+/* A category's intro line with its add button (Secrets, Ticket sources), aligned with
+   the category heading like the other categories, not indented as a page. */
+.connections-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.connections-intro p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 640px;
+}
+@media (max-width: 700px) {
+  .connections-intro {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+}

@@ -9,6 +9,11 @@ export const planeConnectionsCopy = {
   edit: "Edit Plane connection",
   remove: "Delete",
   editRow: "Edit",
+  check: "Check connection",
+  checking: "Checking …",
+  checkOk: (count) =>
+    count === 1 ? "Reachable · 1 project" : `Reachable · ${count} projects`,
+  checkFailed: "Not reachable",
   rowActions: (name) => `Actions for ${name}`,
   removeTitle: (name) => `Delete Plane connection "${name}"?`,
   removeConfirm: (name) =>

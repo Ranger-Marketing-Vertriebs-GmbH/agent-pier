@@ -116,6 +116,8 @@ export const operationsCopy = {
   historyNeedsPassphrase:
     "Ohne Passphrase bleiben Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte in dieser Sicherung außen vor; Agenten werden nur mit ihren Einstellungen wiederhergestellt. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
   passphrase: "Passphrase",
+  passphraseRequired: "Gib eine Passphrase ein.",
+  passphraseTooShort: (count) => `Die Passphrase braucht mindestens ${count} Zeichen.`,
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
   components: "Bestandteile",
@@ -125,7 +127,8 @@ export const operationsCopy = {
   assistantCredentialsNote:
     "Agent-Zugangsdaten in dieser Sicherung lassen sich nur auf diesem Host wiederherstellen. Jede Änderung an Zugangsdaten oder Provider-Zugängen macht sie unlesbar; Agenten müssen sich dann erneut anmelden.",
   download: "Herunterladen",
-  deleteBackup: "Diese Sicherung löschen?",
+  deleteBackup:
+    "Das Archiv wird von diesem Computer gelöscht. Heruntergeladene Kopien bleiben erhalten.",
   inspectArchive: "Sicherung prüfen und wiederherstellen",
   archive: "Sicherungsdatei",
   uploadProgress: (percent, done, total) =>
@@ -136,13 +139,20 @@ export const operationsCopy = {
   restoreHelp:
     "Das Ziel muss neu sein, sein übergeordnetes Verzeichnis bereits existieren. Die laufende Anwendung und native Sessions bleiben unverändert.",
   restoreTargetRequired: "Gib das neue Datenverzeichnis an.",
-  restoreMappingRequired: (projects) =>
-    `Gib für jedes Projekt ein Verzeichnis an: ${projects}`,
   restorePassphraseRequired: "Gib die Passphrase der Sicherung an.",
   projectMapping: "Projektverzeichnisse zuordnen",
+  projectMappingHelp:
+    "Lass einen Ordner leer, um das Projekt nur als historischen Eintrag zu behalten, ohne Ordner auf diesem Computer.",
   restoreConfirmation:
     "Das geprüfte Archiv wird in einem neuen Datenverzeichnis wiederhergestellt. Es werden keine nativen Sessions gestartet.",
   restored: "Wiederherstellung abgeschlossen",
+  restoreNextSteps: "Nächste Schritte",
+  restoreStepStop:
+    "Beende dieses AgentPier, oder lass es laufen und starte die wiederhergestellte Kopie auf einem anderen Port.",
+  restoreStepStart: (directory) =>
+    `Starte AgentPier mit dem wiederhergestellten Datenverzeichnis: AGENTPIER_DATA_DIR="${directory}" (oder installiere den Dienst mit --data-dir "${directory}").`,
+  restoreStepOwner:
+    "Öffne es und lege das Owner-Konto an: Die Anmeldung des Owners ist nicht Teil einer Sicherung. Benutzer melden sich danach neu an.",
   credentialsRestored: "Zugangsdaten wiederhergestellt",
   yes: "Ja",
   no: "Nein",
@@ -299,6 +309,43 @@ export const diagnosticCopy = {
   account: "Account-Profil",
   project: "Projektverzeichnis",
   adapterSession: "Adapter-Session",
+  providerConnection: "Modell-Zugang",
+  summaries: {
+    ptyLoads: "Das native Terminalmodul lädt.",
+    ptyMissing: "Das native Terminalmodul ist nicht verfügbar.",
+    toolVersion: (version) => `Version ${version || "unbekannt"} gefunden.`,
+    toolMissing: "Das Programm lässt sich nicht ausführen.",
+    listenerServing: "Bericht von der laufenden Web-Instanz angefordert.",
+    listenerSkipped: "Die Web-Instanz wurde nicht geprüft.",
+    serviceFound:
+      "Der Benutzerdienst ist eingerichtet; ob er läuft, wurde nicht geändert.",
+    serviceMissing: "Kein Benutzerdienst eingerichtet.",
+    storageChecked: "Besitzer und private Rechte des Datenverzeichnisses geprüft.",
+    storageMissing: "Das Datenverzeichnis ist nicht verfügbar.",
+    diskFree: (mebibytes) => `${mebibytes} MiB frei.`,
+    databaseMissing: "Die Datenbank wurde noch nicht angelegt.",
+    databaseChecked: "SQLite-Integritätsprüfung abgeschlossen.",
+    databaseUnreadable: "Die Datenbank lässt sich nicht sicher lesen.",
+    keyPresence:
+      "Geprüft, dass ein Schlüssel gespeichert ist; ob er funktioniert, wurde nicht getestet.",
+    endpointInvalid: (keyed) =>
+      `Die Einstellungen des eigenen Endpunkts sind ungültig; der Zugang ist ausgeblendet und startet erst, wenn sie repariert sind. Schlüssel ${keyed ? "gespeichert" : "nicht gespeichert"}.`,
+    endpoint: (keyed, testedAt, protocols, missing, routes, blankHeader) =>
+      [
+        `Eigener Endpunkt; Schlüssel ${keyed ? "gespeichert" : "nicht gespeichert"}.`,
+        testedAt ? `Letzter Test ${testedAt}: ${protocols}.` : "Nie getestet.",
+        missing ? `${missing} Modell(e) ohne Kontextgröße.` : "",
+        `Routen: ${routes}.`,
+        "Keine Netzwerkprüfung.",
+        blankHeader
+          ? `OpenCode sendet neben ${blankHeader} einen leeren Authorization-Header; ob Azure OpenAI das annimmt, ist nicht geprüft.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    projectFound: "Der Projektordner existiert.",
+    projectMissing: "Der Projektordner fehlt.",
+  },
   remedies: {
     node: "Aktualisiere Node.js auf 24.22.1, 26.12.1 oder neuer. Node.js 22 wird nicht mehr unterstützt.",
     platform: "Nutze einen unterstützten macOS- oder Linux-Rechner.",

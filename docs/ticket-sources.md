@@ -43,7 +43,10 @@ The API key is stored on this computer in `ticket-source-secrets/<id>.json` (fil
 `0600`, folder `0700`). It never reaches the browser, logs, error messages, ticket
 comments or the audit log; the edit dialog keeps it when the field is left blank, unless
 the **API URL** moves to another host: then the key has to be entered again, so the saved
-one never goes to the new address. A connection can be deleted once no project links to it.
+one never goes to the new address. Saving checks the connection at once by listing its
+Plane projects with the saved key: the row then shows **Reachable · n projects**, or
+**Not reachable** with the reason; its ⋯ menu offers **Check connection** again, and a
+click on the row opens **Edit**. A connection can be deleted once no project links to it.
 A link of a project id that AgentPier does not know now (see
 [Projects that move or disappear](#projects-that-move-or-disappear)) does not count and
 stays as it is.

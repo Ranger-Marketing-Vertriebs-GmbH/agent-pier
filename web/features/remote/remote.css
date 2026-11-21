@@ -6,23 +6,15 @@
   margin: 16px 0;
   min-width: 0;
 }
-.remote-settings .chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.remote-settings .chip-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
 .remote-settings .remote-form-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  margin-top: 8px;
+}
+.remote-settings .remote-form-row input {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 /* Addresses such as a long Tailscale URL wrap instead of widening a phone page. */
 .remote-settings code {

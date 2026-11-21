@@ -91,20 +91,28 @@ export function sshRoutes({
     }
   });
   router.get("/ssh-keys", (_req, res) => res.json({ keys: sshAccesses.keyStore.list() }));
-  router.post("/ssh-keys", async (req, res) =>
+  // The owner names keys here: a second key of the same owner may not take a name.
+  const freeName = (body, projectId, id) => {
+    if (typeof body?.name === "string" && body.name.trim())
+      sshAccesses.keyStore.assertFreeName(body.name.trim(), projectId, id);
+  };
+  router.post("/ssh-keys", async (req, res) => {
+    freeName(req.body, req.body?.projectId ?? null);
     res
       .status(201)
       .json(
         await mutate("createKey", req.body, () => sshAccesses.keyStore.create(req.body)),
-      ),
-  );
-  router.patch("/ssh-keys/:id", async (req, res) =>
+      );
+  });
+  router.patch("/ssh-keys/:id", async (req, res) => {
+    const key = sshAccesses.keyStore.list().find((item) => item.id === req.params.id);
+    if (key) freeName(req.body, key.projectId, key.id);
     res.json(
       await mutate("renameKey", { id: req.params.id, body: req.body }, () =>
         sshAccesses.keyStore.rename(req.params.id, req.body),
       ),
-    ),
-  );
+    );
+  });
   router.delete("/ssh-keys/:id", async (req, res) => {
     await mutate("removeKey", { id: req.params.id }, () =>
       sshAccesses.keyStore.remove(req.params.id),

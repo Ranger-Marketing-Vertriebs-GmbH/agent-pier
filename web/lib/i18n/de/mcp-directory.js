@@ -19,6 +19,7 @@ export const mcpDirectoryCopy = {
     `Im MCP-Registry tragen Hersteller ihre Server ein. Ein Eintrag ist keine Sicherheitsprüfung. Deine Suche wird an ${host} geschickt.`,
   searchLabel: "Servername",
   searchButton: "Suchen",
+  suggestions: "Beliebte Suchen",
   emptyHint: "Die Suche findet nur Servernamen, zum Beispiel „github“ oder „filesystem“.",
   loading: "Verzeichnis wird durchsucht …",
   results: (count) => `${count} Server gefunden`,

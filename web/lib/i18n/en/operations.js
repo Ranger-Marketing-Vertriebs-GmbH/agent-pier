@@ -116,6 +116,8 @@ export const operationsCopy = {
   historyNeedsPassphrase:
     "Without a passphrase, histories, agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts are left out of this backup; agents are restored with their settings only. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.",
   passphrase: "Passphrase",
+  passphraseRequired: "Enter a passphrase.",
+  passphraseTooShort: (count) => `The passphrase needs at least ${count} characters.`,
   plan: "Review backup scope",
   create: "Create backup",
   components: "Components",
@@ -125,7 +127,8 @@ export const operationsCopy = {
   assistantCredentialsNote:
     "Agent credentials in this backup can only be restored on this host. Any credential or provider connection change makes them unreadable; agents then need to sign in again.",
   download: "Download",
-  deleteBackup: "Delete this backup?",
+  deleteBackup:
+    "The archive is deleted from this computer. Copies you downloaded are kept.",
   inspectArchive: "Inspect and restore backup",
   archive: "Backup file",
   uploadProgress: (percent, done, total) =>
@@ -136,13 +139,20 @@ export const operationsCopy = {
   restoreHelp:
     "The target must be new and its parent directory must already exist. The running application and native sessions remain unchanged.",
   restoreTargetRequired: "Enter the new data directory.",
-  restoreMappingRequired: (projects) =>
-    `Enter a directory for every project: ${projects}`,
   restorePassphraseRequired: "Enter the backup passphrase.",
   projectMapping: "Map project directories",
+  projectMappingHelp:
+    "Leave a folder empty to keep that project as a historical record only, attached to no folder on this computer.",
   restoreConfirmation:
     "The inspected archive will be restored to a new data directory. No native sessions will be started.",
   restored: "Restore complete",
+  restoreNextSteps: "Next steps",
+  restoreStepStop:
+    "Stop this AgentPier, or keep it running and start the restored copy on another port.",
+  restoreStepStart: (directory) =>
+    `Start AgentPier with the restored data directory: AGENTPIER_DATA_DIR="${directory}" (or install the service with --data-dir "${directory}").`,
+  restoreStepOwner:
+    "Open it and create the owner account: the owner's sign-in is not part of a backup. Users then sign in again.",
   credentialsRestored: "Credentials restored",
   yes: "Yes",
   no: "No",
@@ -292,6 +302,41 @@ export const diagnosticCopy = {
   account: "Account profile",
   project: "Project directory",
   adapterSession: "Adapter session",
+  providerConnection: "Model access",
+  summaries: {
+    ptyLoads: "The native terminal module loads.",
+    ptyMissing: "The native terminal module is unavailable.",
+    toolVersion: (version) => `Version ${version || "unknown"} found.`,
+    toolMissing: "The program cannot be run.",
+    listenerServing: "Report requested from the running web instance.",
+    listenerSkipped: "The web instance was not checked.",
+    serviceFound: "The user service is set up; whether it runs was not changed.",
+    serviceMissing: "No user service is set up.",
+    storageChecked: "Owner and private permissions of the data directory checked.",
+    storageMissing: "The data directory is unavailable.",
+    diskFree: (mebibytes) => `${mebibytes} MiB free.`,
+    databaseMissing: "The database has not been created yet.",
+    databaseChecked: "SQLite integrity check completed.",
+    databaseUnreadable: "The database cannot be read safely.",
+    keyPresence: "Checked that a key is stored; whether it works was not tested.",
+    endpointInvalid: (keyed) =>
+      `The custom endpoint's settings are invalid, so the connection is hidden and cannot start until they are repaired. Key ${keyed ? "stored" : "not stored"}.`,
+    endpoint: (keyed, testedAt, protocols, missing, routes, blankHeader) =>
+      [
+        `Custom endpoint; key ${keyed ? "stored" : "not stored"}.`,
+        testedAt ? `Last test ${testedAt}: ${protocols}.` : "Never tested.",
+        missing ? `${missing} model(s) without a context size.` : "",
+        `Routes: ${routes}.`,
+        "No network check was made.",
+        blankHeader
+          ? `OpenCode sends an empty Authorization header next to ${blankHeader}; whether Azure OpenAI accepts that is unverified.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    projectFound: "The project folder exists.",
+    projectMissing: "The project folder is missing.",
+  },
   remedies: {
     node: "Update Node.js to 24.22.1, 26.12.1 or later. Node.js 22 is no longer supported.",
     platform: "Use a supported macOS or Linux host.",

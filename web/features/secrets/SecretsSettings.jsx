@@ -94,8 +94,8 @@ export default function SecretsSettings({
   const selected = items.find((secret) => secret.id === selectedId);
   const detailId = selected || selectedId === "new" ? selectedId : "";
   return (
-    <div className="page secrets-page">
-      <header className="secrets-heading">
+    <div className="secrets-page">
+      <header className="connections-intro">
         <p>{copy.notice}</p>
         {/* An empty list offers adding in its empty state. */}
         {!(emptyState && secrets && !items.length && !detailId) && (

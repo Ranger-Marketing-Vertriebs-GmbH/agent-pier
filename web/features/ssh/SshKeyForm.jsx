@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
@@ -12,6 +13,8 @@ export default function SshKeyForm({
   close,
   saved,
   bare = false,
+  // Set when "Add SSH access" opened this dialog: an access needs a key first.
+  forAccess = false,
 }) {
   const [name, setName] = useState(sshKey?.name || "");
   const [mode, setMode] = useState("generate");
@@ -46,6 +49,11 @@ export default function SshKeyForm({
         }
       }}
     >
+      {forAccess && !sshKey && (
+        <p className="field-description" role="note">
+          {copy.keyFirstForAccess}
+        </p>
+      )}
       <fieldset disabled={busy}>
         <label>
           {copy.name}
@@ -62,27 +70,33 @@ export default function SshKeyForm({
           <>
             <label>
               {projectCopy.owner}
-              <select value={owner} onChange={(event) => setOwner(event.target.value)}>
-                <option value="">{projectCopy.global}</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+              <AnchoredSelect
+                label={projectCopy.owner}
+                value={owner}
+                onChange={setOwner}
+                options={[
+                  { value: "", label: projectCopy.global },
+                  ...projects.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                  })),
+                ]}
+              />
             </label>
             <label>
               {copy.keyMode}
-              <select
+              <AnchoredSelect
+                label={copy.keyMode}
                 value={mode}
-                onChange={(event) => {
-                  setMode(event.target.value);
+                onChange={(value) => {
+                  setMode(value);
                   setPrivateKey("");
                 }}
-              >
-                <option value="generate">{copy.generate}</option>
-                <option value="import">{copy.import}</option>
-              </select>
+                options={[
+                  { value: "generate", label: copy.generate },
+                  { value: "import", label: copy.import },
+                ]}
+              />
             </label>
             {mode === "import" && (
               <label>
