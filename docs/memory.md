@@ -74,7 +74,7 @@ Titles are limited to 200 UTF-8 bytes, content to 32 KiB and search queries to 3
 
 ## Search
 
-The project's **Knowledge** tab updates live: an entry that a session, an agent or another browser writes, archives, restores, forgets or merges in appears without **Refresh** (the `memory.changed:<projectId>` topic, see [Live channel](architecture.md#live-channel)).
+The project's **Knowledge** tab updates live: an entry that a session, an agent or another browser writes, archives, restores, forgets or merges in appears without **Refresh**, and the **Active** and **Archive** totals and the **Knowledge** tab count follow (the `memory.changed:<projectId>` topic, see [Live channel](architecture.md#live-channel)).
 
 Search covers the title and content of each entry's current revision. Archived entries are searched only with the archived filter.
 
