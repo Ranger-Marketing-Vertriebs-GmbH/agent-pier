@@ -130,7 +130,7 @@ test(
               id: "fixture-model",
               name: "Fixture",
               input: ["text"],
-              contextWindow: 32768,
+              contextWindow: 131072, // room for the browser start result; see the web tools contract
               maxTokens: 4096,
               // The catalog flag that engages Code Mode under OpenClaw's "auto".
               compat: { codeMode: "preferred" },
