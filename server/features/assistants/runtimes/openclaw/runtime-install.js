@@ -17,6 +17,7 @@ import {
 import { runtimePaths, privateFolder } from "../../runtime-paths.js";
 import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.js";
 import { proxyEnvironment } from "./runtime-config.js";
+import { relocateRuntimeRecords } from "./state-relocation.js";
 import { readAssistantFeature } from "../../assistant-feature.js";
 
 const jobs = new Map();
@@ -98,6 +99,8 @@ const lockMissing = () =>
   });
 export async function selectedAssistantRuntime(options) {
   const paths = runtimePaths(options.dataDir);
+  // A data directory restored, moved or copied elsewhere names its first folder.
+  relocateRuntimeRecords(paths);
   const file = path.join(paths.root, "runtime.json");
   const selected = readJSON(file, null);
   if (!selected) return ensureAssistantRuntime(options);

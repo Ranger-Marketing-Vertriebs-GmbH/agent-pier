@@ -2,6 +2,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
+import { relocateRuntimeState } from "./state-relocation.js";
 import {
   guardGatedTools,
   memberTeamTools,
@@ -435,6 +436,8 @@ export function prepareRuntimeConfig(
     skillShadows,
   } = {},
 ) {
+  // A data directory restored or moved elsewhere: its state names this folder first.
+  relocateRuntimeState(paths, readJSON(paths.config, null));
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
   writePrivate(

@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
 import { isConfigFile } from "../assistants/backup-credentials.js";
+import { relocatePaths } from "../../lib/relocate-paths.js";
 
 /**
  * Absolute paths below assistants/ in the Gateway's JSON files are stored relative to
@@ -18,26 +19,11 @@ const sessionIndex = /^state\/agents\/[^/]+\/sessions\/sessions\.json$/;
 export const isRelocatable = (relative) =>
   isConfigFile(relative) || sessionIndex.test(relative);
 
-function relocate(value, from, to, contained) {
-  if (typeof value === "string") {
-    if (value !== from && !value.startsWith(`${from}/`)) return value;
-    const rewritten = to + value.slice(from.length);
-    if (contained) {
-      const resolved = path.resolve(rewritten);
-      if (resolved !== to && !resolved.startsWith(`${to}${path.sep}`)) throw invalid();
-    }
-    return rewritten;
-  }
-  if (Array.isArray(value))
-    return value.map((item) => relocate(item, from, to, contained));
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([name, item]) => [
-      name,
-      relocate(item, from, to, contained),
-    ]),
-  );
-}
+// A rewritten path must stay inside the restored assistants/ folder.
+const inside = (to) => (rewritten) => {
+  const resolved = path.resolve(rewritten);
+  if (resolved !== to && !resolved.startsWith(`${to}${path.sep}`)) throw invalid();
+};
 
 /**
  * Replaces the live root by the marker. Returns null for unreadable JSON, which the
@@ -50,7 +36,7 @@ export function portableText(text, root) {
   } catch {
     return null;
   }
-  return JSON.stringify(relocate(value, root, rootMarker, false), null, 2);
+  return JSON.stringify(relocatePaths(value, root, rootMarker), null, 2);
 }
 
 /** Resolves the marker to `root`; malformed JSON or an escaping path is invalid. */
@@ -61,5 +47,6 @@ export function restoredText(text, root) {
   } catch {
     throw invalid();
   }
-  return JSON.stringify(relocate(value, rootMarker, path.resolve(root), true), null, 2);
+  const to = path.resolve(root);
+  return JSON.stringify(relocatePaths(value, rootMarker, to, inside(to)), null, 2);
 }

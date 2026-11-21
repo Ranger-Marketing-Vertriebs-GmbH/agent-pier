@@ -64,6 +64,41 @@ function executable(file) {
   if (!stat.isFile() || !(stat.mode & 0o100)) throw failure("HERMES_RUNTIME_UNSAFE");
 }
 
+/**
+ * Whether uv built the environment in `directory` for another folder: its `hermes`
+ * entry script starts an interpreter outside it. uv's environment holds absolute
+ * paths, so an installation in a data directory that was moved or copied elsewhere
+ * cannot run and is built again (AGENTPIER-467).
+ */
+export function builtElsewhere(directory) {
+  let head;
+  try {
+    const fd = fs.openSync(hermesExecutables(directory).hermes, "r");
+    try {
+      const buffer = Buffer.alloc(4096);
+      head = buffer.subarray(0, fs.readSync(fd, buffer, 0, buffer.length, 0));
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return false;
+  }
+  // uv writes `#!<installation>/venv/bin/python`, or for a path with spaces or a
+  // long one a `/bin/sh` header whose `'''exec' '<python>'` line names it.
+  const text = head.toString("utf8");
+  const interpreter = (/^#!(\/\S*\/venv\/bin\/python[^/\s]*)\s/.exec(text) ||
+    /^'''exec' '(\/[^']*\/venv\/bin\/python[^/']*)'/m.exec(text))?.[1];
+  if (!interpreter) return false;
+  try {
+    return (
+      fs.realpathSync(path.dirname(interpreter)) !==
+      fs.realpathSync(path.join(directory, "venv", "bin"))
+    );
+  } catch {
+    return true;
+  }
+}
+
 function recordOf(manifest, directory) {
   const { python, hermes } = hermesExecutables(directory);
   return {
@@ -231,7 +266,7 @@ async function install({
   const directory = path.join(paths.runtimes, hermesIdentity(manifest, target));
   const record = recordOf(manifest, directory);
   const receiptFile = path.join(directory, "receipt.json");
-  if (fs.existsSync(receiptFile)) {
+  if (fs.existsSync(receiptFile) && !builtElsewhere(directory)) {
     verifyInstalled(record, {
       commit: manifest.commit,
       archiveSha256: manifest.archiveSha256,
@@ -453,14 +488,26 @@ export async function selectedHermesRuntime(options) {
   const file = path.join(paths.root, "runtime.json");
   const selected = readJSON(file, null);
   if (!selected) return ensureHermesRuntime(options);
-  const directory = path.resolve(String(selected.directory || ""));
+  let directory = path.resolve(String(selected.directory || ""));
+  // A data directory restored, moved or copied elsewhere names its first folder: the
+  // installation of the same name here, rebuilt below since uv's environment is not.
+  if (
+    path.dirname(directory) !== paths.runtimes &&
+    path.basename(path.dirname(directory)) === "runtimes" &&
+    path.basename(path.dirname(path.dirname(directory))) === path.basename(paths.root)
+  ) {
+    directory = path.join(paths.runtimes, path.basename(directory));
+    Object.assign(selected, recordOf(selected, directory));
+    writePrivate(file, selected);
+  }
   if (
     path.dirname(directory) !== paths.runtimes ||
     selected.pythonPath !== hermesExecutables(directory).python ||
     selected.hermesPath !== hermesExecutables(directory).hermes
   )
     throw failure("HERMES_SELECTION_UNSAFE");
-  if (!fs.existsSync(directory)) {
+  // Gone, or moved here with its data directory: reset the selection and reinstall.
+  if (!fs.existsSync(directory) || builtElsewhere(directory)) {
     fs.rmSync(file);
     return { ...(await ensureHermesRuntime(options)), diagnostic: "RUNTIME_REINSTALLED" };
   }

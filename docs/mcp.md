@@ -632,7 +632,9 @@ program runs with your user's rights in the CLIs and agents you choose.
 
 AgentPier installs the frozen graph with its own pinned toolchain (Node for npm, uv
 with CPython for PyPI) into `mcp-packages/installs/` in the data directory as a
-background job, without install scripts. A package that needs install scripts or a
+background job, without install scripts. A data directory that is moved or copied
+keeps its installs: the next start points their commands at the new folder
+([backups](backups.md#moving-a-data-directory)). A package that needs install scripts or a
 source build is refused with a hint until you tick **Allow install scripts or source
 builds** for it; its code then runs during installation with your user's rights, so
 allow it only for packages you trust. Only `registry.npmjs.org` (npm) and `pypi.org`

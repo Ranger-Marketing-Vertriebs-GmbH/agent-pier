@@ -25,6 +25,7 @@ import { chooseProgram, programName } from "./program-select.js";
 import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
 import { npmRegistry } from "./registry-metadata.js";
 import { toolchainEntry } from "./toolchain-entry.js";
+import { relocatePackages } from "./package-relocation.js";
 
 // While an install stays for a running process, prune() looks again this often.
 const pruneRetryMs = 5 * 60 * 1000;
@@ -100,6 +101,7 @@ export class McpPackages {
     };
     this.records.orphaned = (id) =>
       this.claiming === 0 && this.jobs.get(id)?.state !== "running";
+    this.relocate(); // before any agent or CLI reads a server; start() reconciles CLIs
   }
   adapterOf(registry) {
     const adapter = Object.hasOwn(this.adapters, registry)
@@ -501,6 +503,14 @@ export class McpPackages {
       programs,
     };
   }
+  /** Points packaged servers at a moved data directory (package-relocation.js). */
+  relocate() {
+    try {
+      this.relocated = relocatePackages(this);
+    } catch (error) {
+      logFailure("point packaged MCP servers at this data directory", error);
+    }
+  }
   start() {
     // A crash can leave preview resolutions behind; no preview survives a restart.
     try {
@@ -532,7 +542,8 @@ export class McpPackages {
     // in maintenance refuse changes; the next change or CLI session reconciles then.
     const missing =
       !this.changes.maintenance?.() &&
-      this.records.all().some((row) => this.records.computedStatus(row) === "missing");
+      (this.relocated ||
+        this.records.all().some((row) => this.records.computedStatus(row) === "missing"));
     const reconciled = missing
       ? Promise.resolve()
           .then(() => this.changes.onSaved())
