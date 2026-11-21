@@ -9,25 +9,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-/** The first unfilled restore input and its explanation; null when restore may start. */
-function restoreGap({ inspection, targetDataDir, projectMap, passphrase }) {
-  if (!targetDataDir.trim())
-    return { field: "target", message: copy.restoreTargetRequired };
-  const unmapped = inspection.projects.filter(
-    (project) => !projectMap[project.id]?.trim(),
-  );
-  if (unmapped.length)
-    return {
-      field: `project-${unmapped[0].id}`,
-      projects: unmapped.map((project) => project.id),
-      message: copy.restoreMappingRequired(
-        unmapped.map((project) => project.name).join(", "),
-      ),
-    };
-  if (inspection.requiresPassphrase && !passphrase)
-    return { field: "passphrase", message: copy.restorePassphraseRequired };
-  return null;
-}
+import { filledProjectMap, restoreGap } from "./backup-form-rules.js";
 export default function RestoreForm({ close, started }) {
   const [file, setFile] = useState(null),
     [archiveId, setArchiveId] = useState(""),
@@ -35,6 +17,9 @@ export default function RestoreForm({ close, started }) {
     [targetDataDir, setTarget] = useState(""),
     [projectMap, setMap] = useState({}),
     [passphrase, setPassphrase] = useState(""),
+    // The passphrase the archive accepted: checked before the confirmation, so a
+    // wrong one never costs the upload and the mapping.
+    [accepted, setAccepted] = useState(null),
     [confirm, setConfirm] = useState(false),
     [missing, setMissing] = useState(null),
     // An interrupted upload of the chosen file resumes with its id.
@@ -58,13 +43,19 @@ export default function RestoreForm({ close, started }) {
         onSubmit={(event) => {
           event.preventDefault();
           if (inspection) {
-            const gap = restoreGap({ inspection, targetDataDir, projectMap, passphrase });
+            const gap = restoreGap({ inspection, targetDataDir, passphrase });
             setMissing(gap);
             if (gap) {
               event.currentTarget.querySelector(`[name="${gap.field}"]`)?.focus();
               return;
             }
-            setConfirm(true);
+            if (!inspection.requiresPassphrase || accepted === passphrase)
+              return setConfirm(true);
+            action.run(async () => {
+              await api("/operations/restore/inspect", "POST", { archiveId, passphrase });
+              setAccepted(passphrase);
+              setConfirm(true);
+            });
             return;
           }
           action.run(async () => {
@@ -114,6 +105,7 @@ export default function RestoreForm({ close, started }) {
                 setMissing(null);
                 setMap({});
                 setPassphrase("");
+                setAccepted(null);
               }}
             />
           </label>
@@ -144,18 +136,17 @@ export default function RestoreForm({ close, started }) {
                   onChange={(event) => setTarget(event.target.value)}
                 />
               </label>
-              {inspection.projects.length > 0 && <h3>{copy.projectMapping}</h3>}
+              {inspection.projects.length > 0 && (
+                <>
+                  <h3>{copy.projectMapping}</h3>
+                  <p className="field-description">{copy.projectMappingHelp}</p>
+                </>
+              )}
               {inspection.projects.map((project) => (
                 <label key={project.id}>
                   {project.name}
                   <input
-                    required
                     name={`project-${project.id}`}
-                    aria-invalid={
-                      (missing?.projects?.includes(project.id) &&
-                        !projectMap[project.id]?.trim()) ||
-                      undefined
-                    }
                     aria-label={project.name}
                     value={projectMap[project.id] || ""}
                     placeholder={project.cwd}
@@ -177,6 +168,7 @@ export default function RestoreForm({ close, started }) {
                     type="password"
                     value={passphrase}
                     autoComplete="off"
+                    aria-invalid={missing?.field === "passphrase" || undefined}
                     onChange={(event) => setPassphrase(event.target.value)}
                   />
                 </label>
@@ -209,7 +201,7 @@ export default function RestoreForm({ close, started }) {
             const result = await api("/operations/restore", "POST", {
               archiveId,
               targetDataDir,
-              projectMap,
+              projectMap: filledProjectMap(projectMap),
               ...(passphrase ? { passphrase } : {}),
             });
             setPassphrase("");

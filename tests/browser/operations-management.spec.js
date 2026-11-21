@@ -98,7 +98,7 @@ test("mobile archive inspection restores only into the specified fresh target wi
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
 });
-test("restore without a project mapping explains what is missing instead of doing nothing", async ({
+test("restore names a missing target, and a project without a folder stays historical", async ({
   page,
 }) => {
   const state = await operationsFixture(page);
@@ -121,15 +121,7 @@ test("restore without a project mapping explains what is missing instead of doin
   await page
     .getByLabel("Neues Datenverzeichnis", { exact: true })
     .fill("/fixture/restored");
-  await restore.click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Gib für jedes Projekt ein Verzeichnis an: Imported project",
-  );
-  await expect(page.getByLabel("Imported project", { exact: true })).toBeFocused();
-  await expect(page.getByRole("button", { name: "Jetzt wiederherstellen" })).toHaveCount(
-    0,
-  );
-  await page.getByLabel("Imported project", { exact: true }).fill("/fixture/project");
+  // The project's folder may stay empty: the project is kept as history (W8 B7).
   await restore.click();
   await expect(
     page.getByRole("button", { name: "Jetzt wiederherstellen", exact: true }),

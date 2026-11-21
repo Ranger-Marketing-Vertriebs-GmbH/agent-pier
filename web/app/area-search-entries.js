@@ -213,6 +213,7 @@ export function areaActionEntries(action) {
         bilingual(() => connectionsAreaCopy.sections.mail),
       ),
       { route: connectionsRoute("mail"), pending: "mail-add" },
+      { aliases: [alias("addMailAccount")].map(bilingual) },
     ),
     action(
       "new-view",

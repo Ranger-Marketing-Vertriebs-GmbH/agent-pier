@@ -8,6 +8,7 @@ import { itemRoute } from "../accounts/accounts-items.js";
 import McpFeedback from "../mcp-servers/McpFeedback.jsx";
 import McpServerInfo from "../mcp-servers/McpServerInfo.jsx";
 import McpUsedBy from "./McpUsedBy.jsx";
+import { mcpCheckText } from "./mcp-check.js";
 import "../mcp-servers/mcp-servers.css";
 import "../mcp-servers/mcp-cli.css";
 
@@ -29,6 +30,9 @@ export default function McpDetailPane({
   close,
 }) {
   const [checking, setChecking] = useState(false);
+  // What the last "Check status" found, for this server only.
+  const [checked, setChecked] = useState(null);
+  const result = checked?.id === server.id ? checked : null;
   const full = itemRoute("mcp-servers", server.id);
   const edit = itemRoute("mcp-servers", server.id, "setup");
   const go = (route) => ({
@@ -66,7 +70,9 @@ export default function McpDetailPane({
           disabled={checking}
           onClick={async () => {
             setChecking(true);
-            await data.reloadMcp();
+            setChecked(null);
+            const list = await data.reloadMcp();
+            setChecked({ id: server.id, failed: !list, at: Date.now() });
             setChecking(false);
           }}
         >
@@ -79,6 +85,9 @@ export default function McpDetailPane({
           {copy.fullView}
         </a>
       </div>
+      <p className="accounts-note" role="status">
+        {checking ? copy.checking : result ? mcpCheckText(server, result) : ""}
+      </p>
       <McpServerInfo
         server={server}
         agentsEnabled={agentsEnabled}

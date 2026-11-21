@@ -101,9 +101,10 @@ column, the chart is 150 px high and each process is a card.
 
 The chart shows one line per series: **CPU** and **RAM** of the computer and
 **AgentPier CPU** (dashed), from 0 to 100 %. Each legend button turns its line on or
-off. **15 min** and **1 h** pick the time range; 15 minutes is a slice of the same
+off; its sample is drawn like the line, dashed for AgentPier CPU. **15 min** and **1 h** pick the time range; 15 minutes is a slice of the same
 history. Hatched stretches are times with nothing measured, because no view was open
-(points more than 90 seconds apart). Move the pointer over the chart, or focus it and
+(points more than 90 seconds apart); the note that explains the hatching, with a
+hatched swatch, appears only while the range shows such a stretch. Move the pointer over the chart, or focus it and
 use the arrow keys (Home and End jump, Escape hides it), for a crosshair with the time
 and the values. Screen readers get a summary of the current values and a table of the
 last points. Until three points exist, a hint explains that the history fills over the
@@ -190,7 +191,9 @@ again after a minute, or at once after a deletion). The
 summary counts the update backups that may be deleted now (none while an update runs,
 and never the one an unresolved recovery needs), transcripts older than 90 days (the
 age the list preselects), and every installed dependency folder (an agent at work
-included). The list behind **Clean up …** is measured only when you open it, never
+included). A group with nothing to delete says so and keeps **Clean up …** off, so its
+list never repeats the same line. Sizes below a kilobyte read "0 B". The list behind
+**Clean up …** is measured only when you open it, never
 with the five-second refresh, and nothing is deleted without its selection and
 confirmation. Every
 deletion asks first in a confirmation that names what goes away and how much space it

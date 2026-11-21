@@ -11,7 +11,8 @@ const toneClass = (item) =>
  * A line chart of percentages (0–100) over a time window, for a few series.
  * `series` is `[{ id, label, field, tone, dashed }]` with tone `cpu`, `memory`,
  * `agentpier` or `other`; `points` are `{ t, [field]: value }`. Gaps longer than 90 s
- * are hatched and break the lines. Legend buttons toggle a series; a crosshair with a
+ * are hatched and break the lines; `gapNote` explains the hatching below the chart only
+ * while the window shows such a gap, with a hatched swatch. Legend buttons toggle a series; a crosshair with a
  * tooltip follows the pointer, and the arrow keys move it while the chart has focus.
  * Screen readers get `label` and a table of the last values.
  */
@@ -28,6 +29,7 @@ export default function HistoryChart({
   formatTime,
   timeLabel,
   footer,
+  gapNote,
   className = "",
 }) {
   const id = useId();
@@ -36,6 +38,7 @@ export default function HistoryChart({
   const [keyboard, setKeyboard] = useState(false);
   const span = Math.max(1, end - start);
   const shown = points.filter((point) => point.t >= start && point.t <= end);
+  const gaps = timeGaps(shown, GAP_MS);
   const visible = series.filter((item) => !hidden.has(item.id));
   const x = (t) => ((t - start) / span) * 100;
   const y = (value) => 100 - clamp(value);
@@ -123,7 +126,7 @@ export default function HistoryChart({
           onPointerDown={point}
           onPointerLeave={() => !keyboard && setActive(null)}
         >
-          {timeGaps(shown, GAP_MS).map((gap) => (
+          {gaps.map((gap) => (
             <span
               key={gap.from}
               className="history-chart-gap"
@@ -223,6 +226,12 @@ export default function HistoryChart({
         </table>
       </div>
       {footer}
+      {gapNote && gaps.length > 0 && (
+        <p className="hint history-chart-gap-note">
+          <span className="history-chart-gap-swatch" aria-hidden="true" />
+          {gapNote}
+        </p>
+      )}
     </figure>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import UnsavedChangesSheet from "../../components/UnsavedChangesSheet.jsx";
@@ -154,14 +155,22 @@ export default function SecretForm({ secret, projects, focusHeading, saved, remo
           </Field>
           <Field label={copy.project} hint={copy.projectHint}>
             {(field) => (
-              <select {...field} value={draft.projectId} onChange={change("projectId")}>
-                <option value="">{copy.global}</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+              <AnchoredSelect
+                id={field.id}
+                label={copy.project}
+                describedBy={field["aria-describedby"]}
+                value={draft.projectId}
+                onChange={(projectId) =>
+                  setDraft((current) => ({ ...current, projectId }))
+                }
+                options={[
+                  { value: "", label: copy.global },
+                  ...projects.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                  })),
+                ]}
+              />
             )}
           </Field>
           {replacing ? (

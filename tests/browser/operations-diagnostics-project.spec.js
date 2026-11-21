@@ -9,7 +9,7 @@ import { operationsFixture } from "./operations-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 
 test.use({ locale: "en-US" });
-test("project diagnostics selects the repository identity accepted by Doctor", async ({
+test("project diagnostics lists the memory projects that Doctor checks", async ({
   page,
 }, testInfo) => {
   const root = await fs.realpath(
@@ -37,9 +37,6 @@ test("project diagnostics selects the repository identity accepted by Doctor", a
     await page.route("**/api/memory/projects", (route) =>
       route.fulfill({ json: { projects: [{ ...scope, name: repository.name }] } }),
     );
-    await page.route("**/api/repositories", (route) =>
-      route.fulfill({ json: { projects: [repository], credentials: [] } }),
-    );
     const submitted = [];
     await page.route("**/api/operations/doctor", async (route) => {
       if (route.request().method() === "GET")
@@ -62,13 +59,12 @@ test("project diagnostics selects the repository identity accepted by Doctor", a
     await page.getByRole("option", { name: "Fixture project", exact: true }).click();
     await page.getByRole("button", { name: "Run checks", exact: true }).click();
     await expect(
-      page.getByText("Project directory exists.", { exact: true }),
+      page.getByText("The project folder exists.", { exact: true }),
     ).toBeVisible();
-    expect(submitted).toEqual([
-      { scope: "project", projectId: repository.id, deep: false },
-    ]);
+    expect(submitted).toEqual([{ scope: "project", projectId: scope.id, deep: false }]);
+    // A repositories.json entry is no project of the Projects page (W8 B3).
     await expect(async () => {
-      await doctor.run({ scope: "project", projectId: scope.id });
+      await doctor.run({ scope: "project", projectId: repository.id });
     }).rejects.toMatchObject({ status: 404 });
     await page.screenshot({
       path: testInfo.outputPath("diagnostics-project-en.png"),

@@ -772,7 +772,10 @@ registry's origin, are limited in size and time out after 10 seconds. Entries ar
 checked and shortened before the browser sees them: unknown fields, icons and
 publisher metadata are dropped, links must be `https://` or `http://`, and only npm and
 PyPI packages with exact versions are offered. A directory listing is not a security
-review.
+review. Before the first search the wizard's directory step offers a few popular
+searches (github, filesystem, postgres, playwright); nothing is sent until one is
+chosen. **Check status** in a server's details reloads its status and says when it was
+checked; a server no CLI or agent uses yet has no status to read, and the line says so.
 
 - `GET /api/mcp-directory/status` answers `{ enabled, host, reachable }`.
 - `GET /api/mcp-directory/servers?search=&cursor=` answers `{ entries, nextCursor }`.

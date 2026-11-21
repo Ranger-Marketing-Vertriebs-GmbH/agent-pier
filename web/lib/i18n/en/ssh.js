@@ -89,7 +89,15 @@ export const sshCopy = {
   emptyKeys: "No SSH keys yet. Add a key before creating an SSH access.",
   selectKey: "Select a saved SSH key",
   keyFingerprint: "Key fingerprint",
-  keyDeleteHint: "Delete this stored SSH key?",
+  keyDeleteHint:
+    "The private key is deleted from this computer. Servers that trust its public key keep it until you remove it there.",
+  keyDeleteTitle: (name) => `Delete the SSH key ${name}?`,
+  keyDeleteBlocked: (count) =>
+    count === 1
+      ? "Delete is off while an access uses this key. Give that access another key or delete it first."
+      : `Delete is off while ${count} accesses use this key. Give them another key or delete them first.`,
+  keyFirstForAccess:
+    "An SSH access signs in with a key, and there is none yet. Add a key here; the access form opens next.",
   keyInUse: "Used by",
   keyUnused: "Not assigned to any host.",
   renameKeyHint:

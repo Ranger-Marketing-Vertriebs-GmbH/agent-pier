@@ -29,6 +29,8 @@ export function namedAuditEvents(events, { users, assistants } = {}) {
 /** The owner's audit log. */
 export function auditRoutes({ audit, users, assistants }) {
   const router = Router();
+  // The actions that occur, so the filter suggests them instead of a blank field.
+  router.get("/audit/actions", (_req, res) => res.json({ actions: audit.actions() }));
   router.get("/audit", (req, res) => {
     const page = audit.list(req.query);
     res.json({ ...page, events: namedAuditEvents(page.events, { users, assistants }) });

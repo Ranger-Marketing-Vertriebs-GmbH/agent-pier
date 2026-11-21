@@ -139,3 +139,33 @@ test("previewError carries code, status and a German message", () => {
   assert.equal(error.status, 409);
   assert.notEqual(error.message, "PREVIEW_RANGE_FULL");
 });
+
+test("each broken rule says what is wrong and names the port (W8 B12)", () => {
+  const refusal = (start, end) => {
+    try {
+      normalizePreviewConfig(
+        { enabled: true, portRangeStart: start, portRangeEnd: end },
+        constraints,
+      );
+    } catch (error) {
+      assert.equal(error.code, "PREVIEW_RANGE_INVALID");
+      return error.message;
+    }
+    assert.fail(`${start}-${end} was accepted`);
+  };
+  assert.match(refusal(1023, 1030), /zwischen 1024 und 64535/);
+  assert.match(refusal(47110, 47100), /nicht kleiner als der erste/);
+  assert.match(refusal(47100, 47150), /höchstens 50 Ports/);
+  assert.match(refusal(4380, 4389), /Port 4380 von AgentPier/);
+  // A slot whose Tailscale listener (slot + 1000) hits AgentPier's port names both.
+  assert.match(refusal(3375, 3385), /Port 3380 geht nicht.*auf 4380/);
+  const messages = new Set(
+    [
+      [1023, 1030],
+      [47110, 47100],
+      [47100, 47150],
+      [4380, 4389],
+    ].map(([start, end]) => refusal(start, end)),
+  );
+  assert.equal(messages.size, 4);
+});

@@ -12,8 +12,21 @@ export const previews = {
   PREVIEW_INVALID_INPUT: "Prüfe die Vorschau-Angaben.",
   PREVIEW_NOT_FOUND: "Diese Vorschau existiert nicht mehr.",
   accessRevoked: "AgentPier-Zugriff widerrufen oder Session nicht verfügbar.",
-  PREVIEW_RANGE_INVALID:
-    "Ungültiger Portbereich: erlaubt sind Ports von 1024 bis 64535, höchstens 50 Ports, ohne den Port von AgentPier, den Pipeline-Portbereich und den Tailscale-HTTPS-Port, auch nicht 1000 Ports höher (die Tailscale-Listener).",
+  rangeNotNumbers: "Gib für den ersten und den letzten Port ganze Zahlen an.",
+  rangeBounds: (low, high) => `Vorschau-Ports müssen zwischen ${low} und ${high} liegen.`,
+  rangeOrder: "Der letzte Port darf nicht kleiner als der erste sein.",
+  rangeSize: (count) => `Der Bereich darf höchstens ${count} Ports umfassen.`,
+  rangeHostPort: (port) => `Der Bereich enthält den Port ${port} von AgentPier selbst.`,
+  rangeHostPortListener: (slot, port) =>
+    `Port ${slot} geht nicht: Mit Tailscale lauscht seine Vorschau auch 1000 Ports höher, auf ${port}, dem Port von AgentPier selbst.`,
+  rangeHttpsPort: (port) => `Der Bereich enthält den Tailscale-HTTPS-Port ${port}.`,
+  rangeHttpsPortListener: (slot, port) =>
+    `Port ${slot} geht nicht: Mit Tailscale lauscht seine Vorschau auch 1000 Ports höher, auf ${port}, dem Tailscale-HTTPS-Port.`,
+  rangePipelines: (start, end) =>
+    `Der Bereich überschneidet sich mit den Pipeline-Ports ${start}–${end}.`,
+  rangePipelinesListener: (start, end) =>
+    `Der Bereich geht nicht: Mit Tailscale lauschen Vorschauen auch 1000 Ports höher und überschneiden sich so mit den Pipeline-Ports ${start}–${end}.`,
+  PREVIEW_RANGE_INVALID: "Ungültige Vorschau-Einstellungen.",
   pages: {
     bounceTitle: "Vorschau wird geöffnet …",
     bounceLink: "Weiter zur Vorschau",

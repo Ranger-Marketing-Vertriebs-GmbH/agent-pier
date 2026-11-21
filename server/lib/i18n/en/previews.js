@@ -12,8 +12,21 @@ export const previews = {
   PREVIEW_INVALID_INPUT: "Check the preview arguments.",
   PREVIEW_NOT_FOUND: "This preview no longer exists.",
   accessRevoked: "AgentPier access revoked or session unavailable.",
-  PREVIEW_RANGE_INVALID:
-    "Invalid port range: ports 1024 to 64535, at most 50 ports, excluding AgentPier's port, the pipeline port range and the Tailscale HTTPS port, also 1000 ports higher (the Tailscale listeners).",
+  rangeNotNumbers: "Enter whole numbers for the first and the last port.",
+  rangeBounds: (low, high) => `Preview ports must lie between ${low} and ${high}.`,
+  rangeOrder: "The last port must not be lower than the first port.",
+  rangeSize: (count) => `The range may hold at most ${count} ports.`,
+  rangeHostPort: (port) => `The range contains AgentPier's own port ${port}.`,
+  rangeHostPortListener: (slot, port) =>
+    `Port ${slot} cannot be used: with Tailscale its preview also listens 1000 ports higher, on ${port}, which is AgentPier's own port.`,
+  rangeHttpsPort: (port) => `The range contains the Tailscale HTTPS port ${port}.`,
+  rangeHttpsPortListener: (slot, port) =>
+    `Port ${slot} cannot be used: with Tailscale its preview also listens 1000 ports higher, on ${port}, which is the Tailscale HTTPS port.`,
+  rangePipelines: (start, end) =>
+    `The range overlaps the pipeline ports ${start}–${end}.`,
+  rangePipelinesListener: (start, end) =>
+    `The range cannot be used: with Tailscale previews also listen 1000 ports higher, which overlaps the pipeline ports ${start}–${end}.`,
+  PREVIEW_RANGE_INVALID: "Invalid preview settings.",
   pages: {
     bounceTitle: "Opening the preview …",
     bounceLink: "Continue to the preview",

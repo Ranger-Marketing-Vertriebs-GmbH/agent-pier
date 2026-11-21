@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import Modal from "../../components/Modal.jsx";
 import api from "../../lib/api.js";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
@@ -43,23 +44,27 @@ export default function SshProjectReassign({
         <fieldset disabled={busy}>
           <label>
             {projectCopy.from}
-            <select value={from} onChange={(event) => setFrom(event.target.value)}>
-              {sourceProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+            <AnchoredSelect
+              label={projectCopy.from}
+              value={from}
+              onChange={setFrom}
+              options={sourceProjects.map((project) => ({
+                value: project.id,
+                label: project.name,
+              }))}
+            />
           </label>
           <label>
             {projectCopy.to}
-            <select value={to} onChange={(event) => setTo(event.target.value)}>
-              {targetProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+            <AnchoredSelect
+              label={projectCopy.to}
+              value={to}
+              onChange={setTo}
+              options={targetProjects.map((project) => ({
+                value: project.id,
+                label: project.name,
+              }))}
+            />
           </label>
         </fieldset>
         {error && <p role="alert">{error}</p>}

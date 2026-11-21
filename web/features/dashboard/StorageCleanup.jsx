@@ -7,7 +7,7 @@ import CleanupSnapshots from "./CleanupSnapshots.jsx";
 import CleanupTranscripts from "./CleanupTranscripts.jsx";
 import CleanupDependencies from "./CleanupDependencies.jsx";
 import { cleanupSize } from "./useCleanup.jsx";
-import { statusBytes, statusDate } from "./system-status-format.js";
+import { nothingToClean, statusBytes, statusDate } from "./system-status-format.js";
 
 // Each list, the summary group that sizes it and its facts line.
 const groups = [
@@ -83,12 +83,14 @@ export function CleanupGroup({ id, List, action = "" }) {
   );
 }
 
-// One group of the panel: its size from the summary, and its list on request.
+// One group of the panel: its size from the summary, and its list on request. A group
+// with nothing to delete keeps its button disabled; its facts line already says so.
 function CleanupCard({ id, List, group, facts, unknown }) {
   const [open, setOpen] = useState(false);
   const panel = useId();
   const heading = useId();
   const text = copy.cleanup[id];
+  const empty = nothingToClean(group);
   return (
     <article className="system-cleanup-card" aria-labelledby={heading}>
       <div className="system-cleanup-card-head">
@@ -105,16 +107,17 @@ function CleanupCard({ id, List, group, facts, unknown }) {
         <button
           type="button"
           className="button secondary"
-          aria-expanded={open}
+          aria-expanded={open && !empty}
           aria-controls={panel}
           aria-label={`${text.title}: ${copy.cleanup.open}`}
+          disabled={empty}
           onClick={() => setOpen(!open)}
         >
           {copy.cleanup.open}
         </button>
       </div>
-      <div id={panel} hidden={!open} className="system-cleanup-panel">
-        {open && <List />}
+      <div id={panel} hidden={!open || empty} className="system-cleanup-panel">
+        {open && !empty && <List />}
       </div>
     </article>
   );

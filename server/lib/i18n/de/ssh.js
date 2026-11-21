@@ -14,6 +14,8 @@ export const ssh = Object.freeze({
   keyNotFound: "SSH-Schlüssel nicht gefunden.",
   keySaveFailed: "Der SSH-Schlüssel konnte nicht gespeichert werden.",
   invalidKeyPreparation: "Ungültige Vorbereitung des SSH-Schlüssels.",
+  keyNameTaken: (name) =>
+    `Ein SSH-Schlüssel heißt bereits „${name}“. Wähle einen anderen Namen.`,
   keyInUse: "Der SSH-Schlüssel wird noch von einem Host verwendet.",
   invalidIdentity: "Ungültige SSH-Identität.",
   invalidAccessFields: "Ungültige Angaben für den SSH-Zugang.",

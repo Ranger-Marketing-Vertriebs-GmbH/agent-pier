@@ -30,7 +30,8 @@ export function movedRows(access) {
       id: "connections",
       label: copy.movedConnections,
       sub: copy.movedConnectionsSub,
-      route: connectionsRoute(),
+      // The row names SSH accesses first: it opens them, not the first category.
+      route: connectionsRoute("ssh"),
     },
     {
       id: "mcp",

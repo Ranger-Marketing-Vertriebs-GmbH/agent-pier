@@ -26,6 +26,10 @@ test("real API mutations create bounded audit events, reads do not and history s
     body: { name: "", tool: "codex", apiKey: "fixture-audit-secret" },
   });
   assert.equal(response.status, 400);
+  // The filter suggests the actions that occur (W8).
+  assert.deepEqual((await (await f.request("/api/audit/actions")).json()).actions, [
+    "account.created",
+  ]);
   await f.restart();
   response = await f.request("/api/audit");
   const after = await response.json();

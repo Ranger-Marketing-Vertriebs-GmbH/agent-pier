@@ -13,11 +13,15 @@ import RestoreForm from "./RestoreForm.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { usePageAction } from "../../app/page-action.js";
 export default function BackupsPage({ route, navigate }) {
   const resource = useResource("/operations/backups"),
     [dialog, setDialog] = useState(""),
     [removing, setRemoving] = useState(null),
     paging = usePagination(resource.data?.backups || []);
+  // ⌘K: "Create backup" and "Restore backup" open their dialogs.
+  usePageAction("backup-create", () => setDialog("create"));
+  usePageAction("backup-restore", () => setDialog("restore"));
   const started = (job) => {
     setDialog("");
     navigate({ operationId: job.id });

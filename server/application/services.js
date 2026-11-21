@@ -481,7 +481,7 @@ export async function createServices(config) {
     assistantsBusy: () =>
       !!services.assistantUpdates?.status().busy ||
       !!services.assistantProviderSynchronization?.changing,
-    doctorOptions: { serving: true },
+    doctorOptions: { serving: true, projects: () => memory.projects().projects }, // Projects page
     onJobChange: (_id, job) => operationJobChanged(services.live, job),
   });
   const services = {

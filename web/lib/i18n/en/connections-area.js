@@ -126,6 +126,11 @@ export const connectionsAreaCopy = {
     clis: "Coding CLIs",
   },
   checkStatus: "Check status",
+  checking: "Checking …",
+  checkedAt: (time) => `Checked at ${time}. The status of each CLI is below.`,
+  checkedUnused: (time) =>
+    `Checked at ${time}. No coding CLI or agent uses this server yet, so there is no status to read. Choose who may use it under “Used by”.`,
+  checkFailed: "The status could not be read. Try again.",
   usedBy: {
     title: "Used by",
     titleCount: (count) => `Used by · ${count}`,

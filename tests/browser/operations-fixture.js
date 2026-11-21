@@ -135,6 +135,10 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
           { id: "fixture-project", name: "Fixture project", cwd: "/fixture/project" },
         ],
       };
+    else if (path === "/audit/actions")
+      result = {
+        actions: [...new Set(state.events.map((event) => event.action))].sort(),
+      };
     else if (path === "/audit") {
       const events = state.events.filter(
         (event) =>
@@ -223,9 +227,23 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     // Connections counts the email accounts; this fixture has none.
     else if (path === "/mail/accounts" && method === "GET")
       result = { accounts: [], presets: {} };
-    // ... and its Plane connections (Ticket sources); this fixture has none.
+    // ... and its Plane connections (Ticket sources): none unless a test adds some;
+    // a check lists the connection's Plane projects, or fails for `planeUnreachable`.
     else if (path === "/ticket-connections" && method === "GET")
-      result = { connections: [] };
+      result = { connections: state.ticketConnections || [] };
+    else if (path === "/ticket-connections" && method === "POST") {
+      const connection = { id: "plane-1", hasSecret: true, ...body };
+      delete connection.token;
+      state.ticketConnections = [...(state.ticketConnections || []), connection];
+      result = { connection };
+    } else if (/^\/ticket-connections\/[^/]+\/projects$/.test(path)) {
+      if (state.planeUnreachable)
+        return route.fulfill({
+          status: 502,
+          json: { error: "Plane could not be reached: getaddrinfo ENOTFOUND" },
+        });
+      result = { projects: [{ id: "p1", name: "One" }] };
+    }
     // The Menü hints read the pipeline runs when the menu opens; the start page reads
     // the same sources, the agent runtime's updates included, while it is visible.
     else if (path === "/pipeline-runs" && method === "GET")

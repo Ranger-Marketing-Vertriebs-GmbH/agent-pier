@@ -26,6 +26,8 @@ export const remoteCopy = {
   hostInput: "Additional host",
   addHost: "Add host",
   removeHost: (host) => `Remove ${host}`,
+  invalidHost: (host) =>
+    `“${host}” is not a valid host. Enter a name or an IP address without scheme, port or path, for example agentpier.example.`,
   urls: "Reachable addresses",
   locked:
     "Through network access the mode can only be switched off. Change bind address and host list locally or through Tailscale.",

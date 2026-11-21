@@ -101,12 +101,8 @@ export default function SystemLoadTab({ data, showProcesses }) {
           formatValue={(value) => statusPercent(value)}
           formatTime={statusClock}
           timeLabel={copy.historyTime}
-          footer={
-            <>
-              {data.history.length < 3 && <p className="hint">{copy.historyEmpty}</p>}
-              <p className="hint">{copy.historyGapNote}</p>
-            </>
-          }
+          footer={data.history.length < 3 && <p className="hint">{copy.historyEmpty}</p>}
+          gapNote={copy.historyGapNote}
         />
       </section>
       <section className="system-status-card" aria-labelledby="system-status-share">

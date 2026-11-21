@@ -14,13 +14,6 @@ const run = async (t, { platform = "darwin", code = 0, pty = true, projects = []
   );
   t.after(() => fs.rm(dataDir, { recursive: true, force: true }));
   await fs.chmod(dataDir, 0o700);
-  if (projects.length)
-    await fs.writeFile(
-      path.join(dataDir, "repositories.json"),
-      JSON.stringify({
-        projects: projects.map((name) => ({ id: name, path: path.join(dataDir, name) })),
-      }),
-    );
   await Promise.all(
     projects
       .filter((name) => name.startsWith("present"))
@@ -33,6 +26,9 @@ const run = async (t, { platform = "darwin", code = 0, pty = true, projects = []
     ptyCheck: async () => {
       if (!pty) throw Error("missing");
     },
+    // The memory projects, as the running service passes them.
+    projects: () =>
+      projects.map((name) => ({ id: name, name, cwd: path.join(dataDir, name) })),
   });
   const report = await doctor.run({ scope: "host" });
   return Object.fromEntries(report.checks.map((check) => [check.id, check]));

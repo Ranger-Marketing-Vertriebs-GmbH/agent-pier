@@ -19,6 +19,7 @@ export const mcpDirectoryCopy = {
     `The MCP Registry lists servers published by their makers. A listing is not a security review. Your search is sent to ${host}.`,
   searchLabel: "Server name",
   searchButton: "Search",
+  suggestions: "Popular searches",
   emptyHint: "Search matches server names only, for example “github” or “filesystem”.",
   loading: "Searching the directory …",
   results: (count) => `${count} ${count === 1 ? "server" : "servers"} found`,

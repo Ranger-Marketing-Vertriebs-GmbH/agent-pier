@@ -11,6 +11,8 @@ import WizardStep from "./WizardStep.jsx";
 
 const settingsRoute = tabRoot("general");
 const idle = { phase: "idle", entries: [], cursor: null, error: null };
+// Searches offered before the first one: common servers in the registry.
+const SUGGESTIONS = ["github", "filesystem", "postgres", "playwright"];
 
 /** "Directory turned off" links to Settings → Workspace, where it is switched on. */
 export function SettingsLink({ navigate }) {
@@ -145,6 +147,29 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
         <p role="status" className="mcp-hint">
           {statusText(state, shown, opening)}
         </p>
+        {/* A first look without typing; nothing reaches the registry until one is chosen. */}
+        {state.phase === "idle" && !opening && (
+          <div
+            className="mcp-directory-filters"
+            role="group"
+            aria-label={copy.suggestions}
+          >
+            <span className="mcp-hint">{copy.suggestions}</span>
+            {SUGGESTIONS.map((word) => (
+              <button
+                key={word}
+                type="button"
+                className="button secondary compact"
+                onClick={() => {
+                  setTerm(word);
+                  run("", word);
+                }}
+              >
+                {word}
+              </button>
+            ))}
+          </div>
+        )}
         {state.phase === "loading" && !state.entries.length && (
           <div aria-hidden="true">
             {[0, 1, 2].map((index) => (

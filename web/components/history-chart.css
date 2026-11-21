@@ -41,12 +41,16 @@
   color: var(--text-faint);
   border-style: dashed;
 }
+/* The legend's line sample draws like its series: 4px dashes, 4px apart (the
+   chart's stroke-dasharray), which a 12px dashed border could not show. */
 .history-chart-toggle i {
-  width: 12px;
-  border-top: 2px solid var(--series);
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--series);
 }
 .history-chart-toggle.dashed i {
-  border-top-style: dashed;
+  background: repeating-linear-gradient(90deg, var(--series) 0 4px, transparent 4px 8px);
 }
 .history-chart-toggle[aria-pressed="false"] i {
   opacity: 0.35;
@@ -131,6 +135,23 @@
   position: absolute;
   top: 0;
   bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--chart-grid) 0 2px,
+    transparent 2px 8px
+  );
+}
+.history-chart-gap-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-chart-gap-swatch {
+  flex: none;
+  width: 16px;
+  height: 12px;
+  border: 1px solid var(--chart-grid);
+  border-radius: 2px;
   background: repeating-linear-gradient(
     135deg,
     var(--chart-grid) 0 2px,

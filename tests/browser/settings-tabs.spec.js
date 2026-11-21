@@ -178,7 +178,8 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       );
       await connections.click();
-      await expect(page).toHaveURL(/\/connections\?returnTo=%2Fsettings$/);
+      // The row names SSH accesses first and opens them (W8).
+      await expect(page).toHaveURL(/\/connections\?section=ssh&returnTo=%2Fsettings$/);
     });
 
     test("unknown MCP clients show a dash while a real zero stays zero", async ({

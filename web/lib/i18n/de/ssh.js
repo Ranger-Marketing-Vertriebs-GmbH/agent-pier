@@ -90,7 +90,15 @@ export const sshCopy = {
     "Noch keine SSH-Schlüssel vorhanden. Füge vor dem ersten SSH-Zugang einen Schlüssel hinzu.",
   selectKey: "Gespeicherten SSH-Schlüssel auswählen",
   keyFingerprint: "Schlüssel-Fingerabdruck",
-  keyDeleteHint: "Diesen gespeicherten SSH-Schlüssel löschen?",
+  keyDeleteHint:
+    "Der private Schlüssel wird von diesem Computer gelöscht. Server, die seinem öffentlichen Schlüssel vertrauen, behalten ihn, bis du ihn dort entfernst.",
+  keyDeleteTitle: (name) => `SSH-Schlüssel ${name} löschen?`,
+  keyDeleteBlocked: (count) =>
+    count === 1
+      ? "Löschen ist aus, solange ein Zugang diesen Schlüssel nutzt. Gib dem Zugang einen anderen Schlüssel oder lösche ihn zuerst."
+      : `Löschen ist aus, solange ${count} Zugänge diesen Schlüssel nutzen. Gib ihnen einen anderen Schlüssel oder lösche sie zuerst.`,
+  keyFirstForAccess:
+    "Ein SSH-Zugang meldet sich mit einem Schlüssel an, und es gibt noch keinen. Lege hier einen Schlüssel an; danach öffnet sich das Formular für den Zugang.",
   keyInUse: "Verwendet von",
   keyUnused: "Keinem Host zugewiesen.",
   renameKeyHint:

@@ -31,6 +31,12 @@ port, for example `https://my-computer.tailnet.ts.net:47100/`. The default range
   (`pipelines.portRange`, default 20100-20999) or the Tailscale HTTPS port (the port of
   the configured remote address, 443 when there is none).
 
+A refused range says which rule it breaks and names the port, for example “The range
+contains AgentPier's own port 4380.” or, for a slot whose Tailscale listener
+(slot + 1000) would hit one of these ports, “Port 3380 cannot be used: with Tailscale its
+preview also listens 1000 ports higher, on 4380, …”. The code stays
+`PREVIEW_RANGE_INVALID`.
+
 A stored range that ends above 64535 (older drafts allowed 65535) falls back to the
 default range after an update. Before a port is used it is probed on loopback and on all
 addresses; a port another program holds is skipped and shown as **Used by another

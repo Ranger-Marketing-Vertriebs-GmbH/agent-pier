@@ -4,6 +4,8 @@ export const settings = Object.freeze({
   invalidPreferences: "Invalid settings.",
   invalidNetworkConfig:
     "Invalid network configuration: the bind address must be 0.0.0.0 or ::, hosts are names or IPs without scheme, path or port (at most 20).",
+  invalidNetworkHost: (host) =>
+    `“${host}” is not a valid host: enter a name or an IP address without scheme, port or path, for example agentpier.example.`,
   networkLocked:
     "Over network access, network mode can only be turned off. Change the bind address and host list locally or via Tailscale.",
   restartFailed:

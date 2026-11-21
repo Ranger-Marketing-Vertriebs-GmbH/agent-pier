@@ -6,6 +6,17 @@ directory. `node scripts/operations.mjs backup|inspect|restore` offers the same
 operations on the command line; `backup` without `--with-credentials` (and a
 passphrase on stdin) leaves out all histories and private content.
 
+In the dialog, **Include history** can be chosen only together with **Include encrypted
+credentials**, because history is backed up only encrypted; a passphrase shorter than
+12 characters is explained under its field. **Inspect and restore backup** asks for a
+folder per project, but a project left empty stays a historical record (see
+[Restore contract](operations.md#restore-contract)). A backup passphrase is checked
+against the archive before the confirmation, so a wrong one never costs the upload or
+the mapping. A finished restore lists the next steps: stop this instance (or use another
+port), start AgentPier with `AGENTPIER_DATA_DIR` set to the new directory, and create
+the owner account there, since the owner's sign-in is not part of a backup. ⌘K offers
+**Restore backup** and **Create backup**.
+
 ## What a backup holds
 
 Always, as public (unencrypted) members:

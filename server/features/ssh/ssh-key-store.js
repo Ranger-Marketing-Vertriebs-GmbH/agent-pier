@@ -89,6 +89,23 @@ export class SshKeyStore {
       prepared.cleanup();
     }
   }
+  /**
+   * Refuses a name another key of the same owner (a project, or global) already has,
+   * case and spacing aside: the owner picks keys by name. Checked where the owner names
+   * a key (routes/ssh.js); keys an access or an import brings keep their names.
+   */
+  assertFreeName(name, projectId = null, id = null) {
+    const fold = (value) => value.trim().toLocaleLowerCase();
+    if (
+      this.raw().some(
+        (key) =>
+          key.id !== id &&
+          (key.projectId ?? null) === (projectId ?? null) &&
+          fold(key.name) === fold(name),
+      )
+    )
+      throw problem(serverMessages.ssh.keyNameTaken(name), 409);
+  }
   async prepare(input = {}) {
     this.assertWriter();
     validateFields(input, ["name", "privateKey", "projectId"]);

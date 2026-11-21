@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { saveBlob } from "../../lib/standalone.js";
 import { observeBuild } from "../../lib/build-check.js";
 import api, { apiError } from "../../lib/api.js";
@@ -11,6 +12,7 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const inUse = sshKey.hosts.length > 0;
+  const deleteReason = useId();
   return (
     <article className="ssh-card">
       <h2>{sshKey.name}</h2>
@@ -60,38 +62,31 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
         <button
           className="button"
           disabled={busy || inUse}
+          aria-describedby={inUse ? deleteReason : undefined}
           onClick={() => setConfirm(true)}
         >
           {commonCopy.delete}
         </button>
       </div>
+      {/* A disabled Delete says why: hosts still use the key. */}
+      {inUse && (
+        <p id={deleteReason} className="field-description">
+          {copy.keyDeleteBlocked(sshKey.hosts.length)}
+        </p>
+      )}
       {confirm && (
-        <div className="ssh-confirm">
-          <p>{copy.keyDeleteHint}</p>
-          <div className="ssh-actions">
-            <button className="button" disabled={busy} onClick={() => setConfirm(false)}>
-              {commonCopy.cancel}
-            </button>
-            <button
-              className="button"
-              disabled={busy || inUse}
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  await api(`/ssh-keys/${encodeURIComponent(sshKey.id)}`, "DELETE");
-                  removed(sshKey.id);
-                } catch (err) {
-                  setError(err.message);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {copy.confirmDelete}
-            </button>
-          </div>
-        </div>
+        <ConfirmDialog
+          destructive
+          title={copy.keyDeleteTitle(sshKey.name)}
+          body={copy.keyDeleteHint}
+          confirmLabel={copy.confirmDelete}
+          onCancel={() => setConfirm(false)}
+          onConfirm={async () => {
+            await api(`/ssh-keys/${encodeURIComponent(sshKey.id)}`, "DELETE");
+            setConfirm(false);
+            removed(sshKey.id);
+          }}
+        />
       )}
       {error && <p role="alert">{error}</p>}
       {busy && <p role="status">{copy.busy}</p>}
