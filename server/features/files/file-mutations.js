@@ -231,6 +231,8 @@ export class FileMutations {
       await this.publisher.barrier.run(() =>
         this.publisher.store.putEntry(jobId, {
           id: randomUUID(),
+          // A rename names where the entry came from (job results show both).
+          ...(sourcePath ? { source: sourcePath } : {}),
           path: result.path,
           name: path.basename(result.path),
           type,

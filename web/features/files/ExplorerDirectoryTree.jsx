@@ -7,6 +7,7 @@ export default function ExplorerDirectoryTree({
   hidden,
   preferences,
   projects,
+  current,
   open,
   navigate,
 }) {
@@ -17,6 +18,7 @@ export default function ExplorerDirectoryTree({
       hidden={hidden}
       favorites={preferences.preferences.favorites}
       projects={projects}
+      current={current}
       onNavigate={(path) => {
         open?.(false);
         navigate(path);

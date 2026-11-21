@@ -9,8 +9,17 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { followDocument } from "./file-document-watch.js";
 import { paneId, usePane } from "../../lib/pane-context.js";
+import Checkbox from "../../components/Checkbox.jsx";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
+
+// A refused save names what happened in words: a changed disk version opens the
+// comparison below, an existing Save As target can be inspected and replaced.
+function saveError(tab) {
+  if (tab.error.code !== "FILE_CONFLICT_CHANGED")
+    return `${tab.error.message} ${tab.error.code}`;
+  return tab.attempt?.saveAs ? copy.saveAsExists : copy.saveConflict;
+}
 
 export default function FileEditorWorkspace({
   client,
@@ -177,13 +186,10 @@ export default function FileEditorWorkspace({
               )}
               {!current && <p role="status">{copy.otherScope}</p>}
               {tab.loading && <p role="status">{copy.loading}</p>}
-              {tab.error && (
-                <p role="alert">
-                  {tab.error.message} {tab.error.code}
-                </p>
-              )}
+              {tab.error && <p role="alert">{saveError(tab)}</p>}
               {!tab.document && (
                 <button
+                  className="button secondary compact"
                   onClick={() =>
                     requestFileNavigation({
                       reason: "tab-close",
@@ -203,6 +209,7 @@ export default function FileEditorWorkspace({
                   )}
                   <div className="file-editor-toolbar">
                     <button
+                      className="button primary compact"
                       onClick={() => save(tab.id)}
                       disabled={
                         !current ||
@@ -213,8 +220,14 @@ export default function FileEditorWorkspace({
                     >
                       {tab.pending ? copy.saving : commonCopy.save}
                     </button>
-                    <button onClick={() => searchRef.current?.()}>{copy.search}</button>
                     <button
+                      className="button secondary compact"
+                      onClick={() => searchRef.current?.()}
+                    >
+                      {copy.search}
+                    </button>
+                    <button
+                      className="button secondary compact"
                       onClick={() =>
                         requestFileNavigation({
                           reason: "tab-close",
@@ -225,8 +238,8 @@ export default function FileEditorWorkspace({
                     >
                       {copy.closeTab}
                     </button>
-                    <label>
-                      {copy.lineEnding}
+                    <label className="file-editor-field">
+                      <span>{copy.lineEnding}</span>
                       <select
                         value={tab.format.lineEnding}
                         onChange={(event) =>
@@ -240,16 +253,11 @@ export default function FileEditorWorkspace({
                         <option value="crlf">CRLF</option>
                       </select>
                     </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={tab.format.bom}
-                        onChange={(event) =>
-                          editor.format(tab.id, { bom: event.target.checked })
-                        }
-                      />
-                      {copy.bom}
-                    </label>
+                    <Checkbox
+                      label={copy.bom}
+                      checked={tab.format.bom}
+                      onChange={(bom) => editor.format(tab.id, { bom })}
+                    />
                   </div>
                   <Suspense fallback={<p role="status">{copy.loading}</p>}>
                     <FileEditor
@@ -264,7 +272,10 @@ export default function FileEditorWorkspace({
                     <p role="status">
                       {copy.externalChanged}{" "}
                       {!tab.dirty && !tab.pending && !tab.attempt && (
-                        <button onClick={() => editor.reload(tab.id)}>
+                        <button
+                          className="button secondary compact"
+                          onClick={() => editor.reload(tab.id)}
+                        >
                           {copy.reloadCurrent}
                         </button>
                       )}
@@ -312,11 +323,15 @@ export default function FileEditorWorkspace({
                         setReplacement(null);
                       }}
                     />
-                    <button disabled={!context || !destination || tab.pending}>
+                    <button
+                      className="button secondary compact"
+                      disabled={!context || !destination || tab.pending}
+                    >
                       {copy.saveAs}
                     </button>
                     <button
                       type="button"
+                      className="button secondary compact"
                       disabled={!context || !destination || tab.pending}
                       onClick={prepareReplacement}
                     >
@@ -327,6 +342,7 @@ export default function FileEditorWorkspace({
                     <p>
                       {copy.replaceTarget(destination)}{" "}
                       <button
+                        className="button secondary compact"
                         disabled={tab.pending}
                         onClick={() =>
                           (current ? editor.saveAs : editor.saveAsFresh)(
@@ -354,6 +370,7 @@ export default function FileEditorWorkspace({
                           {" "}
                           {tab.outcome.path}{" "}
                           <button
+                            className="button secondary compact"
                             disabled={!current}
                             onClick={() => editor.open(tab.outcome.path)}
                           >

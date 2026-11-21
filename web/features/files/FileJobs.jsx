@@ -6,7 +6,7 @@ import FileJobCard from "./FileJobCard.jsx";
 import FileArchiveOmissions from "./FileArchiveOmissions.jsx";
 import FileJobRetry from "./FileJobRetry.jsx";
 import "./file-jobs.css";
-import { uploadOwnedJob } from "./file-job-ownership.js";
+import { activityJob } from "./file-job-ownership.js";
 
 export const isFileJobActive = (job) =>
   job && ["queued", "running", "waiting_for_conflict", "cancelling"].includes(job.status);
@@ -54,8 +54,9 @@ export default function FileJobs({
       ].map((job) => [job.id, job]),
     ).values(),
   ];
-  // Upload selections have their own bounded view and recovery controls above.
-  const visibleJobs = listed.filter((job) => !uploadOwnedJob(job));
+  // Upload selections have their own bounded view and recovery controls above;
+  // editor saves report in the editor.
+  const visibleJobs = listed.filter(activityJob);
   const waiting = [...selectedChildren, ...visibleJobs].find(
     (job) => job.status === "waiting_for_conflict" && job.conflict,
   );

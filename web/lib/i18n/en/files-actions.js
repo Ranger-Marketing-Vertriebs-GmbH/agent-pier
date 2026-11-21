@@ -1,12 +1,15 @@
 export const fileActionsCopy = {
   completedResults: "Completed entries",
   unfinishedResults: "Unfinished entries",
+  skippedResults: "Skipped entries",
   moreResults: "Show more entry results",
   restored: "Restored",
 
   label: "File actions",
   panels: "Explorer views",
   select: (name) => `Select ${name}`,
+  selectTrash: (path, time) => `Select ${path}, deleted ${time}`,
+  source: (path) => `Source: ${path}`,
   menu: (name) => `Actions for ${name}`,
   newFile: "New file",
   newFolder: "New folder",
@@ -22,7 +25,7 @@ export const fileActionsCopy = {
   clearSelection: "Clear selection",
   selection: (count) => `${count} selected.`,
   clipboard: (count, action) =>
-    `${action}: ${count} references in the explorer clipboard.`,
+    `${action}: ${count === 1 ? "1 reference" : `${count} references`} in the explorer clipboard.`,
   clipboardReady: "Selection saved in the explorer clipboard.",
   confirm: "Confirm",
   destination: (path) => `Destination: ${path}`,
@@ -48,7 +51,7 @@ export const fileActionsCopy = {
     "Trash has no automatic expiry. Replaced entries and interrupted recovery records remain visible here.",
   loadingTrash: "Loading every trash page …",
   usage: (bytes, unknown) =>
-    `${bytes} known bytes across all loaded trash pages; ${unknown} entries have unknown or unverified storage.`,
+    `${bytes} known across all loaded trash pages; ${unknown === 1 ? "1 entry has" : `${unknown} entries have`} unknown or unverified storage.`,
   unknownSize: "Size unknown or unverified",
   reasons: {
     deleted: "Deleted",
@@ -67,7 +70,7 @@ export const fileActionsCopy = {
   originalLocation: "Show original location",
   moreTrash: "Show more trash entries",
   purgeConfirm: (count, excluded) =>
-    `Permanently remove these ${count} frozen entries? ${excluded} nonrecoverable entries are excluded. Regular deletion cannot be undone here and does not guarantee secure physical overwriting.`,
+    `${count === 1 ? "Permanently remove this frozen entry?" : `Permanently remove these ${count} frozen entries?`} ${excluded === 1 ? "1 nonrecoverable entry is excluded." : `${excluded} nonrecoverable entries are excluded.`} Regular deletion cannot be undone here and does not guarantee secure physical overwriting.`,
   batchPolicy:
     "The confirmed selection is processed in bounded batches. Each batch is checked before removal; earlier batches may finish before a later batch fails. New arrivals are excluded.",
   purgeResults: "Permanent deletion results",

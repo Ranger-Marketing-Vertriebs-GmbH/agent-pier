@@ -21,9 +21,12 @@ export const fileTransfersCopy = {
   retainedResults:
     "Finished results are retained. Unfinished or uncertain entries need review; interruption does not resume them automatically.",
   noneExtracted: "No entries were extracted. Review the skipped or empty results.",
-  unknown: "unknown",
-  entries: (completed, total) => `${completed} of ${total} entries completed`,
-  bytes: (completed, total) => `${completed} of ${total} bytes processed`,
+  entries: (completed, total) =>
+    total === null
+      ? `${completed} ${completed === 1 ? "entry" : "entries"} completed, total unknown`
+      : `${completed} of ${total} ${total === 1 ? "entry" : "entries"} completed`,
+  bytes: (completed, total) =>
+    total === null ? `${completed} processed` : `${completed} of ${total} processed`,
   downloadArchive: "Download archive",
   artifactUnavailable:
     "This archive has no available download. Its retained job results do not guarantee that the artifact still exists.",
@@ -37,7 +40,8 @@ export const fileTransfersCopy = {
   omissionsPolicy:
     "These links and special files will not be included. Consent applies only to this complete, checked archive selection; a changed selection requires another review.",
   loadingOmissions: "Loading and checking every omission page …",
-  omissionsCount: (count) => `${count} entries will be omitted.`,
+  omissionsCount: (count) =>
+    count === 1 ? "1 entry will be omitted." : `${count} entries will be omitted.`,
   omissionsConsent: "I have reviewed the complete list and accept these omissions.",
   continueOmissions: "Create ZIP with these omissions",
   reloadOmissions: "Reload omission review",
@@ -46,7 +50,8 @@ export const fileTransfersCopy = {
   retryPolicy:
     "Only the server-checked eligible selection below will be retried as a new request. The original job and its finished results remain unchanged. Unresolved recovery evidence prevents retry.",
   loadingRetry: "Checking source references and retained results …",
-  retryCount: (count) => `${count} eligible entries in this complete selection.`,
+  retryCount: (count) =>
+    `${count === 1 ? "1 eligible entry" : `${count} eligible entries`} in this complete selection.`,
   confirmRetry: "Confirm new retry",
   retrySource: (path) => `Source: ${path}`,
 };

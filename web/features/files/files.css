@@ -162,6 +162,10 @@
 .tree-shortcut {
   flex: 1;
 }
+.tree-node-row > button[aria-current="location"] {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
+}
 .tree-node-row span,
 .tree-shortcut span {
   min-width: 0;

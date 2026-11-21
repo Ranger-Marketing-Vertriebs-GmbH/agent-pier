@@ -5,6 +5,9 @@ import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import useFileSelection from "./useFileSelection.js";
 import useTrash from "./useTrash.js";
 import { operation, purgeBatches, isTerminal } from "./file-action-utils.js";
+import { formatBytes } from "../../lib/format-bytes.js";
+import { locale } from "../../lib/i18n/index.js";
+import "./file-actions.css";
 
 export default function TrashView({ scope, client, jobs, onChanged, onOpenOriginal }) {
   const trash = useTrash(client, scope.scopeId);
@@ -222,7 +225,10 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
       ) : (
         <p>
           {copy.actions.usage(
-            known.reduce((sum, entry) => sum + entry.size, 0),
+            formatBytes(
+              known.reduce((sum, entry) => sum + entry.size, 0),
+              locale,
+            ),
             unknown,
           )}
         </p>
@@ -263,10 +269,15 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
       <ul className="file-trash-list">
         {trash.entries.slice(0, limit).map((entry) => (
           <li key={entry.id}>
-            <label>
+            <label className="checkbox-field file-trash-entry">
               <input
                 type="checkbox"
-                aria-label={copy.actions.select(entry.originalPath.split("/").at(-1))}
+                className="checkbox"
+                // The full path and deletion time tell apart entries of one name.
+                aria-label={copy.actions.selectTrash(
+                  entry.originalPath,
+                  new Date(entry.deletedAt).toLocaleString(locale),
+                )}
                 disabled={entry.availability !== "recoverable" || scope.readOnly}
                 checked={selected.some((item) => item.id === entry.id)}
                 onChange={(event) =>
@@ -275,13 +286,13 @@ export default function TrashView({ scope, client, jobs, onChanged, onOpenOrigin
                     : selection.toggle(entry.id)
                 }
               />
-              <span>{entry.originalPath}</span>
+              <span className="file-trash-path">{entry.originalPath}</span>
             </label>
-            <span>
+            <span className="file-trash-meta">
               {copy.types[entry.type]} · {copy.actions.reasons[entry.reason]} ·{" "}
-              {new Date(entry.deletedAt).toLocaleString()}
+              {new Date(entry.deletedAt).toLocaleString(locale)}
             </span>
-            <span>
+            <span className="file-trash-meta">
               {entry.availability === "recoverable" && entry.size !== null
                 ? copy.measuredSize(entry.size)
                 : copy.actions.unknownSize}{" "}

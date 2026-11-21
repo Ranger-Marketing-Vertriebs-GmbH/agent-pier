@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { explorerNavigationCopy as copy } from "../../lib/i18n/messages/explorer-navigation.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -46,6 +46,12 @@ export default function ExplorerToolbar({
   const [recursive, setRecursive] = useState(true);
   const [caseSensitive, setCaseSensitive] = useState(false);
   useEffect(() => setValue(path), [path]);
+  // A long path scrolls its breadcrumbs: keep the current folder, at the end, in view.
+  const trail = useRef(null);
+  useLayoutEffect(() => {
+    const element = trail.current;
+    if (element) element.scrollLeft = element.scrollWidth;
+  }, [path]);
   return (
     <header className="explorer-toolbar">
       <div className="explorer-toolbar-primary">
@@ -84,7 +90,7 @@ export default function ExplorerToolbar({
             <Icon name="refresh" />
           </button>
         </div>
-        <nav className="explorer-breadcrumbs" aria-label={copy.breadcrumbs}>
+        <nav ref={trail} className="explorer-breadcrumbs" aria-label={copy.breadcrumbs}>
           {crumbs(path, project, rootLabel).map((crumb, index, values) => (
             <React.Fragment key={crumb.path}>
               {index > 0 && <span aria-hidden="true">/</span>}

@@ -4,7 +4,9 @@ import { jobsFixture } from "../helpers/file-jobs-browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";
 
-test("English text-save history exposes its outcome without a generic retry capability", async ({
+// Editor saves report in the editor (AGENTPIER-455): their text_save jobs, failed or
+// completed, stay out of Activity and never raise "Needs attention" there.
+test("English Activity leaves text saves to the editor and keeps other retries", async ({
   page,
 }, testInfo) => {
   const f = await jobsFixture(page);
@@ -23,40 +25,20 @@ test("English text-save history exposes its outcome without a generic retry capa
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await openExplorerPanel(page, "activity");
-  const failedCard = page.locator(`[data-job-id="${failed.id}"]`);
-  await expect(failedCard).toContainText("Save text");
-  await expect(failedCard).toContainText("Failed");
-  await expect(failedCard.getByRole("button", { name: "Review retry" })).toHaveCount(0);
-  await expect(page.locator(`[data-job-id="${completed.id}"]`)).toContainText(
-    "Completed",
-  );
-  await expect(
-    page
-      .locator(`[data-job-id="${ordinary.id}"]`)
-      .getByRole("button", { name: "Review retry" }),
-  ).toBeVisible();
+  const ordinaryCard = page.locator(`[data-job-id="${ordinary.id}"]`);
+  await expect(ordinaryCard.getByRole("button", { name: "Review retry" })).toBeVisible();
+  await expect(page.locator(`[data-job-id="${failed.id}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-job-id="${completed.id}"]`)).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("text-save-english-desktop.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect
-    .poll(() =>
-      page
-        .locator(".sidebar")
-        .evaluate((element) => element.getBoundingClientRect().right),
-    )
-    .toBeLessThanOrEqual(0);
-  await expect(page.locator(".nav-backdrop")).not.toBeVisible();
-  await failedCard.scrollIntoViewIfNeeded();
-  await expect(failedCard).toBeInViewport();
+  await ordinaryCard.scrollIntoViewIfNeeded();
+  await expect(ordinaryCard).toBeInViewport();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);
-  await page.screenshot({
-    path: testInfo.outputPath("text-save-english-mobile.png"),
-    fullPage: true,
-  });
   expect(f.requests.filter((request) => request.suffix.endsWith("/retry"))).toHaveLength(
     0,
   );

@@ -23,7 +23,14 @@ export const treeRow = (relativePath, stat) => ({
   content: contentIdentity(stat),
   type: stat.type,
   size: Number(stat.size),
+  modifiedMs: modifiedMs(stat),
 });
+// Milliseconds since the epoch from the native nanosecond stamp (bigint or number).
+function modifiedMs(stat) {
+  const value = stat.mtimeNs;
+  if (typeof value === "bigint") return Number(value / 1000000n);
+  return Number.isFinite(Number(value)) ? Math.floor(Number(value) / 1e6) : null;
+}
 
 // Constant live-handle budget: reopen each recorded ancestor relative to a pinned
 // root parent, checking every component. No directory stream is a lookup parent.

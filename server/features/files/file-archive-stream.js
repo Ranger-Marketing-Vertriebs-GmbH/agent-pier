@@ -161,7 +161,8 @@ export async function writeArchive(owner, context, plan, stage) {
     for (const row of plan.rows) {
       if (row.omitted) continue;
       const options = {
-        mtime: new Date(0),
+        // Each entry keeps its modification time (yazl stores it as a DOS date).
+        mtime: Number.isFinite(row.modifiedMs) ? new Date(row.modifiedMs) : new Date(),
         mode: row.type === "directory" ? 0o40700 : 0o100600,
       };
       if (row.type === "directory") zip.addEmptyDirectory(row.memberName, options);

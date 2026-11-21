@@ -102,9 +102,11 @@ export const filesCopy = {
   calculateSize: "Ordnergröße berechnen",
   sizeUnknown: "Nicht berechnet",
   sizePending: "Wird berechnet …",
-  measuredSize: (bytes) => `${bytes} Bytes`,
-  partialSize: (bytes) => `Mindestens ${bytes} Bytes · unvollständig`,
-  scanned: (count) => `${count} Einträge untersucht`,
+  measuredSize: (bytes) => (bytes === 1 ? "1 Byte" : `${bytes} Bytes`),
+  partialSize: (bytes) =>
+    `Mindestens ${bytes === 1 ? "1 Byte" : `${bytes} Bytes`} · unvollständig`,
+  scanned: (count) =>
+    count === 1 ? "1 Eintrag untersucht" : `${count} Einträge untersucht`,
   noResults: "Keine passenden Dateinamen gefunden.",
   operation: "Dateioperation",
   jobKinds: {
@@ -162,7 +164,8 @@ export const filesCopy = {
   copyFailed:
     "Der Dateiinhalt konnte nicht kopiert werden. Bitte markiere den Text und kopiere ihn manuell.",
   error: "Dateien konnten nicht geladen werden.",
-  summary: (total, page) => `${total} Einträge · Seite ${page}`,
+  summary: (total, page) =>
+    `${total === 1 ? "1 Eintrag" : `${total} Einträge`} · Seite ${page}`,
   path: "Pfad",
   go: "Öffnen",
   forward: "Vorwärts",

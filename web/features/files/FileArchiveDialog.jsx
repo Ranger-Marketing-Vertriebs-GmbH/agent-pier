@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
-import { operation, bytes } from "./file-action-utils.js";
+import { operation, bytes, archiveName } from "./file-action-utils.js";
+import { followArchiveDownload } from "./file-archive-download.js";
 
 export const archiveActions = [
   "archive",
@@ -20,7 +21,9 @@ export default function FileArchiveDialog({ selection, folder, jobs, kind, onClo
   const extract = kind.startsWith("extract_"),
     download = kind.startsWith("download_");
   const [target, setTarget] = useState(folder.path);
-  const [name, setName] = useState("archive.zip");
+  const selected =
+    kind === "download_folder" || !selection.length ? [{ path: folder.path }] : selection;
+  const [name, setName] = useState(() => archiveName(selected, folder.path));
   const [pending, setPending] = useState(false),
     [error, setError] = useState(null);
   const attempt = useRef(null),
@@ -32,8 +35,6 @@ export default function FileArchiveDialog({ selection, folder, jobs, kind, onClo
       alive.current = false;
     };
   }, []);
-  const selected =
-    kind === "download_folder" || !selection.length ? [{ path: folder.path }] : selection;
   const allowed = !folder.readOnly || download;
   const submit = async (event) => {
     event.preventDefault();
@@ -49,7 +50,7 @@ export default function FileArchiveDialog({ selection, folder, jobs, kind, onClo
             "archive",
             selected.map((item) => item.path),
             download ? null : target,
-            download ? null : name,
+            name,
             { output: download ? "download" : "file" },
           );
     if (bytes(attempt.current) > 64 * 1024) {
@@ -60,7 +61,9 @@ export default function FileArchiveDialog({ selection, folder, jobs, kind, onClo
     setPending(true);
     setError(null);
     try {
-      await jobs.start(folder.scopeId, attempt.current);
+      const job = await jobs.start(folder.scopeId, attempt.current);
+      // The download starts once the archive is ready, even after this dialog closed.
+      if (download && job?.id && jobs.archiveHref) followArchiveDownload(jobs, job.id);
       if (alive.current) onClose(true);
     } catch (issue) {
       if (alive.current) setError(issue);

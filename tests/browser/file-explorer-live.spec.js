@@ -186,12 +186,13 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       await page.getByLabel("Save As path", { exact: true }).fill(copy);
       await page.getByRole("button", { name: "Save new copy", exact: true }).click();
       await expect.poll(() => readTextWhenPresent(copy)).toBe("");
-      await test.step("observe the completed Save As job before changing the source", async () => {
-        await openExplorerPanel(page, "activity");
-        // Disk publication precedes the jobs poll and its listing refresh.
+      await test.step("observe the completed Save As before changing the source", async () => {
+        // Editor saves report in the editor, not in Activity (AGENTPIER-455).
         await expect(
-          page.getByRole("region", { name: "File jobs", exact: true }),
-        ).toContainText("Save text · Completed");
+          page.getByText("Independent copy saved; the original document is retained.", {
+            exact: false,
+          }),
+        ).toBeVisible();
       });
       await fs.writeFile(document, "external");
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -236,7 +237,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await page
       .locator(".file-trash-list li")
       .filter({ hasText: "Deleted" })
-      .getByRole("checkbox", { name: "Select document.txt", exact: true })
+      .getByRole("checkbox", { name: /document\.txt, deleted / })
       .check();
     // Wait for the restore job itself, not for a 5 s disk poll: a cold WebKit run
     // needs longer to submit the job and the server to finish it.
@@ -262,7 +263,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       page
         .locator(".file-trash-list li")
         .filter({ hasText: "Deleted" })
-        .getByRole("checkbox", { name: "Select document.txt", exact: true }),
+        .getByRole("checkbox", { name: /document\.txt, deleted / }),
     ).toHaveCount(0);
     await expect(page.getByText("Loading every trash page …")).toHaveCount(0);
 

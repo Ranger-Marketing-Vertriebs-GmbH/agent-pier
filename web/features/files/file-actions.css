@@ -194,17 +194,25 @@
 }
 .file-trash-list li {
   border-bottom: 1px solid var(--line);
-  padding: 1rem 0;
+  padding: var(--space-3) 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  text-align: start;
 }
 .file-trash-list li > label {
   width: 100%;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
   overflow-wrap: anywhere;
+}
+.file-trash-path {
+  color: var(--text-row);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+}
+.file-trash-meta {
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
 }
 .file-trash-list li > span,
 .file-trash-list li > p {

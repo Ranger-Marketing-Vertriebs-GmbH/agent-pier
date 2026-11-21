@@ -93,9 +93,10 @@ export const filesCopy = {
   calculateSize: "Calculate folder size",
   sizeUnknown: "Not calculated",
   sizePending: "Calculating …",
-  measuredSize: (bytes) => `${bytes} bytes`,
-  partialSize: (bytes) => `At least ${bytes} bytes · incomplete`,
-  scanned: (count) => `${count} entries scanned`,
+  measuredSize: (bytes) => (bytes === 1 ? "1 byte" : `${bytes} bytes`),
+  partialSize: (bytes) =>
+    `At least ${bytes === 1 ? "1 byte" : `${bytes} bytes`} · incomplete`,
+  scanned: (count) => (count === 1 ? "1 entry scanned" : `${count} entries scanned`),
   noResults: "No matching filenames found.",
   operation: "File operation",
   jobKinds: {
@@ -153,7 +154,8 @@ export const filesCopy = {
   copyFailed:
     "The file content could not be copied. Please select the text and copy it manually.",
   error: "Files could not be loaded.",
-  summary: (total, page) => `${total} entries · page ${page}`,
+  summary: (total, page) =>
+    `${total === 1 ? "1 entry" : `${total} entries`} · page ${page}`,
   path: "Path",
   go: "Open",
   forward: "Forward",

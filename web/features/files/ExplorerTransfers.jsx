@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Icon from "../../components/Icon.jsx";
 import FileUploads from "./FileUploads.jsx";
 import FileJobs, { isFileJobActive } from "./FileJobs.jsx";
+import { editorOwnedJob } from "./file-job-ownership.js";
 import { explorerLayoutCopy as copy } from "../../lib/i18n/messages/explorer-layout.js";
 
 export default function ExplorerTransfers({
@@ -29,18 +30,23 @@ export default function ExplorerTransfers({
   const uploadId = useId();
   const jobsId = useId();
   const uploadAttentionId = useId();
-  const active = jobs.jobs.filter(isFileJobActive).length;
-  const uploadAttention = uploads.groups.some(
-    (group) =>
-      group.error ||
-      ["failed", "metadata_unknown"].includes(group.phase) ||
-      group.rows.some((row) => row.issue) ||
-      [...group.attempts.values()].some((attempt) => attempt.error),
-  );
+  const activity = jobs.jobs.filter((job) => !editorOwnedJob(job));
+  const active = activity.filter(isFileJobActive).length;
+  // A read-only folder takes no uploads: no Upload button and no upload panel.
+  const canUpload = !scope.readOnly;
+  const uploadAttention =
+    !scope.readOnly &&
+    uploads.groups.some(
+      (group) =>
+        group.error ||
+        ["failed", "metadata_unknown"].includes(group.phase) ||
+        group.rows.some((row) => row.issue) ||
+        [...group.attempts.values()].some((attempt) => attempt.error),
+    );
   const attention = Boolean(
     jobs.error ||
     jobs.uncertain.length ||
-    jobs.jobs.some((job) =>
+    activity.some((job) =>
       ["failed", "partially_completed", "interrupted", "waiting_for_conflict"].includes(
         job.status,
       ),
@@ -57,23 +63,25 @@ export default function ExplorerTransfers({
       {toolbarTarget &&
         createPortal(
           <>
-            <button
-              type="button"
-              className="button primary compact"
-              aria-label={copy.upload}
-              aria-describedby={uploadAttention ? uploadAttentionId : undefined}
-              aria-expanded={showUploads}
-              aria-controls={uploadId}
-              onClick={() => setShowUploads((value) => !value)}
-            >
-              <Icon name="upload" />
-              {copy.upload}
-              {uploadAttention && (
-                <span id={uploadAttentionId} className="explorer-attention">
-                  {copy.attention}
-                </span>
-              )}
-            </button>
+            {canUpload && (
+              <button
+                type="button"
+                className="button primary compact"
+                aria-label={copy.upload}
+                aria-describedby={uploadAttention ? uploadAttentionId : undefined}
+                aria-expanded={showUploads}
+                aria-controls={uploadId}
+                onClick={() => setShowUploads((value) => !value)}
+              >
+                <Icon name="upload" />
+                {copy.upload}
+                {uploadAttention && (
+                  <span id={uploadAttentionId} className="explorer-attention">
+                    {copy.attention}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               type="button"
               className="button secondary compact explorer-activity-toggle"
@@ -104,7 +112,11 @@ export default function ExplorerTransfers({
           </button>
         </div>
       )}
-      <div id={uploadId} className="explorer-upload-panel" hidden={!showUploads}>
+      <div
+        id={uploadId}
+        className="explorer-upload-panel"
+        hidden={!canUpload || !showUploads}
+      >
         <FileUploads uploads={uploads} jobs={jobs} scope={scope} />
       </div>
       <div id={jobsId} className={`explorer-activity ${showJobs ? "is-open" : ""}`}>

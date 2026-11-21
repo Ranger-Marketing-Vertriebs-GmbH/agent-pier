@@ -170,7 +170,7 @@ test("partial Cut retains failed and unproven sources and ignores an obsolete cl
     "Move · Completed",
   );
   await expect(page.getByRole("region", { name: "File actions" })).toContainText(
-    "Cut: 1 references",
+    "Cut: 1 reference",
   );
   expect(f.unknown).toEqual([]);
 });
@@ -391,7 +391,7 @@ test("a move acknowledged after dialog unmount still tracks its original Cut pro
   });
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const actions = page.getByRole("region", { name: "File actions" });
-  await expect(actions).toContainText("Cut: 1 references");
+  await expect(actions).toContainText("Cut: 1 reference");
   release();
   await expect(page.getByRole("region", { name: "File jobs" })).toContainText(
     "Move · Running",
@@ -406,7 +406,7 @@ test("a move acknowledged after dialog unmount still tracks its original Cut pro
       sourceRemoved: true,
     },
   ]);
-  await expect(actions).not.toContainText("Cut: 1 references");
+  await expect(actions).not.toContainText("Cut: 1 reference");
   await expect(page.getByRole("button", { name: "Paste", exact: true })).toHaveCount(0);
   expect(f.unknown).toEqual([]);
 });

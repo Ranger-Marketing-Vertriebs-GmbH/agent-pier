@@ -1,39 +1,49 @@
 import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Icon from "../../components/Icon.jsx";
 import { fileTransfersCopy as copy } from "../../lib/i18n/messages/file-transfers.js";
 import { fileErrorMessage } from "../../lib/i18n/messages/files.js";
 import "./file-transfers.css";
 
 const active = (job) =>
   job && ["queued", "running", "waiting_for_conflict", "cancelling"].includes(job.status);
+// The native file inputs show the browser's language ("Choose files", "No file
+// chosen"); they stay as the hidden control inside a label styled as a button.
+function Picker({ label, folder = false, onFiles, readOnly }) {
+  return (
+    <label
+      className={`button secondary compact file-upload-pick ${readOnly ? "is-disabled" : ""}`}
+    >
+      <Icon name={folder ? "folder" : "upload"} />
+      <span>{label}</span>
+      <input
+        type="file"
+        className="visually-hidden"
+        multiple
+        {...(folder ? { webkitdirectory: "" } : {})}
+        disabled={readOnly}
+        onChange={(event) => {
+          onFiles(event.currentTarget);
+          event.currentTarget.value = "";
+        }}
+      />
+    </label>
+  );
+}
 function Inputs({ onFiles, readOnly, reselection = false }) {
   return (
     <div className="file-upload-inputs">
-      <label>
-        {reselection ? copy.reselect : copy.files}
-        <input
-          type="file"
-          multiple
-          disabled={readOnly}
-          onChange={(event) => {
-            onFiles(event.currentTarget);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
-      <label>
-        {reselection ? copy.reselectFolder : copy.folder}
-        <input
-          type="file"
-          webkitdirectory=""
-          multiple
-          disabled={readOnly}
-          onChange={(event) => {
-            onFiles(event.currentTarget);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
+      <Picker
+        label={reselection ? copy.reselect : copy.files}
+        onFiles={onFiles}
+        readOnly={readOnly}
+      />
+      <Picker
+        folder
+        label={reselection ? copy.reselectFolder : copy.folder}
+        onFiles={onFiles}
+        readOnly={readOnly}
+      />
     </div>
   );
 }

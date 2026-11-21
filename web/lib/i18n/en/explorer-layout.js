@@ -8,5 +8,5 @@ export const explorerLayoutCopy = {
   host: "On this machine",
   projectFiles: "Project files",
   home: "Home folder",
-  entries: (count) => `${count} entries`,
+  entries: (count) => (count === 1 ? "1 entry" : `${count} entries`),
 };

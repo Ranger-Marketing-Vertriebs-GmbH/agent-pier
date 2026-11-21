@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Writable } from "node:stream";
 import { uploadFixture } from "../helpers/file-uploads.js";
 
 import { zipEntries, archiveOperation, artifactBytes } from "../helpers/file-archives.js";
@@ -169,3 +170,36 @@ for (const suffix of ["/", "/."])
     assert.equal((await f.jobs.join(f.scope, job.id)).status, "completed");
     assert.equal((await zipEntries(await artifactBytes(f, job.id))).size, 0);
   });
+
+test("ZIP entries keep their modification dates and the download its chosen name", async (t) => {
+  const f = await uploadFixture(t);
+  const file = path.join(f.project, "dated.txt");
+  await fs.writeFile(file, "dated");
+  const when = new Date("2024-03-15T12:00:00Z");
+  await fs.utimes(file, when, when);
+  const job = await f.jobs.start(
+    f.scope,
+    archiveOperation([file], { name: "dated.zip" }),
+  );
+  const result = await f.jobs.join(f.scope, job.id);
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  const chunks = [];
+  const headers = {};
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      chunks.push(Buffer.from(chunk));
+      callback();
+    },
+  });
+  output.setHeader = (name, value) => {
+    headers[name.toLowerCase()] = value;
+  };
+  await f.archives.downloadJobArtifact(f.scope, job.id, output);
+  assert.match(headers["content-disposition"], /filename="dated\.zip"/);
+  const bytes = Buffer.concat(chunks);
+  const central = bytes.indexOf(Buffer.from("504b0102", "hex"));
+  assert.notEqual(central, -1);
+  // The DOS date of the central directory record: (year-1980)<<9 | month<<5 | day.
+  const date = bytes.readUInt16LE(central + 14);
+  assert.deepEqual([(date >> 9) + 1980, (date >> 5) & 0xf, date & 0x1f], [2024, 3, 15]);
+});

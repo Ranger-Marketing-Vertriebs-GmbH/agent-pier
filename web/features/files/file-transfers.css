@@ -9,15 +9,20 @@
   gap: 1rem;
   flex-wrap: wrap;
 }
-.file-upload-inputs label {
-  display: grid;
-  gap: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
+.file-upload-pick {
+  cursor: pointer;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-md);
 }
-.file-upload-inputs input {
-  width: 100%;
-  max-width: 22rem;
+.file-upload-pick:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.file-upload-pick.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 .file-upload-drop {
   border: 1px dashed var(--border-color, #777);

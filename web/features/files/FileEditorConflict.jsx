@@ -43,9 +43,15 @@ export default function FileEditorConflict({
       </div>
       <div ref={host} />
       <div className="file-editor-toolbar">
-        <button onClick={onUseCurrent}>{copy.useCurrent}</button>
-        <button onClick={onResolve}>{copy.resolveManually}</button>
-        <button onClick={onReplace}>{copy.replaceCurrent}</button>
+        <button className="button secondary compact" onClick={onUseCurrent}>
+          {copy.useCurrent}
+        </button>
+        <button className="button secondary compact" onClick={onResolve}>
+          {copy.resolveManually}
+        </button>
+        <button className="button secondary compact" onClick={onReplace}>
+          {copy.replaceCurrent}
+        </button>
       </div>
     </section>
   );

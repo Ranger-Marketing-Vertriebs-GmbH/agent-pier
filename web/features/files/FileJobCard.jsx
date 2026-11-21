@@ -4,9 +4,11 @@ import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { isTerminal } from "./file-action-utils.js";
 import { FileJobIssue } from "./FileJobs.jsx";
 import FileJobOutcomes from "./FileJobOutcomes.jsx";
+import { formatBytes } from "../../lib/format-bytes.js";
+import { locale } from "../../lib/i18n/index.js";
 
-const amount = (value) =>
-  Number.isSafeInteger(value) && value >= 0 ? String(value) : copy.transfers.unknown;
+const known = (value) => Number.isSafeInteger(value) && value >= 0;
+const count = (value) => (known(value) ? value : null);
 export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
   const [expanded, setExpanded] = useState(false);
   const metadata = ["search", "size"].includes(job.kind),
@@ -31,8 +33,8 @@ export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
           {metadata
             ? copy.scanned(job.completedEntries)
             : copy.transfers.entries(
-                amount(job.completedEntries),
-                amount(job.totalEntries),
+                count(job.completedEntries) ?? 0,
+                count(job.totalEntries),
               )}
         </span>
         {active && (
@@ -46,8 +48,13 @@ export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
           </button>
         )}
       </div>
-      {!metadata && (
-        <p>{copy.transfers.bytes(amount(job.completedBytes), amount(job.totalBytes))}</p>
+      {!metadata && (known(job.totalBytes) || job.completedBytes > 0) && (
+        <p>
+          {copy.transfers.bytes(
+            formatBytes(count(job.completedBytes) ?? 0, locale),
+            known(job.totalBytes) ? formatBytes(job.totalBytes, locale) : null,
+          )}
+        </p>
       )}
       {job.kind === "archive" && active && (
         <p role="status">{copy.transfers.preparing}</p>
