@@ -226,7 +226,7 @@ test(
       raw: "trailer.mp4",
     });
 
-    async function turn(call, label) {
+    async function turn(call, label, { waitMs = 60000 } = {}) {
       Object.assign(tool, call);
       const from = model.requests.length;
       const session = await createGatewaySession(runtime.client, {
@@ -240,8 +240,8 @@ test(
       });
       const done = await runtime.client.call(
         "agent.wait",
-        { runId: sent.runId, timeoutMs: 60000 },
-        { timeoutMs: 65000 },
+        { runId: sent.runId, timeoutMs: waitMs },
+        { timeoutMs: waitMs + 5000 },
       );
       assert.equal(done.status, "ok", label);
       const result = model.requests
@@ -257,8 +257,8 @@ test(
     try {
       // A cold start's whole budget, started once more after a failed launch
       // (helpers/browser-start.js), which reads the answer as `{ result }`.
-      const { result: started } = await startBrowser(async (label, args) => ({
-        result: await turn({ name: "browser", arguments: args }, `upload-${label}`),
+      const { result: started } = await startBrowser(async (label, args, wait) => ({
+        result: await turn({ name: "browser", arguments: args }, `upload-${label}`, wait),
       }));
       const running = await turn(
         { name: "browser", arguments: { action: "status" } },
