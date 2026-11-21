@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { directoryPickerCopy as copy } from "../../lib/i18n/messages/directories.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 
@@ -6,7 +6,12 @@ export default function CreateDirectory({ create, created, disabled }) {
   const [open, setOpen] = useState(false),
     [name, setName] = useState(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    form = useRef(null);
+  // The picker's footer is sticky: the form and its error scroll clear of it (phones).
+  useEffect(() => {
+    if (open) form.current?.scrollIntoView?.({ block: "nearest" });
+  }, [open, error]);
   async function submit() {
     if (busy || !name.trim()) return;
     setBusy(true);
@@ -23,7 +28,7 @@ export default function CreateDirectory({ create, created, disabled }) {
     }
   }
   return (
-    <div className="create-directory">
+    <div className="create-directory" ref={form}>
       {!open ? (
         <button
           type="button"
@@ -42,6 +47,7 @@ export default function CreateDirectory({ create, created, disabled }) {
               value={name}
               maxLength={255}
               disabled={busy}
+              autoFocus
               autoCapitalize="none"
               spellCheck={false}
               onChange={(event) => setName(event.target.value)}
@@ -53,7 +59,7 @@ export default function CreateDirectory({ create, created, disabled }) {
               }}
             />
           </label>
-          <div className="dialog-actions">
+          <div className="create-directory-actions">
             <button
               type="button"
               className="button secondary compact"

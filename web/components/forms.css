@@ -193,3 +193,19 @@ select {
 .directory-picker > .error {
   margin: 0 25px 12px;
 }
+/* "Create directory" in the folder picker: a block of the content with the picker's
+   inset, never a second footer. The picker's own footer stays the only sticky bar. */
+.create-directory {
+  display: grid;
+  gap: 12px;
+  margin: 0 25px 15px;
+}
+.create-directory > .button {
+  justify-self: start;
+}
+.create-directory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}

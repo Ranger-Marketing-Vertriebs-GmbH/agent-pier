@@ -317,6 +317,10 @@
   .directory-picker > .field-description {
     padding: 0 21px 15px;
   }
+  .create-directory,
+  .directory-picker > .error {
+    margin: 0 21px 15px;
+  }
   .confirm-copy {
     font-size: 12px;
   }

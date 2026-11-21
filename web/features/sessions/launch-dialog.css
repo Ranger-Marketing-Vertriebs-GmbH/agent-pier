@@ -98,6 +98,8 @@ dialog.launch-dialog[open] {
 .launch-dialog .directory-picker {
   min-height: 0;
   overflow-y: auto;
+  /* Scrolling a field or the create form into view keeps clear of the sticky footer. */
+  scroll-padding-bottom: 88px;
 }
 .launch-dialog .directory-picker > .dialog-actions {
   position: sticky;
