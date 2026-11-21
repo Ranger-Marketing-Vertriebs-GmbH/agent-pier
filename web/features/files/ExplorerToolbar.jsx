@@ -47,10 +47,25 @@ export default function ExplorerToolbar({
   const [caseSensitive, setCaseSensitive] = useState(false);
   useEffect(() => setValue(path), [path]);
   // A long path scrolls its breadcrumbs: keep the current folder, at the end, in view.
+  // On a first load the toolbar reaches its final width only after this layout pass,
+  // so the trail scrolls to the end again whenever its width settles (AGENTPIER-468).
   const trail = useRef(null);
   useLayoutEffect(() => {
     const element = trail.current;
-    if (element) element.scrollLeft = element.scrollWidth;
+    if (!element) return undefined;
+    const toEnd = () => {
+      element.scrollLeft = element.scrollWidth;
+    };
+    toEnd();
+    if (typeof ResizeObserver !== "function") return undefined;
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth === width) return;
+      width = element.clientWidth;
+      toEnd();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
   }, [path]);
   return (
     <header className="explorer-toolbar">
