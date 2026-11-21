@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { rebuildsConfigDir } from "../../server/features/tools/craft-config.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { ownerQuestions } from "../../server/features/craft/rebuild-questions.js";
@@ -170,10 +171,20 @@ test("a non-owner source cannot choose account, mode or auto mode", async (t) =>
 
 test("auto mode off asks, on decides and allows approvals", async (t) => {
   const f = rebuildsFixture(t, {
-    // The first step waits: a question asked before project_questions_set would
-    // still reach the owner.
+    // The first step waits for project_questions_set: a question asked before it
+    // still reaches the owner. AgentPier sets the mode only after `git init` of the
+    // new folder, which a loaded host can stretch past any fixed delay.
     script: {
-      steps: [{ wait: 300 }, question, approval, { finish: "ready", reply: "Done" }],
+      steps: [
+        { awaitMode: true },
+        question,
+        approval,
+        { finish: "ready", reply: "Done" },
+      ],
+    },
+    // A slow host: the mode arrives well after the build began.
+    intercept: async (name) => {
+      if (name === "project_questions_set") await delay(500);
     },
   });
   const asking = await f.rebuilds.start({ request: "Asking", autoMode: false });

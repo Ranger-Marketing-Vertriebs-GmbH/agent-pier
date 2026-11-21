@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -144,7 +145,15 @@ test("credentials, scopes, browsers and signed-out logins are refused", async (t
   const { call, proxy, profileId, codex, allowed, vault } = await fixture(t);
   assert.equal((await call("/chatgpt/codex/responses", { token: "nope" })).status, 401);
   assert.equal((await call("/chatgpt/codex/responses", { token: null })).status, 401);
-  const forged = proxy.credential(["chatgpt", "agent-a", profileId]).slice(0, -2) + "AA";
+  // The MAC's first character changed: always a different MAC, never the real one by
+  // chance (a fixed "AA" ending matched about one key in a thousand).
+  const genuine = proxy.credential(["chatgpt", "agent-a", profileId]);
+  const macAt = genuine.lastIndexOf(".") + 1;
+  const forged =
+    genuine.slice(0, macAt) +
+    (genuine[macAt] === "A" ? "B" : "A") +
+    genuine.slice(macAt + 1);
+  assert.notEqual(forged, genuine);
   assert.equal((await call("/chatgpt/codex/responses", { token: forged })).status, 401);
   const mcp = proxy.credential(["mcp", "server"]);
   assert.equal((await call("/chatgpt/codex/responses", { token: mcp })).status, 401);
@@ -166,6 +175,28 @@ test("credentials, scopes, browsers and signed-out logins are refused", async (t
   const before = proxy.credential(["chatgpt", "agent-a", profileId]);
   proxy.rotate();
   assert.equal(proxy.verify(`Bearer ${before}`), null);
+});
+
+test("a credential with any one MAC character changed is refused, whatever the key", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-proxy-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const proxy = new RuntimeProxy({ dataDir, warn: () => {} });
+  // Enough keys that a MAC ending in "AA" (one in about 1024) shows up as well.
+  for (let round = 0; round < 3000; round += 1) {
+    proxy.key = crypto.randomBytes(32).toString("hex");
+    const genuine = proxy.credential(["chatgpt", "agent-a", "profile"]);
+    assert.deepEqual(proxy.verify(`Bearer ${genuine}`), [
+      "chatgpt",
+      "agent-a",
+      "profile",
+    ]);
+    const macAt = genuine.lastIndexOf(".") + 1;
+    for (const at of [macAt, genuine.length - 2, genuine.length - 1]) {
+      const changed = genuine[at] === "A" ? "B" : "A";
+      const forged = genuine.slice(0, at) + changed + genuine.slice(at + 1);
+      assert.equal(proxy.verify(`Bearer ${forged}`), null);
+    }
+  }
 });
 
 test("the proxy keeps its port and key across restarts and listens on loopback only", async (t) => {
