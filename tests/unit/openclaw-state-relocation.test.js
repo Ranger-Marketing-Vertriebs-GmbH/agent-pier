@@ -137,3 +137,29 @@ test("only the recorded folder and paths below it are rewritten", () => {
     { a: "/new", b: ["/new/x", "/older/y", "/other/old"], c: 1, d: null },
   );
 });
+
+test("agent entries left on the old folder by an earlier start follow the data directory", (t) => {
+  const base = temp(t);
+  const first = path.join(base, "instance-data-restored");
+  const paths = runtimePaths(first);
+  prepareRuntimeConfig(paths, 1234);
+  seedAgent(paths);
+  const moved = path.join(base, "instance-data");
+  fs.renameSync(first, moved);
+  const next = runtimePaths(moved);
+  // An AgentPier before the fix started here once: it compiled the defaults for this
+  // folder and kept every agent entry on the old one.
+  const config = readJSON(next.config);
+  config.agents.defaults.workspace = next.workspaces;
+  writePrivate(next.config, config);
+
+  prepareRuntimeConfig(next, 1234);
+  const after = readJSON(next.config);
+  assert.equal(after.agents.entries.ag_one.workspace, path.join(next.workspaces, "a-1"));
+  assert.equal(
+    after.agents.entries.ag_one.agentDir,
+    path.join(next.state, "agents", "ag_one", "agent"),
+  );
+  assert.deepEqual(mentions(next, `${first}/`), []);
+  assert.equal(fs.existsSync(first), false);
+});
