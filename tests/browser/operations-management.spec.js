@@ -89,6 +89,21 @@ test("mobile archive inspection restores only into the specified fresh target wi
   await expect(
     page.getByText("Zugangsdaten wiederhergestellt", { exact: true }).locator("+ dd"),
   ).toHaveText("Nein");
+  // config.json settings: what came back, and what to set again on this host.
+  const settings = page.getByRole("region", { name: "Einstellungen", exact: true });
+  await expect(
+    settings.getByText("Aus der Sicherung übernommen", { exact: true }).locator("+ dd"),
+  ).toHaveText(
+    "Pipeline-Einstellungen und Port-Bereich der Stufen, Vorschauen und ihr Port-Bereich",
+  );
+  await expect(
+    settings
+      .getByText("In der wiederhergestellten Instanz neu einrichten", { exact: true })
+      .locator("+ dd"),
+  ).toHaveText("Tailscale-Adresse, Tailscale-Konto des Besitzers");
+  await expect(
+    settings.getByRole("link", { name: "Fernzugriff-Einstellungen öffnen", exact: true }),
+  ).toHaveAttribute("href", "/settings/remote");
   expect(
     state.calls.find(
       (call) => call.path === "/operations/restore" && call.method === "POST",

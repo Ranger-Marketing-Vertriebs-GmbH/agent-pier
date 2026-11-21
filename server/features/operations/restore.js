@@ -40,6 +40,8 @@ import { restoreUsers } from "../users/user-backup.js";
 import { restoreSftpHosts } from "../ssh/sftp-backup.js";
 import { restoreSecrets } from "../secrets/secret-backup.js";
 import { restoreMailAccounts } from "../mail/mail-backup.js";
+import { restoreConfig } from "./config-backup.js";
+import { hostFingerprint } from "./host-identity.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
 const lineBased = /\.(?:jsonl|screen)$/;
@@ -264,8 +266,9 @@ function verifyStaged(directory) {
 const stagePrefix = ".agentpier-restore-";
 
 export class Restore {
-  constructor({ dataDir, audit }) {
+  constructor({ dataDir, audit, hostId = hostFingerprint() }) {
     this.dataDir = fs.realpathSync(dataDir);
+    this.hostId = hostId;
     this.directory = folder(path.join(this.dataDir, "operations/restores"));
     this.audit = audit;
     this.uploads = new RestoreUploads(this.directory, this.dataDir);
@@ -357,6 +360,10 @@ export class Restore {
       const sftpHosts = restoreSftpHosts(stage, projectMappings);
       const restoredSecrets = restoreSecrets(stage, projectMappings);
       const mailAccounts = restoreMailAccounts(stage);
+      const settings = restoreConfig(stage, {
+        liveDataDir: this.dataDir,
+        hostId: this.hostId,
+      });
       const counts = historicalOnly(stage);
       const usersNeedingPassword = restoreUsers(stage);
       const auditFile = path.join(stage, "audit/events.json");
@@ -418,6 +425,7 @@ export class Restore {
         targetDataDir: target,
         credentialsRestored: Boolean(staged.secrets),
         credentialsNeedingLogin,
+        settings,
         projectMappings,
         ...counts,
         omissions: manifest.omissions,

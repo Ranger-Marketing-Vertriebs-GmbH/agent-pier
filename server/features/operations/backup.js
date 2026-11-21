@@ -26,6 +26,7 @@ import {
 import { applicationVersion } from "./version.js";
 import { privateContentOmissions } from "./private-content.js";
 import { problem } from "../../lib/storage.js";
+import { hostFingerprint } from "./host-identity.js";
 import {
   assistantOmissions,
   assistantsCaptured,
@@ -53,7 +54,9 @@ export class Backup {
     audit,
     withSnapshotBarrier,
     assistantsBusy = () => false,
+    hostId = hostFingerprint(),
   }) {
+    this.hostId = hostId;
     this.home = home;
     this.dataDir = fs.realpathSync(dataDir);
     this.directory = folder(path.join(this.dataDir, "operations/backups"));
@@ -172,6 +175,7 @@ export class Backup {
           audit: this.audit,
           scratch,
           plan: members,
+          hostId: this.hostId,
           ...options,
         });
       const snapshot = this.withSnapshotBarrier
