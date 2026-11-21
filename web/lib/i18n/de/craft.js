@@ -27,6 +27,8 @@ export const craftCopy = {
   list: {
     title: "Deine Nachbauten",
     empty: "Noch keine Nachbauten. Starte unten einen.",
+    // Without Craft Anything installed there is no start form below.
+    none: "Noch keine Nachbauten.",
     sub: (step, time) => `${step} · aktualisiert ${time}`,
   },
   start: {
@@ -59,12 +61,23 @@ export const craftCopy = {
     autoModeHint:
       "Craft Anything entscheidet seine Rückfragen selbst und AgentPier erteilt seine Freigaben. Ausgeschaltet wartet jede Rückfrage und Freigabe auf dich.",
     rounds: "Runden",
+    roundsHint:
+      "Wie viele Bau- und Prüfrunden Craft Anything nutzen darf. Jede Runde, auch die letzte, endet damit, dass es verbessert, was seine Prüfungen gefunden haben.",
     consent:
       "Mit dem Start lässt du Craft Anything Claude mit dem gewählten Account ausführen und dessen Tokens verbrauchen. Baue nur Software nach, die dir gehört oder die du nachbauen darfst, und umgehe nie DRM, Logins oder Anti-Cheat-Systeme.",
     noAccounts:
       "Kein Claude-Account kann bauen. Füge unter CLIs & Erweiterungen › Accounts einen eigenen Claude-Account ohne Provider hinzu.",
     submit: "Nachbau starten",
     starting: "Wird gestartet …",
+  },
+  // The stack choices of the start form; the values stay Craft Anything's.
+  stacks: {
+    builderChoice: "Wahl des Builders",
+    plainHtml: "Reines HTML und CSS",
+    rustConsole: "Rust (Konsole)",
+    unity: "Unity",
+    unreal: "Unreal",
+    godot: "Godot",
   },
   pictures: {
     list: "Screenshots",
@@ -78,14 +91,26 @@ export const craftCopy = {
     tooMany: (max) => `Ein Nachbau nimmt höchstens ${max} Screenshots.`,
     tooLarge: (name) => `„${name}“ ist größer als 20 MB.`,
     unsupported: (name) => `„${name}“ ist kein Bild im Format PNG, JPEG, WebP oder GIF.`,
+    uploadFailed: (name, reason) =>
+      `„${name}“ konnte nicht hochgeladen werden: ${reason}`,
   },
   defaults: {
     title: "Voreinstellungen",
     hint: "Was neue Nachbauten verwenden. Nachbauten, die deine Sessions und Agenten starten, verwenden immer diese.",
     save: "Voreinstellungen speichern",
     saving: "Wird gespeichert …",
+    saved: "Voreinstellungen gespeichert. Neue Nachbauten starten damit.",
   },
   detail: {
+    pausedNote: "Pausiert. Fortsetzen macht dort weiter, wo der Bau stehen blieb.",
+    answeredElsewhere:
+      "Diese Frage wurde schon an anderer Stelle beantwortet, in einem anderen Tab oder im Eingang.",
+    // Auto mode switched on while questions already wait.
+    autoModeWaiting:
+      "Der Automodus entscheidet neue Fragen. Beantworte die schon wartenden Fragen hier.",
+    checksPassed: (passed, total) => `${passed} von ${total} Prüfungen bestanden`,
+    // Craft Anything reports no price (`priced: false`), e.g. on a subscription.
+    costUnknown: "Kein Preis bekannt",
     request: "Auftrag",
     checkTitle: "Letzte Prüfung",
     noCheck: "Noch keine Prüfung.",

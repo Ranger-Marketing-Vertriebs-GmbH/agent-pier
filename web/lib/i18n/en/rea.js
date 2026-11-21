@@ -1,5 +1,7 @@
 export const reaCopy = {
   title: "REA",
+  // The ⌘K entry of the REA card on CLIs & extensions › Installation.
+  searchLabel: "REA (reverse engineering)",
   manage: "Manage",
   updateBadge: "Update available",
   // A managed row's CLI binding is not in effect (install card, start page row).

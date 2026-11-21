@@ -34,6 +34,7 @@ export default function AppDialogs({
           tool={modal.tool}
           initialCwd={modal.cwd}
           initialProfile={modal.profile}
+          initialAccess={modal.accessId}
           ticket={modal.ticket}
           close={close}
           created={created}

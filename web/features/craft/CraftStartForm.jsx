@@ -1,10 +1,12 @@
-import React, { useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import { NumberRow, SelectRow, ToggleRow } from "../../components/ListRow.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
+import { localName } from "../../lib/server-names.js";
+import useLanguage from "../../lib/i18n/useLanguage.js";
 import { craftCopy } from "../../lib/i18n/messages/craft.js";
 import { isShortProjectName, shownProjectName } from "./start-project-name.js";
 import CraftPictures from "./CraftPictures.jsx";
@@ -22,9 +24,26 @@ export const modeOptions = () => [
   { value: "deep", label: craftCopy.start.deep },
 ];
 
-/** The eligible accounts as select options. */
+/** The eligible accounts as select options, generated names in the page's language. */
 export const accountOptions = (accounts) =>
-  accounts.map((account) => ({ value: account.id, label: account.name || account.id }));
+  accounts.map((account) => ({
+    value: account.id,
+    label: localName(account) || account.id,
+  }));
+
+// Craft Anything's stack values (server/features/craft/craft-stacks.js) that read
+// differently in the page's language; the others are product names.
+const stackKeys = {
+  "Builder's choice": "builderChoice",
+  "Plain HTML and CSS": "plainHtml",
+  "Rust (console)": "rustConsole",
+  unity: "unity",
+  unreal: "unreal",
+  godot: "godot",
+};
+
+/** A stack value as the form shows it ("unity" → "Unity"). */
+export const stackLabel = (stack) => craftCopy.stacks[stackKeys[stack]] ?? stack;
 
 /** The target's Segmented options. */
 export const targetOptions = () => [
@@ -43,6 +62,8 @@ export const targetOptions = () => [
  */
 export default function CraftStartForm({ data, start, onStarted }) {
   const copy = craftCopy.start;
+  // Generated account names follow the English server catalog once it has loaded.
+  useLanguage();
   const id = useId();
   const action = useAsyncAction();
   const requestId = useRef(newRequestId());
@@ -62,7 +83,23 @@ export default function CraftStartForm({ data, start, onStarted }) {
     autoMode: data.settings?.autoMode === true,
     rounds: 2,
   }));
-  const set = (key) => (value) => setForm((held) => ({ ...held, [key]: value }));
+  // The defaults the owner did not change here follow a save of Defaults.
+  const touched = useRef(new Set());
+  const set = (key) => (value) => {
+    touched.current.add(key);
+    setForm((held) => ({ ...held, [key]: value }));
+  };
+  const { accountId, mode, autoMode } = data.settings || {};
+  useEffect(() => {
+    const next = {};
+    if (!touched.current.has("accountId") && accounts.some((a) => a.id === accountId))
+      next.accountId = accountId;
+    if (!touched.current.has("mode") && mode) next.mode = mode;
+    if (!touched.current.has("autoMode")) next.autoMode = autoMode === true;
+    setForm((held) => ({ ...held, ...next }));
+    // Only a change of the saved defaults applies; the account list alone does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, mode, autoMode]);
   const kind = form.targetKind;
   const withPictures = kind !== "none";
   const name = shownProjectName(form).trim();
@@ -180,7 +217,10 @@ export default function CraftStartForm({ data, start, onStarted }) {
             label={copy.stack}
             value={form.stack}
             onChange={set("stack")}
-            options={(data.stacks || []).map((stack) => ({ value: stack, label: stack }))}
+            options={(data.stacks || []).map((stack) => ({
+              value: stack,
+              label: stackLabel(stack),
+            }))}
           />
           {accounts.length > 0 && (
             <SelectRow
@@ -210,6 +250,7 @@ export default function CraftStartForm({ data, start, onStarted }) {
           />
           <NumberRow
             label={copy.rounds}
+            sub={copy.roundsHint}
             value={form.rounds}
             min={1}
             max={10}

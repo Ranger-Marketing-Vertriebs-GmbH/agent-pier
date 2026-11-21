@@ -355,7 +355,13 @@ test("restore leaves rebuilds this server started alone and announces the paused
   assert.equal(next.get(fresh.id).status, "building");
   assert.ok(changes.some((event) => event.list));
   assert.deepEqual(next.eligibleAccounts(), [
-    { id: "local-claude", name: "Local" },
+    // The browser names the local account in its own language.
+    {
+      id: "local-claude",
+      name: "Local",
+      nameKey: "accounts.localAccountName",
+      nameArgs: ["Claude Code"],
+    },
     { id: "acc-a", name: "A" },
     { id: "acc-b", name: "B" },
   ]);

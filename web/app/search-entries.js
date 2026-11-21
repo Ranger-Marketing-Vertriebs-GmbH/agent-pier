@@ -17,6 +17,7 @@ import { mcpDirectoryCopy } from "../lib/i18n/messages/mcp-directory.js";
 import { operationsCopy } from "../lib/i18n/messages/operations.js";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { pipelineQueueCopy } from "../lib/i18n/messages/pipeline-queue.js";
+import { reaCopy } from "../lib/i18n/messages/rea.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
 import { settingsHubCopy, settingsPageCopy } from "../lib/i18n/messages/settings.js";
 import { systemStatusCopy } from "../lib/i18n/messages/system-status.js";
@@ -188,6 +189,13 @@ export function pageEntries() {
     pageEntry(
       "craft-anything",
       () => craftAnythingCopy.searchLabel,
+      [...clis, bilingual(() => codingPageCopy.tabs.install)],
+      { route: codingRoute("install") },
+    ),
+    // The REA card beside it.
+    pageEntry(
+      "rea",
+      () => reaCopy.searchLabel,
       [...clis, bilingual(() => codingPageCopy.tabs.install)],
       { route: codingRoute("install") },
     ),

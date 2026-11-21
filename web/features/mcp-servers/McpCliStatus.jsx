@@ -126,7 +126,12 @@ export default function McpCliStatus({ server, onChanged }) {
                 </span>
               )}
               {state.status === "name-taken" &&
-                button(cli, "adopt", copy.adopt, copy.adoptFor(names[cli], server.name))}
+                button(
+                  cli,
+                  "adopt",
+                  copy.adoptTaken,
+                  copy.adoptTakenFor(names[cli], server.name),
+                )}
             </li>
           );
         })}

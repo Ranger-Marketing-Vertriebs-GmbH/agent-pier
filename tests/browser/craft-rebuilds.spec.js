@@ -300,9 +300,35 @@ test("saves the owner's defaults", async ({ page }) => {
   await defaults.getByRole("switch", { name: "Auto mode" }).check();
   await save.click();
   await expect(save).toBeDisabled();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Defaults saved." }),
+  ).toBeVisible();
   expect(callsTo(state, "/craft/settings", "PUT").map((call) => call.body)).toEqual([
     { accountId: "work-claude", mode: "clean-room", autoMode: true },
   ]);
+  // The start form on the same page takes the saved defaults.
+  const form = page.locator("form.craft-start");
+  await expect(form.getByRole("combobox", { name: "Claude account" })).toHaveValue(
+    "work-claude",
+  );
+  await expect(form.getByRole("switch", { name: "Auto mode" })).toBeChecked();
+});
+
+test("the start form names stacks and the local account in the page's language", async ({
+  page,
+}) => {
+  await craftRebuildsFixture(page);
+  await page.goto(`${baseURL}/craft`);
+  const form = page.locator("form.craft-start");
+  const account = form.getByRole("combobox", { name: "Claude account" });
+  await expect(account.locator("option", { hasText: "Claude Code · Local" })).toHaveCount(
+    1,
+  );
+  const stack = form.getByRole("combobox", { name: "Stack" });
+  await expect(stack.locator("option", { hasText: "Unity" })).toHaveAttribute(
+    "value",
+    "unity",
+  );
 });
 
 test("without Craft Anything the page links to its card and has no start form", async ({
@@ -311,10 +337,12 @@ test("without Craft Anything the page links to its card and has no start form", 
   await craftRebuildsFixture(page, { installed: false, rebuilds: [] });
   await page.goto(`${baseURL}/craft`);
   await expect(page.getByText("Craft Anything is not installed.")).toBeVisible();
-  await expect(page.getByText("No rebuilds yet.")).toBeVisible();
+  await expect(page.getByText("No rebuilds yet.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start rebuild" })).toHaveCount(0);
+  // The install dialog opens here; the link still leads to the card.
   await page.getByRole("link", { name: "Open Craft Anything" }).click();
-  await expect(page).toHaveURL(/\/coding\/clis$/);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page).toHaveURL(/\/craft$/);
 });
 
 test("in German the page is called Craft Anything and its actions say Nachbau", async ({
@@ -326,6 +354,11 @@ test("in German the page is called Craft Anything and its actions say Nachbau", 
     page.getByRole("heading", { name: "Craft Anything", level: 1 }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Nachbau starten" })).toBeVisible();
+  const stack = page.locator("form.craft-start").getByRole("combobox", { name: "Stack" });
+  await expect(stack.locator("option", { hasText: "Wahl des Builders" })).toHaveCount(1);
+  await expect(
+    page.locator("form.craft-start").getByRole("combobox", { name: "Claude-Account" }),
+  ).toContainText("Claude Code · Lokal");
 });
 
 test("on a phone the list and the detail fit the width", async ({ page }) => {

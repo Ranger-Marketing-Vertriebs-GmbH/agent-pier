@@ -142,6 +142,8 @@ export function craftItems(rebuild) {
     item("craft", {
       id: questionKey(rebuild.id, question.id),
       kind: question.kind === "approval" ? "craft-approval" : "craft-question",
+      // An approval counts under Approvals, a question under Questions.
+      tab: question.kind === "approval" ? "approvals" : "questions",
       status: "pending",
       revision: null,
       // The rebuild's name is its project folder's.

@@ -134,12 +134,19 @@ export class CraftRebuilds {
     return () => this.listeners.delete(listener);
   }
 
-  /** The Claude accounts a rebuild may use: `[{ id, name }]`. */
+  /**
+   * The Claude accounts a rebuild may use: `[{ id, name }]`, a generated name with its
+   * message key (`nameKey`, `nameArgs`) so the browser shows it in its language.
+   */
   eligibleAccounts() {
     return this.accounts
       .list()
       .filter((account) => this.preferences.eligible(account, "claude"))
-      .map(({ id, name }) => ({ id, name }));
+      .map(({ id, name, nameKey, nameArgs }) => ({
+        id,
+        name,
+        ...(nameKey && { nameKey, nameArgs }),
+      }));
   }
 
   /** The owner's defaults, with the account that new rebuilds actually use. */

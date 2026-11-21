@@ -132,10 +132,21 @@ export async function craftRebuildsFixture(
     rebuilds: state.rebuilds,
     settings: state.settings,
     accounts: [
-      { id: "local-claude", name: "local-claude" },
+      // The server names the local account in German, with its message key.
+      {
+        id: "local-claude",
+        name: "Claude Code · Lokal",
+        nameKey: "accounts.localAccountName",
+        nameArgs: ["Claude Code"],
+      },
       { id: "work-claude", name: "Work" },
     ],
-    stacks: ["Builder's choice", "Plain HTML and CSS", "React + TypeScript (Vite)"],
+    stacks: [
+      "Builder's choice",
+      "Plain HTML and CSS",
+      "React + TypeScript (Vite)",
+      "unity",
+    ],
     installed,
   });
   const find = (id) => state.rebuilds.find((item) => item.id === id);
@@ -173,7 +184,10 @@ export async function craftRebuildsFixture(
     if (path === "/state")
       return json({
         tools: [{ id: "claude", name: "claude", installed: true }],
-        accounts: [{ id: "local-claude", tool: "claude", kind: "local", name: "Local" }],
+        accounts: [
+          { id: "local-claude", tool: "claude", kind: "local", name: "Local" },
+          { id: "work-claude", tool: "claude", kind: "managed", name: "Work" },
+        ],
         sessions: [],
         home: "/fixture",
         defaultCwd: "/fixture/projects",

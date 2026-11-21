@@ -372,7 +372,15 @@ function Application() {
                     onNavigate={navigate}
                     openNavigation={openNavigation}
                     navigationOpen={mobileNav}
-                    onLaunch={(cwd) => setModal({ type: "launch", cwd })}
+                    onLaunch={(cwd, accountId) =>
+                      setModal({
+                        type: "launch",
+                        cwd,
+                        // A rebuild's folder opens with its Claude account.
+                        ...(accountId && { tool: "claude", accessId: accountId }),
+                      })
+                    }
+                    onOpenCraftAnything={() => setModal({ type: "craft-anything" })}
                   />
                 </Suspense>
               ) : view === "inbox" ? (

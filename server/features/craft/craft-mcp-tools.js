@@ -43,8 +43,11 @@ const messages = serverMessages.craft;
 const craftError = (code, message, status) =>
   Object.assign(new Error(message), { code, status });
 
-/** What a session or an agent reads of a rebuild: never its questions' details. */
-export const statusView = (rebuild) => ({
+/**
+ * What a session or an agent reads of a rebuild: never its questions' details. Its
+ * `link` opens the rebuild's page; with `origin` (sessions) it is a full address.
+ */
+export const statusView = (rebuild, origin = "") => ({
   id: rebuild.id,
   name: rebuild.name,
   status: rebuild.status,
@@ -55,8 +58,16 @@ export const statusView = (rebuild) => ({
   folder: rebuild.folder,
   openQuestions: rebuild.questions.length,
   notAnsweringSince: rebuild.notAnsweringSince ?? null,
-  link: `/craft/${rebuild.id}`,
+  link: `${origin}/craft/${rebuild.id}`,
 });
+
+// AgentPier's address as a session reaches it: the remote URL, else the local port.
+const originOf = (services) => {
+  const config = services.effectiveConfig?.() || services.config;
+  return config.remoteUrl
+    ? new URL(config.remoteUrl).origin
+    : `http://127.0.0.1:${config.port}`;
+};
 
 /**
  * A session's retry key, scoped to the session like the agents' one: the same
@@ -108,7 +119,7 @@ export async function callCraftTool(services, name, input, context) {
     const rebuild = services.craftRebuilds.get(parsed.data.id);
     if (!rebuild)
       throw craftError("CRAFT_REBUILD_NOT_FOUND", messages.rebuildNotFound, 404);
-    return statusView(rebuild);
+    return statusView(rebuild, originOf(services));
   }
   const { pictures: paths, ...fields } = parsed.data;
   let started, pictures;
@@ -134,6 +145,6 @@ export async function callCraftTool(services, name, input, context) {
     id: started.id,
     project: { id: started.projectId, name: started.name, folder: started.folder },
     status: started.status,
-    link: `/craft/${started.id}`,
+    link: `${originOf(services)}/craft/${started.id}`,
   };
 }

@@ -246,6 +246,21 @@ test("Craft Anything is found in both languages and opens CLIs & extensions › 
   assert.ok([entry.path.de, entry.path.en].some((path) => path.includes("›")));
 });
 
+test("REA is found in both languages and opens its card on CLIs & extensions › Installation", () => {
+  const entry = index.find((item) => item.id === "page:rea");
+  assert.ok(entry);
+  assert.equal(entry.label.en, "REA (reverse engineering)");
+  assert.equal(entry.label.de, "REA (Reverse Engineering)");
+  assert.deepEqual(entry.target.route, { view: "coding", codingTab: "install" });
+  for (const query of ["REA", "reverse engineering"])
+    assert.ok(
+      results(query).some(
+        (item) => item.id === "page:rea" && pathOf(item) === "/coding/clis",
+      ),
+      query,
+    );
+});
+
 test("Craft Anything is a work area, found in both languages and by its old names", () => {
   const entry = index.find((item) => item.id === "page:craft");
   assert.ok(entry);

@@ -155,6 +155,9 @@ test("a follow-up carries screenshots (desktop and phone)", async ({ page }) => 
   }
 });
 
+// The form's error names the picture; its chip stays marked for the retry.
+const failedCart = '"cart.png" could not be uploaded: The upload failed.';
+
 test("a retry sends each picture once; dropped and abandoned pictures are deleted", async ({
   page,
 }) => {
@@ -174,7 +177,7 @@ test("a retry sends each picture once; dropped and abandoned pictures are delete
     .getByLabel("Choose screenshots or photos")
     .setInputFiles([files.home, files.cart]);
   await page.getByRole("button", { name: "Start rebuild" }).click();
-  await expect(page.getByText("The upload failed.")).toBeVisible();
+  await expect(page.getByText(failedCart)).toBeVisible();
   expect(starts(state)).toHaveLength(0);
   const [first] = state.pictures.keys();
   failing = false;
@@ -195,7 +198,7 @@ test("a retry sends each picture once; dropped and abandoned pictures are delete
     .getByLabel("Choose screenshots or photos")
     .setInputFiles([files.home, files.cart]);
   await page.getByRole("button", { name: "Start rebuild" }).click();
-  await expect(page.getByText("The upload failed.")).toBeVisible();
+  await expect(page.getByText(failedCart)).toBeVisible();
   const staged = [...state.pictures.keys()].at(-1);
   await form.getByRole("button", { name: "Remove home.png" }).click();
   await expect.poll(drops).toEqual([`/craft/pictures/${staged}`]);
@@ -212,8 +215,28 @@ test("a retry sends each picture once; dropped and abandoned pictures are delete
     .getByLabel("Choose screenshots or photos")
     .setInputFiles([files.home, files.cart]);
   await page.getByRole("button", { name: "Start rebuild" }).click();
-  await expect(page.getByText("The upload failed.")).toBeVisible();
+  await expect(page.getByText(failedCart)).toBeVisible();
   const abandoned = [...state.pictures.keys()].at(-1);
   await page.getByRole("link", { name: /timer/ }).click();
   await expect.poll(drops).toContain(`/craft/pictures/${abandoned}`);
+});
+
+test("a picture the server refuses leaves the form, and the error names it", async ({
+  page,
+}) => {
+  await craftRebuildsFixture(page);
+  await page.route("**/api/craft/pictures", (route) =>
+    route.fulfill({ status: 400, json: { error: "This is not a picture." } }),
+  );
+  await page.goto(`${baseURL}/craft`);
+  const form = page.getByRole("group", { name: "Start a rebuild" });
+  await page.getByLabel("What to make").fill("A shop");
+  await form.getByRole("radio", { name: "Screenshots" }).check();
+  await form.getByLabel("Choose screenshots or photos").setInputFiles([files.cart]);
+  await expect(form.getByRole("button", { name: "Remove cart.png" })).toBeVisible();
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(
+    page.getByText('"cart.png" could not be uploaded: This is not a picture.'),
+  ).toBeVisible();
+  await expect(form.getByRole("button", { name: "Remove cart.png" })).toHaveCount(0);
 });

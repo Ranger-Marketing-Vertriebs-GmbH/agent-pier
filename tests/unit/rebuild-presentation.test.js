@@ -4,6 +4,7 @@ import {
   byRecent,
   clockTime,
   latestCheck,
+  roundChecks,
   similarityPercent,
   statusTone,
   stepStates,
@@ -48,5 +49,31 @@ test("a stall reads as the clock time it began", () => {
   assert.equal(
     clockTime(at, "en-GB"),
     new Intl.DateTimeFormat("en-GB", { timeStyle: "short" }).format(new Date(at)),
+  );
+});
+
+test("checks read Craft Anything 0.6.0's names and count the latest round", () => {
+  // As craft.json lists them: several checks per round, named by `check`.
+  const checks = [
+    { round: 1, check: "build", passed: true },
+    { round: 1, check: "app-screenshot", passed: false },
+  ];
+  assert.deepEqual(latestCheck(checks), { name: "app-screenshot", passed: false });
+  assert.deepEqual(roundChecks(checks), { passed: 1, total: 2 });
+  assert.deepEqual(roundChecks([...checks, { round: 2, check: "build", passed: true }]), {
+    passed: 1,
+    total: 1,
+  });
+  assert.deepEqual(roundChecks(null), { passed: 0, total: 0 });
+  // Older reports without rounds: only the latest check counts.
+  assert.deepEqual(
+    roundChecks([
+      { name: "a", passed: false },
+      { name: "b", passed: true },
+    ]),
+    {
+      passed: 1,
+      total: 1,
+    },
   );
 });
