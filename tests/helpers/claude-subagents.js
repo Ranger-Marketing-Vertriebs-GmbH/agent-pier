@@ -48,8 +48,8 @@ export const taskStop = (agentId) => [
   },
 ];
 
-/** An Agent call and its background launch result. */
-export const launch = (callId, agentId, description) => [
+/** An Agent call and its background launch result; `input` replaces the call input. */
+export const launch = (callId, agentId, description, input = null) => [
   {
     type: "assistant",
     uuid: `${callId}-call`,
@@ -61,7 +61,11 @@ export const launch = (callId, agentId, description) => [
           type: "tool_use",
           id: callId,
           name: "Agent",
-          input: { description, subagent_type: "general-purpose", prompt: description },
+          input: input ?? {
+            description,
+            subagent_type: "general-purpose",
+            prompt: description,
+          },
         },
       ],
     },
@@ -73,7 +77,7 @@ export const launch = (callId, agentId, description) => [
       role: "user",
       content: [{ type: "tool_result", tool_use_id: callId, content: "Launched." }],
     },
-    toolUseResult: { isAsync: true, status: "async_launched", agentId },
+    toolUseResult: { isAsync: true, status: "async_launched", agentId, description },
   },
 ];
 
@@ -151,3 +155,113 @@ export const queueOperation = (content, operation = "enqueue") => ({
   reason: "absorbed_mid_turn",
   content,
 });
+
+/**
+ * A context compaction as Claude Code 2.1.32x writes it: the boundary, the
+ * continuation (compact summary) prompt, then one `task_status` attachment per
+ * background task the CLI still tracks. `tasks` holds
+ * `{ taskId, status, description, taskType? }`; a `local_bash` task carries its shell.
+ * Ids and text are synthetic; the record shapes follow real transcripts.
+ */
+export const compaction = (tasks = [], at = "2026-11-21T05:00:46.000Z") => [
+  {
+    parentUuid: null,
+    logicalParentUuid: "before-compaction",
+    isSidechain: false,
+    type: "system",
+    subtype: "compact_boundary",
+    content: "Conversation compacted",
+    isMeta: false,
+    timestamp: at,
+    uuid: `boundary-${++sequence}`,
+    level: "info",
+    compactMetadata: { trigger: "auto", preTokens: 400000, durationMs: 48000 },
+  },
+  {
+    isSidechain: false,
+    type: "user",
+    uuid: `summary-${sequence}`,
+    timestamp: at,
+    isVisibleInTranscriptOnly: true,
+    isCompactSummary: true,
+    message: {
+      role: "user",
+      content:
+        "This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\nSummary text.",
+    },
+  },
+  ...tasks.map(({ taskId, status, description, taskType = "local_agent" }) => ({
+    isSidechain: false,
+    type: "attachment",
+    uuid: `task-status-${taskId}-${sequence}`,
+    timestamp: at,
+    attachment: {
+      type: "task_status",
+      taskId,
+      taskType,
+      description,
+      status,
+      deltaSummary: null,
+      outputFilePath: `/private/tmp/claude-501/project/session/tasks/${taskId}.output`,
+      ...(taskType === "local_bash"
+        ? { shell: { command: "sleep 600", kind: "bash", toolUseId: `toolu_${taskId}` } }
+        : { canContinueAgent: true }),
+    },
+    rendered: [
+      {
+        content:
+          taskType === "local_bash"
+            ? `<system-reminder>\nBackground shell ${taskId} ("${description}") is still running\n</system-reminder>`
+            : `<system-reminder>\nTask ${taskId} (type: ${taskType}) (status: ${status}) (description: ${description}) Read the output file to retrieve the result\n</system-reminder>`,
+      },
+    ],
+    renderedRole: "system",
+  })),
+];
+
+/** The first assistant reply of the continued conversation. */
+export const reply = (text = "Continuing.") => ({
+  type: "assistant",
+  uuid: `reply-${++sequence}`,
+  message: {
+    id: `reply-message-${sequence}`,
+    role: "assistant",
+    content: [{ type: "text", text }],
+  },
+});
+
+/** A background Bash call and its launch result. */
+export const backgroundShell = (taskId, description) => [
+  {
+    type: "assistant",
+    uuid: `${taskId}-call`,
+    message: {
+      id: `${taskId}-message`,
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: `toolu_${taskId}`,
+          name: "Bash",
+          input: { command: "sleep 600", description, run_in_background: true },
+        },
+      ],
+    },
+  },
+  {
+    type: "user",
+    uuid: `${taskId}-launch`,
+    sessionId: "fixture-session",
+    message: {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: `toolu_${taskId}`,
+          content: `Command running in background with ID: ${taskId}.`,
+        },
+      ],
+    },
+    toolUseResult: { stdout: "", backgroundTaskId: taskId },
+  },
+];

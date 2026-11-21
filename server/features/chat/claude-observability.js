@@ -12,7 +12,13 @@ import {
   putAgent,
 } from "./observability-values.js";
 import { createClaudeUsage, usd } from "./token-usage.js";
-import { asyncLaunch, settleStatus, subagentEvent } from "./claude-subagents.js";
+import {
+  asyncLaunch,
+  createCompactionListing,
+  settleStatus,
+  subagentEvent,
+  subagentLabel,
+} from "./claude-subagents.js";
 import { claudeShellTracker } from "./claude-shells.js";
 
 // Identities retained per session; finished agents are evicted first.
@@ -23,6 +29,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
   let context = emptyContext();
   const sessionUsage = createClaudeUsage();
   const shells = claudeShellTracker();
+  const compactions = createCompactionListing();
   // cost-state is written when the CLI exits; any later reply makes it outdated.
   let cost = null;
   const agents = new Map(),
@@ -71,6 +78,17 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       if (!record || record.isSidechain) continue;
       const at = timestamp(record.timestamp);
       shells.record(record, at);
+      // An agent Claude no longer lists after a compaction never notifies again;
+      // whether it finished is unknown.
+      const listed = compactions.record(record);
+      if (listed)
+        for (const entry of [...agents.values()])
+          if (entry.status === "running" && !listed.has(entry.id))
+            agent(entry.id, {
+              status: "unknown",
+              source: "claude-compaction",
+              updatedAt: at,
+            });
       if (record.type === "system" && record.subtype === "compact_boundary") {
         const conversationTokens = tokens(record.compactMetadata?.postTokens);
         context = {
@@ -133,7 +151,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       ) {
         const input = calls.get(record.parentToolUseID);
         nativeAgent(record.parentToolUseID, record.data.agentId, {
-          name: text(input.name || input.subagent_type),
+          name: text(subagentLabel(input)),
           task: text(input.description || input.prompt),
           status: "running",
           source: "claude-agent-progress",
@@ -154,8 +172,8 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
               ? "running"
               : agentStatus(result.status);
           nativeAgent(block.tool_use_id, result.agentId, {
-            name: text(input.name || input.subagent_type),
-            task: text(input.description || input.prompt),
+            name: text(subagentLabel(input)),
+            task: text(input.description || result.description || input.prompt),
             status,
             source: launched ? "claude-async-launch" : "claude-tool-result",
             updatedAt: at,
@@ -191,7 +209,7 @@ export function createClaudeObserver({ maxEntries = Infinity, compact = false } 
       if (callId && calls.has(callId)) {
         const input = calls.get(callId);
         nativeAgent(callId, agentByCall.get(callId) || event.taskId, {
-          name: text(input.name || input.subagent_type),
+          name: text(subagentLabel(input)),
           task: text(input.description || input.prompt),
           status: event.status,
           source: "claude-task-notification",

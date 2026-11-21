@@ -1,8 +1,13 @@
 import { list, object, text, timestamp, putShell } from "./observability-values.js";
-import { settleStatus, subagentEvent } from "./claude-subagents.js";
+import {
+  createCompactionListing,
+  settleStatus,
+  subagentEvent,
+} from "./claude-subagents.js";
 
 // Background shells of the main loop: a Bash call with run_in_background, joined to
-// its result by tool-use id, then ended by a task notification or a TaskStop result.
+// its result by tool-use id, then ended by a task notification, a TaskStop result or
+// a compaction listing that settles or omits it.
 // Sidechain (subagent) records never reach this tracker's state.
 const MAX_PENDING = 100;
 const OUTPUT_LINE = /Output is being written to: (\S+?)\.?(?:\s|$)/;
@@ -33,6 +38,7 @@ const exitCode = (summary) => {
 export function claudeShellTracker() {
   const shells = new Map();
   const pending = new Map(); // tool-use id -> { command, description }
+  const compactions = createCompactionListing();
   const finish = (id, status, at, extra = {}) => {
     const shell = shells.get(id);
     if (!shell) return;
@@ -46,6 +52,12 @@ export function claudeShellTracker() {
     record(source, at = null) {
       if (!source || source.isSidechain) return;
       const when = at ?? timestamp(source.timestamp);
+      // A shell Claude no longer lists after a compaction never notifies again.
+      const listed = compactions.record(source);
+      if (listed)
+        for (const shell of [...shells.values()])
+          if (shell.status === "running" && !listed.has(shell.id))
+            finish(shell.id, "unknown", when);
       if (source.type === "assistant") {
         for (const block of list(source.message?.content)) {
           const input = object(block?.input);

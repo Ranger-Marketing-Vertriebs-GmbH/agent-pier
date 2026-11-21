@@ -8,6 +8,8 @@ import { JsonlHistoryReader } from "../../server/features/chat/jsonl-history-rea
 import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
 import {
   backgroundRecords as background,
+  compaction,
+  reply,
   taskStop,
   notification,
   queueOperation,
@@ -115,6 +117,22 @@ test("queued-command completions on a newer page still complete their agent", as
   const styles = pages[0].find((message) => message.id === "toolu_styles");
   assert.equal(styles.status, "completed");
   assert.equal(styles.text, "Queued styles report");
+  assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
+});
+
+test("a completion listed after a compaction on a newer page completes its agent", async (t) => {
+  const records = [
+    ...background(),
+    ...filler(60),
+    ...compaction([
+      { taskId: "agentstyles02", status: "completed", description: "Styles" },
+    ]),
+    reply(),
+  ];
+  const pages = await indexed(t, records);
+  assert.equal(pages.length, 2);
+  const styles = pages[0].find((message) => message.id === "toolu_styles");
+  assert.equal(styles.status, "completed");
   assert.deepEqual(pages.flat(), normalizeClaude(records).messages);
 });
 
