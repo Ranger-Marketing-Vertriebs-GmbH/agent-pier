@@ -32,10 +32,14 @@ export function getSessionList(manager) {
         manager.activeListing = listing;
         return Promise.all([manager.ready, manager.operations.barrier]);
       })
-      .then(async () => {
-        const panes = await readPaneSnapshot(manager);
+      .then(() => {
+        // Read once the first stored session needs it: an empty list asks tmux nothing.
+        let panes;
         return listSessions(manager, (id) =>
-          manager.serial(() => manager.current(id, panes), id),
+          manager.serial(
+            async () => manager.current(id, await (panes ||= readPaneSnapshot(manager))),
+            id,
+          ),
         );
       })
       .finally(() => {

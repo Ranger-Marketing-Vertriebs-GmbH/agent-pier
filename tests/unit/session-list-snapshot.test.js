@@ -132,6 +132,12 @@ test("concurrent lists share the next list and never see one started before them
   assert.equal(calls.filter((args) => args[1] === "-a").length, 3);
 });
 
+test("a list without stored sessions asks tmux nothing", async (t) => {
+  const { manager, calls } = await fixture(t, []);
+  assert.deepEqual(await manager.list(), []);
+  assert.deepEqual(calls, []);
+});
+
 test("only a confirming snapshot skips the live read", () => {
   assert.equal(snapshotConfirms({ status: "running" }, "0||"), true);
   assert.equal(snapshotConfirms({ status: "stopped" }, null), true);
