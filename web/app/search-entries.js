@@ -439,6 +439,7 @@ export function actionEntries() {
             kind === "restore"
               ? () => operationsCopy.inspectArchive
               : () => operationsCopy.createBackup,
+            alias(`${kind}Backup`),
           ].map(bilingual),
         },
       ),
