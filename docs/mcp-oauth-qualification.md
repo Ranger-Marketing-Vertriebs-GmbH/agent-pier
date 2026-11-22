@@ -375,7 +375,9 @@ The URL carries that `redirect_uri`; the authorization server redirects there, a
 
 `tests/integration/assistant-mcp-oauth-cross-version.test.js` logs in on the previous
 runtime, activates the candidate through `RuntimeUpdates` and refreshes the login on
-it twice. It passed 2026.9.8 → 2026.9.9 on 2026-10-14 (one SDK warning, no new
+it twice. Since its predecessor pins 2026.10.10 or later, it signs in through
+AgentPier's own CLI wrapper in [maintenance windows](#openclaw-20261010-and-later-login-and-logout-offline-only)
+and finally signs out on the candidate in a window as well. It passed 2026.9.8 → 2026.9.9 on 2026-10-14 (one SDK warning, no new
 registration or authorization) and runs with the cross-version variables, manually
 or in the nightly `cross-version` CI job
 (see [release qualification](assistant-release-qualification.md)). Both MCP OAuth

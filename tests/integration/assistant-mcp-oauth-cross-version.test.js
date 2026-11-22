@@ -16,8 +16,9 @@ import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/
 import {
   defaultBusyRetryDelaysMs,
   leaseLocked,
-  parseLoginOutput,
+  supervisorMcpCli,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-mcp-cli.js";
+import { OfflineCommands } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import {
   assistantModelServer,
@@ -79,8 +80,10 @@ test(
     const oauth = await oauthMcpServer();
     const held = await holdPort();
     let runtime;
+    let offline;
     t.after(async () => {
       try {
+        await offline?.close();
         await runtime?.close();
       } finally {
         store.close();
@@ -257,26 +260,20 @@ test(
     await bind();
 
     phase("log in");
-    // Log in with the previous runtime's CLI (redirect port held: URL, then --code).
-    let authorizationUrl;
-    for (let attempt = 1; !authorizationUrl; attempt++) {
-      const run = await cli(["mcp", "login", "docs"]);
-      assert.equal(run.code, 0, run.stderr);
-      const parsed = parseLoginOutput(run.stdout, "docs");
-      if (parsed?.redacted && attempt < 3) continue;
-      assert.ok(parsed?.authorizationUrl, run.stdout);
-      authorizationUrl = new URL(parsed.authorizationUrl);
-    }
-    const callback = await authorize(oauth, authorizationUrl, redirectUrl);
-    const done = await cli([
-      "mcp",
-      "login",
-      "docs",
-      "--code",
-      callback.searchParams.get("code"),
-    ]);
-    assert.equal(done.code, 0, done.stderr);
-    assert.equal(done.stdout, 'MCP OAuth credentials saved for "docs".\n');
+    // Log in with the previous runtime's CLI as AgentPier does (redirect port held:
+    // URL, then --code). OpenClaw 2026.10.10 and later refuse `mcp login` beside the
+    // Gateway that owns the state, so each step runs in a maintenance window of its
+    // own (offline-commands.js, wired as in login-wiring.js); the Gateway then starts
+    // again with AgentPier's compiled configuration, so the binding is applied again.
+    offline = new OfflineCommands({ supervisor: runtime, forget: async () => {} });
+    const mcpCli = supervisorMcpCli(runtime, { offline: (task) => offline.run(task) });
+    const { authorizationUrl } = await mcpCli.startLogin("docs");
+    await offline.idle();
+    await bind();
+    const callback = await authorize(oauth, new URL(authorizationUrl), redirectUrl);
+    await mcpCli.completeLogin("docs", callback.searchParams.get("code"));
+    await offline.idle();
+    await bind();
     exchanged(oauth);
     assert.equal((await authStatus()).state, "authorized");
     const call = { name: "docs__echo", arguments: { text: "before-update" } };
@@ -350,5 +347,13 @@ test(
     await runtime.restart();
     await bind();
     assert.equal((await authStatus()).state, "authorized");
+
+    // The updated Gateway releases its state ownership for a window: a sign-out on
+    // the candidate runs offline as AgentPier runs it after the switch.
+    phase("log out on the updated runtime");
+    await mcpCli.logout("docs");
+    await offline.idle();
+    await bind();
+    assert.equal((await authStatus()).state, "unauthenticated");
   },
 );

@@ -1125,6 +1125,17 @@ re-bound after `/reset` and `/new`) and the compiled MCP OAuth contract (a callb
 with `iss`, no `--issuer` passed) pass. Not covered locally: Linux and the WebKit
 browser suites, which CI runs.
 
+**Cross-version MCP OAuth from 2026.11.3.** The first release run with `v2.20.0-rc.8`
+as the only predecessor (2.20.0-rc.10) failed `assistant-mcp-oauth-cross-version`:
+the test ran `mcp login` on the previous runtime directly beside its running Gateway,
+which 2026.10.10 and later refuse ("requires exclusive offline state ownership"). The
+older predecessors all pinned 2026.10.9 or earlier, which never refused. AgentPier
+itself runs every login and logout in a maintenance window (`OfflineCommands`), so no
+product path was affected; the test now signs in through `supervisorMcpCli` with
+`OfflineCommands` as `login-wiring.js` wires it, and also signs out on the updated
+runtime in a window, which shows that the Gateway releases its ownership after the
+switch. Passed locally (macOS arm64) 2026.11.3 (rc.8 lock and patches) → 2026.11.6.
+
 **Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
 adds `include`/`exclude` selectors, which AgentPier does not set.
 
