@@ -38,9 +38,13 @@ function json(res, status, value, headers = {}) {
  * can be changed through `state.expiresIn`; `state.rejectTokens` makes `/mcp` refuse
  * every token, even a freshly refreshed one. `log` records every OAuth request (a
  * refused token request with its cause); `calls` every tool call with the token it
- * arrived with.
+ * arrived with. `issuerInCallback` adds RFC 9207's `iss` to the authorization
+ * response and announces it in the metadata.
  */
-export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
+export async function oauthMcpServer({
+  expiresIn = 3600,
+  issuerInCallback = false,
+} = {}) {
   const state = { expiresIn, refreshRevoked: false, rejectTokens: false };
   const clients = new Map();
   const codes = new Map();
@@ -128,6 +132,7 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
     const target = new URL(q.get("redirect_uri"));
     target.searchParams.set("code", code);
     if (q.has("state")) target.searchParams.set("state", q.get("state"));
+    if (issuerInCallback) target.searchParams.set("iss", origin);
     res.writeHead(302, { location: target.href }).end();
   }
 
@@ -212,6 +217,9 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
           grant_types_supported: ["authorization_code", "refresh_token"],
           code_challenge_methods_supported: ["S256"],
           token_endpoint_auth_methods_supported: ["none"],
+          ...(issuerInCallback && {
+            authorization_response_iss_parameter_supported: true,
+          }),
         });
       if (url.pathname === "/register" && req.method === "POST")
         return await register(req, res);

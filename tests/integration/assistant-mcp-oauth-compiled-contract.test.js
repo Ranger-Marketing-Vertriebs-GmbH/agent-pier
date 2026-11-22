@@ -30,7 +30,9 @@ test(
   "an OAuth MCP server logs in through AgentPier's callback and its tools reach the agent",
   options,
   async (t) => {
-    const docsServer = await oauthMcpServer();
+    // It names itself in the callback (RFC 9207): AgentPier passes `iss` to OpenClaw
+    // 2026.11.6 and later, never to 2026.11.3, whose `mcp login` refuses the option.
+    const docsServer = await oauthMcpServer({ issuerInCallback: true });
     t.after(() => docsServer.close());
     // Bound to the same agent and never logged in.
     const spareServer = await oauthMcpServer();
@@ -67,6 +69,7 @@ test(
       const logFrom = docsServer.log.length;
       const failFrom = h.failures.length;
       const back = await approve(authorizationUrl);
+      assert.equal(back.searchParams.get("iss"), docsServer.origin);
       const generation = h.runtime.generation;
       const done = await fetch(back, { redirect: "manual" });
       await h.settle(generation);
