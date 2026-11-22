@@ -388,6 +388,30 @@ for (const [label, use] of [
       await expect(card).not.toContainText("Always allow");
     });
 
+    test("a Hermes browser run can be allowed for the rest of the chat", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        agent: { shell: "approval" },
+        actions: [
+          execAction("browser", {
+            payload: {
+              ...execAction("x").payload,
+              command: "# Opening the shop\nnew_tab('https://shop.example')",
+              allowedDecisions: ["allow-once", "deny", "allow-chat"],
+              chatScope: true,
+            },
+          }),
+        ],
+      });
+      await page.goto(baseURL + "/agents/home/chats/chat");
+      const card = page.getByRole("article", { name: "Shell command awaiting approval" });
+      await card.getByRole("button", { name: "Allow for this chat" }).click();
+      await expect
+        .poll(() => state.decisions)
+        .toEqual([["browser", { revision: 1, decision: "allow-chat" }]]);
+    });
+
     test("exec approvals are decided once, always or denied", async ({ page }) => {
       const state = await setup(page, {
         agent: { shell: "approval" },

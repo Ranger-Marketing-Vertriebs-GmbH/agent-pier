@@ -27,7 +27,7 @@ import { hermesError } from "./hermes-rpc-client.js";
 // remember the exact command, exec-decisions.js).
 
 const defaultTimeoutS = 300;
-const pluginTarget = /^<[\w.-]{1,64}> \(plugin approval rule\)$/;
+const pluginTarget = /^<([\w.-]{1,64})> \(plugin approval rule\)$/;
 // The longest command a card carries.
 const commandMax = 32768;
 /**
@@ -117,6 +117,9 @@ export class HermesApprovalQueue {
       request: {
         command: text(shown, commandMax),
         ...(partial && { partial: true }),
+        // The tool a plugin's question is about (exec-approvals.js offers
+        // "Allow for this chat" for browser_exec).
+        ...(plugin && { tool: pluginTarget.exec(params.command)[1] }),
         cwd: this.cwd,
         agentId: this.runs.agentId,
         sessionKey,

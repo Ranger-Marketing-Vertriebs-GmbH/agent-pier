@@ -46,6 +46,7 @@ export const assistants = {
   execDecided: {
     "allow-once": "Befehl einmal erlaubt",
     "allow-always": "Befehl immer erlaubt",
+    "allow-chat": "Browser für diesen Chat erlaubt",
     deny: "Befehl abgelehnt",
   },
   execStates: {
@@ -447,8 +448,7 @@ export const assistants = {
   agentDeleteName: "Gib den Namen des Agenten genau ein, um ihn zu löschen.",
   agentDeleteBusy:
     "Der Agent bearbeitet noch eine Anfrage oder übernimmt seine Einstellungen. Versuche es danach erneut.",
-  agentDeleteMembers:
-    "Dieser Lead hat noch dauerhafte Team-Mitglieder. Lösche sie zuerst.",
+  agentDeleteMembers: "Dieser Lead hat dauerhafte Team-Mitglieder. Lösche sie zuerst.",
   agentDeleteService:
     "Der Agentendienst muss laufen, um einen Agenten zu löschen. Starte ihn und versuche es erneut.",
   telegramSendersRestartRequired:

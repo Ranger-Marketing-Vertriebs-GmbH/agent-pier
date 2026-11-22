@@ -18,7 +18,7 @@ function onceReason(plan) {
 
 /**
  * A shell command waiting for the owner. `decide(id, decision)` sends
- * allow-once, allow-always or deny. When OpenClaw withholds allow-always,
+ * allow-once, allow-always, deny or, for a Hermes agent's browser run, allow-chat. When OpenClaw withholds allow-always,
  * AgentPier answers it from the frozen `allowAlwaysPlan`: program entries the
  * owner confirms after reading what they allow, or allow-once with the reason.
  */
@@ -140,6 +140,18 @@ export default function ExecApprovalCard({ action, decide }) {
           >
             {copy.allowOnce}
           </button>
+          {/* A Hermes agent's browser_exec run: answered for the rest of this chat
+              (server exec-approvals.js chatScoped). */}
+          {payload.allowedDecisions?.includes("allow-chat") && (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy}
+              onClick={() => send("allow-chat")}
+            >
+              {copy.allowChat}
+            </button>
+          )}
           {/* A task member's shell is granted for one task, a hook run's command is
               one event's: never "Always allow". */}
           {!payload.onceOnly && (

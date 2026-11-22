@@ -45,6 +45,7 @@ export const assistants = {
   execDecided: {
     "allow-once": "Command allowed once",
     "allow-always": "Command always allowed",
+    "allow-chat": "Browser allowed for this chat",
     deny: "Command denied",
   },
   execStates: {

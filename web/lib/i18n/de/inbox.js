@@ -102,6 +102,7 @@ export const inboxCopy = {
     "allow-once": "Einmal erlaubt",
     "allow-always": "Immer erlaubt",
     "allow-session": "Für diese Session erlaubt",
+    "allow-chat": "Für diesen Chat erlaubt",
     "allow-project": "Für dieses Projekt erlaubt",
     "allow-default": "Automatisch erlaubt",
   },

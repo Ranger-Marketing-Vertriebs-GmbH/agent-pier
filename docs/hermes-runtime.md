@@ -76,11 +76,16 @@ itself, in the approval card.
 **The browser asks too.** Hermes's `browser_exec` ([browser](#browser)) runs the agent's
 Python on the host and passes none of Hermes's approval checks, so with the browser on
 an asking level the guard plugin asks before it as Hermes asks before an `execute_code`
-run (`browserAsks` in its `guard.json`): on **Dangerous commands** with one rule key for
-every run, so **Allow for this chat** covers the browser for the rest of that chat; on
-**Every command** before each run, with its own key; in a routine run through the team
-bridge like any Python run ([routines](#routines)). Full access asks nobody, and
-without a shell Hermes offers no `browser_exec` at all.
+run (`browserAsks` in its `guard.json`): on **Dangerous commands** the card offers
+**Allow for this chat** beside **Allow once**. Hermes offers only once or deny for a
+plugin's question, so AgentPier answers it once and every later `browser_exec` card of
+the same agent's same session itself (`allow-chat`, `exec-approvals.js`, recorded as
+answered by the chat's grant). The grant lives in AgentPier's memory: it never reaches
+another chat, a routine or a hook run, ends when the chat is reset or replaced (a new
+session) and after an AgentPier restart, and a shortened script is never covered. On
+**Every command** each run asks, with its own key; in a routine run the guard asks
+through the team bridge like any Python run ([routines](#routines)). Full access asks
+nobody, and without a shell Hermes offers no `browser_exec` at all.
 
 **Always allow.** AgentPier never offers Hermes's own "always" answer: it would allow a
 whole pattern class (every "recursive delete") for good in `command_allowlist`, which

@@ -3,6 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { rememberedCommands } from "./exec-remembered.js";
+import { chatKey } from "./exec-approvals.js";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // The owner's decision on an exec approval goes to the Gateway exactly once, for
@@ -93,7 +94,7 @@ export async function decideExec(
   action,
   decision,
   log = (l) => console.warn(l),
-  { remembered = false } = {},
+  { remembered = false, chat = false } = {},
 ) {
   // The answer and the allowlist entry it allows go to the runtime that asked: the
   // shared host, or a Hermes agent's own set.
@@ -117,9 +118,14 @@ export async function decideExec(
       temporaryMember(w.a.store.getAssistant(action.assistantId)))
   )
     throw assistantProblem("invalid");
+  // "Allow for this chat" exists only on a card that offers it (exec-approvals.js
+  // chatScoped); the runtime is answered once, AgentPier answers the chat's later
+  // runs itself.
+  if (decision === "allow-chat" && action.payload?.chatScope !== true)
+    throw assistantProblem("invalid");
   const { approvalId } = action.payload;
   const fallback = decision === "allow-always" && allowAlwaysByAgentPier(action.payload);
-  const sent = fallback ? "allow-once" : decision;
+  const sent = fallback || decision === "allow-chat" ? "allow-once" : decision;
   let uncertain = false;
   // While the decision is in flight the Gateway's resolved echo leaves the action
   // to this path, so the result recorded is the owner's decision.
@@ -166,12 +172,14 @@ export async function decideExec(
           }),
         };
     }
+    if (decision === "allow-chat") w.exec.chatGrants?.add(chatKey(action));
     const next = w.store.patch(action.id, {
       state: decision === "deny" ? "declined" : "completed",
       result: {
         decision,
         ...(fallback ? { resolvedAs: sent, allowlist } : {}),
         ...(remembered ? { by: "remembered" } : {}),
+        ...(chat ? { by: "chat" } : {}),
       },
     });
     w.a.changed?.({ feeds: false });
