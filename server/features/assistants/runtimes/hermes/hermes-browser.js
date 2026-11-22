@@ -78,6 +78,8 @@ export class HermesBrowser {
     fetch = globalThis.fetch,
     WebSocketImpl = globalThis.WebSocket,
     lookup,
+    // Further Chromium flags before the start page (contract tests map test names).
+    args = [],
     platform = process.platform,
   }) {
     // `directory`: the folder, or a function answering it (read when first needed).
@@ -88,6 +90,7 @@ export class HermesBrowser {
       fetch,
       WebSocketImpl,
       lookup,
+      args,
       platform,
     });
     this.child = null;
@@ -150,12 +153,16 @@ export class HermesBrowser {
     const { platform } = this;
     const child = this.spawn(
       settings.executablePath,
-      chromiumArgs({
-        port,
-        userData: this.userData,
-        headless: settings.headless !== false,
-        platform,
-      }),
+      [
+        ...chromiumArgs({
+          port,
+          userData: this.userData,
+          headless: settings.headless !== false,
+          platform,
+        }).slice(0, -1),
+        ...this.args,
+        "about:blank",
+      ],
       {
         detached: true,
         stdio: "ignore",

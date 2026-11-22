@@ -361,9 +361,7 @@ test("each launch runs the navigation guard on the browser's own socket", async 
   assert.deepEqual(guard.sent[0], {
     id: 1,
     method: "Fetch.enable",
-    params: {
-      patterns: [{ urlPattern: "*", resourceType: "Document", requestStage: "Request" }],
-    },
+    params: { patterns: [{ urlPattern: "*", requestStage: "Request" }] },
   });
   const paused = async (url, sessionId) => {
     const before = guard.sent.length;
