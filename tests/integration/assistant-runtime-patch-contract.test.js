@@ -12,13 +12,14 @@ import {
 import { assertCodexClientVersionFloor } from "../helpers/codex-client-version-floor.js";
 import { assertNoRestartResume } from "../helpers/restart-resume-guard.js";
 import { assertSupersededPublicationRetried } from "../helpers/superseded-publication-guard.js";
+import { assertHydratedToolsKept } from "../helpers/hydrated-tools-guard.js";
 
 // The pinned runtime as the installer provisioned it carries AgentPier's patches of
 // its version (runtime-bundle-patches.js): the patched text, the receipt that records
 // them, and OpenClaw's content inventory naming the patched file's digest and size.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "the provisioned pinned runtime carries the lease release and restart resume patches",
+  "the provisioned pinned runtime carries the lease release, restart resume and hydrated tools patches",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
@@ -83,5 +84,19 @@ test(
     const app = path.join(installed, "app", "node_modules", "openclaw");
     const found = assertSupersededPublicationRetried(app);
     assert.ok(found.conversion.length >= 1, JSON.stringify(found));
+  },
+);
+
+// Independent of any patch: a tool-search directory tool the model called by name is
+// still declared in the next turn, so its call and result stay native.
+test(
+  "the provisioned pinned runtime keeps hydrated tool-search tools for the next turn",
+  { skip: !installed },
+  () => {
+    const app = path.join(installed, "app", "node_modules", "openclaw");
+    assert.deepEqual(
+      assertHydratedToolsKept(app).map((site) => site.keeps),
+      [true],
+    );
   },
 );

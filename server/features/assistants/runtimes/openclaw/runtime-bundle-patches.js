@@ -37,6 +37,19 @@ import { createHash } from "node:crypto";
  * every marker (`resumeAfterRestart`, `mainRestartRecovery`) but admits no resume
  * input, and the queued messages a marker reserved are withdrawn with every other
  * orphaned input of the previous Gateway instead of being sent again.
+ *
+ * 2026.11.6, "hydrated-tools-kept" (and "-list"): with tool search in directory mode a
+ * model may call a directory tool by name; the run hydrates it into the turn's tool
+ * list (agent-core `resolveToolCallTool`). The next turn's context then starts again
+ * from the session's tools (`createSessionPrepareNextTurnWithContext`), so the
+ * hydrated tool is no longer declared, and the Chat Completions request builder
+ * (openclaw#174797, new in 2026.11.6) replays the call and its result as assistant
+ * text: "[tool call id=… name=…]", "[tool result …]". Strict providers refuse that
+ * trailing assistant message, and a model may call the tool again (openclaw#202415,
+ * fixed upstream by #202436 after 2026.11.6). The next turn now keeps the hydrated
+ * tools while the session's own tool list is unchanged, so the exchange stays a
+ * native tool call and result; a tool list the policy changed drops them, and a later
+ * call hydrates the tool again.
  */
 export const runtimeBundlePatches = Object.freeze({
   "2026.11.6": Object.freeze([
@@ -66,6 +79,25 @@ export const runtimeBundlePatches = Object.freeze({
       file: "dist/session-restart-resume-BzRgzT_h.mjs",
       before: "s.flatMap(({ entry: e }) => e.resumeAfterRestart?.queuedInputIds ?? [])",
       after: "[] /* AgentPier never replays a queued message after a restart */",
+    }),
+    // Drop both hydrated-tools entries once the pin carries openclaw#202436; the patch
+    // contract and verify-assistant-installation.mjs fail while neither is in place
+    // (tests/helpers/hydrated-tools-guard.js).
+    Object.freeze({
+      id: "hydrated-tools-kept",
+      file: "dist/tool-send-receipts-oBTeJUW8.mjs",
+      before: "const v = d || !sameTools(m, s);",
+      after:
+        "const keepHydrated = s.length === 0 || sameTools(m, s) /* AgentPier */; " +
+        "const v = !sameTools(m, s) || d;",
+    }),
+    Object.freeze({
+      id: "hydrated-tools-kept-list",
+      file: "dist/tool-send-receipts-oBTeJUW8.mjs",
+      before: "tools: v ? m.slice() : c.context.tools?.slice()",
+      after:
+        "tools: v ? [...m, ...(keepHydrated ? (c.context.tools ?? []).filter((e) => " +
+        "!m.some((t) => t.name === e.name)) : [])] : c.context.tools?.slice()",
     }),
   ]),
 });

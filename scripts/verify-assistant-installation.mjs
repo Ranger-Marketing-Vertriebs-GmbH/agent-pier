@@ -23,6 +23,7 @@ import { readJSON } from "../server/lib/storage.js";
 import { assertCodexClientVersionFloor } from "../tests/helpers/codex-client-version-floor.js";
 import { assertNoRestartResume } from "../tests/helpers/restart-resume-guard.js";
 import { assertSupersededPublicationRetried } from "../tests/helpers/superseded-publication-guard.js";
+import { assertHydratedToolsKept } from "../tests/helpers/hydrated-tools-guard.js";
 
 const repository = path.resolve(import.meta.dirname, "..");
 
@@ -340,6 +341,8 @@ export async function qualifyFreshInstallation() {
     assertNoRestartResume(path.dirname(installed.entryPath));
     // A superseded startup publication is retried, not left degraded, patched or not.
     assertSupersededPublicationRetried(path.dirname(installed.entryPath));
+    // A tool-search tool called by name stays a native tool call in the next turn.
+    assertHydratedToolsKept(path.dirname(installed.entryPath));
     const versionEnv = runtimeEnvironment(paths, installed.nodePath);
     const version = (args) =>
       runQualificationCommand(installed.nodePath, args, {
