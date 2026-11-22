@@ -18,8 +18,10 @@ import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.j
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Answers owner turns with text; a pre-compaction memory flush appends one note to
-// the daily file the flush prompt names, then stays silent.
-async function flushingModel(seen) {
+// the daily file the flush prompt names, then stays silent. The flush's first answer
+// takes `flushDelayMs`, as on a loaded runner: OpenClaw 2026.11.6 flushes in session
+// maintenance after the turn answered, so nothing else waits for it.
+async function flushingModel(seen, { flushDelayMs = 1500 } = {}) {
   const server = http.createServer(async (req, res) => {
     let raw = "";
     for await (const part of req) raw += part;
@@ -31,6 +33,7 @@ async function flushingModel(seen) {
       body.messages.findLastIndex((m) => m.role === "tool") >
       body.messages.findLastIndex((m) => m.role === "user");
     if (flush) seen.push({ target, answered });
+    if (flush && !answered) await delay(flushDelayMs);
     const delta =
       flush && target && !answered
         ? {
@@ -227,6 +230,17 @@ test(
       ledger.transition(attempt.id, "completed");
       return done;
     }
+    // A flush since request `from` that came back with its write's result: the write
+    // passed the guard (allowed or refused) before OpenClaw asked the model again. On
+    // 2026.11.6 the flush runs in session maintenance after the turn answered, so no
+    // turn waits for it; nothing reports its end either, so the model's second call is
+    // the signal. Bounded: one flush is two model calls and a write.
+    const flushed = async (from) => {
+      const deadline = Date.now() + contractTimeout(60000);
+      while (!seen.slice(from).some((s) => s.answered) && Date.now() < deadline)
+        await delay(100);
+      return seen.slice(from).some((s) => s.answered);
+    };
     // A forwarded turn near the context window flushes too, but never writes.
     await turn("Forwarded: the router lives at 10.6.6.6.", {
       kind: "telegram",
@@ -236,7 +250,7 @@ test(
       kind: "telegram",
       forwarded: true,
     });
-    assert.ok(seen.length >= 1, "the Gateway ran a memory flush");
+    assert.ok(await flushed(0), "the Gateway ran a memory flush to its write's result");
     assert.ok(
       seen.every((s) => s.target),
       "the flush names its daily note",
@@ -260,10 +274,20 @@ test(
     fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
     fs.writeFileSync(path.join(workspace, seen[0].target), "existing note\n");
     const flushes = seen.length;
-    // 2026.11.6 compacts (and flushes) only every few turns after a compaction.
-    for (let n = 0; n < 6 && seen.length === flushes; n++)
+    // 2026.11.6 compacts (and flushes) only every few turns after a compaction, in
+    // maintenance after a turn that a next turn would preempt: each turn is given a
+    // moment for its flush to start before the next one.
+    const started = async () => {
+      const deadline = Date.now() + contractTimeout(10000);
+      while (seen.length === flushes && Date.now() < deadline) await delay(100);
+      return seen.length > flushes;
+    };
+    for (let n = 0; n < 6; n++) {
       await turn(`My router ${n} lives at 10.0.0.${n + 1}.`, { kind: "owner" });
+      if (await started()) break;
+    }
     assert.ok(seen.length > flushes, "the owner's run flushed");
+    assert.ok(await flushed(flushes), "the owner's flush got its write's result");
     const admitted = policies.filter(
       (p) => p.sessionKey.includes(":internal-session-effects:") && p.allow,
     );
