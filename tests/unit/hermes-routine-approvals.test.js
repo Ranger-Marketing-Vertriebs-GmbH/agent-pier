@@ -184,6 +184,7 @@ test("an approval-level home asks the owner in routine runs only with the team b
   assert.deepEqual(JSON.parse(home.files["plugins/agentpier-guard/guard.json"]), {
     everyCommand: false,
     cronAsks: true,
+    browserAsks: false,
   });
   // Without the bridge Hermes keeps its own deny; full access asks nobody.
   for (const other of [

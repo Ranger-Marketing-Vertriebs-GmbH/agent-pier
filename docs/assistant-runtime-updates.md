@@ -737,18 +737,17 @@ exactly those items as [for OpenClaw](#pause-agents-and-update) (turns stopped t
 their Hermes session, unknown outcomes reviewed, routine runs waited for).
 
 **The pin.** `server/features/assistants/runtimes/hermes/hermes-manifest.json` names a
-release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,
-commit `bf0203a7`, since 2026-11-01), the SHA-256 of its source archive and of the
+release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.23.3`,
+commit `caafe538`, since 2026-11-22), the SHA-256 of its source archive and of the
 `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the messaging
 gateway, `mcp`, for the agents' MCP servers, and `ddgs`, for DuckDuckGo web search), the CPython version, a uv version
 with the SHA-256 of its release archive per platform (macOS and Linux, x64 and arm64),
-the agent-browser release Hermes's package lock pins (`agentBrowser`), and the
-pypdfium2 release with one wheel and its SHA-256 per platform (`pdfium`), which
+and the pypdfium2 release with one wheel and its SHA-256 per platform (`pdfium`), which
 AgentPier's pdf tool reads PDF pages with ([Hermes runtime](hermes-runtime.md#pdfs)). The archive
 is the commit's, so a moved
 tag cannot change what is installed. Hermes carries no version of its own in the archive
 (`pyproject.toml` says `0.0.0`); the version AgentPier shows is the tag without its `v`
-(`0.22.5`), or the first 12 characters of the commit for a pin of a bare commit, and
+(`0.23.3`), or the first 12 characters of the commit for a pin of a bare commit, and
 `hermes --version` reports the upstream release date it carries.
 
 **Installation** (`runtimes/hermes/hermes-install.js`, under its own installation lock
@@ -764,21 +763,20 @@ release. uv runs with `UV_NO_CONFIG`, a private `HOME` and `TMPDIR`,
 AgentPier's folder; the only inherited variables are the proxy settings. No Python of
 the host, no `~/.hermes`, `~/.local/bin` or global uv configuration is used. An identity
 check runs the installed Python once (release date, CPython version and whether the
-gateway discovery, gateway client and `websockets` modules the RPC bridge needs and the
-MCP SDK import) and `hermes --version`, with a scratch `HERMES_HOME`. Then the
-agent-browser binary Hermes's browser tools run goes to `tools/agent-browser`, on the
-Hermes processes' PATH: the release Hermes's own package lock (`pm/lock.json`) pins,
-recorded in the manifest as `agentBrowser` (version, npm archive, SHA-256), checked and
-unpacked for the platform. Then the pinned pypdfium2 wheel of the platform, checked
+gateway discovery, gateway client and `websockets` modules the RPC bridge needs, the
+MCP SDK and browser-harness, the engine of Hermes's `browser_exec`, import) and
+`hermes --version`, with a scratch `HERMES_HOME`. Then the pinned pypdfium2 wheel of the platform, checked
 against its SHA-256, goes into the environment with the installation's own uv (`uv pip
 install --no-deps --no-index --no-cache`, it has no dependencies), and its import is
 checked; `tools/pdfium.json` records it (`hermes-pdfium.js`). A `receipt.json` written last marks the installation
 complete; a folder without one is a crashed attempt and is replaced. The uv cache is
 removed afterwards. The installation needs about 550 MB (source 290 MB, environment
-145 MB, CPython 75 MB, uv 27 MB, agent-browser 10 MB, pypdfium2 8 MB on macOS arm64).
-An installation from before the browser gets its agent-browser, one from before the pdf
-tool its pypdfium2, in place at the next server start (`hermesStagingDue`); running
-agents pick it up at their next pdf call.
+145 MB, CPython 75 MB, uv 27 MB, pypdfium2 8 MB on macOS arm64). An installation from
+before the pdf tool gets its pypdfium2 in place at the next server start
+(`hermesStagingDue`); running agents pick it up at their next pdf call. Since Hermes
+v0.23 nothing else is added: its browser runs on browser-harness from the locked
+environment, and the agent-browser binary an installation of v0.22.5 holds in its
+`tools/` stays there untouched for a rollback.
 
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
@@ -796,7 +794,12 @@ a rollback leaves those as they are). Each home's `.env`, `auth.json` and Hermes
 own `.env` backups are sealed with the snapshot's key, as in a host backup, and a
 restore unseals them. Hermes has no downgrade path and migrates its own `config.yaml` when
 it starts, so there is no migration step; a failed validation restores the snapshot
-and the previous selection. A native contract (`tests/integration/hermes-update-contract.test.js`)
+and the previous selection. AgentPier supports only the release it pins; the one
+rollback target is the previous pin (now `v0.22.5`), and the homes it compiles run on
+both: a home from before `v0.23.3` loses `browser.backend` at its next start, before
+Hermes reads it, and keeps `agent.clarify_timeout` at an hour on either release; the
+RPC bridge writes through `persistence_assembly` on `v0.23.3` and through
+`hermes_state_registry` on `v0.22.5`. A native contract (`tests/integration/hermes-update-contract.test.js`)
 updates an agent from the previous release to the pinned one this way, a rollback first
 and then a commit. Runtime retention keeps the installations a selection,
 candidate or backup names. The owner's advanced settings apply to the Hermes version they were
@@ -817,8 +820,7 @@ is connected; a stop or crash closes it, so a restart is a new connection and vi
 bound to the old one refuse. Both processes get an environment built from nothing:
 `HOME`, `HERMES_HOME`, `TMPDIR` and the XDG folders inside
 `<data>/assistants/hermes/{home,state,tmp}/<agent>/`, `PATH` with Hermes's environment,
-the installation's `tools/` (agent-browser), the folders AgentPier provides and the
-system folders, UTF-8, proxy settings and the
+the folders AgentPier provides and the system folders, UTF-8, proxy settings and the
 time zone; no AgentPier token or owner credential. Each runs in its own process group;
 stopping ends both groups (TERM, then KILL after 10 seconds), then any gateway that owns
 the home without being the set's, and the control socket folder Hermes leaves in the
@@ -836,9 +838,8 @@ node scripts/refresh-hermes-runtime-lock.mjs --tag <vX.Y.Z> [--uv <version>] [--
 `--tag` resolves the commit the release tag names with `git ls-remote` (an annotated
 tag's peeled commit); `--commit <40-character sha>` pins a bare commit instead, and both
 together must agree. The script downloads the archive and each uv release archive,
-checks every uv archive against the `.sha256` file uv publishes beside it, reads the
-agent-browser pin from the archive's `pm/lock.json` and checks that archive against
-it, refuses a commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
+checks every uv archive against the `.sha256` file uv publishes beside it, refuses a
+commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
 with the recorded hashes. It keeps the `pdfium` pin, which is independent of Hermes and
 changes by hand (a release that has been out for a while; its wheel hashes from PyPI). Run without arguments, it reproduces the shipped manifest byte
 for byte. Review the diff, then run the Hermes contracts. A new Hermes version also
@@ -861,7 +862,7 @@ job of the `Assistant runtime` workflow runs every
 pull requests and also on macOS arm64 and Linux arm64 otherwise; a skipped contract
 fails the job. GitHub rate-limits anonymous downloads on shared runners, so the job first restores
 or fetches the archives AgentPier downloads for the pinned and the previous Hermes (uv,
-the Hermes source, agent-browser, PDFium; `node scripts/hermes-contract-downloads.mjs
+the Hermes source, PDFium; `node scripts/hermes-contract-downloads.mjs
 --prefetch <absolute dir>`, which waits out a GitHub rate limit for up to 12 minutes),
 saves them under a key of both manifests and the runner
 platform before any contract runs, and sets `AGENTPIER_HERMES_DOWNLOAD_CACHE` to that

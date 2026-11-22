@@ -43,6 +43,7 @@ agent:
     - vision
     - web
   reasoning_effort: none
+  clarify_timeout: 3600
 terminal:
   backend: local
 approvals:

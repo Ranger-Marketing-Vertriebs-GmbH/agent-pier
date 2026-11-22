@@ -13,8 +13,9 @@ import { readHermesConfig } from "../../server/features/assistants/runtimes/herm
 // A temporary team member's browser on the pinned Hermes
 // (AGENTPIER_HERMES_CONTRACT_RUNTIME) with this machine's browser app: a Hermes lead
 // with the browser grants it to a task member, the member's home turns Hermes's
-// browser tools on, and a delegated task opens a local page in the member's own
+// browser on, and a delegated task opens a local page in the member's own
 // AgentPier-owned Chromium, held as a member slot (agent-browsers.js ownMemberSlot).
+// A task member has no shell, so Hermes offers it browser_cdp, not browser_exec.
 // The browser app: hermesContractBrowser (hermes-native.js).
 const contractBrowser = hermesContractBrowser();
 const options = {
@@ -118,20 +119,28 @@ test(
     await memberChat.reply("ECHO:");
 
     // A delegated task opens the page in the member's own Chromium.
-    const task = `CALL: browser_navigate ${JSON.stringify({ url })}`;
+    const open = { method: "Target.createTarget", params: { url } };
+    const task = `CALL: browser_cdp ${JSON.stringify(open)}`;
     await chat.send(
       "delegate",
       `CALL: agentpier_team_delegate ${JSON.stringify({ memberId: record.id, task })}`,
     );
     await chat.reply(/TOOL_DONE: .*requestId/);
-    const opened = await memberChat.reply(/TOOL_DONE:[\s\S]*"title": "Member page"/);
-    assert.match(opened.text, /Member page/);
+    await memberChat.reply(/TOOL_DONE:[\s\S]*targetId/);
     assert.equal(assistants.browsers.isRunning(member.id), true);
+    const port = Number(new URL(config.browser.cdp_url).port);
+    await eventually(
+      async () =>
+        (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).some(
+          (tab) => tab.title === "Member page",
+        ),
+      60000,
+      "the member page in the member's browser",
+    );
     assert.equal(
       assistants.browsers.viewProfile(member.id).name,
       `agent-${member.id.toLowerCase()}`,
     );
-    const port = Number(new URL(config.browser.cdp_url).port);
     assert.equal((await fetch(`http://127.0.0.1:${port}/json/version`)).ok, true);
 
     await fleet.close();

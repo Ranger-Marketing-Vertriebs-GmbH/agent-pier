@@ -111,3 +111,30 @@ test("saving and revoking remain pending until the running policy changes, with 
     "a starting or reconnecting runtime also queues a restart",
   );
 });
+
+test("a saved setting applies every Hermes agent that browses", async (t) => {
+  const applied = [];
+  const profiles = [
+    {
+      id: "h1",
+      runtimeAgentId: "ap-h1",
+      runtime: "hermes",
+      capabilities: { browser: true },
+    },
+    { id: "h2", runtimeAgentId: "ap-h2", runtime: "hermes", capabilities: {} },
+    { id: "o1", runtimeAgentId: "ap-o1", capabilities: { browser: true } },
+  ];
+  const service = new WebToolsChanges({
+    assistants: {
+      runtime: { client: { ready: false } },
+      store: { listAssistants: () => profiles },
+      config: { apply: async (id) => applied.push(id) },
+    },
+    browserNetwork: settings(t),
+    synchronization: { pending: { request: () => {} } },
+  });
+  await service.saveBrowserNetwork({ revision: 0, allowPrivateNetwork: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  // Its home and its browser's navigation guard take the setting at that restart.
+  assert.deepEqual(applied, ["h1"]);
+});

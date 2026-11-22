@@ -1,12 +1,13 @@
 // AgentPier's routine model (../../routine-definition.js) in the cron jobs of Hermes's
-// messaging gateway and back (Hermes v0.22.5 cron/jobs.py, the gateway-hosted REST
+// messaging gateway and back (Hermes v0.23.3 cron/jobs.py, the gateway-hosted REST
 // routes hermes_cli/web_routers/cron.py). Hermes stores what it schedules and runs:
 // the name, the prompt, the schedule (a five-field cron expression, an interval in
 // minutes or one aware ISO time), a model override, `enabled`, delivery `local` (the
 // result stays in Hermes; AgentPier delivers it, hermes-routines.js) and the run
-// state. Everything else of the model rides along in the job's own `agentpier` field
-// (Hermes keeps fields it does not know, update_job merges them): the marker, the
-// agent, target, delivery, the prompt's run settings, the time zone and a revision.
+// state. Everything else of the model is AgentPier's own, kept by job id beside the
+// agent's home (hermes-routine-meta.js) and read as the job's `agentpier` field: the
+// marker, the agent, target, delivery, the prompt's run settings, the time zone and a
+// revision.
 // A cron routine in another time zone than the agent's process runs as a pinned job
 // (hermes-cron-zone.js); its own expression rides in the meta.
 
@@ -167,17 +168,17 @@ export function hermesCreate(routine, options) {
   ]);
 }
 
-/** The update fields (CronJobUpdate `updates`) of a patch, its meta included. */
-export function hermesUpdates(patch, meta, options) {
-  return {
-    ...defined([
-      ["name", patch.name],
-      ["schedule", patch.schedule && hermesSchedule(patch.schedule, options)],
-      ["prompt", patch.prompt?.text],
-      ["model", patch.prompt ? (modelId(patch.prompt.model) ?? null) : undefined],
-    ]),
-    [metaField]: meta,
-  };
+/**
+ * The update fields (CronJobUpdate `updates`) of a patch: only fields Hermes lets its
+ * REST routes update; AgentPier's meta stays its own (hermes-routine-meta.js).
+ */
+export function hermesUpdates(patch, options) {
+  return defined([
+    ["name", patch.name],
+    ["schedule", patch.schedule && hermesSchedule(patch.schedule, options)],
+    ["prompt", patch.prompt?.text],
+    ["model", patch.prompt ? (modelId(patch.prompt.model) ?? null) : undefined],
+  ]);
 }
 
 // --- from Hermes ------------------------------------------------------------------

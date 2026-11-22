@@ -28,11 +28,6 @@ function manifestOf(bytes) {
     archiveUrl: "https://example.test/source.tgz",
     archiveSha256: sha(bytes.source),
     uvChecksums: { "linux-x64": sha(bytes.uv) },
-    agentBrowser: {
-      ...base.agentBrowser,
-      url: "https://example.test/ab.tgz",
-      sha256: sha(bytes.browser),
-    },
     pdfium: {
       version: "1",
       wheels: {
@@ -44,18 +39,17 @@ function manifestOf(bytes) {
 const bytes = {
   source: Buffer.from("source"),
   uv: Buffer.from("uv"),
-  browser: Buffer.from("browser"),
   wheel: Buffer.from("wheel"),
 };
 
-test("both pins name their uv, source, agent-browser and PDFium archives per target", () => {
+test("both pins name their uv, source and PDFium archives per target", () => {
   for (const manifest of [hermesManifest, previousHermesManifest()]) {
     const archives = hermesArchives(manifest, "linux-arm64");
-    assert.equal(archives.size, 4);
+    assert.equal(archives.size, 3);
     assert.equal(archives.get(manifest.archiveUrl), manifest.archiveSha256);
     assert.ok([...archives.values()].includes(manifest.uvChecksums["linux-arm64"]));
   }
-  assert.equal(hermesArchives(hermesManifest, "plan9-mips").size, 2);
+  assert.equal(hermesArchives(hermesManifest, "plan9-mips").size, 1);
 });
 
 test("the cache serves a pinned archive once fetched and passes other URLs through", async (t) => {
@@ -107,7 +101,6 @@ test("prefetch stores every pinned archive and fails on a mismatch", async (t) =
   const manifest = manifestOf(bytes);
   const byUrl = new Map([
     [manifest.archiveUrl, bytes.source],
-    [manifest.agentBrowser.url, bytes.browser],
     [manifest.pdfium.wheels["linux-x64"].url, bytes.wheel],
     [
       `https://github.com/astral-sh/uv/releases/download/${manifest.uvVersion}/uv-x86_64-unknown-linux-gnu.tar.gz`,
@@ -119,7 +112,7 @@ test("prefetch stores every pinned archive and fails on a mismatch", async (t) =
     ...options,
     download: async (url) => byUrl.get(url),
   });
-  assert.equal(fs.readdirSync(dir).length, 4);
+  assert.equal(fs.readdirSync(dir).length, 3);
   await assert.rejects(
     prefetchHermesArchives(folder(t), {
       ...options,

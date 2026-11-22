@@ -11,7 +11,7 @@ import {
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 
 // Mixture of Agents on Hermes (ADR 0007, step 7a; hermes_cli/moa_config.py of the
-// pinned 0.22.5): advisors are named providers `agentpier-advisor-<n>`, the agent's
+// pinned 0.23.3): advisors are named providers `agentpier-advisor-<n>`, the agent's
 // own model the aggregator `agentpier-model`, the preset `agentpier`. Hermes repairs
 // a broken slot with its built-in providers, so AgentPier never writes one.
 const endpoint = (id, key = `sk-${id}`, extra = {}) => ({

@@ -12,7 +12,7 @@ import { speaksChatCompletions } from "./model.js";
 // (hermes-tool-guard.js pdfGuard): files of the agent's own folder only, never
 // attachments of another chat or its secrets; and which model reads:
 // - its own model when that takes images: the text and page images go back to it as
-//   a multimodal tool result (Hermes v0.22.5 tools/registry.py `_multimodal`), which
+//   a multimodal tool result (Hermes v0.23.3 tools/registry.py `_multimodal`), which
 //   Hermes hands to a model it knows sees images (model.js `supports_vision`);
 // - else the owner's PDF fallback model (pdf-model-settings.js): `fallback` below,
 //   called by the tool itself, directly, never through Hermes's auxiliary client,

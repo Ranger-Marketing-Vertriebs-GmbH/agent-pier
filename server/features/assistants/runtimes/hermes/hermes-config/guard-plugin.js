@@ -1,8 +1,16 @@
 import { teamDirectory } from "./team-plugin.js";
 
 // The AgentPier guard: a Hermes profile plugin (website/docs/user-guide/features/
-// plugins.md) with one `pre_tool_call` hook and two jobs.
+// plugins.md) with one `pre_tool_call` hook and three jobs.
 //
+// - The browser (`browserAsks`): Hermes's `browser_exec` runs the agent's Python on
+//   the host through browser-harness (tools/browser_use_cli.py), past every terminal
+//   check, and Hermes asks before none of it. On an asking shell level the hook asks
+//   the owner as Hermes asks before an execute_code run (tools/approval.py
+//   check_execute_code_guard): in a chat with one rule key for every run, so "allow
+//   for this chat" covers the browser for the rest of the session; on every-command
+//   each run asks with its own key, as every command does; in a routine run through
+//   the team bridge like every Python run.
 // - Every command (`everyCommand`): in a chat it returns `{"action": "approve"}` for
 //   every shell command, Python run and input to a running process, so each asks the
 //   owner (website/docs/user-guide/features/hooks.md; tools/approval.py
@@ -66,7 +74,9 @@ except Exception:  # A Hermes without it: the guard asks for every command itsel
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _BRIDGE = os.path.join(_DIR, "..", "${teamDirectory.split("/").at(-1)}", "bridge.json")
 # The argument that holds what the tool runs.
-_RUNS = {"terminal": "command", "execute_code": "code"}
+_RUNS = {"terminal": "command", "execute_code": "code", "browser_exec": "code"}
+# One rule key for every browser_exec run in a chat on the "approval" level.
+_BROWSER_KEY = "agentpier:browser_exec"
 # process_manage actions that send input to a running process.
 _INPUT = {"write", "submit"}
 # Longer texts are shortened in the approval card; the rule key covers all of it.
@@ -108,7 +118,7 @@ def _flagged(tool_name, text):
         return False
 
 
-def _chat_guard(tool_name, args):
+def _chat_guard(tool_name, args, every=True):
     text = _text(tool_name, args)
     if text is None or _flagged(tool_name, text):
         return None
@@ -117,7 +127,7 @@ def _chat_guard(tool_name, args):
     return {
         "action": "approve",
         "message": shown,
-        "rule_key": f"agentpier:{tool_name}:{digest}",
+        "rule_key": f"agentpier:{tool_name}:{digest}" if every else _BROWSER_KEY,
     }
 
 
@@ -207,6 +217,8 @@ def _cron_question(tool_name, args, every, task_id):
         return None
     if tool_name == "execute_code":
         return ("code", text, "execute_code script execution")
+    if tool_name == "browser_exec":
+        return ("code", text, "browser_exec script execution")
     if tool_name == "process_manage":
         return ("input", text, "") if every else None
     if _hardline(text) or _allowlisted(text):
@@ -266,10 +278,11 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **kwargs):
         settings = None
     if not isinstance(settings, dict):
         # Fail closed: without its settings the guard cannot tell what to ask.
-        if tool_name in ("terminal", "execute_code", "process_manage", "write_file", "patch"):
+        if tool_name in ("terminal", "execute_code", "browser_exec", "process_manage", "write_file", "patch"):
             return {"action": "block", "message": _REFUSED}
         return None
     every = settings.get("everyCommand") is True
+    browser = settings.get("browserAsks") is True and tool_name == "browser_exec"
     if settings.get("cronAsks") is True and _in_cron():
         _job(session_id or "", task_id or "")
         question = _cron_question(tool_name, args, every, task_id)
@@ -277,7 +290,9 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **kwargs):
             return None
         refusal = _ask(question, session_id or "", task_id or "")
         return None if refusal is None else {"action": "block", "message": refusal}
-    return _chat_guard(tool_name, args) if every else None
+    if every:
+        return _chat_guard(tool_name, args)
+    return _chat_guard(tool_name, args, every=False) if browser else None
 
 
 def _subagent(parent_session_id=None, child_session_id=None, **_):
@@ -294,11 +309,16 @@ def register(ctx):
 /**
  * The guard plugin's files, by path inside the Hermes home: `everyCommand` asks
  * before every command in chats, `cronAsks` asks the owner in routine runs through
- * the team bridge (the home then sets `approvals.cron_mode: approve`).
+ * the team bridge (the home then sets `approvals.cron_mode: approve`), `browserAsks`
+ * asks before browser_exec runs in chats on the "approval" level.
  */
-export const guardFiles = ({ everyCommand = false, cronAsks = false } = {}) =>
+export const guardFiles = ({
+  everyCommand = false,
+  cronAsks = false,
+  browserAsks = false,
+} = {}) =>
   Object.freeze({
     [`${guardDirectory}/plugin.yaml`]: manifest,
     [`${guardDirectory}/__init__.py`]: source,
-    [`${guardDirectory}/guard.json`]: `${JSON.stringify({ everyCommand, cronAsks }, null, 2)}\n`,
+    [`${guardDirectory}/guard.json`]: `${JSON.stringify({ everyCommand, cronAsks, browserAsks }, null, 2)}\n`,
   });

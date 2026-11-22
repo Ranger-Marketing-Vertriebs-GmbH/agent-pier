@@ -7,9 +7,7 @@ import { fileURLToPath } from "node:url";
 // pyproject.toml and uv.lock inside it, the extras installed, uv's version with the
 // SHA-256 of each release archive, and the CPython version uv installs. uv verifies
 // every wheel against the hashes in uv.lock and its managed CPython download against
-// the checksums built into the pinned uv release. `agentBrowser` is the agent-browser
-// release Hermes's own package lock (pm/lock.json) pins, with its npm archive and
-// SHA-256: Hermes's browser tools run it against the Chromium AgentPier starts.
+// the checksums built into the pinned uv release.
 // `pdfium` is the pypdfium2 release (BSD-3-Clause/Apache-2.0, PDFium built in, no
 // dependencies) with one wheel and its SHA-256 per platform: AgentPier's pdf tool
 // reads PDF pages with it (hermes-config/pdf.js, hermes-pdfium.js). The refresh keeps
@@ -59,7 +57,7 @@ const validPdfium = (pin) =>
       sha256.test(wheel.sha256 || ""),
   );
 
-// A release pin names its version after the tag ("v0.22.5" → "0.22.5"); a pin of a
+// A release pin names its version after the tag ("v0.23.3" → "0.23.3"); a pin of a
 // bare commit after the commit's first 12 characters.
 const versionOf = (m) =>
   m.tag === undefined ? m.commit.slice(0, 12) : String(m.tag).slice(1);
@@ -83,10 +81,6 @@ export function validHermesManifest(manifest) {
       .sort()
       .join() !== Object.keys(uvTargets).sort().join() ||
     !Object.values(m.uvChecksums).every((v) => sha256.test(v)) ||
-    !exact.test(m.agentBrowser?.version || "") ||
-    m.agentBrowser.url !==
-      `https://registry.npmjs.org/agent-browser/-/agent-browser-${m.agentBrowser.version}.tgz` ||
-    !sha256.test(m.agentBrowser.sha256 || "") ||
     !validPdfium(m.pdfium)
   )
     throw Error("Invalid Hermes runtime manifest.");
@@ -94,7 +88,6 @@ export function validHermesManifest(manifest) {
     ...m,
     extras: Object.freeze([...m.extras]),
     uvChecksums: Object.freeze({ ...m.uvChecksums }),
-    agentBrowser: Object.freeze({ ...m.agentBrowser }),
     pdfium: Object.freeze({
       version: m.pdfium.version,
       wheels: Object.freeze(

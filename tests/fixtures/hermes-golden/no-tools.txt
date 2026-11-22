@@ -11,6 +11,7 @@ agent:
     - terminal
     - vision
     - web
+  clarify_timeout: 3600
 terminal:
   backend: local
 approvals:

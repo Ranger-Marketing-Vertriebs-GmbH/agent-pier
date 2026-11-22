@@ -82,12 +82,7 @@ export async function refreshHermesRuntimeLock({
     const file = path.join(root, "source.tar.gz");
     fs.writeFileSync(file, archive, { mode: 0o600 });
     const prefix = `hermes-agent-${commit}`;
-    const members = [
-      "pyproject.toml",
-      "uv.lock",
-      "hermes_cli/__init__.py",
-      "pm/lock.json",
-    ];
+    const members = ["pyproject.toml", "uv.lock", "hermes_cli/__init__.py"];
     await execute(
       "tar",
       ["-xzf", file, "-C", root, ...members.map((name) => `${prefix}/${name}`)],
@@ -101,16 +96,6 @@ export async function refreshHermesRuntimeLock({
     const releaseDate = /__release_date__\s*=\s*"([^"]+)"/.exec(
       String(read("hermes_cli/__init__.py")),
     )?.[1];
-    // The agent-browser release Hermes's own package lock pins, verified here once
-    // more: Hermes's browser tools drive AgentPier's Chromium through it.
-    const pinned = JSON.parse(String(read("pm/lock.json"))).packages?.["agent-browser"];
-    const agentBrowser = {
-      version: pinned?.version,
-      url: pinned?.artifacts?.any?.url,
-      sha256: pinned?.artifacts?.any?.sha256,
-    };
-    if (hash(await download(agentBrowser.url)) !== agentBrowser.sha256)
-      throw Error(`agent-browser ${agentBrowser.version}: checksum mismatch.`);
     const uvChecksums = {};
     for (const target of Object.keys(uvTargets)) {
       const url = uvArchiveUrl({ uvVersion }, target);
@@ -135,7 +120,6 @@ export async function refreshHermesRuntimeLock({
       pythonVersion,
       uvVersion,
       uvChecksums,
-      agentBrowser,
       // PDFium for AgentPier's pdf tool is pinned independently of Hermes's lock.
       pdfium,
     });

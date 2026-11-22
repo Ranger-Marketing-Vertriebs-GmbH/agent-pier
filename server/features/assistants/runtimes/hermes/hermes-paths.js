@@ -62,8 +62,7 @@ export function hermesAgentPaths(paths, id) {
 /**
  * The executables of an installed runtime directory (hermes-install.js): uv's
  * project environment `venv/` with Hermes's own `python` and `hermes` entry points,
- * and `tools/`, the folder on Hermes's PATH with the agent-browser binary its browser
- * tools run (`agentBrowser`).
+ * and `tools/`, AgentPier's records of what it added (hermes-pdfium.js).
  * The native Hermes contracts receive such a directory as
  * AGENTPIER_HERMES_CONTRACT_RUNTIME.
  */
@@ -75,6 +74,5 @@ export function hermesExecutables(runtimeDirectory) {
     uv: path.join(runtimeDirectory, "uv", "uv"),
     source: path.join(runtimeDirectory, "src"),
     tools: path.join(runtimeDirectory, "tools"),
-    agentBrowser: path.join(runtimeDirectory, "tools", "agent-browser"),
   };
 }

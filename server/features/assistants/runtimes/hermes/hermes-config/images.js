@@ -1,6 +1,6 @@
 import { codexBaseEnv, codexPoolRow } from "./model.js";
 
-// Image creation for a Hermes agent (Create images), verified against Hermes v0.22.5.
+// Image creation for a Hermes agent (Create images), verified against Hermes v0.23.3.
 // Hermes bundles the image backend `openai-codex` (plugins/image_gen/openai-codex/,
 // a bundled `backend` plugin, which Hermes loads without `plugins.enabled`,
 // hermes_cli/plugins_discovery.py): gpt-image-2 through the Codex backend's own

@@ -17,6 +17,7 @@ import {
   routineRun,
   runSessionKey,
 } from "./hermes-routine-jobs.js";
+import { routineMetaOf } from "./hermes-routine-meta.js";
 
 // The gateway serves its own home as the profile "default" (hermes_cli/profiles.py:
 // a custom HERMES_HOME is the default root); its REST routes refuse a native ticket
@@ -82,11 +83,12 @@ const jobPath = (id) => {
   return `/api/cron/jobs/${id}`;
 };
 
-// The jobs of the gateway's home; a listing that is no list is unavailable.
-async function listJobs(client) {
+// The jobs of the gateway's home, each with AgentPier's part (`meta`,
+// hermes-routine-meta.js); a listing that is no list is unavailable.
+async function listJobs(client, meta) {
   const { body } = await hermesRest(client, "GET", "/api/cron/jobs");
   if (!Array.isArray(body)) throw assistantProblem("unavailable", 503);
-  return body;
+  return meta ? body.map((job) => meta.attach(job)) : body;
 }
 
 /**
@@ -94,7 +96,8 @@ async function listJobs(client) {
  * messaging gateway: the REST routes it hosts (`/api/cron/jobs…`), reached through
  * the RPC bridge. Each routine is one Hermes job (hermes-routine-jobs.js); the gateway
  * serves one agent, so a routine of another agent is refused. A job is created paused,
- * given AgentPier's meta and only then resumed, so it never runs without it. Hermes's
+ * given AgentPier's meta (hermes-routine-meta.js) and only then resumed, so it never
+ * runs without it. Hermes's
  * forced run (`trigger`) also resumes a paused job; a routine that was disabled is
  * paused again after it. Results reach AgentPier through HermesRoutineDeliveries.
  */
@@ -117,6 +120,7 @@ export async function repinned(client, job, { zone, now = Date.now() } = {}) {
 
 function routinesOver(current, supervisor, deliveries, zone) {
   const agentId = supervisor.agentId;
+  const meta = routineMetaOf(supervisor);
   const timing = () => ({ zone: zoneOf(zone), now: Date.now() });
   const link = async () => reachable(current());
   const own = (routine) => {
@@ -124,8 +128,12 @@ function routinesOver(current, supervisor, deliveries, zone) {
       throw refusal("INVALID_REQUEST", 400);
   };
   const read = (job) =>
-    routineOfJob(job, { agentId, delivered: deliveries?.statusOf(job?.id, job) });
-  const get = async (client, id) => (await hermesRest(client, "GET", jobPath(id))).body;
+    routineOfJob(meta.attach(job), {
+      agentId,
+      delivered: deliveries?.statusOf(job?.id, job),
+    });
+  const get = async (client, id) =>
+    meta.attach((await hermesRest(client, "GET", jobPath(id))).body);
   const toggle = async (client, id, enabled) =>
     (await hermesRest(client, "POST", `${jobPath(id)}/${enabled ? "resume" : "pause"}`))
       .body;
@@ -144,12 +152,8 @@ function routinesOver(current, supervisor, deliveries, zone) {
         body: create,
       });
       if (typeof created?.id !== "string") throw hermesError("RPC_FAILED");
-      const meta = routineMeta({ agentId, ...routine });
-      let job = (
-        await hermesRest(client, "PUT", jobPath(created.id), {
-          body: { updates: { [metaField]: meta } },
-        })
-      ).body;
+      meta.set(created.id, routineMeta({ agentId, ...routine }));
+      let job = created;
       if (routine.enabled !== false) job = await toggle(client, created.id, true);
       return read(job);
     },
@@ -157,21 +161,22 @@ function routinesOver(current, supervisor, deliveries, zone) {
       const { client } = await link();
       own(patch);
       const old = await get(client, id);
-      const meta = routineMeta(patch, old?.[metaField] || {});
-      let job = (
-        await hermesRest(client, "PUT", jobPath(id), {
-          body: { updates: hermesUpdates(patch, meta, timing()) },
-        })
-      ).body;
+      const next = routineMeta(patch, old?.[metaField] || {});
+      const updates = hermesUpdates(patch, timing());
+      let job = Object.keys(updates).length
+        ? (await hermesRest(client, "PUT", jobPath(id), { body: { updates } })).body
+        : old;
+      meta.set(id, next);
       if (typeof patch.enabled === "boolean" && patch.enabled !== job?.enabled)
         job = await toggle(client, id, patch.enabled);
       // A pin that passed while the job was paused moves to the next occurrence.
-      return read(await repinned(client, job, { zone }));
+      return read(await repinned(client, meta.attach(job), { zone }));
     },
     async remove({ id }) {
       const { client } = await link();
       await hermesRest(client, "DELETE", jobPath(id));
       deliveries?.forget(id);
+      meta.delete(id);
       return { removed: true };
     },
     async run({ id, force = false }) {
@@ -340,11 +345,15 @@ export class HermesRoutineDeliveries {
     this.follow(null);
   }
 
-  /** Checks for finished runs; one check at a time, one more after it when asked. */
+  /**
+   * Checks for finished runs; one check at a time, one more after it when asked. The
+   * promise settles once the check that sees this call's state ended.
+   */
   check() {
     if (this.running) {
       this.again = true;
-      return this.running;
+      // The running pass ends by starting the one asked for here.
+      return this.running.then(() => this.running);
     }
     this.running = this.pass()
       .catch(() => {})
@@ -361,7 +370,12 @@ export class HermesRoutineDeliveries {
   async pass() {
     const client = this.client;
     if (!client?.ready) return;
-    const jobs = await listJobs(client);
+    const meta = routineMetaOf(this.supervisor);
+    // Only meta older than the listing can name a job that is gone: a routine added
+    // meanwhile keeps its own.
+    const known = meta.ids();
+    const jobs = await listJobs(client, meta);
+    meta.prune(known.filter((id) => !jobs.some((job) => job.id === id)));
     const records = this.records();
     let changed = false;
     for (const id of Object.keys(records))

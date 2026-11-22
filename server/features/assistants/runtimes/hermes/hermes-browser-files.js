@@ -1,7 +1,9 @@
 // Fills a file field of a page in a Hermes agent's AgentPier-owned Chromium
-// (hermes-browser.js). Hermes v0.22.5's browser tools offer no upload
-// (tools/browser_tool.py), so AgentPier sets the files itself over CDP
-// (`DOM.setFileInputFiles`) on the page the agent works in. The files are ones
+// (hermes-browser.js) with files AgentPier staged: an agent with Hermes's browser
+// (`browser_exec`, `browser_cdp`) and no shell cannot reach them, and with a shell
+// the upload is still the one OpenClaw's agents make, checked and recorded for the
+// owner. AgentPier sets the files itself over CDP (`DOM.setFileInputFiles`) on the
+// page the agent works in. The files are ones
 // AgentPier staged for the agent (browser-upload-staging.js), admitted before this
 // runs (hermes-browser-upload.js).
 

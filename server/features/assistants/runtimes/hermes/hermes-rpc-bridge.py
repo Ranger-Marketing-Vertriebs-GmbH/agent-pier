@@ -21,8 +21,9 @@ session's history the way Hermes records a result no one watched
 (gateway/session_completion_notes.py) and mirrors a cron delivery
 (cron/scheduler_delivery.py): one user row of the display kind
 `internal_notification`, which every later turn of the session reads and no client
-shows as the owner's words, appended through Hermes's own SessionDB to the session's
-current compression segment. It answers `{ appended: true }`, or `{ appended: false,
+shows as the owner's words, appended through Hermes's own store to the session's
+current compression segment (persistence_assembly.open_persistence, Hermes's one
+door to its store since v0.23). It answers `{ appended: true }`, or `{ appended: false,
 reason: "not_found" }` for a session that is gone.
 
 At its start the bridge makes sure the home has a session: Hermes appends a one-time
@@ -32,8 +33,8 @@ on a messaging platform while the home has no other session
 PLAIN_INTRO_NOTE), and no config key turns that plain note off. An agent whose first
 message comes from a person writing to its own Telegram bot would otherwise greet that
 stranger with it. The seed is one archived, ended session without messages
-(`agentpier-first-contact`), which Hermes counts (SessionDB.session_count_ge counts
-archived sessions) and never lists or sweeps (the empty-session sweep skips archived
+(`agentpier-first-contact`), which Hermes counts (gateway/session.py has_any_sessions:
+sessions.count_at_least counts archived sessions) and never lists or sweeps (the empty-session sweep skips archived
 ones).
 
 Run with the Hermes environment's own Python: python -I hermes-rpc-bridge.py [seconds].
@@ -165,13 +166,38 @@ def note_call(params):
     if (not isinstance(session_id, str) or not session_id or len(session_id) > 200
             or not isinstance(text, str) or not text.strip() or len(text) > _NOTE_MAX_CHARS):
         raise ValueError("invalid note")
+    store = _store()
+    if store is None:
+        return _legacy_note(session_id, text)
+    with store:
+        from persistence.conversation.messages import NewMessage
+
+        if store.sessions.get(session_id) is None:
+            return {"appended": False, "reason": "not_found"}
+        # A compressed conversation goes on in its newest segment.
+        store.messages.append(store.lineage.tip(session_id), NewMessage(
+            role="user", content=text, display_kind="internal_notification"))
+        return {"appended": True}
+
+
+def _store():
+    """A handle on this home's store (persistence_assembly, Hermes v0.23), or None on
+    Hermes v0.22.5, the release AgentPier may roll back to, which has none."""
+    try:
+        from persistence_assembly import open_persistence, profile_scope
+    except ImportError:
+        return None
+    return open_persistence(profile_scope())
+
+
+def _legacy_note(session_id, text):
+    """note_call on Hermes v0.22.5 (hermes_state_registry)."""
     from hermes_state_registry import acquire, release_or_close
 
     db = acquire()
     try:
         if db.get_session(session_id) is None:
             return {"appended": False, "reason": "not_found"}
-        # A compressed conversation goes on in its newest segment.
         target = db.get_compression_tip(session_id) or session_id
         db.append_message(session_id=target, role="user", content=text,
                           display_kind="internal_notification")
@@ -186,6 +212,22 @@ _SEED_SESSION = "agentpier-first-contact"
 
 def seed_first_contact():
     """Writes the seed session into a home without any session; True when it wrote it."""
+    store = _store()
+    if store is None:
+        return _legacy_seed()
+    with store:
+        from persistence.conversation.sessions import NewSession
+
+        if store.sessions.count_at_least(1):
+            return False
+        store.sessions.create(NewSession(session_id=_SEED_SESSION, source="agentpier"))
+        store.sessions.end(_SEED_SESSION, "agentpier_seed")
+        store.sessions.set_archived(_SEED_SESSION, True, notify=False)
+        return True
+
+
+def _legacy_seed():
+    """seed_first_contact on Hermes v0.22.5 (hermes_state_registry)."""
     from hermes_state_registry import acquire, release_or_close
 
     db = acquire()

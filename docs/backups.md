@@ -231,8 +231,8 @@ for agents without the `ap-<id>` form, a work folder of its own (`workspaces/`).
 
 - Public, so a restore brings back working agents: each home's `config.yaml`,
   `SOUL.md`, `skills/`, `plugins/` (without the team bridge's per-start
-  `bridge.json`), its routines (`cron/jobs.json`) and their delivery record
-  (`agentpier-routine-runs.json`).
+  `bridge.json`), its routines (`cron/jobs.json`, AgentPier's part of them in
+  `agentpier-routines.json`) and their delivery record (`agentpier-routine-runs.json`).
 - Credentials, only sealed with **Include encrypted credentials** and otherwise left
   out like OpenClaw's: each home's `.env` (model and advisor-model, MCP, bot and speech keys) and
   `auth.json`. Without them a restored agent gets its keys back with its next

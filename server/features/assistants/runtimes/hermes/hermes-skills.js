@@ -9,7 +9,7 @@ import { essentialSkills } from "./hermes-config/skills.js";
 import { teamDirectory } from "./hermes-config/team-plugin.js";
 
 // What Hermes offers one agent of its skills (hermes-config/skills.js), read from the
-// installation and the agent's home as Hermes reads them (v0.22.5): bundled skills in
+// installation and the agent's home as Hermes reads them (v0.23.3): bundled skills in
 // `<install>/src/skills/<category>/<name>/SKILL.md`, seeded into `<HERMES_HOME>/skills/`
 // and recorded in its `.bundled_manifest` (tools/skills_sync.py), skills the agent
 // wrote or installed there, and the folders of `skills.external_dirs`.
@@ -107,6 +107,15 @@ export const bundledSkillsDir = (record) =>
 /** The names of the skills an installed runtime bundles, sorted. */
 export const bundledSkillNames = (record) =>
   [...new Set(scanSkills(bundledSkillsDir(record)).map((skill) => skill.name))].sort();
+
+/**
+ * The bundled skills Hermes seeded into a home, by its `.bundled_manifest`, sorted. A
+ * skill an earlier release bundled and the installed one dropped keeps its entry while
+ * its copy stays (tools/skills_sync.py: the entry is its only built-in provenance), as
+ * v0.23 did with skills such as `docx` and `xlsx` of v0.22.5: still built-in, never
+ * the agent's own, so the compile switches it off like any bundled skill.
+ */
+export const seededSkillNames = (hermesHome) => [...manifestNames(hermesHome)].sort();
 
 // The names the home's `.bundled_manifest` records ("name:hash" lines, or names).
 function manifestNames(hermesHome) {

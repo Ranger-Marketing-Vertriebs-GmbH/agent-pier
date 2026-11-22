@@ -11,7 +11,7 @@ import { privateFolder } from "../../runtime-paths.js";
 // installed into the installation's virtual environment with its own uv, without
 // dependencies (it has none) or an index. Hermes's lock does not name it, so an
 // installation built before it gets it at the next staging (hermes-provisioning.js
-// hermesStagingDue), as agent-browser does; the pdf tool imports it at each call, so
+// hermesStagingDue); the pdf tool imports it at each call, so
 // running agents need no restart.
 
 const failure = (code) => Object.assign(Error(code), { code });

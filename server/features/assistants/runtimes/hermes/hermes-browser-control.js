@@ -4,13 +4,14 @@
 // brings a tab to the front and `DELETE /tabs/<targetId>` closes one. The live view
 // checks the owner's address against the agent browser's network rule before it
 // calls; this adds the scheme check, as OpenClaw's route does, and keeps cloud
-// metadata addresses blocked even with private networks allowed, as Hermes's own
-// browser tools do (docs/hermes-runtime.md "Navigation policy").
+// metadata addresses blocked even with private networks allowed, as AgentPier's
+// navigation guard does (hermes-browser-guard.js, docs/hermes-runtime.md "Navigation
+// policy").
 
 const problem = (code) => Object.assign(Error(code), { code });
 const timeoutMs = 10000;
 
-const metadataHosts = new Set([
+export const metadataHosts = new Set([
   "169.254.169.254",
   "[fd00:ec2::254]",
   "metadata.google.internal",

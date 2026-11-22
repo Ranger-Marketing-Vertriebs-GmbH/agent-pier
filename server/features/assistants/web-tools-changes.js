@@ -110,6 +110,10 @@ export class WebToolsChanges {
       this.confirm(confirmed);
       await this.restart(save);
     }
+    // A Hermes agent compiles the setting into its home and its browser's navigation
+    // guard (runtimes/hermes/hermes-browser-guard.js): an apply restarts each one that
+    // browses, and with it that browser.
+    this.applyOwnProcessAgents((agent) => agent.browser.wanted || agent.browser.borrowed);
     return this.networkStatus();
   }
   /**

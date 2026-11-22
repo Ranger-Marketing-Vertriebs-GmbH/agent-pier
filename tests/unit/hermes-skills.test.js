@@ -7,6 +7,7 @@ import {
   bundledSkillNames,
   hermesSkills,
   scanSkills,
+  seededSkillNames,
   skillReport,
 } from "../../server/features/assistants/runtimes/hermes/hermes-skills.js";
 import { skillEntries } from "../../server/features/assistants/runtimes/hermes/hermes-config/skills.js";
@@ -245,4 +246,24 @@ test("a Hermes agent with the browser and memory gets the shopping skill", () =>
       [],
     );
   }
+});
+
+test("a built-in skill a later release dropped stays switched off, never the agent's own", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-seeded-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(home, "skills"));
+  // Hermes v0.22.5 seeded `xlsx`; v0.23 bundles `microsoft-office` instead.
+  fs.writeFileSync(
+    path.join(home, "skills", ".bundled_manifest"),
+    "xlsx:abc\nhermes-agent:def\n",
+  );
+  assert.deepEqual(seededSkillNames(home), ["hermes-agent", "xlsx"]);
+  assert.deepEqual(seededSkillNames(path.join(home, "missing")), []);
+  const agent = desiredAgent({ id: "a1", runtimeAgentId: "ap-a1", revision: 1 });
+  const bundled = [
+    ...new Set(["hermes-agent", "microsoft-office", ...seededSkillNames(home)]),
+  ];
+  const { entries } = skillEntries(agent, { bundled });
+  const disabled = entries.find(([key]) => key.join(".") === "skills.disabled")[1];
+  assert.deepEqual(disabled, ["microsoft-office", "xlsx"]);
 });

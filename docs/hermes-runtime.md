@@ -6,9 +6,11 @@ in its own supervised process set, its messaging gateway and AgentPier's RPC bri
 with its own `HERMES_HOME` inside AgentPier's private runtime folder
 ([processes](assistant-runtime-updates.md#hermes-agent-runtime)). This guide describes
 what AgentPier writes into that home, which defaults it sets and how it talks to the
-gateway. AgentPier pins the Hermes release `v0.22.5` (commit `bf0203a7`, pinned
-release since 2026-11-01); key names, file references, the gateway protocol and the
-approval and event shapes below were verified against it. The
+gateway. AgentPier pins the Hermes release `v0.23.3` (commit `caafe538`, pinned
+release since 2026-11-22); key names, file references, the gateway protocol and the
+approval and event shapes below were verified against it. AgentPier supports only the
+release it pins; an update can roll back to the previous pin (`v0.22.5`) only
+([updates](assistant-runtime-updates.md#hermes-agent-runtime)). The
 [spike](research/hermes-runtime-spike.md), on the earlier `main` commit `a4994d4e`,
 records the hands-on evidence.
 
@@ -54,8 +56,8 @@ the instructions leaves the `model` section, the key in `.env` and `SOUL.md` as 
 
 Hermes's own default, `smart`, lets an auxiliary model approve flagged commands; AgentPier
 always sets `manual` or `off`. The guard plugin's `pre_tool_call` hook returns
-`{"action": "approve"}` for every `terminal` command, `execute_code` run and input sent
-to a running process. Its message carries the command itself, and its rule key hashes
+`{"action": "approve"}` for every `terminal` command, `execute_code` and `browser_exec`
+run and input sent to a running process. Its message carries the command itself, and its rule key hashes
 the exact text, so "always" allows that one command again and never every command.
 Every-command approval is a Hermes-only option: the agent's settings offer **Every
 command** beside **Dangerous commands** (`approval`) where the runtime's trait
@@ -70,6 +72,15 @@ commands Hermes flags as dangerous (`tools/approval_detection.py`) to that check
 which asks with Hermes's reason. A plugin's question names the call only as
 `<terminal> (plugin approval rule)`; AgentPier shows the guard's message, the command
 itself, in the approval card.
+
+**The browser asks too.** Hermes's `browser_exec` ([browser](#browser)) runs the agent's
+Python on the host and passes none of Hermes's approval checks, so with the browser on
+an asking level the guard plugin asks before it as Hermes asks before an `execute_code`
+run (`browserAsks` in its `guard.json`): on **Dangerous commands** with one rule key for
+every run, so **Allow for this chat** covers the browser for the rest of that chat; on
+**Every command** before each run, with its own key; in a routine run through the team
+bridge like any Python run ([routines](#routines)). Full access asks nobody, and
+without a shell Hermes offers no `browser_exec` at all.
 
 **Always allow.** AgentPier never offers Hermes's own "always" answer: it would allow a
 whole pattern class (every "recursive delete") for good in `command_allowlist`, which
@@ -191,7 +202,7 @@ chat, adds an advisor to one and moves a frozen one, on the pinned Hermes.
 An agent's **Mixture of Agents** ([agents](agents.md#capabilities)) is stored as its
 Hermes options, `runtimeOptions.hermes.mixture.advisors` (one to three `{
 connectionId, modelId }`, [ADR 0007](adr/0007-runtime-descriptor.md#9-per-agent-runtime-options)).
-`hermes-config/mixture.js` compiles it, verified against Hermes v0.22.5:
+`hermes-config/mixture.js` compiles it, verified against Hermes v0.23.3:
 
 | Key                                     | Value                                                                                                                                                                                           |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -308,6 +319,7 @@ owner's choice, changes the installation or rewrites the first turn:
 | `security.allow_lazy_installs`                     | `false` | No packages installed from PyPI at run time               |
 | `file_tools.hosted_ocr`                            | `false` | PDFs never go to Firecrawl's hosted OCR                   |
 | `telemetry.shared_metrics.enabled`, `.send`        | `false` | No shared metrics                                         |
+| `agent.clarify_timeout`                            | `3600`  | A question waits an hour (Hermes's own default: 90 s)     |
 
 Invisible subagents (`delegate_task`) stay on. In a session of the messaging gateway,
 their dangerous commands reach the owner through the session's approval queue.
@@ -600,7 +612,11 @@ The compiler (`hermes-config/skills.js`) writes:
 | `skills.external_dirs` | Each switched-on catalog skill's live folder; the built-in skills' copies |
 
 `hermes-agent` is essential to Hermes and cannot be switched off; the skills page lists
-it as on without a switch (state `essential`). Catalog skills are
+it as on without a switch (state `essential`). Bundled also counts a skill an earlier
+release seeded into the home and the installed one no longer bundles: Hermes keeps its
+copy and its `.bundled_manifest` entry (`tools/skills_sync.py`), so v0.22.5's `docx`,
+`xlsx` and the like stay off after the update to v0.23.3 instead of turning into
+skills of the agent's own. Catalog skills are
 checked before each apply (a tampered copy is restored from the catalog's store, a
 damaged one is left out) and offered from their folders in the catalog's live copy; a
 skill of the same name in the home wins over an external one, so such a catalog skill
@@ -718,7 +734,7 @@ while no team bridge runs (`teams`).
 The owner's [advanced settings for all agents](agents.md#turn-agents-on) are
 AgentPier's (`runtimes/shared-settings.js`): each runtime states which of them it
 takes and how ([ADR 0007](adr/0007-runtime-descriptor.md), decision 5). Hermes takes
-the ones Hermes v0.22.5 has a faithful equivalent of, by the shared setting's id
+the ones Hermes v0.23.3 has a faithful equivalent of, by the shared setting's id
 (`hermes-config/advanced.js`): its own key, the translation of the value, and whether
 a running agent takes a change live or restarts. They are stored once, in the store
 OpenClaw's overrides always used. While Hermes is on and at least one Hermes agent
@@ -869,18 +885,25 @@ The compiled home turns the
 
 | Key                          | Value                                             |
 | ---------------------------- | ------------------------------------------------- |
-| `browser.backend`            | `off`: Hermes's own tools, not Browser Use        |
 | `browser.cdp_url`            | `http://127.0.0.1:<port>` of the agent's browser  |
 | `browser.allow_private_urls` | **Allow private networks for all agent browsers** |
 
-A CDP URL never launches a browser of Hermes's own and skips its Chromium checks and
-installs (`tools/browser_tool_session.py`, `tools/browser_tool_cloud.py`). Hermes's
-browser tools (`browser_navigate`, `browser_snapshot`, `browser_click`, …) run the
-agent-browser binary against that URL; the Hermes installation provisions the release
-Hermes's own package lock pins, so Hermes never installs it at run time
-([installation](assistant-runtime-updates.md#hermes-agent-runtime)). Hermes reads the
-URL at each call and opens one browser session per chat, closed at the end of each
-turn; the browser and its tabs stay.
+Hermes's browser is `browser_exec` (since v0.23 its only one): the agent writes Python
+against pre-imported helpers (`new_tab`, `goto_url`, `js`, `page_info`, `click_at_xy`,
+`fill_input`, `capture_screenshot`, raw `cdp(...)`), which browser-harness, a core
+dependency of Hermes's own environment, runs over CDP against the agent's Chromium
+(`tools/browser_use_cli.py`). A CDP URL never launches a browser of Hermes's own or a
+cloud browser: it ranks before every other backend. `browser_exec` is plain Python on
+the host, so Hermes offers it only to an agent with a shell (`terminal` among its tools,
+`model_tools.py` `_rewrite_browser_exec`), and AgentPier's guard asks before it on the
+asking levels ([shell levels](#shell-levels)). An agent without a shell, such as a task
+member or an agent of restricted users, browses with `browser_cdp`: raw CDP commands
+on the same browser, which Hermes checks for private addresses itself
+(`tools/browser_cdp_tool.py`). `browser_dialog` and `browser_vault` come with the
+toolset. A home compiled for Hermes v0.22, whose `browser.backend: off` kept that
+release's own browser tools, loses the key at its next start, before Hermes reads it, so
+the agent switches to `browser_exec` without Hermes's one-time notice about the removed
+key.
 
 The team plugin's guard asks before every `browser_*` call
 ([teams](#teams)): AgentPier's browser limits (`agent-browsers.js`) admit it, start
@@ -893,18 +916,26 @@ for the takeover's browser toolbar `POST /navigate`, `POST /tabs/focus` and
 `DELETE /tabs/<targetId>` in `hermes-browser-control.js`), and its screencast relays
 CDP's `Page.startScreencast` frames in OpenClaw's frame format. An address the owner
 opens there passes AgentPier's private-network check first; cloud metadata addresses
-stay blocked even with private networks allowed, as for Hermes's own tools.
+stay blocked even with private networks allowed.
 The browser stops with the agent's process set.
 
-Navigation policy: with **Allow private networks for all agent browsers** off, Hermes
-refuses private, loopback and link-local addresses before `browser_navigate`, after a
-redirect, before clicks and typing, and after snapshots (`tools/browser_tool.py`,
-`tools/url_safety.py`); cloud metadata addresses stay blocked even with it on, stricter
-than OpenClaw. Hermes reads the setting at its start; a change reaches the agent with
-its next apply, which restarts its process set. Like OpenClaw's policy, Hermes checks
-the addresses the browser goes to, not the requests a page makes: neither is a network
-firewall. `browser_scroll` cannot change the address, and the next snapshot or action
-is checked again.
+Navigation policy: Hermes refuses the private, loopback and link-local addresses it finds
+written in a `browser_exec` call before running it unless **Allow private networks for
+all agent browsers** is on (`tools/browser_url_policy.py`), and cloud metadata
+addresses always. That check reads only the addresses the code spells out, so
+AgentPier enforces the setting in the browser itself: each launch of the agent's
+Chromium starts AgentPier's navigation guard (`hermes-browser-guard.js`), one CDP
+connection that intercepts every document request at the browser target (`Fetch`,
+request stage), whatever tab, frame, window or browser context makes it, redirects
+included. With the setting off a document on an address that is not public is failed
+(`BlockedByClient`, the page shows Chromium's error page); cloud metadata addresses fail
+either way. A browser whose guard cannot start or whose guard connection ends is
+stopped. Like OpenClaw's policy, the guard checks the documents the browser goes to,
+not the requests a page makes: neither is a network firewall. Saving the setting
+applies every Hermes agent that browses (`web-tools-changes.js`), which restarts its
+process set and with it the browser.
+`browser_exec` itself is Python on the host, so an agent with a shell reaches the
+network as its shell does; the setting limits the browser, not the shell.
 
 A temporary team member whose lead grants the browser (`desiredAgent`
 `browser.borrowed`) runs its own AgentPier Chromium in its own home. It shows a window
@@ -913,10 +944,10 @@ headless and three visible at once, `agent-browsers.js` `ownMemberSlot`), as Ope
 lends a slot. When the member ends, its browser stops and its profile is removed; a
 promoted member keeps both as its own.
 
-File uploads: Hermes v0.22.5's browser tools have no upload (`tools/browser_tool.py`
-offers navigate, snapshot, click, type, scroll, back, press, images, vision and
-console), so an agent with AgentPier's browser gets `agentpier_browser_upload`
-(`hermes-browser-upload.js`). The agent stages a file as on OpenClaw
+File uploads: an agent with AgentPier's browser gets `agentpier_browser_upload`
+(`hermes-browser-upload.js`), so files AgentPier staged reach a page's file field
+checked and recorded as on OpenClaw, also for an agent without a shell, whose
+`browser_cdp` cannot read them. The agent stages a file as on OpenClaw
 (`agentpier_workspace` `browser_upload_stage`) and passes the returned `uploadPath`;
 AgentPier checks the call as OpenClaw's browser upload (the agent's browser limits,
 then only files staged for this agent, `browser-upload-staging.js`), sets the files on
@@ -928,7 +959,7 @@ the page's file field over CDP (`DOM.setFileInputFiles` on the agent's own Chrom
 
 A Hermes agent with **Create images** creates and edits images with gpt-image-2
 through a ChatGPT login AgentPier holds, as an OpenClaw agent does with
-`image_generate` (`hermes-config/images.js`). Hermes v0.22.5 bundles the image
+`image_generate` (`hermes-config/images.js`). Hermes v0.23.3 bundles the image
 backend `openai-codex` (`plugins/image_gen/openai-codex/`, a bundled backend
 plugin Hermes loads without `plugins.enabled`): it posts to the Codex backend's own
 `images/generations` and `images/edits` endpoints with the Codex credential Hermes
@@ -983,7 +1014,7 @@ folder; on an agent shared with users they leave it before the next start of its
 process set ([chat files](#chat-files)). The owner's and a user's own agents keep
 that folder. When the share fails, the tool result says so and names no file.
 Hermes's own media delivery into an AgentPier chat (`gateway/session_local.py`
-`LocalSessionAdapter`) has no image send in v0.22.5, so Hermes logs a
+`LocalSessionAdapter`) has no image send in v0.23.3, so Hermes logs a
 `send_image_file fallback` warning; the image reaches the chat through the share
 above. The agent's instructions name image creation as for OpenClaw.
 
@@ -1196,11 +1227,18 @@ so no ticket leaves the bridge. The gateway serves its home as the profile `defa
 | schedule cron / at / every     | five-field expression (pinned in another zone, below), ISO time (`once`), `every <n>m`   |
 | prompt model `provider/model`  | `model` (the model id, on the agent's own connection)                                    |
 | enabled                        | `enabled`, through `pause` and `resume`                                                  |
-| marker, target, delivery, rest | the job's own `agentpier` field (Hermes keeps fields it does not know)                   |
+| marker, target, delivery, rest | AgentPier's own, by job id (`agentpier-routines.json`, below)                            |
 | run state                      | `next_run_at`, `fire_claim.at` (running), `last_run_at`, `last_status`, `failure_streak` |
 | runs                           | `GET …/runs`: each run's own stored session                                              |
 
-A job is created paused, given its `agentpier` field and only then resumed, so it never
+AgentPier keeps its part of each routine (marker, target, delivery, the prompt's run
+settings, the routine's own schedule and zone, a revision) in `agentpier-routines.json`
+in the agent's `HERMES_HOME`, by job id (`hermes-routine-meta.js`), beside the record
+of delivered runs: Hermes v0.23 refuses to update any job field its REST routes do not
+list (`hermes_cli/web_routers/cron.py`). A job written for Hermes v0.22.5 still carries
+that part in its own `agentpier` field, which counts until AgentPier writes the job's
+entry, so jobs of either release are read and a rollback to v0.22.5 keeps the routines
+added since. A job is created paused, given its entry and only then resumed, so it never
 runs without AgentPier's marker. Hermes's forced run (`trigger`) resumes a paused job; a
 routine that was disabled (event routines, hook runs) is paused again right after it.
 The trigger answers once the run ended; a run still going after 15 seconds counts as
@@ -1234,7 +1272,8 @@ turn ended and then written, after its reply.
 **Time zones.** Hermes matches every cron expression in the time zone of the agent's
 processes (`cron/jobs.py compute_next_run`, `hermes_time`: `HERMES_TIMEZONE` or
 `timezone` in `config.yaml`, else the process's zone, which is AgentPier's own TZ,
-passed on by `hermes-environment.js`); v0.22.5 has no zone per job. The owner's **Time
+passed on by `hermes-environment.js`); AgentPier sets no zone per job (v0.23 added
+an optional one, which a job without it does not use). The owner's **Time
 zone** ([advanced settings](#advanced-settings)) is the `HERMES_TIMEZONE` of the
 agent's processes, and AgentPier pins against the zone of the current start. A cron
 routine without a zone, or in that zone, runs as written; a pinned job whose routine is
@@ -1243,8 +1282,8 @@ and a job on its own expression that is due while the agent restarts for the cha
 left to Hermes's catch-up once before it is pinned. A routine in another zone runs as a
 pinned job (`hermes-cron-zone.js`): AgentPier computes its next occurrence in its own
 zone and writes the expression `<minute> <hour> <day> <month> *` of that instant in the
-process's zone; the routine's own expression and zone stay in the job's `agentpier`
-field and are what AgentPier reads back. Each delivery check, and each change or
+process's zone; the routine's own expression and zone stay in AgentPier's entry for
+the job and are what AgentPier reads back. Each delivery check, and each change or
 resume of the routine, pins the job to the occurrence after it once its pin passed
 (it ran, or it was due while the gateway was down), so `next_run_at` is always the
 routine's next run in its own zone. Occurrences follow OpenClaw's policy
@@ -1324,7 +1363,7 @@ After a model switch with fresh chats, AgentPier reviews the agent's `MEMORY.md`
 `USER.md` on its new model (`memory-review.js`) with one `llm.oneshot` call: the
 review task as `instructions`, the two files as `input`, `max_tokens` 4000 and no
 `session_id`, so no chat history goes with it. Checked against the pinned Hermes
-v0.22.5: a one-shot without a session runs its `task` on the route
+v0.23.3: a one-shot without a session runs its `task` on the route
 `auxiliary.<task>` configures, and AgentPier compiles no `auxiliary.memory_review`, so
 Hermes takes its `auto` route, the agent's main provider and model from its own
 `config.yaml` (`tui_gateway/methods_session.py` `llm.oneshot`,
@@ -1351,8 +1390,9 @@ event `question.requested` and the run reports the phase `waiting-approval`;
 `agent-questions.js` shows it in the agent's chat as a card with the choices and a field
 for an own answer, and, when the turn came from the owner's paired Telegram chat, as a
 notice there, where the next message answers it (a number picks a choice). The answer
-goes back with `clarify.respond`. Hermes waits up to `agent.clarify_timeout` (an hour by
-default) and then tells the agent nobody answered; an interrupt withdraws the question
+goes back with `clarify.respond`. Hermes waits up to `agent.clarify_timeout`, which
+AgentPier sets to an hour (Hermes's own default since v0.23 is 90 seconds), and then
+tells the agent nobody answered; an interrupt withdraws the question
 (`approval.cancelled`). Questions are not stored: after a restart, the attached session
 lists what still waits and it is asked again. Hermes's `sudo` and `secret` requests ask
 for a sudo password or a secret's value, which AgentPier never hands out through a prompt
@@ -1392,7 +1432,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Attachments, video                                         | `attachments/` in the workspace     | A folder per chat outside its work folder           | [Chat files](#chat-files); images inline                     |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
 | Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
-| Browser uploads                                            | Staged files                        | `agentpier_browser_upload` for staged files         | Hermes's own browser tools have no upload                    |
+| Browser uploads                                            | Staged files                        | `agentpier_browser_upload` for staged files         | Checked and recorded as on OpenClaw                          |
 | Reminders, routines, hooks (agent's tools)                 | Team plugin                         | Hermes team plugin                                  | Same bridge                                                  |
 | Owner's routines, check-ins, hooks                         | OpenClaw cron                       | Hermes cron                                         | [Routines](#routines)                                        |
 | Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images as images                                     |
@@ -1467,10 +1507,11 @@ archives AgentPier downloads for both pins come from that folder
 (`scripts/hermes-contract-downloads.mjs`); unpacking, `uv`, the identity check and the
 receipt still run. The teams contract drives a Hermes lead's team tools (proposal, a
 member provisioned as a Hermes agent, a delegated task) and the guard's refusal of a
-read-only task's write; the browser contract opens a local page in the agent's
-AgentPier-owned Chromium and reads the live view's frames, the upload contract fills a
-page's file field, and the member browser contract browses in a task member's own
-Chromium. All three use the installed browser app, or the one
+read-only task's write; the browser contract opens a local page with `browser_exec` in the agent's
+AgentPier-owned Chromium, reads the live view's frames and, with private networks off,
+sees AgentPier's navigation guard keep the page out when the code builds its address;
+the upload contract fills a page's file field, and the member browser contract browses
+with `browser_cdp` in a task member's own Chromium. All three use the installed browser app, or the one
 `AGENTPIER_TEST_BROWSER_PATH` names (`hermesContractBrowser` in
 `tests/helpers/hermes-native.js`; skipped, with the reason, without one; with `CI` set
 they fail instead). The `hermes-contracts` job exports that variable from the runner's
@@ -1479,7 +1520,7 @@ Google Chrome, or Playwright's Chromium on the Linux arm64 image without Chrome,
 image's `/usr/bin/chromium`, which the detection prefers, is an unpacked snapshot
 without a sandbox helper that AppArmor's user namespace limit stops at launch.
 Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
-holds `python` and `hermes`, its `tools/` agent-browser). `hermes-pdf-contract.test.js`
+holds `python` and `hermes`). `hermes-pdf-contract.test.js`
 lets a text-only agent read a two-page PDF whose second page is a scan: the tool reads
 it with the installation's PDFium, and the owner's fallback (a second connection of the
 fake model that takes images) gets the text and the page image with its own key, while

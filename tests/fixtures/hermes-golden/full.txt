@@ -38,6 +38,7 @@ agent:
     - image_gen
     - web
   image_input_mode: native
+  clarify_timeout: 3600
 terminal:
   backend: local
   cwd: /golden/assistants/workspaces/ap-a1

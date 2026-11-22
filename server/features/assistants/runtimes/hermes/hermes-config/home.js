@@ -36,7 +36,7 @@ import {
 // its desired state: config.yaml, .env, SOUL.md, the guard plugin, the team plugin
 // (team-plugin.js) and the Deepgram plugin of its own Telegram bot (telegram.js),
 // nothing else.
-// Key names verified against Hermes v0.22.5 (hermes_cli/config_defaults.py unless
+// Key names verified against Hermes v0.23.3 (hermes_cli/config_defaults.py unless
 // named otherwise; docs/hermes-runtime.md lists them).
 
 /**
@@ -77,6 +77,10 @@ const practicalDefaults = [
   // FIRECRAWL_API_KEY): AgentPier's pdf tool reads scanned pages with the model the
   // owner chose (pdf.js).
   [["file_tools", "hosted_ocr"], false],
+  // An owner's question waits as long as AgentPier shows it (hermes-questions.js);
+  // Hermes's own default since v0.23 gives up after 90 seconds
+  // (tools/clarify_gateway.py resolve_clarify_timeout).
+  [["agent", "clarify_timeout"], 3600],
   // Shared metrics stay off (they are off by default; a consent prompt would turn
   // them on).
   [["telemetry", "shared_metrics", "enabled"], false],
@@ -196,7 +200,10 @@ export function compileHome(
   // team plugin's bridge.json names (guard-plugin.js); Hermes's cron gate then lets
   // through only what the guard let through (`approvals.cron_mode: approve`).
   const cronAsks = !!team && ["approval", everyCommand].includes(level);
-  const guard = guardsEveryCommand(level) || cronAsks;
+  // browser_exec runs the agent's Python on the host (tools/browser_use_cli.py): on an
+  // asking level the guard asks before it as Hermes asks before execute_code.
+  const browserAsks = browsing && ["approval", everyCommand].includes(level);
+  const guard = guardsEveryCommand(level) || cronAsks || browserAsks;
   const skills = skillEntries(agent, {
     bundled: bundledSkills,
     catalog: catalogSkills,
@@ -243,14 +250,18 @@ export function compileHome(
     ...(team && teamTools(agent).length
       ? [[["tools", "tool_search", "enabled"], "off"]]
       : []),
-    // Hermes's own browser tools (backend "off": not Browser Use) on AgentPier's
-    // Chromium: a CDP URL never launches a browser of Hermes's own
-    // (tools/browser_tool_session.py). Private and loopback addresses follow the
-    // owner's browser network setting, as on OpenClaw; cloud metadata addresses stay
-    // blocked either way (tools/url_safety.py).
+    // Hermes's browser (`browser_exec`, `browser_cdp`) on AgentPier's Chromium: a CDP
+    // URL never launches a browser of Hermes's own (tools/browser_use_cli.py
+    // _resolve_backend_cdp). Hermes refuses the private and loopback addresses it finds
+    // written in a call unless the owner's browser network setting allows them
+    // (tools/browser_url_policy.py); AgentPier's navigation guard on that Chromium
+    // holds every page to the setting (hermes-browser-guard.js). Cloud metadata
+    // addresses stay blocked either way. `browser.backend` ("off" kept Hermes v0.22's
+    // own browser tools) left Hermes with them (config schema 52): a home compiled
+    // before loses it before Hermes starts, so no one-time notice reaches a chat.
+    [["browser", "backend"], undefined],
     ...(browsing
       ? [
-          [["browser", "backend"], "off"],
           [["browser", "cdp_url"], browser.cdpUrl],
           [["browser", "allow_private_urls"], browser.allowPrivateNetwork === true],
         ]
@@ -325,7 +336,8 @@ export function compileHome(
         "auth.json": mergeAuth(existing["auth.json"], authRow),
       }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
-    ...(guard && guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks })),
+    ...(guard &&
+      guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks, browserAsks })),
     ...bot?.files,
     ...webPart?.files,
     ...team,

@@ -47,11 +47,6 @@ export function hermesInstallFixture(
     "hermes_cli/__init__.py": `__release_date__ = "${releaseDate}"\n`,
   });
   const uv = tarball(root, "uv-fake", { uv: "#!/bin/sh\n", uvx: "#!/bin/sh\n" });
-  // agent-browser's npm archive: one binary per platform below package/bin/.
-  const agentBrowser = tarball(root, "package", {
-    "bin/agent-browser-linux-x64": "#!/bin/sh\necho agent-browser\n",
-    "bin/agent-browser-darwin-arm64": "#!/bin/sh\necho agent-browser\n",
-  });
   // pypdfium2's wheels: one stand-in for every platform.
   const pdfiumWheel = Buffer.from("PK fake pypdfium2 wheel");
   // A pin of a bare commit: the shipped release tag names another one.
@@ -66,7 +61,6 @@ export function hermesInstallFixture(
     pyprojectSha256: sha(Buffer.from(pyproject)),
     uvLockSha256: sha(Buffer.from(lock)),
     uvChecksums: Object.fromEntries(Object.keys(uvTargets).map((key) => [key, sha(uv)])),
-    agentBrowser: { ...shipped.agentBrowser, sha256: sha(agentBrowser) },
     pdfium: {
       version: shipped.pdfium.version,
       wheels: Object.fromEntries(
@@ -79,7 +73,6 @@ export function hermesInstallFixture(
   });
   const files = new Map([
     [manifest.archiveUrl, source],
-    [manifest.agentBrowser.url, agentBrowser],
     ...Object.values(manifest.pdfium.wheels).map((wheel) => [wheel.url, pdfiumWheel]),
   ]);
   for (const target of Object.keys(uvTargets))

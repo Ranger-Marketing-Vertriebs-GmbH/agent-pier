@@ -63,7 +63,7 @@ Passed, each on the Responses route:
 
 #### Hermes on Azure
 
-Hermes v0.22.5 reaches a non-OpenAI host on Responses only as a named provider: a
+Hermes v0.23.3 reaches a non-OpenAI host on Responses only as a named provider: a
 plain `provider: custom` drops `api_mode: codex_responses` there
 (`hermes_cli/runtime_provider.py` `_resolve_plain_custom_api_mode`), a `providers:`
 entry keeps it, and its Responses transport knows Azure hosts

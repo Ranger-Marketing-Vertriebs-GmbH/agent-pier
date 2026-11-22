@@ -1,7 +1,7 @@
 import { builtInSkillNames } from "../../../built-in-skills.js";
 
 // An agent's skills as Hermes takes them (website/docs/user-guide/features/skills.md),
-// verified against Hermes v0.22.5. Hermes seeds every skill it bundles into the
+// verified against Hermes v0.23.3. Hermes seeds every skill it bundles into the
 // home's skills/ folder and offers each skill it finds there or in
 // `skills.external_dirs` unless `skills.disabled` names it (agent/skill_utils.py
 // get_disabled_skill_names, get_external_skills_dirs). AgentPier therefore:

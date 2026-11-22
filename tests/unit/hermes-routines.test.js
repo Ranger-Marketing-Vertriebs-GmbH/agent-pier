@@ -123,10 +123,8 @@ test("a Hermes job reads back as the routine AgentPier submitted", () => {
   const next = routineMeta({ enabled: false }, meta);
   assert.equal(next.revision, 2);
   assert.equal(next.marker, meta.marker);
-  assert.deepEqual(hermesUpdates({ name: "New" }, next), {
-    name: "New",
-    agentpier: next,
-  });
+  // AgentPier's meta stays its own (hermes-routine-meta.js): Hermes refuses it.
+  assert.deepEqual(hermesUpdates({ name: "New" }), { name: "New" });
   // A job of the agent's own: no marker, its own session, nothing delivered here.
   const own = routineOfJob(
     { id: "own1", name: "Mine", prompt: "x", schedule: { kind: "interval", minutes: 5 } },

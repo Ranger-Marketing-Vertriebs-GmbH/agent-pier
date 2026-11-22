@@ -1,12 +1,19 @@
-// The cron REST routes a Hermes messaging gateway hosts (v0.22.5
+// The cron REST routes a Hermes messaging gateway hosts (v0.23.3
 // hermes_cli/web_routers/cron.py), as the RPC bridge's `agentpier.http` reaches them,
-// in memory for the fake gateway (hermes-fake-gateway.js). Jobs keep fields they do
-// not know (update_job merges), a create may start paused, a forced run (`trigger`)
+// in memory for the fake gateway (hermes-fake-gateway.js). An update names only the
+// fields the route lets it update (_DASHBOARD_UPDATABLE_FIELDS; any other answers 400),
+// a create may start paused, a forced run (`trigger`)
 // resumes a paused job and answers once the run ended, and each run writes a stored
 // session with the prompt and its echo, which session.history reads. Every change
 // emits `cron.changed`.
 
 const iso = (ms) => new Date(ms).toISOString();
+// hermes_cli/web_routers/cron.py _DASHBOARD_UPDATABLE_FIELDS at v0.23.3.
+const updatable = new Set(
+  "name prompt schedule deliver failure_deliver skills skill repeat enabled model provider base_url reasoning_effort pinned script monitor_script monitor_url interpreter context_from enabled_toolsets attach_to_session workdir no_agent timezone grace_minutes catch_up wrap_response".split(
+    " ",
+  ),
+);
 
 function parse(schedule) {
   const text = String(schedule || "").trim();
@@ -75,6 +82,13 @@ export function cronRest(
   }
   if (!action && method === "PUT") {
     const updates = { ...body?.updates };
+    const internal = Object.keys(updates)
+      .filter((key) => !updatable.has(key))
+      .sort();
+    if (internal.length)
+      return answer(400, {
+        detail: `Cron job field(s) cannot be updated: ${internal.join(", ")}`,
+      });
     if ("schedule" in updates) {
       updates.schedule = parse(updates.schedule);
       if (!updates.schedule) return answer(400, { detail: "invalid schedule" });

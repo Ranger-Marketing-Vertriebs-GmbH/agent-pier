@@ -5,8 +5,11 @@ from source with `uv sync --frozen --python 3.14` (base 122 MiB venv, 162 MiB wi
 `messaging` extra). Platform: macOS arm64. This is recorded evidence, not a promise about
 later releases.
 
-Pinned release since 2026-11-01: AgentPier installs the Hermes release `v0.22.5`
-(commit `bf0203a7`) instead of `a4994d4e` (owner decision). The observations below
+Pinned release since 2026-11-22: AgentPier installs the Hermes release `v0.23.3`
+(commit `caafe538`; before it `v0.22.5`, commit `bf0203a7`, from 2026-11-01) instead of
+`a4994d4e` (owner decision). Since v0.23 Hermes has no agent-browser and no built-in
+`browser_*` tools besides `browser_exec`, so the browser notes below describe the
+spike's release only. The observations below
 stay those of the spike; [Hermes runtime](../hermes-runtime.md) records what was
 verified again against the pinned release, and
 [ADR 0006](../adr/0006-assistant-runtime-port.md) (decision 4, host as built) why

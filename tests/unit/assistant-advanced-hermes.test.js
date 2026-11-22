@@ -14,7 +14,7 @@ import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/he
 // (hermes-config/advanced.js): which settings Hermes takes, its approval per version,
 // and the applies a save starts. OpenClaw's side: assistant-advanced-config.test.js.
 
-function setup({ hermes = "0.22.5", enabled = true } = {}) {
+function setup({ hermes = "0.23.3", enabled = true } = {}) {
   const db = new DatabaseSync(":memory:");
   migrateAssistants(db);
   const overrides = new OverrideStore(db);
@@ -60,7 +60,7 @@ test("the page names which settings Hermes agents take and its approval", async 
   assert.deepEqual(hermesOf(listed), {
     enabled: true,
     agents: 1,
-    version: "0.22.5",
+    version: "0.23.3",
     qualified: true,
   });
   // How Hermes agents take each setting: live, with a restart, or not at all.

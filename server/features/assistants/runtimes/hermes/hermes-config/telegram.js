@@ -7,7 +7,7 @@ import {
 
 // The agent's own Telegram bot for other people (the `channelBots` capability) as
 // Hermes's own Telegram adapter runs it in the agent's messaging gateway
-// (plugins/platforms/telegram at Hermes v0.22.5, website/docs/user-guide/messaging/
+// (plugins/platforms/telegram at Hermes v0.23.3, website/docs/user-guide/messaging/
 // telegram.md). One home, one bot token, one poller: the token is the agent's bot
 // alone, never the owner's AgentPier bot (native-telegram-store.js requireFree).
 //
