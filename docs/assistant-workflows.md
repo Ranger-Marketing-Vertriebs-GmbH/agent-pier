@@ -699,8 +699,9 @@ A failed run's cause comes from what OpenClaw records (2026.10.7): the job's
 `rate_limit` or `timeout`), `state.lastRunAtMs` and `state.consecutiveErrors` in
 `cron.list`, each `cron.runs` entry's `error`, `errorReason` and `durationMs`, and
 the completion webhook's `error`. `routine-failures.js` maps it to a stable reason
-(`gateway-restart` for "cron: job interrupted by gateway restart" or a run started
-before a restarted Gateway settled, `gateway-stopped` for "… because owner is
+(`gateway-restart` for "cron: job interrupted by gateway restart", OpenClaw 2026.11.6's
+"agent run aborted for restart | OPENCLAW_RESTART_ABORT" or a run started before a
+restarted Gateway settled, `gateway-stopped` for "… because owner is
 unavailable", `agent-unavailable`, `timeout`, `model`, `delivery`, `other`) and keeps
 OpenClaw's message as the detail, redacted with `server/lib/secret-redaction.js` plus
 URL query values, bearer tokens, cookies, Google API keys, unquoted `key: value`

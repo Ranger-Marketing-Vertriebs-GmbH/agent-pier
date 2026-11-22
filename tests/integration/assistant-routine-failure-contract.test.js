@@ -192,7 +192,9 @@ test(
     assert.equal(refused.reason, "model");
     assert.ok(refused.message, "OpenClaw's message is kept as the detail");
     assert.ok(refused.message.length <= 500);
-    assert.equal(refused.consecutive, 2, "both runs failed in a row");
+    // 2026.11.6 does not count a run aborted for a restart among the errors in a row
+    // (consecutiveErrors), so only the refused run counts.
+    assert.equal(refused.consecutive, 1, "the refused run, not the restart abort");
     const { entries } = await routines.runs(id, routine.id);
     t.diagnostic(`runs=${JSON.stringify(entries)}`);
     assert.equal(entries[0].failure?.reason, "model");
