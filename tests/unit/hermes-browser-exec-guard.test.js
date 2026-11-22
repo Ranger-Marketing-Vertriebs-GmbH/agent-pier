@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
+import { shortenedMark } from "../../server/features/assistants/runtimes/hermes/hermes-approval-queue.js";
 
 // Hermes's browser_exec runs the agent's Python on the host (Hermes v0.23
 // tools/browser_use_cli.py) and Hermes asks before none of it: on an asking shell
@@ -122,6 +123,10 @@ test(
     const b = await runHook(every, run("print(2)"));
     assert.match(a.rule_key, /^agentpier:browser_exec:[0-9a-f]{32}$/);
     assert.notEqual(a.rule_key, b.rule_key);
+    // A long run is shown shortened, marked so the card offers no "Always allow".
+    const long = await runHook(every, run(`print(1)\n${"#".repeat(5000)}`));
+    assert.ok(long.message.endsWith(shortenedMark));
+    assert.equal(long.message.length, 4000 + shortenedMark.length);
     // Without its settings the guard blocks the run.
     fs.rmSync(path.join(approval, "plugins/agentpier-guard/guard.json"));
     assert.equal((await runHook(approval, run("print(1)"))).action, "block");

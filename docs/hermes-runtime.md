@@ -86,8 +86,11 @@ without a shell Hermes offers no `browser_exec` at all.
 whole pattern class (every "recursive delete") for good in `command_allowlist`, which
 AgentPier compiles. **Always allow** on a Hermes agent answers once and AgentPier
 remembers the exact command (`exec-remembered.js`, by the SHA-256 of its full text); the
-identical command is then answered without a card, any other one still asks. **Always
-allowed commands** (**Capabilities** → **Shell access**) lists these commands with the
+identical command is then answered without a card, any other one still asks. A card
+that shows a shortened command (the guard shortens its message after 4000 characters
+and ends it with ` … [shortened]`; a card carries at most 32768) offers no **Always
+allow** (`partial`, `hermes-approval-queue.js`): the text it would remember is not
+the whole command. **Always allowed commands** (**Capabilities** → **Shell access**) lists these commands with the
 folder they were approved in and when they were added, and deletes them, as it does
 OpenClaw's allowlist. A Hermes agent's list is AgentPier's own (`exactOnly` in
 `GET /api/assistants/:id/shell-allowlist`), so it is read and deleted while Hermes and

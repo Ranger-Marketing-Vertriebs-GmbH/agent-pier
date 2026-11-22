@@ -1,4 +1,5 @@
 import { teamDirectory } from "./team-plugin.js";
+import { shortenedMark } from "../hermes-approval-queue.js";
 
 // The AgentPier guard: a Hermes profile plugin (website/docs/user-guide/features/
 // plugins.md) with one `pre_tool_call` hook and three jobs.
@@ -79,7 +80,9 @@ _RUNS = {"terminal": "command", "execute_code": "code", "browser_exec": "code"}
 _BROWSER_KEY = "agentpier:browser_exec"
 # process_manage actions that send input to a running process.
 _INPUT = {"write", "submit"}
-# Longer texts are shortened in the approval card; the rule key covers all of it.
+# Longer texts are shortened in the approval card, which then offers no "Always
+# allow" (AgentPier remembers the text shown); the rule key covers all of it.
+_SHORTENED = ${JSON.stringify(shortenedMark)}
 _SHOWN = 4000
 # AgentPier waits 300 s for the owner; the request a little longer.
 _WAIT = 320
@@ -123,7 +126,7 @@ def _chat_guard(tool_name, args, every=True):
     if text is None or _flagged(tool_name, text):
         return None
     digest = hashlib.sha256(f"{tool_name}\\0{text}".encode("utf-8")).hexdigest()[:32]
-    shown = text if len(text) <= _SHOWN else text[:_SHOWN] + " …"
+    shown = text if len(text) <= _SHOWN else text[:_SHOWN] + _SHORTENED
     return {
         "action": "approve",
         "message": shown,
