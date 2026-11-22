@@ -81,6 +81,7 @@ export const assistantShellCopy = {
     showFull: "Show full command",
     showLess: "Show less",
     allowOnce: "Allow once",
+    allowChat: "Allow for this chat",
     allowAlways: "Always allow",
     deny: "Deny",
     note: "OpenClaw notes",

@@ -19,7 +19,23 @@ import {
 // AgentPier cannot attribute to a known agent and conversation is denied at once.
 // Events sent while disconnected are lost and a Gateway restart cancels pending
 // requests, so every ready reconciles against `exec.approval.list`.
-export const execDecisions = ["allow-once", "allow-always", "deny"];
+export const execDecisions = ["allow-once", "allow-always", "deny", "allow-chat"];
+
+/**
+ * Whether a request may be answered for the rest of its chat ("allow-chat"): a Hermes
+ * agent's browser_exec run its guard asks about on "Dangerous commands"
+ * (hermes-config/guard-plugin.js, the request's `tool`), shown in full. Hermes offers
+ * only once or deny for it; AgentPier answers the later runs of the same agent's
+ * same session itself (exec-decisions.js). "Every command" asks for each run.
+ */
+const chatScoped = (request, agent) =>
+  request?.tool === "browser_exec" &&
+  request.partial !== true &&
+  agent?.shellEveryCommand !== true;
+
+/** The chat a chat-wide answer covers: the agent and the runtime session. */
+export const chatKey = (action) =>
+  `${action.assistantId}\0${action.payload?.sessionKey ?? ""}`;
 export const execOperationKey = (approvalId) => `exec:${approvalId}`;
 const defaultExpiryMs = 30 * 60000;
 // `approval.history` statuses, as final action states.
@@ -60,6 +76,10 @@ export class ExecApprovals {
     this.ended = new Map();
     // Approval ids whose owner decision is being sent (exec-decisions.js).
     this.deciding = new Set();
+    // The chats (chatKey) whose browser_exec runs the owner allowed for the rest of
+    // the chat. Kept in memory: after a restart the next run asks again. A chat reset
+    // or a new chat is a new session, so it never inherits one.
+    this.chatGrants = new Set();
     const hub = w.a.gatewayEvents;
     if (!hub) return;
     hub.on("exec.approval.requested", (p) =>
@@ -268,11 +288,21 @@ export class ExecApprovals {
       // hermes-approval-queue.js): it would remember only what it shows.
       const agent = this.w.a.store.getAssistant(owner.assistantId);
       const once = onceOnly || temporaryMember(agent) || p.request.partial === true;
+      const payload = this.payload(id, p.request, expiresAt, agent);
+      // "Allow for this chat", on a card that offers more than once.
+      const chat = !once && chatScoped(p.request, agent);
       action = store.reserve({
         ...owner,
         payload: {
-          ...this.payload(id, p.request, expiresAt, agent),
+          ...payload,
           ...(once ? { onceOnly: true } : {}),
+          ...(chat && {
+            allowedDecisions: [
+              ...payload.allowedDecisions.filter((d) => d !== "allow-chat"),
+              "allow-chat",
+            ],
+            chatScope: true,
+          }),
         },
         key,
         state: "awaiting_approval",
@@ -288,10 +318,26 @@ export class ExecApprovals {
       return this.deny(id, p.request, "INTERNAL");
     }
     this.w.a.changed?.();
+    // A browser run in a chat the owner allowed it for runs without a card.
+    if (await this.chatAllowed(action)) return;
     // A command the owner always allowed before runs without a card (AGENTPIER-276).
     if (await this.remembered(action)) return;
     // The tick notifies again, so a failed notice leaves the action intact.
     notifyAction(this.w, action, "approval");
+  }
+  /** Answers a browser run of an allowed chat at once; false leaves the card. */
+  async chatAllowed(action) {
+    if (action.payload.chatScope !== true || !this.chatGrants.has(chatKey(action)))
+      return false;
+    try {
+      await decideExec(this.w, action, "allow-chat", this.log, { chat: true });
+      return true;
+    } catch (error) {
+      this.log(
+        `Assistant exec approval ${action.payload.approvalId}: chat-wide answer not sent (${error?.code || error?.status || "ERROR"}).`,
+      );
+      return false;
+    }
   }
   /** Answers a remembered command at once; false leaves the card to the owner. */
   async remembered(action) {

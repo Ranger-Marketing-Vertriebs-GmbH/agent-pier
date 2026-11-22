@@ -8,10 +8,11 @@ import { shortenedMark } from "../hermes-approval-queue.js";
 //   the host through browser-harness (tools/browser_use_cli.py), past every terminal
 //   check, and Hermes asks before none of it. On an asking shell level the hook asks
 //   the owner as Hermes asks before an execute_code run (tools/approval.py
-//   check_execute_code_guard): in a chat with one rule key for every run, so "allow
-//   for this chat" covers the browser for the rest of the session; on every-command
-//   each run asks with its own key, as every command does; in a routine run through
-//   the team bridge like every Python run.
+//   check_execute_code_guard): in a chat with one rule key for every run; Hermes
+//   offers only once or deny for a plugin's question, so AgentPier's card adds "Allow
+//   for this chat" and answers that chat's later runs itself (exec-approvals.js); on
+//   every-command each run asks with its own key, as every command does; in a routine
+//   run through the team bridge like every Python run.
 // - Every command (`everyCommand`): in a chat it returns `{"action": "approve"}` for
 //   every shell command, Python run and input to a running process, so each asks the
 //   owner (website/docs/user-guide/features/hooks.md; tools/approval.py

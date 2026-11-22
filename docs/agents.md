@@ -288,7 +288,10 @@ What works on Hermes today:
   as dangerous and runs the rest; **Every command** asks before every shell command
   and Python run; **Off** and **Full access** work as on OpenClaw. Approval cards
   offer **Allow once**, **Always allow** (AgentPier remembers the exact command) and
-  **Deny**. **Always allowed commands** lists the remembered commands with their
+  **Deny**; on **Dangerous commands** a browser run (`browser_exec`, Python on this
+  computer) also offers **Allow for this chat**, which covers the agent's later browser
+  runs in that chat until it is reset ([Hermes runtime](hermes-runtime.md#shell-levels)).
+  **Always allowed commands** lists the remembered commands with their
   folder and when you added them; delete one and the agent asks again. On OpenClaw,
   **With approval** already asks before every command, so it keeps its three levels.
 - The model connection and the instructions. Every OpenAI-compatible endpoint

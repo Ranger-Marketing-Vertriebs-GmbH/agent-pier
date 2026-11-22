@@ -63,6 +63,11 @@ test("a request that shows a shortened command is marked partial", async () => {
   assert.equal(requests.p2.partial, true);
   assert.equal(requests.p2.command.length, 32768);
   assert.equal("partial" in requests.p3, false);
+  // A plugin's question names the tool it asks about ("Allow for this chat" is
+  // offered for browser_exec, exec-approvals.js); Hermes's own question names none.
+  assert.equal(requests.p1.tool, "browser_exec");
+  assert.equal("tool" in requests.p2, false);
+  assert.equal("tool" in requests.p3, false);
 });
 
 test("a partial request's card offers no Always allow, also not on the server", async (t) => {
