@@ -999,7 +999,7 @@ fresh native installations (Linux x64/arm64, macOS x64/arm64, with the new
 `@openclaw/proc-safe` and `@resvg/resvg-js` prebuilds). Its native contracts fail on
 Linux and macOS with exactly the open items above.
 
-### OpenClaw 2026.11.3 → 2026.11.6 (2026-11-22)
+### OpenClaw 2026.11.3 → 2026.11.6 (2026-11-22, in progress)
 
 The update skips 2026.11.4 and 2026.11.5. With it AgentPier supports only the
 OpenClaw version it pins: `rollbackTargets` names the previous pin, 2026.11.3, alone
@@ -1058,6 +1058,32 @@ AgentPier sends none.
 job (openclaw#199512); 2026.11.3 refused it ("session rebound"). `pinsChat` now
 answers true only below 2026.11.6, so `chat-rebind.js` re-creates jobs on the
 rollback target alone; the heartbeat and routine contracts pin the kept job.
+
+**MCP sign-in issuer.** 2026.11.6 checks a provider's `iss` (RFC 9207) with the
+code of a manual `mcp login --code` and prints a hint for it; AgentPier's OAuth
+callback now passes the `iss` it receives as `--issuer`.
+
+**Qualification is not complete.** Local macOS arm64 run of the native contracts
+(2026-11-22) after the fixes above: the runtime, patch, advanced settings, native
+interfaces, heartbeat, routine, skills, write guard, team plugin, web tools,
+dreaming scope and runtime update contracts pass. Open:
+
+- **Tool results inlined as text.** When the model calls a tool-search directory entry
+  by name, 2026.11.6's next model request does not declare that tool and inlines the
+  call and its result into the assistant message ("[tool call id=… name=…]",
+  "[tool result id=… name=…]", `openai-completions-transport`), later requests
+  declare it again. Contract model fixtures that look for `tool` messages then call
+  the tool again (SSH, reminder, memory, provider, mail and coding contracts). The team
+  plugin contract reads both shapes now; whether real models repeat calls on the inlined
+  form is unverified.
+- **`browser.request` unknown** right after the start (browser host policy, browser
+  window, upload contracts).
+- **Changed runtime behaviour** to re-check: the exec completion run (owner run, work
+  goals, Telegram follow-ups), compaction events, the silent-model timeout
+  (run steps), memory flushes, routine failure causes ("gateway-restart"),
+  `COMMAND_CARRIER_EXECUTABLES` no longer exported (shell), ChatGPT profiles in
+  `models.authStatus` (account logout, ChatGPT access, routine account contracts),
+  the agent admission contract and the remaining dreaming contract case.
 
 **Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
 adds `include`/`exclude` selectors, which AgentPier does not set.

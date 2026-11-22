@@ -211,10 +211,9 @@ test(
     assert.ok(Number.isFinite(connected.oauthExpiresAt));
     assert.equal(await authState("docs"), "authorized");
     assert.equal((await listed("spare")).oauthStatus, "not-connected");
-    // The post-login nudge: a hot `mcp` change that lifts the failed start's backoff.
-    // Since 2026.10.10 the login's window restarted the Gateway, which lifts it too.
-    const windowed = h.offline.guarded();
-    assert.equal((await running()).mcp.sessionIdleTtlMs, windowed ? undefined : 0);
+    // The login's maintenance window restarted the Gateway, which lifts the failed
+    // start's backoff, so no post-login nudge is written.
+    assert.equal((await running()).mcp.sessionIdleTtlMs, undefined);
 
     // The next turn, within the backoff window of the failed one, is offered the tool;
     // OpenClaw refreshed the stale token unattended. The spare server stays out.
@@ -268,8 +267,8 @@ test(
     assert.deepEqual(runtime.mcp.servers, ["docs", "spare"]);
     await loggedOut("docs", "old login gone");
     assert.equal((await listed("docs")).oauthStatus, "not-connected");
-    // Before 2026.10.10 nothing restarts; since then each sign-in step has a window.
-    if (!windowed) assert.equal(runtime.generation, generation, "no restart");
+    // Each sign-in step has a window of its own.
+    assert.notEqual(runtime.generation, generation, "a window restarted the Gateway");
 
     // A logout that fails is deferred: the rename is saved, the server with the old
     // name and URL stays uncompiled, and the next start drains it before compiling.

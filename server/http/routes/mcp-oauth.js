@@ -125,6 +125,8 @@ export function mcpOAuthCallbackRoutes(services) {
         state: one(req.query.state),
         code: one(req.query.code),
         error: one(req.query.error),
+        // The provider's issuer (RFC 9207), which OpenClaw checks with the code.
+        iss: one(req.query.iss),
       });
     let done;
     try {

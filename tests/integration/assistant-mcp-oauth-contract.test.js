@@ -125,6 +125,7 @@ test(
       `Could not start the local OAuth callback (listen EADDRINUSE: address already in use 127.0.0.1:${held.port}).`,
       'Open this URL to authorize "docs":',
       "After approval, run openclaw mcp login docs --code <code>.",
+      "If the callback URL includes iss, pass its exact value with --issuer <iss> when completing login manually.",
       "",
     ]);
     assert.equal(new URL(printed[2]).href, authorizationUrl.href);
@@ -390,6 +391,7 @@ test(
       "Could not start the local OAuth callback (OAuth callback redirect must use HTTP on a loopback address).",
       'Open this URL to authorize "secure":',
       "After approval, run openclaw mcp login secure --code <code>.",
+      "If the callback URL includes iss, pass its exact value with --issuer <iss> when completing login manually.",
       "",
     ]);
     assert.equal(new URL(printed[2]).href, url.href);

@@ -256,4 +256,7 @@ else if (command === "login") {
   if (mode !== "no-url")
     out(mode === "no-state" ? url.replace(/&state=[^&]+/, "") : printedUrl);
   out(`After approval, run openclaw mcp login ${name} --code <code>.`);
+  out(
+    "If the callback URL includes iss, pass its exact value with --issuer <iss> when completing login manually.",
+  );
 } else fail(`unexpected ${command}`);

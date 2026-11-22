@@ -282,6 +282,27 @@ test("completeLogin passes the code as one argument and never reveals it", async
     await rejects(ok.cli.completeLogin("docs", bad), "invalid-code");
 });
 
+test("completeLogin passes the callback's issuer and refuses a malformed one", async (t) => {
+  // OpenClaw 2026.11.6 checks the provider's `iss` (RFC 9207) with the code.
+  const ok = setup(t);
+  await ok.cli.completeLogin("docs", "abc", "https://accounts.example.test/realm");
+  assert.deepEqual(ok.recorded().argv, [
+    "mcp",
+    "login",
+    "docs",
+    "--code=abc",
+    "--issuer=https://accounts.example.test/realm",
+  ]);
+  for (const issuer of [
+    "",
+    "accounts",
+    "ftp://x.test",
+    "https://x.test/#f",
+    "https://x .test",
+  ])
+    await rejects(setup(t).cli.completeLogin("docs", "abc", issuer), "invalid-code");
+});
+
 test("invalid server names never reach the CLI", async (t) => {
   const { cli } = setup(t);
   for (const bad of ["a b", "-x", "a;rm", "", null, "a".repeat(31), "$(x)"]) {

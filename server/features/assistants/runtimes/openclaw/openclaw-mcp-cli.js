@@ -147,6 +147,17 @@ function failure(command, exitCode, stderr, secrets) {
   return error;
 }
 
+// An issuer is an http(s) URL without whitespace, control characters or a fragment.
+const validIssuer = (issuer) => {
+  if (typeof issuer !== "string" || !issuer || issuer.length > 2048) return false;
+  if (/[\s\p{Cc}]/u.test(issuer)) return false;
+  try {
+    const url = new URL(issuer);
+    return ["https:", "http:"].includes(url.protocol) && !url.hash;
+  } catch {
+    return false;
+  }
+};
 const checkedName = (name) => {
   if (typeof name !== "string" || !namePattern.test(name))
     throw new McpCliError("invalid-name", "Invalid MCP server name.");
@@ -365,7 +376,9 @@ export function createMcpCli({
         return parsed;
       }
     },
-    async completeLogin(name, code) {
+    // `issuer`: the callback's `iss` (RFC 9207), which OpenClaw 2026.11.6 checks
+    // against the provider and requires where the provider sends one.
+    async completeLogin(name, code, issuer) {
       checkedName(name);
       if (
         typeof code !== "string" ||
@@ -374,8 +387,12 @@ export function createMcpCli({
         /[\s\p{Cc}]/u.test(code)
       )
         throw new McpCliError("invalid-code", "Invalid OAuth authorization code.");
+      if (issuer !== undefined && !validIssuer(issuer))
+        throw new McpCliError("invalid-code", "Invalid OAuth issuer.");
       // `--code=<code>` keeps a code that starts with "-" from reading as an option.
-      const stdout = await run("login", ["login", name, `--code=${code}`], [code]);
+      const args = ["login", name, `--code=${code}`];
+      if (issuer !== undefined) args.push(`--issuer=${issuer}`);
+      const stdout = await run("login", args, [code]);
       if (!lines(stdout).includes(`MCP OAuth credentials saved for "${name}".`))
         throw new McpCliError(
           "cli-failed",
@@ -440,7 +457,8 @@ export function createMcpCli({
   return {
     ...cli,
     startLogin: (name) => windowed(() => cli.startLogin(name)),
-    completeLogin: (name, code) => windowed(() => cli.completeLogin(name, code)),
+    completeLogin: (name, code, issuer) =>
+      windowed(() => cli.completeLogin(name, code, issuer)),
     logout: (name, options) => windowed(() => cli.logout(name, options)),
   };
 }
