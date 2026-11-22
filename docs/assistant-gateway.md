@@ -711,7 +711,10 @@ which runs in maintenance with no agent working: when a check fails while an age
 was refused for a superseded publication, it restarts the Gateway once and checks
 again (`assistant-runtime-updates.md`, "Validation and diagnostics"). A clean restart admits the agent again; the
 [native contract](../tests/integration/assistant-agent-admission-contract.test.js)
-checks both paths on the pinned runtime.
+checks both paths on the pinned runtime. On 2026.11.6 a write that does not wait for
+the admission is a write into the Gateway's start, which can fail that start; the
+contract then checks that the supervisor's next start admits every agent
+(`assistant-release-qualification.md`, "Startup settlement").
 
 Agents receive `session_status` plus the managed AgentPier tools their settings
 enable (team, memory, reminder, routine and coding tools; see the sections below).

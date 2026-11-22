@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
+import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -25,7 +26,8 @@ import {
 // Gateway admits its agent databases in the background once it listens. Up to
 // 2026.10.9 a configuration change meanwhile superseded that admission for good, so
 // AgentPier's writes wait for it and every agent is admitted. 2026.11.2 admits an
-// agent written to anyway as well, and a restart still admits every agent.
+// agent written to anyway as well, and a restart still admits every agent. On 2026.11.6
+// such a write may fail the Gateway's start instead; the restarted Gateway admits them.
 
 async function echoModelServer() {
   const server = http.createServer(async (req, res) => {
@@ -194,27 +196,51 @@ test(
     // refused, and each takes a turn. AgentPier's writes still wait, for the rollback
     // targets.
     await crash();
-    const client = runtime.client;
+    let client = runtime.client;
+    // 2026.11.6 admits the agents before its startup settles (`/startupz` answers 503
+    // until both are done), so a write during the admission is a write into the
+    // Gateway's start, which AgentPier never sends (the supervisor waits for
+    // `/startupz`, every write for the admission). Such a write can supersede a model
+    // runtime publication of the start itself, and the Gateway then fails its start
+    // ("gateway startup failed", seen on Linux runners): the supervisor starts it
+    // again, and that start admits every agent.
+    let failedStart = false;
+    client.subscribe((frame) => {
+      if (
+        frame?.event === "shutdown" &&
+        frame.payload?.reason === "gateway startup failed"
+      )
+        failedStart = true;
+    });
     let written = 0;
-    for (let n = 0; n < 10; n++) {
-      const { hash } = await client.call("config.get", {});
-      // 2026.11.6 may answer such an early write as persisted but not yet applied.
-      await client
-        .call("config.patch", {
-          baseHash: hash,
-          raw: JSON.stringify({ agents: { defaults: { maxConcurrent: 30 + n } } }),
-        })
-        .catch((error) => {
-          if (error.persisted?.outcome !== "unclaimed") throw error;
-        });
-      written++;
-      if (!(await roster()).some((a) => a.admissionRefusal?.code === pendingAdmission))
-        break;
-      await delay(300);
+    try {
+      for (let n = 0; n < 10; n++) {
+        const { hash } = await client.call("config.get", {});
+        // 2026.11.6 may answer such an early write as persisted but not yet applied.
+        await client
+          .call("config.patch", {
+            baseHash: hash,
+            raw: JSON.stringify({ agents: { defaults: { maxConcurrent: 30 + n } } }),
+          })
+          .catch((error) => {
+            if (error.persisted?.outcome !== "unclaimed") throw error;
+          });
+        written++;
+        if (!(await roster()).some((a) => a.admissionRefusal?.code === pendingAdmission))
+          break;
+        await delay(300);
+      }
+    } catch (error) {
+      // A call can be refused while the Gateway shuts down, before it closes.
+      if (!failedStart && client.ready)
+        await Promise.race([once(client, "disconnected").catch(() => {}), delay(5000)]);
+      if (!failedStart) throw error;
+      while (!(runtime.client !== client && runtime.client?.ready)) await delay(20);
+      client = runtime.client;
     }
     await settledAdmission(client);
     const refused = agents.filter((a) => degradedAgents(client).has(a.runtimeAgentId));
-    t.diagnostic(JSON.stringify({ written, degraded: refused.length }));
+    t.diagnostic(JSON.stringify({ written, failedStart, degraded: refused.length }));
     assert.ok(written > 0);
     assert.deepEqual(refused, []);
     assert.deepEqual(
