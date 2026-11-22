@@ -512,6 +512,15 @@ running as installed. Starting a patched installation verifies its patches again
   request and no channel delivery follow. AgentPier's ledger keeps the turn
   interrupted or uncertain for the owner to review (see `assistant-gateway.md`,
   "Interrupted turns after a restart"). OpenClaw has no setting for this.
+- `hydrated-tools-kept` and `hydrated-tools-kept-list`: 2026.11.6 builds each next
+  turn's tools from the session's own tool list
+  (`createSessionPrepareNextTurnWithContext` in `dist/tool-send-receipts-*.mjs`), so a
+  tool-search directory tool the model called by name is no longer declared, and the
+  Chat Completions transport replays its call and result as assistant text
+  ("[tool call id=…]", "[tool result id=…]"; openclaw#202415, fixed upstream after
+  2026.11.6 by #202436). The patch keeps the hydrated tools for the next turn while
+  the session's tool list is unchanged, so calls and results stay structured `tool`
+  messages. Tool search stays in directory mode.
 
 The 2026.11.3 installation, the rollback target, keeps the patches it was installed
 with (`5621321a947d`): the lease release window, the Codex client version (`0.164.0`
@@ -542,7 +551,7 @@ Remove an entry, and with it its part of the patch identity, once the pinned Ope
 fixes the problem itself.
 
 Patches are keyed by OpenClaw version, so a pin bump drops them unless they are
-carried forward. Three guards read the installed package itself, independent of the
+carried forward. Four guards read the installed package itself, independent of the
 patch list, in the runtime patch contract (`assistant-runtime-patch-contract.test.js`)
 and `scripts/verify-assistant-installation.mjs`:
 
@@ -562,6 +571,11 @@ and `scripts/verify-assistant-installation.mjs`:
   longer converts such a failure into `AgentDatabaseStartupSupersededError`, or when no
   startup publication retry is found (`tests/helpers/superseded-publication-guard.js`).
   A pin that loses the conversion needs the retry patched again.
+- The hydrated tools: both fail while the package's next-turn preparation still
+  resets the tool list without the hydrated tools, or when it is not found at all
+  (`tests/helpers/hydrated-tools-guard.js`). Carry both `hydrated-tools-kept` entries
+  forward until a pin includes upstream's fix (#202436); then update the guard and
+  drop them.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
