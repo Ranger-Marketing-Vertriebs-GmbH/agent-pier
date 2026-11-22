@@ -48,7 +48,8 @@ const lastUser = (request) =>
   request.messages.slice(request.messages.findLastIndex(turnMessage));
 // The completion run's prompt to the model: 2026.10.3's "An async command you ran
 // earlier has completed ..." (its transcript entry is "[OpenClaw exec completion]"),
-// 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line.
+// 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line, 2026.11.6's
+// "[OpenClaw exec completion]" frame.
 const text = (m) =>
   typeof m?.content === "string"
     ? m.content
@@ -58,7 +59,11 @@ const text = (m) =>
         .join("\n");
 const isCompletion = (request) => {
   const prompt = text(lastUser(request)[0]) || "";
-  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
+  return (
+    /async command/i.test(prompt) ||
+    /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt) ||
+    /\[OpenClaw exec completion\]|^(\[[^\]]*\] )?Exec [a-z]+ \(/m.test(prompt)
+  );
 };
 
 test(

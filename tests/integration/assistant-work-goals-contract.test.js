@@ -54,12 +54,14 @@ const eventTurns =
   !!installed && !/^2026\.(9\.|10\.[0-5]$)/.test(openClawVersion(installed));
 // The completion run's prompt: 2026.10.3's "An async command you ran earlier has
 // completed ...", 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line,
-// and 2026.11.2's event turn, which shows the model the framed prompt again.
+// 2026.11.2's event turn, which shows the model the framed prompt again, and
+// 2026.11.6's "[OpenClaw exec completion]" frame.
 const isCompletion = (request) => {
   const prompt = text(lastUser(request)[0]) || "";
   return eventTurns
     ? /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt) ||
-        /^(\[[^\]]*\] )?An async command/.test(prompt)
+        /^(\[[^\]]*\] )?An async command/.test(prompt) ||
+        /\[OpenClaw exec completion\]|^(\[[^\]]*\] )?Exec [a-z]+ \(/m.test(prompt)
     : /async command/i.test(prompt);
 };
 
