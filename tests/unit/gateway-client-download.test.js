@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import https from "node:https";
+import net from "node:net";
 import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
@@ -70,10 +71,33 @@ test("a start waits for the Gateway's startup check, at most until its deadline"
   assert.ok(seen.every((r) => r.url === "/startupz" && r.authorization === undefined));
   // A Gateway without the check (404) is settled at once.
   assert.equal(await (await origin(t)).client.startupSettled(), true);
-  // A Gateway with another certificate than the pinned one is never settled.
-  const other = await origin(t, issueGatewayCertificate(), { settled: true });
+  // So is a listener that never answers, or one the request cannot trust: the wait
+  // ends, and nothing is sent to an endpoint with another certificate.
+  const sockets = [];
+  const quiet = net.createServer((socket) => sockets.push(socket.pause()));
+  await new Promise((resolve) => quiet.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    sockets.forEach((socket) => socket.destroy());
+    quiet.close();
+  });
+  const silent = (await origin(t)).client;
+  silent.url = `wss://127.0.0.1:${quiet.address().port}`;
+  const from2 = Date.now();
+  assert.equal(await silent.startupSettled({ timeoutMs: 200 }), true);
+  assert.ok(Date.now() - from2 < 2000);
+  const other = await origin(t, issueGatewayCertificate(), { settled: false });
   other.client.certPath = (await origin(t)).certPath;
-  assert.equal(await other.client.startupSettled(), false);
+  assert.equal(await other.client.startupSettled(), true);
+  assert.deepEqual(other.seen, []);
+  // The wait also ends once its start is no longer current.
+  const stale = await origin(t, undefined, { settled: false });
+  const from3 = Date.now();
+  await stale.client.settleStartup({
+    deadline: from3 + 5000,
+    pollMs: 50,
+    live: () => false,
+  });
+  assert.ok(Date.now() - from3 < 1000);
 });
 
 test("a download never leaves the Gateway's origin", async (t) => {

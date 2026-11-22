@@ -1080,8 +1080,9 @@ directory mode.
 starts the config reloader only then. Besides the unclaimed writes (below), an early
 write could wedge the reloader ("config reload superseded by a newer runtime config
 source" without end): later `agents.update` calls hung and `browser.request` was
-unknown right after a start. The supervisor now waits until the pinned `/startupz`
-answers 200 (404 counts as settled), bounded by the start deadline.
+unknown right after a start. The supervisor now waits while the pinned `/startupz`
+answers 503 (2026.11.6 answers 503 while it starts, then 200), bounded by the start
+deadline and only while that start is current and its process alive.
 
 **Changed runtime behaviour** that AgentPier follows now:
 
