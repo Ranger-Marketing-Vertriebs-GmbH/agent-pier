@@ -360,7 +360,8 @@ jobs:
           --env-file "$GITHUB_ENV"
       # Activation, rollback after a failed validation, the legacy agent roster, an
       # MCP OAuth login refreshed on the updated runtime, a model key rotated
-      # after the activation's Doctor run, and dreaming on the rollback target.
+      # after the activation's Doctor run, dreaming on the rollback target, and turns
+      # of agents on an AgentPier-held ChatGPT login after the update.
       - name: Run the cross-version update tests
         run: >-
           node --test --test-concurrency=1
@@ -370,5 +371,6 @@ jobs:
           tests/integration/assistant-mcp-oauth-cross-version.test.js
           tests/integration/assistant-doctor-credentials-cross-version.test.js
           tests/integration/assistant-dreaming-rollback-cross-version.test.js
+          tests/integration/assistant-chatgpt-access-cross-version.test.js
       - name: Fail when a cross-version test skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/cross-version.tap"

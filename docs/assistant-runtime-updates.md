@@ -444,7 +444,20 @@ release that pins 2026.11.3 refuses 2026.11.6 through its team plugin. A start o
 2026.11.6 or later no longer gets the retired `agents.defaults.heartbeat`: the compile
 removes it, and any agent's `heartbeat`, from the stored configuration, so the
 migrated Gateway starts. A start of 2026.11.3 keeps `every: "0m"`, because that
-version runs its monitor every 30 minutes without the key.
+version runs its monitor every 30 minutes without the key. The candidate's Doctor
+reads the stored configuration before any 2026.11.6 start compiled it, so AgentPier
+takes the same keys out right before Doctor runs (`prepareConfigForVersion`,
+`runtime-doctor.js`). Without that, 2026.11.6's Doctor found the file invalid
+("Config unavailable; using environment and default agent directory settings") and
+ran its first repairs on default directories instead of the compiled agents
+(AGENTPIER-487).
+
+The migration also leaves no agent with the models its ChatGPT account's discovery
+found (such as GPT-6.2-Astra), and 2026.11.6 does not run that discovery for a turn:
+after the update every turn of such an agent failed in milliseconds ("No
+route-compatible authentication source is configured for openai", or "Unknown
+model"). See [ChatGPT logins held by AgentPier](assistant-model-connections.md#chatgpt-logins-held-by-agentpier)
+for the discovery AgentPier now starts per agent.
 
 ## Locked dependency installation
 

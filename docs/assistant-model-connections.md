@@ -183,6 +183,15 @@ The runtimes get access only:
   usage, embeddings) stay on the profile. Without a usable refresh token OpenClaw reports
   the profile as `expiring` within 24 hours of its expiry; AgentPier counts that as
   signed in.
+  Models only the account's discovery lists (`/codex/models`, such as GPT-6.2-Astra)
+  have their ChatGPT route only from that discovery, which OpenClaw 2026.11.6 keeps
+  per agent and does not run for a turn; its Doctor migration drops what 2026.11.3
+  kept. AgentPier therefore asks for each agent's discovery (`models.list` with
+  `refresh` for that agent, `account-model-discovery.js`) once a Gateway is ready, for
+  every agent pinned to an `openai/<model>@<profile>`, and after it creates an agent
+  on, or moves one to, such a model. Without it every turn of such an agent failed
+  after the update ("No route-compatible authentication source is configured for
+  openai", AGENTPIER-487).
 - **Hermes** reaches the account through AgentPier's model proxy, for chat and for
   **Create images**, see [Hermes runtime](hermes-runtime.md#model-connection) and
   [images](hermes-runtime.md#images). Hermes never depends on a running
@@ -245,6 +254,12 @@ proxy stub that blocks every outgoing connection: the access-only profile is
 accepted, a profile within OpenClaw's five-minute margin is never refreshed (no
 request to `auth.openai.com`, no fence), a renewed token is adopted without a
 restart, and a profile OpenClaw's own writer stored moves to AgentPier.
+`tests/integration/assistant-chatgpt-access-cross-version.test.js` (with
+`AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME` and `AGENTPIER_ASSISTANT_UPDATE_RUNTIME`) signs
+in on the previous runtime, lets OpenClaw discover GPT-6.2-Astra from a fake Codex
+backend behind an intercepting proxy (`tests/helpers/chatgpt-interceptor.js`), runs a
+turn, activates the candidate through the update path and runs turns of the existing
+and of a new agent on it.
 
 Still to verify with the owner on a real account (a separate AgentPier instance with
 its own data): the five OpenClaw features above on an access-only profile, and

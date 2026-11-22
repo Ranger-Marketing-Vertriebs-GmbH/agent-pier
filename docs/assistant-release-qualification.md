@@ -1146,6 +1146,23 @@ product path was affected; the test now signs in through `supervisorMcpCli` with
 runtime in a window, which shows that the Gateway releases its ownership after the
 switch. Passed locally (macOS arm64) 2026.11.3 (rc.8 lock and patches) → 2026.11.6.
 
+**ChatGPT logins across the update (AGENTPIER-487).** On the owner's installation
+every turn of an agent on GPT-6.2-Astra through an AgentPier-held ChatGPT login failed
+after the activation of 2026.11.6 ("No route-compatible authentication source is
+configured for openai"), while the login stayed connected. The model is known only
+from the account's model discovery; the migrated agent databases no longer hold its
+result, and 2026.11.6 does not rediscover it for a turn, only on a `models.list` for
+that very agent (the `main` agent's read AgentPier's catalog sends does not help).
+`assistant-chatgpt-access-cross-version.test.js` reproduces it: discovery from a fake
+Codex backend on 2026.11.3, turn, activation, turns of the existing and of a new agent.
+It failed with "This model was not found" before the fix and passes with
+`account-model-discovery.js` (macOS arm64, 2026.11.3 rc.8 lock and patches →
+2026.11.6). The same activation showed the candidate's Doctor reading the stored
+2026.11.3 configuration as invalid (`agents.defaults.heartbeat`) and running on
+default agent directories; `prepareConfigForVersion` now removes the key first. With
+network access 2026.11.6's Doctor also installs `@openclaw/codex` from npm and adds it
+to `plugins.allow`; AgentPier's next compile drops it from the allow list again.
+
 **Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
 adds `include`/`exclude` selectors, which AgentPier does not set.
 

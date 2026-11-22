@@ -10,6 +10,7 @@ import {
   settledAdmission,
 } from "./agent-admission.js";
 import { openClawMemory } from "./openclaw-memory.js";
+import { discoverAccountModels, onAccountLogin } from "./account-model-discovery.js";
 import {
   wikiError,
   wikiGetParams,
@@ -45,16 +46,28 @@ function agentsOver(current) {
     const client = current();
     return configWrite(client, (call) => call(method, params, ...options));
   };
+  // An agent now on a ChatGPT login finds its account's models (account-model-
+  // discovery.js) in the background, on the client of the write.
+  const discover = (agentId, model) => {
+    if (typeof agentId === "string" && onAccountLogin(model))
+      discoverAccountModels(current(), [agentId]);
+  };
   return {
     list: () => call("agents.list", {}),
-    create: ({ name, workspace, model }) =>
-      write(
+    create: async ({ name, workspace, model }) => {
+      const created = await write(
         "agents.create",
         { name, workspace, model },
         { timeoutMs: agentCreateTimeoutMs },
-      ),
-    update: ({ agentId, name, model }) =>
-      write("agents.update", { agentId, name, model }),
+      );
+      discover(created?.agentId, model);
+      return created;
+    },
+    update: async ({ agentId, name, model }) => {
+      const updated = await write("agents.update", { agentId, name, model });
+      discover(agentId, model);
+      return updated;
+    },
     delete: ({ agentId, deleteFiles }) =>
       write(
         "agents.delete",
