@@ -5,6 +5,7 @@ import { runtimeEnvironment } from "./runtime-config.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { openConsoleLog } from "./gateway-log.js";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
+import { heartbeatDefault } from "./openclaw-config/locked-core.js";
 import { inspectOwner, ownerRecord, ownershipConflict } from "./gateway-ownership.js";
 import {
   bootIdentity,
@@ -72,6 +73,31 @@ export function withholdProviderKeys(paths) {
     }
   if (keys.length) writePrivate(paths.config, config);
   return keys;
+}
+/**
+ * Takes out of openclaw.json what the candidate `version` refuses, before its Doctor
+ * reads it. The file was compiled for the previous runtime: 2026.11.6 refuses
+ * 2026.11.3's `heartbeat` key (heartbeatDefault), and a Doctor that cannot read its
+ * configuration runs on default directories ("Config unavailable"), not on the
+ * compiled agents. The next start compiles the file for the candidate anyway; a
+ * rollback restores the snapshot.
+ */
+export function prepareConfigForVersion(paths, version) {
+  if (heartbeatDefault(version)) return;
+  const config = readJSON(paths.config, null);
+  const agents = config?.agents;
+  if (!agents || typeof agents !== "object") return;
+  let changed = false;
+  const strip = (entry) => {
+    if (entry && typeof entry === "object" && "heartbeat" in entry) {
+      delete entry.heartbeat;
+      changed = true;
+    }
+  };
+  strip(agents.defaults);
+  for (const group of [agents.entries, agents.list])
+    if (group && typeof group === "object") Object.values(group).forEach(strip);
+  if (changed) writePrivate(paths.config, config);
 }
 /** Puts the withheld keys back into the providers Doctor left in openclaw.json. */
 export function restoreProviderKeys(paths, keys) {
@@ -203,6 +229,7 @@ export async function migrateRuntimeState(
   let outcome = false;
   let keys = [];
   try {
+    prepareConfigForVersion(paths, runtime.version);
     keys = withholdProviderKeys(paths);
     const log = openConsoleLog(path.join(paths.logs, "gateway-console.log"));
     let child;

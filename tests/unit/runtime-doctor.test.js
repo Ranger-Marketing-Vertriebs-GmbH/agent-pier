@@ -173,6 +173,42 @@ test("Doctor never sees a provider key, and openclaw.json gets it back", async (
   }
 });
 
+// AGENTPIER-487: the file was compiled for the previous runtime. 2026.11.6 refuses
+// 2026.11.3's `heartbeat` key, so its Doctor read no configuration at all and ran
+// on default directories; it must see the file as the candidate will run it.
+test("Doctor reads openclaw.json without keys the candidate version refuses", async (t) => {
+  const paths = fixture(t);
+  const config = {
+    agents: {
+      defaults: { workspace: "/w", heartbeat: { every: "0m" } },
+      entries: { "ap-1": { model: "m", heartbeat: { every: "0m" } } },
+      list: [{ id: "ap-2", heartbeat: { every: "0m" } }],
+    },
+  };
+  const read = async (version) => {
+    writePrivate(paths.config, config);
+    let seen;
+    const fake = fakeSpawn((child) => {
+      seen = readJSON(paths.config);
+      child.emit("exit", 0, null);
+    });
+    await migrateRuntimeState(
+      paths,
+      { ...runtime, version },
+      { ...fake.options, env: {} },
+    );
+    return seen;
+  };
+  const candidate = await read("2026.11.6");
+  assert.deepEqual(candidate.agents, {
+    defaults: { workspace: "/w" },
+    entries: { "ap-1": { model: "m" } },
+    list: [{ id: "ap-2" }],
+  });
+  // A candidate that still reads the key keeps it untouched.
+  assert.deepEqual((await read("2026.11.3")).agents, config.agents);
+});
+
 test("a non-zero exit rejects with UPDATE_MIGRATION_FAILED", async (t) => {
   const paths = fixture(t);
   const files = leftovers(paths);
