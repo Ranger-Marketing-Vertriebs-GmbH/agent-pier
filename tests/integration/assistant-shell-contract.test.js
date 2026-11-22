@@ -330,8 +330,13 @@ test("AgentPier's interpreter list covers OpenClaw's own lists", options, (t) =>
   ])
     lists[name] = strings(between(binding, `${name} = `, "]);"));
   const wrappers = source("shell-wrapper-resolution-");
-  for (const name of ["COMMAND_CARRIER_EXECUTABLES", "SOURCE_EXECUTABLES"])
-    lists[name] = strings(between(wrappers, `${name} = `, "]);"));
+  lists.SOURCE_EXECUTABLES = strings(between(wrappers, "SOURCE_EXECUTABLES = ", "]);"));
+  // Since 2026.11.6 the command carriers are the cases of resolveCarrierCommandArgv.
+  lists.carriers = [
+    ...between(wrappers, "function resolveCarrierCommandArgv(", "//#endregion").matchAll(
+      /case "([^"]+)":/g,
+    ),
+  ].map((m) => m[1]);
   for (const name of [
     "POSIX_SHELL_WRAPPER_NAMES",
     "WINDOWS_CMD_WRAPPER_NAMES",
@@ -442,9 +447,14 @@ test("a pending request is cancelled by a Gateway restart", options, async (t) =
     (e) => e.event === "exec.approval.resolved" && e.payload.id === request.id,
   )?.payload;
   t.diagnostic(`cancelled resolved=${JSON.stringify(cancelled)}`);
-  // A cancellation is a deny by the system resolver, not by a person.
-  assert.equal(cancelled.decision, "deny");
-  assert.equal(cancelled.resolvedBy, "approval-scope-closed");
+  // A cancellation is a deny by the system resolver, not by a person: in the history
+  // record, and in the resolved event when the closing connection still got it
+  // (2026.11.6 resolves during the shutdown, usually after the socket closed).
+  assert.deepEqual(record.resolver, { kind: "system", id: "approval-scope-closed" });
+  if (cancelled) {
+    assert.equal(cancelled.decision, "deny");
+    assert.equal(cancelled.resolvedBy, "approval-scope-closed");
+  }
   assert.equal(fs.existsSync(marker), false);
 });
 

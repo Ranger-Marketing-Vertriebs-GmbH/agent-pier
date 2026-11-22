@@ -501,7 +501,7 @@ successful browser start is consistent with the default DNS/address policy. This
 qualification does not contact the reported deployment or attempt a login.
 
 **Exact-host releases remain unsupported.** The runtime cannot meet per-agent host
-isolation and pre-request redirect denial. The global private-network opt-in below
+isolation (2026.11.6 does deny redirects before their request, point 5). The global private-network opt-in below
 is a different, explicitly broader owner permission; it does not provide these
 exact-host guarantees.
 
@@ -523,12 +523,13 @@ The actual policy chain is:
    remains denied. A trusted ordinary hostname resolving to loopback, link-local
    or the tested metadata address remains denied. Explicit loopback hostnames are
    a separate upstream exception and must never be accepted as product grants.
-5. `pw-tools-core.interactions.navigation.ts` guards document navigation and checks
-   the response's redirect chain after navigation. In the real-browser fixture,
-   a 302 from an explicitly allowed loopback literal reaches a second, unlisted
-   loopback hostname (`localhost`) **before** `assertPageNavigationCompletedSafely` rejects it.
-   Direct navigation to that second hostname is blocked before any request. Result
-   rejection/quarantining therefore does not establish pre-request redirect denial.
+5. `pw-tools-core.interactions.navigation.ts` guards document navigation. Since
+   OpenClaw 2026.11.6 its navigation authority fence checks every Chromium redirect
+   hop before the request: in the real-browser fixture, a 302 from an explicitly
+   allowed loopback literal to a second, unlisted loopback hostname (`localhost`)
+   is refused without reaching it (2026.11.3 reached it **before**
+   `assertPageNavigationCompletedSafely` rejected the result). The policy is still
+   one global policy (point 3), so this does not give per-agent host isolation.
    The action-scoped document guards also do not establish continuous enforcement
    for all subresources, service workers and idle tabs.
 
