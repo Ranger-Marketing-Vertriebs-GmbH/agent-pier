@@ -34,6 +34,7 @@ import {
 import { asDesiredState } from "./openclaw-config/desired-agents.js";
 import { hostWiki } from "./openclaw-config/memory-wiki.js";
 import { readJSON } from "../../../../lib/storage.js";
+import { accountAgentIds, discoverAccountModels } from "./account-model-discovery.js";
 import { closeConnection } from "../../../../lib/socket-errors.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
@@ -471,6 +472,8 @@ export class RuntimeSupervisor extends EventEmitter {
     await this.afterReady?.();
     if (generation !== this.generation) return;
     this.setState({ availability: "ready", sync: "reconciling" });
+    // Each agent on a ChatGPT login finds its account's models again (2026.11.6).
+    discoverAccountModels(client, accountAgentIds(readJSON(this.paths.config, null)));
     client.on("disconnected", () => {
       if (
         this.wanted &&
