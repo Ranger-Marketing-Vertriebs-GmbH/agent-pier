@@ -91,11 +91,7 @@ function freshDefaults(paths) {
   const hardened = hardenedDefaults();
   return {
     agents: {
-      defaults: {
-        workspace: paths.workspaces,
-        skipBootstrap: true,
-        heartbeat: hardened.heartbeat,
-      },
+      defaults: { workspace: paths.workspaces, skipBootstrap: true },
       entries: { main: {} },
     },
     channels: hardened.channels,
@@ -202,15 +198,22 @@ export function compileOpenClawConfig({
   config.discovery = hardened.discovery;
   config.telemetry = hardened.telemetry;
   config.update = hardened.update;
-  // No bundled allow list: 2026.10.9 and earlier read an empty one as "every bundled
-  // skill", 2026.11.2 as "none"; without one every bundled skill passes on both. The
-  // agents' own lists are the gate (agents.defaults.skills below, agentEntry).
+  // No bundled allow list: OpenClaw reads an empty one as "none"; without one every
+  // bundled skill passes. The agents' own lists are the gate (agents.defaults.skills
+  // below, agentEntry).
   const { allowBundled: _unset, ...skills } = config.skills || {};
   config.skills = skills;
   // Compiler-owned, never from overrides: the only extra skill root is AgentPier's
   // catalog; each agent's own list decides which of its skills it sees.
   config.skills.load = { extraDirs: [paths.catalogSkills], watch: true };
-  config.agents.defaults.heartbeat = hardened.heartbeat;
+  // OpenClaw retired its heartbeat monitor for ordinary automations (2026.11.6): a
+  // configuration that still names `heartbeat` on the defaults or an agent keeps the
+  // Gateway from starting until Doctor converts it. AgentPier wrote `every: "0m"`
+  // (off) there before; it runs its own heartbeats as routines (native-heartbeats.js),
+  // so the key is dropped from stored configurations instead of converted.
+  delete config.agents.defaults.heartbeat;
+  for (const entry of Object.values(config.agents.entries || config.agents.list || {}))
+    if (entry && typeof entry === "object") delete entry.heartbeat;
   // Compiler-owned: only applyWebTools sets the image model, while an agent creates
   // images and a ChatGPT account is ready; a stale one would keep the tool offered.
   if (config.agents.defaults.mediaModels) {

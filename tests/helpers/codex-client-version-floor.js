@@ -4,9 +4,10 @@ import path from "node:path";
 /**
  * The oldest Codex client version OpenClaw may send as `client_version` when it
  * discovers ChatGPT-account models: older clients are not offered GPT-6.2-Astra.
- * The installed package must reach it whether upstream ships it or AgentPier's
- * `codex-catalog-client-version` patch does (runtime-bundle-patches.js), so a pin
- * bump that would silently drop the patch fails until it is carried forward.
+ * OpenClaw ships 0.169.0 since 2026.11.6 (AgentPier patched 2026.11.3's 0.164.0 with
+ * `codex-catalog-client-version`, runtime-bundle-patches.js). The installed package
+ * must keep reaching it, so a pin that falls below fails until the constant is
+ * patched again.
  */
 export const codexClientVersionFloor = "0.169.0";
 
@@ -78,7 +79,7 @@ export function assertCodexClientVersionFloor(
         .map((item) => `${item.file} (${item.version})`)
         .join(
           ", ",
-        )}. Carry the codex-catalog-client-version patch forward (runtime-bundle-patches.js).`,
+        )}. Patch the constant again (codex-catalog-client-version, runtime-bundle-patches.js).`,
     );
   return found;
 }

@@ -11,7 +11,6 @@ import { dreamingSection } from "../../server/features/assistants/runtimes/openc
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   OfflineCommands,
-  offlineOnly,
   queueName,
 } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
 import { forgetDreamingSession } from "../../server/features/assistants/dreaming-backups.js";
@@ -285,8 +284,7 @@ test(
       ids.gone,
       "--json",
     ];
-    if (offlineOnly(f.runtime.runtime.version))
-      await assert.rejects(f.cli(forget), /exclusive offline state ownership/);
+    await assert.rejects(f.cli(forget), /exclusive offline state ownership/);
     const forgot = JSON.parse(await f.offline(() => f.cli(forget)));
     t.diagnostic(
       `openclaw memory forget --session <deleted chat>: ${JSON.stringify(forgot)}`,
@@ -412,10 +410,9 @@ test(
     assert.equal(await deleteNativeSession(assistants, conversation), true);
     await assistants.dreamingForgets;
     await assistants.offlineCommands.flush();
-    const windowed = offlineOnly(f.runtime.runtime.version);
-    assert.equal(f.runtime.generation !== generationBefore, windowed, "a window ran");
+    assert.notEqual(f.runtime.generation, generationBefore, "a window ran");
     assert.equal(fs.existsSync(path.join(f.runtime.paths.root, queueName)), false);
-    if (windowed) await f.restore(dreamingSection(next));
+    await f.restore(dreamingSection(next));
     assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/);
     assert.match(f.corpus(fern), /DREAMFERN/, "another agent's corpus stays");
     await f.turn(orchid, "Tomatoes need water daily DREAMORCHIDTWO.");

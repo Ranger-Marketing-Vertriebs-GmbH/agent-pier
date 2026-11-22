@@ -210,7 +210,7 @@ test("maintenance defers the pass and a refused admission retries on the next re
 test("every accepted guard report notifies the bridge's hook", () => {
   const assistants = {
     changed() {},
-    runtime: { child: { pid: 42 }, status: () => ({ version: "2026.10.3" }) },
+    runtime: { child: { pid: 42 }, status: () => ({ version: "2026.11.6" }) },
   };
   const bridge = new TeamBridge({ assistants, teams: {}, generation: () => 7 });
   bridge.closed = false;

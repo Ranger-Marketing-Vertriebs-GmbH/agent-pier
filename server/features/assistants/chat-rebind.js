@@ -1,16 +1,15 @@
 // Check-ins and routines that commit into a chat follow that chat across an owner's
 // `/reset` or `/new` (sent from Telegram; the web chat answers both itself).
 //
-// OpenClaw 2026.11.2 and later record the chat's lifecycle revision when a job with
-// a chat target is created (`sourceConversation`, which openclaw#167363 introduced
-// for isolated jobs) and refuse to commit a run's result into a later revision of that
+// OpenClaw 2026.11.3, the rollback target, records the chat's lifecycle revision when
+// a job with a chat target is created (`sourceConversation`, which openclaw#167363 introduced
+// for isolated jobs) and refuses to commit a run's result into a later revision of that
 // chat ("session rebound for sessionKey …", `not-delivered`). A reset rotates the
 // revision (the session id stays); compaction keeps it. `cron.update` never records
 // it again and there is no other public way to rebind, so the job is re-created: the
-// same fields, a new id. Upstream lets automations follow the chat again
-// (openclaw#199512, merged 2026-11-15, not in 2026.11.3); once the pinned runtime
-// has it, `pinsChat` (openclaw-routines.js) ends before it and nothing here runs.
-// 2026.10.9 and earlier read the chat as it is at each run and are never affected.
+// same fields, a new id. 2026.11.6 lets automations follow the chat again
+// (openclaw#199512): there `pinsChat` (openclaw-routines.js) answers false and
+// nothing here runs. Remove this module once 2026.11.3 is no rollback target.
 //
 // The binding keeps its id; its earlier job ids stay its own (`previousNativeIds`),
 // so a late completion of the old job is accepted and the run history goes on. A

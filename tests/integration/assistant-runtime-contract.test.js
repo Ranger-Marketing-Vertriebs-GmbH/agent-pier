@@ -38,8 +38,8 @@ test(
     const keep = (list, entry) => list.push(entry) > 30 && list.shift();
     // When each model request came and what its last user turn said (without
     // OpenClaw's runtime context): a request after the crash shows whether the
-    // Gateway resumed the interrupted turn on its own ("[System] Your previous turn
-    // was interrupted", OpenClaw's main-session restart recovery).
+    // Gateway resumed the interrupted turn on its own ("The Gateway restarted while
+    // you were working. Resume your work", OpenClaw's startup resume).
     const asked = [];
     const record = model.requests.push.bind(model.requests);
     const textOf = (content) =>
@@ -296,9 +296,6 @@ test(
     assert.ok(model.requests.some((r) => JSON.stringify(r).includes("HOLD_FOR_CRASH")));
     step("crash-held");
     const countBeforeCrash = model.requests.length;
-    // The console log from here on: what the restarted Gateway says about recovery.
-    const consoleLog = path.join(runtime.paths.logs, "gateway-console.log");
-    const consoleFrom = fs.existsSync(consoleLog) ? fs.statSync(consoleLog).size : 0;
     const oldPid = runtime.child.pid;
     runtime.child.kill("SIGKILL");
     // The supervisor's own readiness budget bounds the crash restart.
@@ -317,34 +314,11 @@ test(
     // the next call arrives, so each restart below waits for the admission first.
     await admissionDone(runtime.client);
     step("crash-admitted");
-    // OpenClaw's restart recovery settles the interrupted turn without asking the
-    // model again (the no-restart-resume patch, runtime-bundle-patches.js): its notice
-    // reaches the transcript and no model request follows. Unpatched, it resumes here.
-    // OpenClaw's restart-loop breaker (three unclean boots of the data directory within
-    // 5 min, e.g. other contracts of the shard) pauses the recovery: then nothing runs.
-    const notice = "could not resume after the Gateway restarted";
-    const paused = () => {
-      try {
-        return fs
-          .readFileSync(consoleLog)
-          .subarray(consoleFrom)
-          .toString("utf8")
-          .includes("restart-loop breaker tripped");
-      } catch {
-        return false;
-      }
-    };
-    const settleDeadline = Date.now() + 60000;
-    let settled = false;
-    while (!settled && !paused() && Date.now() < settleDeadline) {
-      const page = await runtime.client
-        .call("chat.history", { sessionKey: conversation.runtimeSessionKey, limit: 20 })
-        .catch(() => null);
-      settled = JSON.stringify(page ?? "").includes(notice);
-      if (!settled) await delay(250);
-    }
-    if (!paused())
-      assert.ok(settled, "the interrupted turn is settled with OpenClaw's notice");
+    // OpenClaw 2026.11.6 resumes only sessions a graceful shutdown marked, and the
+    // no-restart-resume patches (runtime-bundle-patches.js) keep even those from
+    // resuming; after a crash no model request may follow either. The startup resume
+    // runs once the agents are admitted, so a few seconds show it.
+    await delay(5000);
     assert.equal(model.requests.length, countBeforeCrash, "the turn is not resumed");
     step("crash-settled");
     await service.reconcile();

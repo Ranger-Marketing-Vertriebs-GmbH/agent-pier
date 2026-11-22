@@ -6,8 +6,8 @@ import { reconcileRuns } from "../../server/features/assistants/run-reconciler.j
 import { finishRebind } from "../../server/features/assistants/chat-rebind.js";
 
 // Check-ins and routines that commit into the main chat follow it across an owner's
-// /reset or /new (chat-rebind.js): OpenClaw 2026.11.2 and later keep the chat as it
-// was when the job was created, so the job is re-created; 2026.10.9 needs nothing.
+// /reset or /new (chat-rebind.js): OpenClaw 2026.11.3 keeps the chat as it was when
+// the job was created, so the job is re-created; 2026.11.6 follows the chat itself.
 
 const rebound = "session rebound for sessionKey: session";
 
@@ -85,8 +85,8 @@ test("a reset re-creates the check-in and chat routine jobs where the chat is pi
   );
 });
 
-test("a runtime that reads the chat at each run keeps its jobs", async (t) => {
-  for (const version of ["2026.10.9", null]) {
+test("a runtime that follows the chat itself keeps its jobs", async (t) => {
+  for (const version of ["2026.11.6", null]) {
     const f = setup(t, version);
     await f.heartbeats.sync(f.id);
     await f.routines.create(f.id, f.input);

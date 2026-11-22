@@ -21,28 +21,11 @@ import { durablePrivate } from "../../runtime-update-snapshot.js";
  * - an owner's MCP sign-in or sign-out (`run`) opens a window at once: the supervisor
  *   stops the Gateway (running turns drain as in any restart), the command runs with
  *   every queued forget, and the Gateway starts again in the background.
- *
- * Older runtimes (the 2026.10.9 rollback target) run every command directly, as before.
  */
-export const offlineGuardVersion = "2026.10.10";
 export const queueName = "offline-commands.json";
 // A refusal while the stopped Gateway's lock is still being released.
 const ownedLine = /exclusive offline state ownership|Cannot admit .* in state root/;
 export const stateOwned = (stderr) => ownedLine.test(String(stderr ?? ""));
-
-const parts = (version) => {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(String(version ?? ""));
-  return match ? match.slice(1).map(Number) : null;
-};
-/** Whether OpenClaw `version` refuses the offline-only commands beside a Gateway. */
-export function offlineOnly(version) {
-  const have = parts(version);
-  // An unknown runtime counts as guarded: a window works on every version.
-  if (!have) return true;
-  const need = parts(offlineGuardVersion);
-  for (let i = 0; i < 3; i++) if (have[i] !== need[i]) return have[i] > need[i];
-  return true;
-}
 
 export class OfflineCommands {
   /**
@@ -109,9 +92,6 @@ export class OfflineCommands {
     if (forgets.length) durablePrivate(this.file, { forgets });
     else fs.rmSync(this.file, { force: true });
   }
-  guarded() {
-    return offlineOnly(this.supervisor.runtime?.version);
-  }
   /** Whether a Gateway process runs (or still drains) now. */
   online() {
     const child = this.supervisor.child;
@@ -123,11 +103,11 @@ export class OfflineCommands {
   }
   /** Whether an offline-only command needs a window now. */
   windowNeeded() {
-    return this.guarded() && this.online();
+    return this.online();
   }
   /**
    * Queues the forget of `sessions` of runtime agent `agent` and runs it soon: at
-   * once without a running guarded Gateway (resolved once it ran), else in the next
+   * once without a running Gateway (resolved once it ran), else in the next
    * window (resolved once that is requested).
    */
   forget(agent, sessions) {
@@ -174,14 +154,13 @@ export class OfflineCommands {
     await this.locked(() => (this.windowNeeded() ? this.window(null) : this.forgets()));
   }
   /**
-   * Runs `task` (an offline-only CLI call) where OpenClaw accepts it: directly on an
-   * older runtime, under the queue's lock while no Gateway runs, else in a window.
+   * Runs `task` (an offline-only CLI call) where OpenClaw accepts it: under the
+   * queue's lock while no Gateway runs, else in a window.
    * A launch past its beforeSpawn (a window's own start) is waited for first; that
    * start needs the lock no more. Refuses with code RUNTIME_BUSY while maintenance or
    * a restart is under way.
    */
   run(task) {
-    if (!this.guarded()) return task();
     return this.locked(async () => {
       if (this.launching()) await this.supervisor.starting.catch(() => {});
       if (!this.online()) return this.attempt(task);

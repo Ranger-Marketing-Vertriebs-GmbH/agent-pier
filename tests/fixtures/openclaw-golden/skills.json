@@ -108,9 +108,6 @@
         "agentId": "main"
       },
       "workspace": "/golden/assistants/workspaces",
-      "heartbeat": {
-        "every": "0m"
-      },
       "skills": [],
       "maxConcurrent": 12
     }

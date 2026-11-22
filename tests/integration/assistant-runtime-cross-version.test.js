@@ -36,11 +36,8 @@ const agentDatabases = (paths) => {
     .map((id) => path.join(agents, id, "agent", "openclaw-agent.sqlite"))
     .filter((file) => fs.existsSync(file));
 };
-// Runtimes whose agent databases stay at schema 24; 2026.10.7 and 2026.10.9 migrate
-// them to 25, 2026.11.2 and later to 27.
-const schema24Runtimes = ["2026.9.7", "2026.9.8", "2026.9.9", "2026.10.3"];
-const schema25Runtimes = ["2026.10.7", "2026.10.9"];
-const agentSchema = (version) => (schema25Runtimes.includes(version) ? 25 : 27);
+// The agent database schema of the rollback target and the pin.
+const agentSchemas = { "2026.11.3": 27, "2026.11.6": 38 };
 const schemas = (paths) =>
   Object.fromEntries(
     agentDatabases(paths).map((file) => {
@@ -313,10 +310,9 @@ for (const [variant, title] of Object.entries(variants))
       });
       assert.ok(JSON.stringify(history.messages).includes(input.text));
       assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
-      // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
-      // (one-way: 2026.10.3 refuses it), 2026.11.2 to 27 (one-way: 2026.10.9
-      // refuses it), and a committed activation must have done so.
-      if (!rejectCandidate && !schema24Runtimes.includes(candidate.version)) {
+      // OpenClaw 2026.11.6 migrates each agent database from schema 27 to 38
+      // (one-way: 2026.11.3 refuses it), and a committed activation must have done so.
+      if (!rejectCandidate) {
         const files = agentDatabases(runtime.paths);
         assert.ok(
           files.some((file) =>
@@ -329,7 +325,7 @@ for (const [variant, title] of Object.entries(variants))
           try {
             assert.equal(
               db.prepare("PRAGMA user_version").get().user_version,
-              agentSchema(candidate.version),
+              agentSchemas[candidate.version],
               file,
             );
           } finally {
@@ -345,11 +341,11 @@ for (const [variant, title] of Object.entries(variants))
         assert.equal(fs.existsSync(`${runtime.paths.state}.update-captures`), false);
       }
       if (rejectCandidate) {
-        // The rollback after Doctor's run restores the previous schema (24 on
-        // 2026.10.3) and leaves none of Doctor's copies behind.
+        // The rollback after Doctor's run restores the previous schema and leaves
+        // none of Doctor's copies behind.
         assert.deepEqual(schemas(runtime.paths), previousSchemas);
-        if (previous.version === "2026.10.3")
-          for (const version of Object.values(previousSchemas)) assert.equal(version, 24);
+        for (const version of Object.values(previousSchemas))
+          assert.equal(version, agentSchemas[previous.version]);
         assert.deepEqual(doctorLeftovers(runtime.paths), []);
       }
       // Doctor never sees the provider key; openclaw.json keeps it either way.

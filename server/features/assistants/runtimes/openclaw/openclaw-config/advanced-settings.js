@@ -17,7 +17,7 @@ import { ianaZone, sharedSetting } from "../../shared-settings.js";
  * Only scalar paths that no compiler step, dedicated page or credential owns belong
  * here; none carries a `sensitive` hint.
  */
-export const advancedSettingsRuntime = "2026.11.3";
+export const advancedSettingsRuntime = "2026.11.6";
 
 const unbounded = Number.MAX_SAFE_INTEGER;
 

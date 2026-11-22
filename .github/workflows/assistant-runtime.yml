@@ -291,10 +291,10 @@ jobs:
             --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/hermes-contracts.tap" \
             $files
           grep -qx '# skipped 0' "$RUNNER_TEMP/hermes-contracts.tap"
-  # Installed users update from the runtime an older AgentPier release pinned
-  # straight to the current pin; one entry per release line that is still a
-  # rollback target. Keep `from` in step with runtimeManifest.rollbackTargets: the
-  # team plugin refuses any other predecessor. Release tags are never moved.
+  # Installed users update from the runtime the previous AgentPier release pinned
+  # to the current pin; one entry per rollback target. Keep `from` in step with
+  # runtimeManifest.rollbackTargets: the team plugin refuses any other predecessor.
+  # Published release tags are never moved.
   cross-version:
     name: Cross-version update (${{ matrix.from }}, ${{ matrix.runner }})
     if: >-
@@ -305,10 +305,9 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest]
-        # v1.27.0-v1.28.1 pinned OpenClaw 2026.9.8, v2.0.0 pinned 2026.9.9,
-        # v2.1.0-v2.6.1 pinned 2026.10.3 (v2.6.x on Node 26.12.1),
-        # v2.7.0-v2.12.0 pinned 2026.10.7, v2.13.0-v2.19.0 pinned 2026.10.9 (one lock).
-        from: [v1.28.1, v2.0.0, v2.6.1, v2.12.0, v2.17.0]
+        # v2.20.0-rc.1-v2.20.0-rc.8 pinned OpenClaw 2026.11.3 (rc.8: the last lock
+        # and patches of that version).
+        from: [v2.20.0-rc.8]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

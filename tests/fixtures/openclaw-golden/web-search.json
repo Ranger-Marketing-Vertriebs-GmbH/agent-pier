@@ -102,9 +102,6 @@
         "agentId": "main"
       },
       "workspace": "/golden/assistants/workspaces",
-      "heartbeat": {
-        "every": "0m"
-      },
       "mediaModels": {
         "image": {
           "primary": "openai/gpt-image-2",

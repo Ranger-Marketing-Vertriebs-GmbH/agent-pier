@@ -444,9 +444,8 @@ test(
     ]);
 
     // An owner /reset from Telegram starts the chat's next lifecycle. OpenClaw
-    // 2026.11.2 and later keep the chat as it was when the job was created and
-    // refuse to commit into a later one; that refusal re-creates the job
-    // (chat-rebind.js), and the next run commits into the chat again.
+    // 2026.11.6 follows the chat (openclaw#199512): the next run commits into it
+    // and the job stays (chat-rebind.js re-creates it only on 2026.11.3).
     const reset = await runtime.client.call(
       "sessions.send",
       { key: session.key, message: "/reset", idempotencyKey: randomUUID() },
@@ -466,13 +465,8 @@ test(
     const stale = reminders.bindings.get(routine.id).nativeId;
     const seen = completions.length;
     await routines.trigger(id, routine.id, { eventId: "contract-3" });
-    const refused = await completed(seen + 1);
-    assert.equal(refused.deliveryStatus, "not-delivered");
-    assert.match(refused.deliveryError, /^session rebound for sessionKey/);
-    const rebound = Date.now() + 15000;
-    while (reminders.bindings.get(routine.id).nativeId === stale && Date.now() < rebound)
-      await delay(100);
-    assert.notEqual(reminders.bindings.get(routine.id).nativeId, stale, "re-created");
+    assert.equal((await completed(seen + 1)).deliveryStatus, "delivered");
+    assert.equal(reminders.bindings.get(routine.id).nativeId, stale, "kept");
     await routines.trigger(id, routine.id, { eventId: "contract-4" });
     assert.equal((await completed(seen + 2)).deliveryStatus, "delivered");
     // The run history goes on across the re-creation.

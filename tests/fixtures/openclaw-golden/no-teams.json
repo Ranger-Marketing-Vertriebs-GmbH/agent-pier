@@ -3,9 +3,6 @@
     "defaults": {
       "workspace": "/golden/assistants/workspaces",
       "skipBootstrap": true,
-      "heartbeat": {
-        "every": "0m"
-      },
       "skills": [],
       "maxConcurrent": 8
     },

@@ -29,6 +29,7 @@ export const lockedPaths = [
   "agents.defaults.workspace",
   "agents.defaults.skills",
   "agents.defaults.maxConcurrent",
+  // Retired by OpenClaw 2026.11.6; the compiler removes it (runtime-config.js).
   "agents.defaults.heartbeat",
   // The owner's PDF fallback or a placeholder (pdf-model-settings.js); compiled per start.
   "agents.defaults.pdfModel",
@@ -59,6 +60,5 @@ export function hardenedDefaults() {
     discovery: { mdns: { mode: "off" } },
     telemetry: { enabled: false },
     update: { checkOnStart: false, auto: { enabled: false } },
-    heartbeat: { every: "0m" },
   };
 }
