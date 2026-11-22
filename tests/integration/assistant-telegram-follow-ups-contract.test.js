@@ -39,10 +39,15 @@ const turnMessage = (m) =>
 const lastUser = (request) =>
   request.messages.slice(request.messages.findLastIndex(turnMessage));
 // 2026.10.3's "An async command you ran earlier has completed ...", 2026.10.7's bare
-// `[<time>] Exec <status> (<id8>, <exit>) …` line.
+// `[<time>] Exec <status> (<id8>, <exit>) …` line, 2026.11.6's "[OpenClaw exec completion]"
+// frame.
 const isCompletion = (request) => {
   const prompt = text(lastUser(request)[0]) || "";
-  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
+  return (
+    /async command/i.test(prompt) ||
+    /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt) ||
+    /\[OpenClaw exec completion\]|^(\[[^\]]*\] )?Exec [a-z]+ \(/m.test(prompt)
+  );
 };
 
 test(

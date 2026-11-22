@@ -5,9 +5,10 @@ import { isDeepStrictEqual } from "node:util";
 // (`tools.exec.notifyOnExit`, on by default) runs the same session once more without
 // an AgentPier attempt: 2026.10.3 (and older) through its heartbeat runner, whose
 // agent events carry `isHeartbeat: true`; 2026.10.7 as an ordinary event turn with no
-// mark (the team plugin counts those, background-commands.js). Both write the
+// mark (the team plugin counts those, background-commands.js). Each writes the
 // completion's user entry with the input provenance
-// `{ kind: "internal_system", sourceTool: "exec" }`. Such a run works like any run
+// `{ kind: "internal_system", sourceTool: "exec" }` (2026.11.6 adds the starting run's
+// `runId` and frames the model prompt as "[OpenClaw exec completion]"). Such a run works like any run
 // of its chat (owner-runs.js); AgentPier only needs to know that it runs (a work
 // goal waits for it, work-goal-nudges.js) and, for Telegram, that it was one
 // (telegram-follow-ups.js).
@@ -48,12 +49,20 @@ export class CompletionRuns {
   }
 }
 
-const execProvenance = { kind: "internal_system", sourceTool: "exec" };
 export const completionTranscriptLimit = 200;
+const execProvenance = (p) => {
+  if (!p || typeof p !== "object") return false;
+  const { runId, ...rest } = p;
+  return (
+    (runId === undefined || typeof runId === "string") &&
+    isDeepStrictEqual(rest, { kind: "internal_system", sourceTool: "exec" })
+  );
+};
 /**
  * Whether a `sessions.get` page shows `runId` as an exec completion run: the entry
  * right before the run's first record (`__openclaw.runId`) is a user entry with
- * exactly the exec provenance. Telegram delivery of a follow-up run's reply needs no
+ * the exec provenance (2026.11.6 adds the `runId` of the run that started the
+ * command; nothing else). Telegram delivery of a follow-up run's reply needs no
  * more (telegram-follow-ups.js): it grants nothing.
  */
 export function completionRun(messages, runId) {
@@ -63,6 +72,6 @@ export function completionRun(messages, runId) {
   return (
     entry?.role === "user" &&
     (entry.__openclaw?.runId ?? runId) === runId &&
-    isDeepStrictEqual(entry.provenance, execProvenance)
+    execProvenance(entry.provenance)
   );
 }

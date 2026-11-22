@@ -57,7 +57,11 @@ const isHook = (request) => json(request.messages).includes(marker);
 // 2026.10.7's exec completion prompt: `[<time>] Exec <status> (<id8>, <exit>) …`.
 const isCompletion = (request) => {
   const prompt = content(lastUser(request)[0]) || "";
-  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
+  return (
+    /async command/i.test(prompt) ||
+    /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt) ||
+    /\[OpenClaw exec completion\]|^(\[[^\]]*\] )?Exec [a-z]+ \(/m.test(prompt)
+  );
 };
 const stepped = (request) => lastUser(request).some((m) => m.role === "tool");
 
