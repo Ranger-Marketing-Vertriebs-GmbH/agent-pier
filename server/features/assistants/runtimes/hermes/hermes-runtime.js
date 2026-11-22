@@ -8,7 +8,7 @@ import { agentSessionSuccessors } from "./hermes-session-successors.js";
 import { hermesEvents } from "./hermes-events.js";
 import { hermesApprovals } from "./hermes-approvals.js";
 import { hermesAgentFiles } from "./hermes-files.js";
-import { bundledSkillNames, hermesSkills } from "./hermes-skills.js";
+import { bundledSkillNames, hermesSkills, seededSkillNames } from "./hermes-skills.js";
 import { hermesEnvironment } from "./hermes-environment.js";
 import { hermesDeliveries, hermesRoutines } from "./hermes-routines.js";
 import { hermesModels } from "./hermes-models.js";
@@ -118,7 +118,10 @@ export function createHermesRuntime({
     const home = hermesCompiler.compileHome(read, {
       workspace: agent.workspace,
       strict: everyCommand ? [read.runtimeAgentId] : [],
-      bundledSkills: bundled,
+      // What the installation bundles and what an earlier one seeded into the home.
+      bundledSkills: bundled && [
+        ...new Set([...bundled, ...seededSkillNames(agent.hermesHome)]),
+      ],
       catalogSkills: inputs.catalog,
       mcp: inputs.mcp,
       connection: inputs.connection,
@@ -192,6 +195,8 @@ export function createHermesRuntime({
         ? {
             executablePath: latest.browser.executablePath,
             headless: !(latest.browser.visible && latest.desired?.browser.visible),
+            // The owner's private-network setting for the navigation guard.
+            allowPrivateNetwork: latest.browser.allowPrivateNetwork === true,
           }
         : null,
   });

@@ -1,5 +1,5 @@
 // Cron expressions in a routine's own IANA time zone on Hermes's cron, which matches
-// every expression in the time zone of the agent's process (Hermes v0.22.5
+// every expression in the time zone of the agent's process (Hermes v0.23.3
 // cron/jobs.py compute_next_run: hermes_time.get_timezone(), else the host's zone; a
 // job has no zone of its own). A routine in another zone runs as a pinned job: its
 // next occurrence, computed here in its own zone, written as the five-field

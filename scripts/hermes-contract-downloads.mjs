@@ -13,8 +13,8 @@ import {
  * A download cache for the native Hermes contracts. GitHub rate-limits anonymous
  * downloads on shared CI runners (429, Retry-After 300), and the update contract
  * (tests/integration/hermes-update-contract.test.js) builds two pins from scratch.
- * The archives hermes-install.js downloads itself (uv, the Hermes source, the
- * agent-browser package, the PDFium wheel) are kept in the folder
+ * The archives hermes-install.js downloads itself (uv, the Hermes source, the PDFium
+ * wheel) are kept in the folder
  * AGENTPIER_HERMES_DOWNLOAD_CACHE names, one file per pinned SHA-256; everything
  * after the download (checksum, unpacking, `uv python install`, `uv sync`, the
  * identity check, the receipt) runs as without the cache. A file is used only while
@@ -38,10 +38,7 @@ const currentTarget = () => `${process.platform}-${process.arch}`;
 
 /** The archives hermes-install.js downloads for `manifest` on `target`: url → SHA-256. */
 export function hermesArchives(manifest, target) {
-  const archives = new Map([
-    [manifest.archiveUrl, manifest.archiveSha256],
-    [manifest.agentBrowser.url, manifest.agentBrowser.sha256],
-  ]);
+  const archives = new Map([[manifest.archiveUrl, manifest.archiveSha256]]);
   if (manifest.uvChecksums[target])
     archives.set(uvArchiveUrl(manifest, target), manifest.uvChecksums[target]);
   const wheel = manifest.pdfium?.wheels?.[target];

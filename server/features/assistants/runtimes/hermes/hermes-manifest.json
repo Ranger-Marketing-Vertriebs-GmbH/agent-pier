@@ -1,12 +1,12 @@
 {
-  "tag": "v0.22.5",
-  "commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
-  "version": "0.22.5",
+  "tag": "v0.23.3",
+  "commit": "caafe5389ae585ef77387a962aee05b1bcf17029",
+  "version": "0.23.3",
   "releaseDate": "2026.9.24",
-  "archiveUrl": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/bf0203a794a07aac3ff764972ab9087baa4e4f4e",
-  "archiveSha256": "0dc2cca54657d162845a77f634e107c61c3fb0bd6c8505212aa2e200591b7cc9",
-  "pyprojectSha256": "68325d6717bd4ebc3a7b015c5150bea4d5600c612259b9b7393e964caa828761",
-  "uvLockSha256": "f1609519f30dac8886b03e60693e36fa75e033fa3e7259c8c8befe8fb6e34460",
+  "archiveUrl": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/caafe5389ae585ef77387a962aee05b1bcf17029",
+  "archiveSha256": "3dffc702249874db2e6f60d93370a8d3c11e57e3ab5ee321447969e170a51aef",
+  "pyprojectSha256": "d018a56c3a520b9afeb92e2211501eb98451dd0d3658db899bc58343c8d781eb",
+  "uvLockSha256": "3501084a326b186971ee09b03a202a6972019dff89dc127bf8506153d05c9b11",
   "extras": ["ddgs", "messaging", "mcp"],
   "pythonVersion": "3.14.10",
   "uvVersion": "0.13.6",
@@ -15,11 +15,6 @@
     "darwin-x64": "63ba17fdda55ad1a230d4b37fc6017ffa10c23688c83818bd3bfdf914c652a02",
     "linux-arm64": "229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d",
     "linux-x64": "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
-  },
-  "agentBrowser": {
-    "version": "0.26.0",
-    "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.26.0.tgz",
-    "sha256": "8a48cf4110d7dc2c12c1c4d6d25e0babdfa31604b537f05df0dc835fe2f854bf"
   },
   "pdfium": {
     "version": "5.14.0",

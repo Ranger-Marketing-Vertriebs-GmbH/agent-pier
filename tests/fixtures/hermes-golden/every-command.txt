@@ -38,6 +38,7 @@ agent:
     - image_gen
     - vision
     - web
+  clarify_timeout: 3600
 terminal:
   backend: local
   cwd: /golden/assistants/workspaces/ap-a1
@@ -97,7 +98,9 @@ except Exception:  # A Hermes without it: the guard asks for every command itsel
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _BRIDGE = os.path.join(_DIR, "..", "agentpier-team", "bridge.json")
 # The argument that holds what the tool runs.
-_RUNS = {"terminal": "command", "execute_code": "code"}
+_RUNS = {"terminal": "command", "execute_code": "code", "browser_exec": "code"}
+# One rule key for every browser_exec run in a chat on the "approval" level.
+_BROWSER_KEY = "agentpier:browser_exec"
 # process_manage actions that send input to a running process.
 _INPUT = {"write", "submit"}
 # Longer texts are shortened in the approval card; the rule key covers all of it.
@@ -139,7 +142,7 @@ def _flagged(tool_name, text):
         return False
 
 
-def _chat_guard(tool_name, args):
+def _chat_guard(tool_name, args, every=True):
     text = _text(tool_name, args)
     if text is None or _flagged(tool_name, text):
         return None
@@ -148,7 +151,7 @@ def _chat_guard(tool_name, args):
     return {
         "action": "approve",
         "message": shown,
-        "rule_key": f"agentpier:{tool_name}:{digest}",
+        "rule_key": f"agentpier:{tool_name}:{digest}" if every else _BROWSER_KEY,
     }
 
 
@@ -238,6 +241,8 @@ def _cron_question(tool_name, args, every, task_id):
         return None
     if tool_name == "execute_code":
         return ("code", text, "execute_code script execution")
+    if tool_name == "browser_exec":
+        return ("code", text, "browser_exec script execution")
     if tool_name == "process_manage":
         return ("input", text, "") if every else None
     if _hardline(text) or _allowlisted(text):
@@ -297,10 +302,11 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **kwargs):
         settings = None
     if not isinstance(settings, dict):
         # Fail closed: without its settings the guard cannot tell what to ask.
-        if tool_name in ("terminal", "execute_code", "process_manage", "write_file", "patch"):
+        if tool_name in ("terminal", "execute_code", "browser_exec", "process_manage", "write_file", "patch"):
             return {"action": "block", "message": _REFUSED}
         return None
     every = settings.get("everyCommand") is True
+    browser = settings.get("browserAsks") is True and tool_name == "browser_exec"
     if settings.get("cronAsks") is True and _in_cron():
         _job(session_id or "", task_id or "")
         question = _cron_question(tool_name, args, every, task_id)
@@ -308,7 +314,9 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **kwargs):
             return None
         refusal = _ask(question, session_id or "", task_id or "")
         return None if refusal is None else {"action": "block", "message": refusal}
-    return _chat_guard(tool_name, args) if every else None
+    if every:
+        return _chat_guard(tool_name, args)
+    return _chat_guard(tool_name, args, every=False) if browser else None
 
 
 def _subagent(parent_session_id=None, child_session_id=None, **_):
@@ -323,7 +331,8 @@ def register(ctx):
 ==> plugins/agentpier-guard/guard.json <==
 {
   "everyCommand": true,
-  "cronAsks": false
+  "cronAsks": false,
+  "browserAsks": false
 }
 ==> plugins/agentpier-guard/plugin.yaml <==
 name: agentpier-guard

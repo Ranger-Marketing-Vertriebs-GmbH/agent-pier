@@ -148,7 +148,8 @@ export function hermesInstallEnvironment({ paths, directory, scratch, environmen
  * Runs the installed Python once and reads what it ships: the release date of
  * hermes_cli, the CPython version, and whether what the RPC bridge
  * (hermes-rpc-bridge.py) needs imports: the gateway discovery and client, and
- * websockets; and the MCP SDK the agents' MCP servers need (the `mcp` extra).
+ * websockets; the MCP SDK the agents' MCP servers need (the `mcp` extra); and
+ * browser-harness, the engine of Hermes's `browser_exec` (a core dependency).
  * HOME and HERMES_HOME point at a scratch folder, so nothing reaches `~/.hermes`.
  */
 export async function hermesIdentityCheck(
@@ -159,7 +160,7 @@ export async function hermesIdentityCheck(
   const probe =
     "import json, os, platform, hermes_cli, hermes_cli.gateway_client, " +
     "hermes_cli.gateway_runtime, hermes_cli.gateway_runtime_discovery, " +
-    "websockets.asyncio.client, mcp.client.stdio; " +
+    "websockets.asyncio.client, mcp.client.stdio, browser_harness; " +
     "os.write(1, (json.dumps({'releaseDate': hermes_cli.__release_date__, " +
     "'python': platform.python_version()}) + '\\n').encode())";
   const env = {
@@ -196,52 +197,9 @@ export async function hermesIdentityCheck(
   return found;
 }
 
-/**
- * Puts the agent-browser binary the manifest pins into the installation's `tools/`
- * (hermesExecutables `agentBrowser`), on Hermes's PATH: its npm archive, checked
- * against the pinned SHA-256, holds one native binary per platform. Hermes's browser
- * tools find it there (tools/browser_tool_install.py `_find_agent_browser`), so they
- * never install it, nor the Chromium it would bring, at run time. Idempotent: a
- * matching binary stays.
- */
-export async function installAgentBrowser(
-  directory,
-  { manifest, target, download, run, scratch },
-) {
-  const { tools, agentBrowser } = hermesExecutables(directory);
-  const marker = path.join(tools, "agent-browser.json");
-  if (
-    fs.existsSync(agentBrowser) &&
-    readJSON(marker, null)?.sha256 === manifest.agentBrowser.sha256
-  )
-    return;
-  const bytes = await download(manifest.agentBrowser.url);
-  sha256(bytes, manifest.agentBrowser.sha256);
-  const archive = path.join(scratch, `${randomUUID()}.tgz`);
-  const unpacked = privateFolder(path.join(scratch, `agent-browser-${randomUUID()}`));
-  fs.writeFileSync(archive, bytes, { mode: 0o600 });
-  const member = `package/bin/agent-browser-${target}`;
-  await run("tar", ["-xzf", archive, "-C", unpacked, member], { timeout: 300000 });
-  const binary = path.join(unpacked, member);
-  regular(binary);
-  privateFolder(tools);
-  fs.copyFileSync(binary, agentBrowser);
-  fs.chmodSync(agentBrowser, 0o755);
-  writePrivate(marker, {
-    version: manifest.agentBrowser.version,
-    sha256: manifest.agentBrowser.sha256,
-  });
-}
-
-/** Whether the installation in `directory` holds the agent-browser `manifest` pins. */
-export const hasAgentBrowser = (directory, manifest = hermesManifest) =>
-  fs.existsSync(hermesExecutables(directory).agentBrowser) &&
-  readJSON(path.join(hermesExecutables(directory).tools, "agent-browser.json"), null)
-    ?.sha256 === manifest.agentBrowser.sha256;
-
 // The steps of a fresh installation in order, as `onStep` reports them (the owner's
 // install state shows "Step n of 5"): the downloads, Python, the Python packages
-// (the bulk of its ~540 MB), the identity check and the browser and PDF tools.
+// (the bulk of its ~540 MB), the identity check and the PDF tool.
 export const HERMES_INSTALL_STEPS = Object.freeze([
   "download",
   "python",
@@ -274,12 +232,8 @@ async function install({
       pythonVersion: manifest.pythonVersion,
       uvChecksum: manifest.uvChecksums[target],
     });
-    // An installation from before the browser gets its agent-browser now, one from
-    // before the pdf tool its PDFium (hermes-pdfium.js).
-    if (
-      !hasAgentBrowser(directory, manifest) ||
-      !hasPdfium(directory, manifest, target)
-    ) {
+    // An installation from before the pdf tool gets its PDFium now (hermes-pdfium.js).
+    if (!hasPdfium(directory, manifest, target)) {
       const scratch = privateFolder(path.join(paths.tmp, `.install-${randomUUID()}`));
       const env = hermesInstallEnvironment({ paths, directory, scratch, environment });
       const run = (file, args, options) =>
@@ -291,13 +245,6 @@ async function install({
           ...options,
         });
       try {
-        await installAgentBrowser(directory, {
-          manifest,
-          target,
-          download,
-          scratch,
-          run,
-        });
         await installPdfium(directory, { manifest, target, download, scratch, run });
       } catch (error) {
         if (!error.code || !/^HERMES_/.test(error.code))
@@ -380,7 +327,6 @@ async function install({
     onStep("check");
     await hermesIdentityCheck(record, { scratch, execute, manifest });
     onStep("tools");
-    await installAgentBrowser(directory, { manifest, target, download, run, scratch });
     await installPdfium(directory, { manifest, target, download, run, scratch });
     writePrivate(receiptFile, {
       commit: manifest.commit,

@@ -216,7 +216,7 @@ jobs:
       - run: npm ci
       # GitHub rate-limits anonymous downloads on shared runners (429). The archives
       # AgentPier downloads for the pinned and the previous Hermes (uv, the Hermes
-      # source, agent-browser, PDFium) are fetched once per pin pair and runner
+      # source, PDFium) are fetched once per pin pair and runner
       # platform and saved before any contract runs, so a failed contract still keeps
       # them; provisioning and the update contract then build both installations
       # from them (scripts/hermes-contract-downloads.mjs), each archive checked

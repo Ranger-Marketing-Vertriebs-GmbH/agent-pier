@@ -56,7 +56,13 @@ test(
         },
       }),
     );
-    const created = await app.createAgent({ name: "Hermes uploader" });
+    // browser_exec runs Python on the host: Hermes offers it only with the shell.
+    const created = await app.createAgent({
+      name: "Hermes uploader",
+      shell: "full",
+      confirmShell: true,
+      confirmFull: true,
+    });
     const agent = await json(
       await app.f.request(`/api/assistants/${created.id}`, {
         method: "PATCH",
@@ -111,7 +117,8 @@ test(
     await send("stage", `CALL: agentpier_workspace ${JSON.stringify(stage)}`);
     const staged = await chat.reply(/TOOL_DONE: .*uploadPath/s);
     const uploadPath = /"uploadPath": "([^"]+)"/.exec(staged.text)[1];
-    await send("open", `CALL: browser_navigate ${JSON.stringify({ url })}`);
+    const code = `# Opening the upload page\nnew_tab(${JSON.stringify(url)})\nwait_for_load()\nprint(js("document.title"))`;
+    await send("open", `CALL: browser_exec ${JSON.stringify({ code })}`);
     await chat.reply(/TOOL_DONE: .*Upload page/s);
 
     // A path AgentPier did not stage never reaches the page.

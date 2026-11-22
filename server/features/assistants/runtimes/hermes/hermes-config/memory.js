@@ -3,7 +3,7 @@
 // MEMORY.md for the agent's notes and USER.md for its profile of the user. Entries
 // are separated by "\n§\n"; Hermes counts a store as its entries, stripped and
 // without empty ones, joined by that separator (tools/memory_tool_store.py
-// `_parse_entries`, `_char_count`). Verified against Hermes v0.22.5.
+// `_parse_entries`, `_char_count`). Verified against Hermes v0.23.3.
 
 export const memoryFolder = "memories";
 export const entryDelimiter = "\n§\n";

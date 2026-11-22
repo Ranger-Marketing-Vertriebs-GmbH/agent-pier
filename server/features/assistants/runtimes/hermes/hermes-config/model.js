@@ -2,7 +2,7 @@ import { agentPierPoolSource } from "./home-merge.js";
 
 // An agent's model connection (agent-desired-state.js `model`: { ref, providerId,
 // provider, agentRuntime }) as Hermes's `model` section and the secrets its .env
-// holds. Verified against Hermes v0.22.5: hermes_cli/runtime_provider_custom.py
+// holds. Verified against Hermes v0.23.3: hermes_cli/runtime_provider_custom.py
 // (`model.key_env` for a bare `provider: custom` route), hermes_cli/config.py
 // (`${VAR}` references in config values), cli-config.yaml.example (`model.default`,
 // `base_url`, `api_mode`, `context_length`, `extra_headers`).
@@ -84,7 +84,7 @@ function keyHeaders(provider) {
  * as `provider: custom` with `api_mode: chat_completions`; the explicit mode keeps
  * Hermes from switching an api.openai.com or `/anthropic` URL to another wire
  * protocol (agent/agent_init.py `_resolve_api_mode`, `_finalize_routing`). The
- * endpoint's Chat Completions options need no key in Hermes v0.22.5:
+ * endpoint's Chat Completions options need no key in Hermes v0.23.3:
  * - maxTokensField: Hermes sends no output cap on an agent's turns (the gateway's
  *   runtime carries no `max_tokens`, agent/transports/chat_completions.py
  *   `_apply_max_tokens`); where it sends one it picks `max_completion_tokens` for

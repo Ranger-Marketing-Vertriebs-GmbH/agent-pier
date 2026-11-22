@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 // An agent's web search and web fetch on Hermes (website/docs/user-guide/features/
-// web-search.md, tools/web_tools.py at v0.22.5): `web_search` and `web_extract` (the
+// web-search.md, tools/web_tools.py at v0.23.3): `web_search` and `web_extract` (the
 // `web` toolset; `search` holds web_search alone) run on the backends
 // `web.search_backend` and `web.extract_backend` pin, each a bundled or a plugin
 // provider (agent/web_search_registry.py). The owner's choice for every agent

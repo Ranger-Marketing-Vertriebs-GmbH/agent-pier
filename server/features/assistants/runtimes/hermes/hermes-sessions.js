@@ -111,7 +111,7 @@ const internalKinds = new Set(["auto_continue", "internal_notification"]);
 
 /**
  * The port's history entry (agent-runtime.js sessions `entry`) of a Hermes history
- * row at `index` of the whole transcript. Hermes 0.22.5 sends `{ role, text,
+ * row at `index` of the whole transcript. Hermes 0.23.3 sends `{ role, text,
  * timestamp, row_id, display_kind, … }` (session.history, _history_to_messages): the
  * durable `row_id` is its id (a row without one is named by its place), the
  * timestamp is in seconds, and a row names neither its turn's run nor its submission

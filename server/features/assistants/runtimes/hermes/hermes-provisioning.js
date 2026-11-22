@@ -6,7 +6,6 @@ import { hermesManifest } from "./hermes-manifest.js";
 import {
   HERMES_INSTALL_STEPS,
   ensureHermesRuntime,
-  hasAgentBrowser,
   sameHermesRuntime,
   shippedHermesRuntime,
   stageHermesRuntime,
@@ -82,22 +81,17 @@ export const hermesRunnable = (dataDir) =>
 /**
  * True when Hermes is enabled and nothing selected or staged is the pinned runtime
  * this AgentPier ships: a fresh opt-in without an installation, or an AgentPier
- * update that pins another Hermes; or when the pinned one lacks its agent-browser
- * or PDFium.
+ * update that pins another Hermes; or when the pinned one lacks its PDFium.
  * Never creates storage.
  */
 export function hermesStagingDue(dataDir, manifest = hermesManifest) {
   if (!hermesEnabled(dataDir)) return false;
   if (!fs.existsSync(path.join(dataDir, "assistants"))) return true;
   const { selected, candidate } = records(dataDir);
-  // The pinned release installed before the browser lacks its agent-browser, one
-  // installed before the pdf tool its PDFium: the staging adds them in place
-  // (hermes-install.js installAgentBrowser, hermes-pdfium.js installPdfium).
+  // The pinned release installed before the pdf tool lacks its PDFium: the staging
+  // adds it in place (hermes-pdfium.js installPdfium).
   if (shippedHermesRuntime(selected, manifest))
-    return (
-      !hasAgentBrowser(selected.directory, manifest) ||
-      !hasPdfium(selected.directory, manifest)
-    );
+    return !hasPdfium(selected.directory, manifest);
   return !shippedHermesRuntime(candidate, manifest);
 }
 

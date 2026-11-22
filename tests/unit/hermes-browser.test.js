@@ -21,7 +21,9 @@ import { desiredAgent } from "../../server/features/assistants/agent-desired-sta
 function fakeChromium(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-browser-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const chromium = { up: false, launches: [], sockets: [] };
+  // `sockets`: page sockets; `guards`: the navigation guard's browser sockets, which
+  // answer Fetch.enable unless `refuseGuard`.
+  const chromium = { up: false, launches: [], sockets: [], guards: [] };
   const spawn = (file, args, options) => {
     const child = new EventEmitter();
     Object.assign(child, { pid: 999999, exitCode: null, unref() {} });
@@ -58,11 +60,17 @@ function fakeChromium(t) {
       this.url = url;
       this.readyState = 1;
       this.sent = [];
-      chromium.sockets.push(this);
+      this.browser = /\/devtools\/browser\//.test(url);
+      (this.browser ? chromium.guards : chromium.sockets).push(this);
       setImmediate(() => this.onopen?.());
     }
     send(text) {
-      this.sent.push(JSON.parse(text));
+      const message = JSON.parse(text);
+      this.sent.push(message);
+      if (this.browser && !chromium.refuseGuard)
+        setImmediate(() =>
+          this.onmessage?.({ data: JSON.stringify({ id: message.id, result: {} }) }),
+        );
     }
     close() {
       this.readyState = 3;
@@ -73,6 +81,7 @@ function fakeChromium(t) {
     directory,
     settings: () => ({ executablePath: "/apps/chromium", headless: true }),
     spawn,
+    lookup: async () => [{ address: "93.184.216.34", family: 4 }],
     fetch,
     WebSocketImpl: FakeSocket,
   });
@@ -245,8 +254,8 @@ test("a Hermes home with AgentPier's Chromium turns Hermes's browser tools on", 
   const home = compileHome(agent, options);
   const config = readHermesConfig(home.files["config.yaml"]);
   assert.equal(config.agent.disabled_toolsets.includes("browser"), false);
+  // Hermes's browser_exec and browser_cdp on that Chromium; v0.22's `backend` goes.
   assert.deepEqual(config.browser, {
-    backend: "off",
     cdp_url: "http://127.0.0.1:41234",
     allow_private_urls: false,
   });
@@ -265,6 +274,20 @@ test("a Hermes home with AgentPier's Chromium turns Hermes's browser tools on", 
     assert.ok(config.agent.disabled_toolsets.includes("browser"));
     assert.equal(config.browser, undefined);
   }
+});
+
+test("a home compiled for Hermes v0.22 loses browser.backend, whatever else it holds", () => {
+  const agent = desiredAgent({
+    id: "a1",
+    name: "A1",
+    runtimeAgentId: "ap-a1",
+    revision: 1,
+  });
+  const existing = {
+    "config.yaml": "browser:\n  backend: 'off'\n  cdp_url: http://127.0.0.1:41234\n",
+  };
+  const config = readHermesConfig(compileHome(agent, { existing }).files["config.yaml"]);
+  assert.deepEqual(config.browser, { cdp_url: "http://127.0.0.1:41234" });
 });
 
 test("the takeover toolbar navigates, focuses and closes tabs of the agent's Chromium", async (t) => {
@@ -328,4 +351,88 @@ test("the takeover toolbar navigates, focuses and closes tabs of the agent's Chr
   await assert.rejects(browser.request({ method: "DELETE", path: "/tabs/W1" }), {
     code: "BROWSER_NO_TAB",
   });
+});
+
+test("each launch runs the navigation guard on the browser's own socket", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  await browser.start();
+  const [guard] = chromium.guards;
+  assert.match(guard.url, /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/b1$/);
+  assert.deepEqual(guard.sent[0], {
+    id: 1,
+    method: "Fetch.enable",
+    params: {
+      patterns: [{ urlPattern: "*", resourceType: "Document", requestStage: "Request" }],
+    },
+  });
+  const paused = async (url, sessionId) => {
+    const before = guard.sent.length;
+    guard.onmessage({
+      data: JSON.stringify({
+        method: "Fetch.requestPaused",
+        params: { requestId: url, request: { url } },
+        ...(sessionId && { sessionId }),
+      }),
+    });
+    for (let n = 0; n < 10 && guard.sent.length === before; n++)
+      await new Promise((resolve) => setImmediate(resolve));
+    return guard.sent.at(-1);
+  };
+  // Private networks are off: a private, loopback or metadata address fails.
+  for (const url of [
+    "http://10.0.0.5/admin",
+    "http://127.0.0.1:8080/",
+    "http://169.254.169.254/latest/meta-data",
+    "http://[::1]/",
+  ])
+    assert.deepEqual(await paused(url, "S1"), {
+      id: guard.sent.length,
+      method: "Fetch.failRequest",
+      params: { requestId: url, errorReason: "BlockedByClient" },
+      sessionId: "S1",
+    });
+  // A public address, or a name that resolves to one, goes on.
+  for (const url of ["https://93.184.216.34/", "https://shop.example/"])
+    assert.equal((await paused(url)).method, "Fetch.continueRequest");
+  // A guard that is lost stops the browser.
+  guard.close();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(browser.child, null);
+});
+
+test("private networks allowed: only cloud metadata addresses fail", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  browser.settings = () => ({
+    executablePath: "/apps/chromium",
+    headless: true,
+    allowPrivateNetwork: true,
+  });
+  await browser.start();
+  const [guard] = chromium.guards;
+  assert.equal(browser.navigationGuard.allowPrivateNetwork, true);
+  const { documentAllowed } =
+    await import("../../server/features/assistants/runtimes/hermes/hermes-browser-guard.js");
+  const lookup = async (host) =>
+    host === "metadata.internal.test"
+      ? [{ address: "169.254.169.254", family: 4 }]
+      : [{ address: "10.0.0.5", family: 4 }];
+  const allowed = (url) => documentAllowed(url, { allowPrivateNetwork: true, lookup });
+  assert.equal(await allowed("http://10.0.0.5/"), true);
+  assert.equal(await allowed("http://nas.local/"), true);
+  assert.equal(await allowed("http://169.254.169.254/"), false);
+  assert.equal(await allowed("http://metadata.google.internal/"), false);
+  assert.equal(await allowed("http://metadata.internal.test/"), false);
+  guard.close();
+});
+
+test("a browser whose navigation guard cannot start is stopped", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  chromium.refuseGuard = true;
+  const closed = browser.request({ method: "POST", path: "/start" });
+  // The guard's Fetch.enable gets no answer; its socket closes instead.
+  for (let n = 0; n < 50 && !chromium.guards.length; n++)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  chromium.guards[0].close();
+  await assert.rejects(closed, { code: "BROWSER_START_FAILED" });
+  assert.equal(browser.child, null);
 });

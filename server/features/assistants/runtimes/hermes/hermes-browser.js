@@ -8,6 +8,7 @@ import { privateFolder, readJSON, writePrivate } from "../../../../lib/storage.j
 import { closeConnection } from "../../../../lib/socket-errors.js";
 import { setFileInputFiles, uploadTab } from "./hermes-browser-files.js";
 import { toolbarRoute } from "./hermes-browser-control.js";
+import { NavigationGuard } from "./hermes-browser-guard.js";
 import { chromiumArgs, chromiumEnvironment } from "../../chromium-launch.js";
 
 export { chromiumArgs, chromiumEnvironment };
@@ -49,10 +50,13 @@ function loopbackSocket(value, port) {
 
 /**
  * One Hermes agent's own Chromium, which AgentPier starts and owns (ADR 0006 decision
- * 4) and Hermes attaches to through `browser.cdp_url` (Hermes v0.22.5
- * tools/browser_tool_cdp.py: a CDP override never launches a browser of Hermes's
+ * 4) and Hermes attaches to through `browser.cdp_url` (Hermes v0.23.3
+ * tools/browser_use_cli.py: a CDP override never launches a browser of Hermes's
  * own). Its profile lives in the agent's home (`directory`), its CDP port is chosen
- * once and kept (`port.json`), so the compiled `cdp_url` stays the same.
+ * once and kept (`port.json`), so the compiled `cdp_url` stays the same. Each launch
+ * runs AgentPier's navigation guard on it (hermes-browser-guard.js), which holds
+ * every document the browser loads to the owner's private-network setting; a browser
+ * whose guard cannot start or is lost is stopped.
  *
  * The browser sub-port (../agent-runtime.js) speaks the part of OpenClaw's browser
  * control API AgentPier's live view and limits use (agent-browsers.js,
@@ -63,8 +67,8 @@ function loopbackSocket(value, port) {
  * which relays CDP's screencast of that tab in OpenClaw's frame format (a four-byte
  * header length, a JSON header with the CSS viewport, the JPEG).
  *
- * `settings()`: `{ executablePath, headless }` of the next launch, or null while
- * AgentPier knows no browser app.
+ * `settings()`: `{ executablePath, headless, allowPrivateNetwork }` of the next
+ * launch, or null while AgentPier knows no browser app.
  */
 export class HermesBrowser {
   constructor({
@@ -73,6 +77,7 @@ export class HermesBrowser {
     spawn = spawnProcess,
     fetch = globalThis.fetch,
     WebSocketImpl = globalThis.WebSocket,
+    lookup,
     platform = process.platform,
   }) {
     // `directory`: the folder, or a function answering it (read when first needed).
@@ -82,6 +87,7 @@ export class HermesBrowser {
       spawn,
       fetch,
       WebSocketImpl,
+      lookup,
       platform,
     });
     this.child = null;
@@ -165,11 +171,41 @@ export class HermesBrowser {
     const deadline = Date.now() + startTimeoutMs;
     while (Date.now() < deadline) {
       if (this.child !== child) break;
-      if (await this.version()) return;
+      const version = await this.version();
+      if (version) {
+        if (await this.guard(child, version, settings)) return;
+        break;
+      }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     await this.stop();
     throw problem("BROWSER_START_FAILED");
+  }
+  // The navigation guard on the browser just started; false when it cannot run.
+  async guard(child, version, settings) {
+    const socketUrl = loopbackSocket(version.webSocketDebuggerUrl, this.knownPort());
+    if (!socketUrl) return false;
+    const guard = new NavigationGuard({
+      socketUrl,
+      allowPrivateNetwork: settings.allowPrivateNetwork === true,
+      WebSocketImpl: this.WebSocketImpl,
+      lookup: this.lookup,
+      // A browser without its guard does not go on.
+      onLost: () => {
+        if (this.child === child) this.stop().catch(() => {});
+      },
+    });
+    try {
+      await guard.start();
+    } catch {
+      return false;
+    }
+    if (this.child !== child) {
+      guard.close();
+      return false;
+    }
+    this.navigationGuard = guard;
+    return true;
   }
   async closeStray(port) {
     const socket = loopbackSocket((await this.version())?.webSocketDebuggerUrl, port);
@@ -191,6 +227,8 @@ export class HermesBrowser {
   async stop() {
     const child = this.child;
     this.child = null;
+    this.navigationGuard?.close();
+    this.navigationGuard = null;
     for (const ticket of this.tickets.values()) ticket.stream?.close();
     this.tickets.clear();
     if (!child?.pid || child.exitCode !== null) return;

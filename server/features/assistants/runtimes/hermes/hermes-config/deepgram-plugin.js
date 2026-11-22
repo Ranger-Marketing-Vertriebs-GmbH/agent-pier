@@ -1,6 +1,6 @@
 // AgentPier's Deepgram speech-to-text for Hermes: a profile plugin that registers a
 // transcription provider (agent/transcription_provider.py, `ctx.
-// register_transcription_provider`, Hermes v0.22.5). With `stt.provider` naming it,
+// register_transcription_provider`, Hermes v0.23.3). With `stt.provider` naming it,
 // Hermes's gateway hands every voice note of the agent's own Telegram bot to it
 // (tools/transcription_tools.py: built-ins first, then command providers, then
 // plugins; `stt.<provider>.model` and `.language` are passed in). It calls Deepgram's

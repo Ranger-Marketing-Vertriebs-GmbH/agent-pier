@@ -6,7 +6,7 @@ import { hermesDescriptor } from "../../server/features/assistants/runtimes/herm
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 
 // "Learns its own skills" on Hermes (agent/agent_init.py and agent/turn_finalizer.py
-// of the pinned 0.22.5): `skills.creation_nudge_interval` (code default 10) counts
+// of the pinned 0.23.3): `skills.creation_nudge_interval` (code default 10) counts
 // tool iterations until the background review looks for a skill to write; 0 never
 // starts it. Off writes 0, on leaves the key out. `skill_manage`, the memory review
 // and the curator stay as they are.

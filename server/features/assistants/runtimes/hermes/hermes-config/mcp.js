@@ -9,7 +9,7 @@ import { chatPlaceholderFolders } from "../../../chat-file-folders.js";
 // The MCP servers bound to one agent (agent-desired-state.js `mcp`, the store's
 // definitions and secrets in the desired state's host `mcp`, mcp-inputs.js) as
 // Hermes's `mcp_servers` (website/docs/reference/mcp-config-reference.md, verified
-// against Hermes v0.22.5 tools/mcp_tool_config.py). Each agent has its own home, so
+// against Hermes v0.23.3 tools/mcp_tool_config.py). Each agent has its own home, so
 // a server keeps its stored name, and Hermes names its tools `mcp__<server>__<tool>`
 // (tools/mcp_tool_schema.py mcp_prefixed_tool_name).
 // Secrets never stand in config.yaml: every environment value, header and URL is a

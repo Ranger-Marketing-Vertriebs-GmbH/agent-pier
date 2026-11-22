@@ -184,8 +184,11 @@ state: the compiler preserves them and never produces duplicate keys.
   ([teams on Hermes](../hermes-runtime.md#teams)).
 - **Browser:** AgentPier starts each Hermes agent's Chromium and passes
   `browser.cdp_url`, so live view and takeover use AgentPier's own CDP screencast.
-  Verified against v0.22.5: a CDP URL never launches Hermes's own browser; its browser
-  tools need the agent-browser binary, which the Hermes installation provisions
+  Verified against v0.23.3: a CDP URL never launches Hermes's own browser. Hermes's
+  browser is `browser_exec`, agent-written Python that browser-harness from its locked
+  environment runs over CDP (v0.23 removed agent-browser and the other built-in
+  `browser_*` tools, which AgentPier provisioned for v0.22.5); AgentPier's navigation
+  guard on the agent's Chromium enforces the private-network setting
   ([browser on Hermes](../hermes-runtime.md#browser)).
 - **Models:** AgentPier injects connection keys through Hermes's secret source; Hermes
   never adopts logins it finds on the host.
@@ -204,7 +207,9 @@ state: the compiler preserves them and never produces duplicate keys.
 - **Toolchain:** Python 3.14 and `uv` are provisioned by the installation scripts and the
   update path, pinned like the OpenClaw runtime lock. Hermes is pinned to a release
   tag and the commit it names (the owner chose release `v0.22.5`, commit `bf0203a7`,
-  on 2026-11-01, over the `main` commit `a4994d4e` of the spike). Hermes has no
+  on 2026-11-01, over the `main` commit `a4994d4e` of the spike; release `v0.23.3`,
+  commit `caafe538`, since 2026-11-22). AgentPier supports only the release it pins
+  and rolls back only to the previous pin. Hermes has no
   downgrade path: rollback restores the snapshot taken before an update.
 
 ### 5. Practical defaults for Hermes agents from the start

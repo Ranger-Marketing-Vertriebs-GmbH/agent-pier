@@ -7,7 +7,7 @@ import { readHermesConfig } from "./home-merge.js";
 // How Hermes takes the shared advanced settings (../../shared-settings.js, which are
 // AgentPier's; advanced-config.js, Agents › Runtime › Advanced): the ones with a
 // faithful Hermes equivalent, by the shared id, verified
-// against Hermes v0.22.5 (hermes_cli/config_defaults.py unless named otherwise).
+// against Hermes v0.23.3 (hermes_cli/config_defaults.py unless named otherwise).
 // docs/hermes-runtime.md lists each setting and why the others stay OpenClaw's.
 //
 // - Thinking level → `agent.reasoning_effort` in config.yaml, which a session freezes
@@ -43,7 +43,7 @@ import { readHermesConfig } from "./home-merge.js";
  * as soon as hermes-manifest.json pins another version, so every Hermes update
  * reviews this list.
  */
-export const hermesAdvancedRuntime = "0.22.5";
+export const hermesAdvancedRuntime = "0.23.3";
 
 const levels = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 

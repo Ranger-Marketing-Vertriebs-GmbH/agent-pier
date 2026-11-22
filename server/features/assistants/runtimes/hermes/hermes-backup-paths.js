@@ -12,8 +12,8 @@
 // - Credentials (backup-credentials.js isCredentialFile): each home's `.env` (model,
 //   MCP, bot and speech keys) and `auth.json` travel only sealed, as OpenClaw's do.
 // - Public, so a restore brings back working agents: each home's `config.yaml`,
-//   `SOUL.md`, `skills/`, `plugins/` and the routines (`cron/jobs.json`) with their
-//   delivery record. Everything else of a home (session databases and transcripts,
+//   `SOUL.md`, `skills/`, `plugins/` and the routines (`cron/jobs.json`, AgentPier's
+//   part of them in `agentpier-routines.json`) with their delivery record. Everything else of a home (session databases and transcripts,
 //   memories, pairing and platform state, run output) and the agents' HOME and work
 //   folders are private content: sealed with the histories, or left out.
 // - The agents' browser profiles (`home/<id>/agentpier-browser/`) go only sealed, as
@@ -26,7 +26,7 @@ const home = /^hermes\/state\/[^/]+\/(.+)$/;
 const runtimeOnly =
   /^(logs|cache|runtime|state|backups|installs|plugin-update-checks|source-checks|audio_cache|image_cache|sandboxes|desktop)(\/|$)|^(gateway_state\.json|gateway-starts\.log|install_id)$|\.heartbeat$|^plugins\/agentpier-team\/bridge\.json$/;
 const publicHome =
-  /^(config\.yaml|SOUL\.md|\.env|auth\.json|agentpier-routine-runs\.json|cron\/jobs\.json)$|^(skills|plugins)(\/|$)/;
+  /^(config\.yaml|SOUL\.md|\.env|auth\.json|agentpier-routine-runs\.json|agentpier-routines\.json|cron\/jobs\.json)$|^(skills|plugins)(\/|$)/;
 // A folder below the home that holds public files: walked, never private as a whole.
 const publicFolder = /^(skills|plugins)(\/.*)?$|^cron$/;
 const browser = /^hermes\/home\/[^/]+\/agentpier-browser(\/|$)/;

@@ -8,7 +8,7 @@ import {
 
 // Mixture of Agents (ADR 0007 decision 9; docs/hermes-runtime.md): an agent's advisor
 // models (runtimeOptions.hermes.mixture, ../hermes-options.js) as Hermes's MoA preset.
-// Verified against Hermes v0.22.5:
+// Verified against Hermes v0.23.3:
 // - `model.provider: moa` with `model.default: <preset>` makes every turn a MoA run
 //   (hermes_cli/runtime_provider.py `_resolve_requested_shortcuts`, agent/moa_loop.py
 //   `bind_moa_runtime`); auxiliary tasks use the aggregator slot (agent/
