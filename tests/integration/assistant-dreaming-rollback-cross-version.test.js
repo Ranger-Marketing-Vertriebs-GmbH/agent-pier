@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { deleteNativeSession } from "../../server/features/assistants/chat-removal.js";
+import { forgetDreamingSession } from "../../server/features/assistants/dreaming-backups.js";
 import { dreamingSection } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/dreaming.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
+import {
+  OfflineCommands,
+  queueName,
+} from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
   dreamingKey,
@@ -16,8 +23,11 @@ import {
 // this release's compiled configuration, the owner's dreaming section included.
 // This pins dreaming there: the section is accepted, the managed job follows the
 // switch and a live hour change, a sweep keeps each agent to its own chats, and a
-// deleted chat leaves dreaming. The cross-version job provisions each rollback
-// target (AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME); elsewhere it skips.
+// deleted chat leaves dreaming. Every rollback target is 2026.10.10 or later, where
+// `memory forget` refuses while a Gateway owns the state, so the deletion runs as the
+// product wires it: queued for a maintenance window (offline-commands.js). The
+// cross-version job provisions each rollback target
+// (AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME); elsewhere it skips.
 const previous = process.env.AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME;
 
 test(
@@ -58,7 +68,7 @@ test(
       },
       replacePaths: ["plugins.entries.memory-core.config.dreaming"],
     }));
-    const moved = await f.until(
+    await f.until(
       async () => {
         const jobs = await f.dreamingJobs();
         return jobs.length === 1 && jobs[0].schedule.expr === "0 4 * * *" && jobs[0];
@@ -69,22 +79,46 @@ test(
     assert.equal(f.runtime.child, child, "the Gateway process was not replaced");
     assert.equal(f.runtime.generation, generation);
 
-    // Deleted as AgentPier deletes a chat: the session, its archive, then dreaming.
+    // The live forget is refused on this runtime: only a window may run it.
+    await assert.rejects(
+      f.cli([
+        ...["memory", "forget", "--agent", orchid.runtimeAgentId],
+        ...["--session", "no-such-session", "--json"],
+      ]),
+      /exclusive offline state ownership/,
+    );
+
+    // Deleted as AgentPier deletes a chat: the session, its archive, then dreaming,
+    // queued for a maintenance window (without a pending restart the queue opens its
+    // own window, as offline-commands-wiring.js does for every runtime).
     const assistants = {
       runtime: f.runtime,
       store: f.store,
       ledger: { forgetTexts() {} },
     };
+    assistants.offlineCommands = new OfflineCommands({
+      supervisor: f.runtime,
+      forget: ({ agent, sessions }) =>
+        forgetDreamingSession(assistants, { runtimeAgentId: agent }, sessions),
+    });
+    t.after(() => assistants.offlineCommands.close());
     const conversation = f.store.saveConversation({
       assistantId: orchid.id,
       runtimeSessionKey: chat,
     });
+    const before = f.runtime.generation;
     assert.equal(await deleteNativeSession(assistants, conversation), true);
     await assistants.dreamingForgets;
+    await assistants.offlineCommands.flush();
+    assert.notEqual(f.runtime.generation, before, "a window ran");
+    assert.equal(fs.existsSync(path.join(f.runtime.paths.root, queueName)), false);
+    await f.restore(dreamingSection(next));
     assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/);
     assert.match(f.corpus(fern), /DREAMFERN/, "another agent's corpus stays");
     await f.turn(orchid, "Tomatoes need water daily DREAMTOMATO.");
-    assert.equal((await f.forceRun(moved.id)).status, "ok");
+    const restored = await f.job();
+    assert.equal(restored.schedule.expr, "0 4 * * *", "the window keeps the hour");
+    assert.equal((await f.forceRun(restored.id)).status, "ok");
     await f.settle();
     assert.match(f.corpus(orchid), /DREAMTOMATO/);
     assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/, "it stays out of later runs");

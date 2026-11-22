@@ -5243,7 +5243,8 @@ release's compiled configuration after a failed activation,
 `assistant-dreaming-rollback-cross-version.test.js` pins in the cross-version job that
 the section is accepted, the managed job follows the switch and a live hour change
 without a restart, a sweep keeps each agent to its own chats, and a deleted chat leaves
-dreaming. See [memory qualification](assistant-memory-qualification.md#dreaming).
+dreaming through a queued maintenance window (the live `memory forget` is refused there
+too). See [memory qualification](assistant-memory-qualification.md#dreaming).
 
 #### Dreaming of Hermes agents
 
