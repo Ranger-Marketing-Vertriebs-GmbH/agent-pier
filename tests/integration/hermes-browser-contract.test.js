@@ -141,7 +141,13 @@ test(
 
     // Private networks off: the agent's set restarts, and AgentPier's navigation
     // guard keeps the page out although the code never writes its address, so
-    // Hermes's own check of the code's addresses cannot see it.
+    // Hermes's own check of the code's addresses cannot see it. The first turn has
+    // settled in AgentPier's ledger before the restart, so the chat takes the next.
+    await eventually(
+      () => !assistants.ledger.pending().length,
+      60000,
+      "the first turn to settle",
+    );
     const current = await json(await app.f.request("/api/assistant-browser-network"));
     await json(
       await app.f.request("/api/assistant-browser-network", {
@@ -162,21 +168,8 @@ test(
     const seenBefore = requests;
     const hidden = `"http" + "://127.0.0.1:" + str(${page.address().port})`;
     const code = `# Opening the page again\nnew_tab(${hidden})\nwait_for_load()\nprint("AT " + js("location.href"))`;
-    // A new chat on the restarted set; a send waits while it still settles.
-    const after = await app.chat(agent);
-    await eventually(
-      async () => {
-        try {
-          await after.send("blocked", `CALL: browser_exec ${JSON.stringify({ code })}`);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      60000,
-      "the message on the restarted agent",
-    );
-    const blocked = await after.reply(/TOOL_DONE:[\s\S]*AT /);
+    await chat.send("blocked", `CALL: browser_exec ${JSON.stringify({ code })}`);
+    const blocked = await chat.reply(/TOOL_DONE:[\s\S]*AT /);
     assert.doesNotMatch(blocked.text, /AT http:\/\/127\.0\.0\.1/);
     assert.equal(requests, seenBefore);
 

@@ -1,4 +1,6 @@
+import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
 
 // Hermes treats these as launch policy or supervisor claims (its
@@ -6,6 +8,40 @@ import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
 // variable named like them would change what the agent's processes do.
 const refused =
   /^(?:AGENTPIER_|HERMES_|XPC_|LAUNCHD_|INVOCATION_ID$|JOURNAL_STREAM$|NOTIFY_SOCKET$|WATCHDOG_)/;
+
+/**
+ * The runtime folder of an agent's browser engine (browser-harness, which Hermes's
+ * browser_exec runs): `/tmp/aph-<12 hex>`, by the agent's HOME. The engine binds an
+ * AF_UNIX socket named after the session (up to 64 characters) there, and on macOS
+ * the folder may take at most 30 bytes once resolved (`/private/tmp/…`). Hermes v0.23
+ * finds a short folder itself; v0.22.5, the release AgentPier may roll back to, binds
+ * below the agent's deep HOME and fails without it.
+ */
+export const harnessRuntimeDir = (home) =>
+  `/tmp/aph-${createHash("sha256")
+    .update(`${process.getuid?.() ?? ""}\0${home}`)
+    .digest("hex")
+    .slice(0, 12)}`;
+
+// The folder, created 0700, or an existing one only while it is a real directory of
+// this user that no one else may enter (/tmp is shared); else null.
+function claimed(dir) {
+  try {
+    fs.mkdirSync(dir, { mode: 0o700 });
+  } catch (error) {
+    if (error.code !== "EEXIST") return null;
+  }
+  try {
+    const stat = fs.lstatSync(dir);
+    return stat.isDirectory() &&
+      stat.uid === process.getuid?.() &&
+      (stat.mode & 0o077) === 0
+      ? dir
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The environment of one Hermes agent's processes, built from nothing: its own HOME,
@@ -17,7 +53,8 @@ const refused =
  * environment reaches them (no AgentPier token, no owner credential); `extra` adds
  * variables a later configuration step supplies (model keys come through Hermes's
  * own secret source instead) and may not name AgentPier's or Hermes's own variables.
- * The agent's shell inherits this from the messaging gateway.
+ * BH_RUNTIME_DIR names the browser engine's short runtime folder (harnessRuntimeDir),
+ * shared by its sessions. The agent's shell inherits this from the messaging gateway.
  */
 export function hermesEnvironment({
   agent,
@@ -43,6 +80,7 @@ export function hermesEnvironment({
     "/usr/sbin",
     "/sbin",
   ];
+  const harness = claimed(harnessRuntimeDir(agent.home));
   return {
     ...proxyEnvironment(parent),
     ...(parent.TZ ? { TZ: parent.TZ } : {}),
@@ -61,5 +99,6 @@ export function hermesEnvironment({
     PYTHONIOENCODING: "utf-8",
     PYTHONNOUSERSITE: "1",
     TERM: "dumb",
+    ...(harness && { BH_RUNTIME_DIR: harness, BH_RUNTIME_DIR_SHARED: "1" }),
   };
 }

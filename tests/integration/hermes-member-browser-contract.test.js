@@ -15,7 +15,9 @@ import { readHermesConfig } from "../../server/features/assistants/runtimes/herm
 // with the browser grants it to a task member, the member's home turns Hermes's
 // browser on, and a delegated task opens a local page in the member's own
 // AgentPier-owned Chromium, held as a member slot (agent-browsers.js ownMemberSlot).
-// A task member has no shell, so Hermes offers it browser_cdp, not browser_exec.
+// The member's shell is what its lead grants it; this lead grants none (no shell
+// level, "Team members may use shell and SSH" off), so Hermes offers the member
+// browser_cdp, not browser_exec.
 // The browser app: hermesContractBrowser (hermes-native.js).
 const contractBrowser = hermesContractBrowser();
 const options = {

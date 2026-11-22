@@ -775,8 +775,11 @@ removed afterwards. The installation needs about 550 MB (source 290 MB, environm
 before the pdf tool gets its pypdfium2 in place at the next server start
 (`hermesStagingDue`); running agents pick it up at their next pdf call. Since Hermes
 v0.23 nothing else is added: its browser runs on browser-harness from the locked
-environment, and the agent-browser binary an installation of v0.22.5 holds in its
-`tools/` stays there untouched for a rollback.
+environment. An installation of v0.22.5 still holds the agent-browser binary in its
+`tools/`, but nothing uses it any more: the agents' PATH no longer names that folder,
+and the homes this AgentPier compiles have no `browser.backend`, so v0.22.5 after a
+rollback runs its own `browser_exec` on browser-harness as v0.23.3 does, in the short
+engine folder AgentPier names (`hermes-rollback-browser-contract.test.js`).
 
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
@@ -821,10 +824,14 @@ bound to the old one refuse. Both processes get an environment built from nothin
 `HOME`, `HERMES_HOME`, `TMPDIR` and the XDG folders inside
 `<data>/assistants/hermes/{home,state,tmp}/<agent>/`, `PATH` with Hermes's environment,
 the folders AgentPier provides and the system folders, UTF-8, proxy settings and the
-time zone; no AgentPier token or owner credential. Each runs in its own process group;
-stopping ends both groups (TERM, then KILL after 10 seconds), then any gateway that owns
-the home without being the set's, and the control socket folder Hermes leaves in the
-temporary directory. A crash ends and restarts the set after 1, 2, 4, … up to 30
+time zone, and `BH_RUNTIME_DIR` (with `BH_RUNTIME_DIR_SHARED=1`), a private
+`/tmp/aph-<12 hex>` folder per agent for the sockets of `browser_exec`'s engine,
+which macOS limits to 104 bytes (Hermes v0.22.5 bound them below the agent's deep
+HOME and failed); no AgentPier token or owner credential. Each runs in its own process
+group; stopping ends both groups (TERM, then KILL after 10 seconds), then any gateway
+that owns the home without being the set's, the control socket folder Hermes leaves in
+the temporary directory, and the engine's folder with the daemons whose pid it holds
+(v0.22.5 leaves them running). A crash ends and restarts the set after 1, 2, 4, … up to 30
 seconds; after five starts in a row that never got ready the agent's host reports
 `failed` until the next start. Logs are
 `<data>/assistants/hermes/logs/<agent>/gateway.log` and `rpc-bridge.log`.
