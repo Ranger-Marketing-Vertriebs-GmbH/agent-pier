@@ -50,7 +50,8 @@ const others = {
   "dist/openclaw-state-lease-storage-BBSi-Imk.mjs":
     "const o = n + (a ? OPENCLAW_SQLITE_BUSY_TIMEOUT_MS : LEASE_CONTENTION_RETRY_TIMEOUT_MS);\n",
   "dist/tool-send-receipts-oBTeJUW8.mjs":
-    "const v = d || !sameTools(m, s);\ntools: v ? m.slice() : c.context.tools?.slice()\n",
+    "const v = d || !sameTools(m, s);\ntools: v ? m.slice() : c.context.tools?.slice()\n" +
+    "resolveDeferredTool: e.resolveDeferredTool,\n",
 };
 
 test("the shipped startup resume adopts markers and fails the guard", (t) => {

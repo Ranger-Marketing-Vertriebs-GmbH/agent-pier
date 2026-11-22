@@ -513,7 +513,8 @@ running as installed. Starting a patched installation verifies its patches again
   request and no channel delivery follow. AgentPier's ledger keeps the turn
   interrupted or uncertain for the owner to review (see `assistant-gateway.md`,
   "Interrupted turns after a restart"). OpenClaw has no setting for this.
-- `hydrated-tools-kept` and `hydrated-tools-kept-list`: 2026.11.6 builds each next
+- `hydrated-tools-kept`, `hydrated-tools-kept-list` and `hydrated-tools-resolved`:
+  2026.11.6 builds each next
   turn's tools from the session's own tool list
   (`createSessionPrepareNextTurnWithContext` in `dist/tool-send-receipts-*.mjs`), so a
   tool-search directory tool the model called by name is no longer declared, and the
@@ -521,7 +522,9 @@ running as installed. Starting a patched installation verifies its patches again
   ("[tool call id=…]", "[tool result id=…]"; openclaw#202415, fixed upstream after
   2026.11.6 by #202436). The patch keeps the hydrated tools for the next turn while
   the session's tool list is unchanged, so calls and results stay structured `tool`
-  messages. Tool search stays in directory mode.
+  messages. It keeps only tools the session's deferred resolver returned, recorded
+  by identity, never another tool a turn's context carries. Tool search stays in
+  directory mode.
 
 The 2026.11.3 installation, the rollback target, keeps the patches it was installed
 with (`5621321a947d`): the lease release window, the Codex client version (`0.164.0`
@@ -573,8 +576,9 @@ and `scripts/verify-assistant-installation.mjs`:
   startup publication retry is found (`tests/helpers/superseded-publication-guard.js`).
   A pin that loses the conversion needs the retry patched again.
 - The hydrated tools: both fail while the package's next-turn preparation still
-  resets the tool list without the hydrated tools, or when it is not found at all
-  (`tests/helpers/hydrated-tools-guard.js`). Carry both `hydrated-tools-kept` entries
+  resets the tool list without the hydrated tools, keeps them without the resolver's
+  record, or when it is not found at all (`tests/helpers/hydrated-tools-guard.js`).
+  Carry the three `hydrated-tools-*` entries
   forward until a pin includes upstream's fix (#202436); then update the guard and
   drop them.
 

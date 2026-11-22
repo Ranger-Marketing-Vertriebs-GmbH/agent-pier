@@ -49,7 +49,10 @@ import { createHash } from "node:crypto";
  * fixed upstream by #202436 after 2026.11.6). The next turn now keeps the hydrated
  * tools while the session's own tool list is unchanged, so the exchange stays a
  * native tool call and result; a tool list the policy changed drops them, and a later
- * call hydrates the tool again.
+ * call hydrates the tool again. Only tools the session's deferred resolver returned
+ * are kept, by identity ("hydrated-tools-resolved" records them on the preparation
+ * function, `createSessionPrepareNextTurnWithContext.hydrated`), never another tool
+ * a turn's context carries.
  */
 export const runtimeBundlePatches = Object.freeze({
   "2026.11.6": Object.freeze([
@@ -80,7 +83,7 @@ export const runtimeBundlePatches = Object.freeze({
       before: "s.flatMap(({ entry: e }) => e.resumeAfterRestart?.queuedInputIds ?? [])",
       after: "[] /* AgentPier never replays a queued message after a restart */",
     }),
-    // Drop both hydrated-tools entries once the pin carries openclaw#202436; the patch
+    // Drop the hydrated-tools entries once the pin carries openclaw#202436; the patch
     // contract and verify-assistant-installation.mjs fail while neither is in place
     // (tests/helpers/hydrated-tools-guard.js).
     Object.freeze({
@@ -97,7 +100,18 @@ export const runtimeBundlePatches = Object.freeze({
       before: "tools: v ? m.slice() : c.context.tools?.slice()",
       after:
         "tools: v ? [...m, ...(keepHydrated ? (c.context.tools ?? []).filter((e) => " +
+        "createSessionPrepareNextTurnWithContext.hydrated?.has(e) && " +
         "!m.some((t) => t.name === e.name)) : [])] : c.context.tools?.slice()",
+    }),
+    Object.freeze({
+      id: "hydrated-tools-resolved",
+      file: "dist/tool-send-receipts-oBTeJUW8.mjs",
+      before: "resolveDeferredTool: e.resolveDeferredTool,",
+      after:
+        "resolveDeferredTool: e.resolveDeferredTool && (async (...t) => { " +
+        'const n = await e.resolveDeferredTool(...t); if (n && typeof n === "object") ' +
+        "(createSessionPrepareNextTurnWithContext.hydrated ??= new WeakSet()).add(n); " +
+        "return n; }) /* AgentPier */,",
     }),
   ]),
 });
