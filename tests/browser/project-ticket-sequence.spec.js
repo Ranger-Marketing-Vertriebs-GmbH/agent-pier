@@ -62,7 +62,8 @@ test("the queue shows states and a reason", async ({ page }) => {
   const listBox = await page.getByText("acme/app#7 Fix the login").last().boundingBox();
   expect(queueBox.y).toBeLessThan(listBox.y);
 
-  // A parked ticket offers Retry, Mark done and Remove; a running one none of them.
+  // A parked ticket offers Retry, Mark done and Remove; one that waits for its merge
+  // offers Mark done and Remove (it must never be stuck in the queue), but no Retry.
   await queueMenu(page, "acme/app#7").click();
   for (const name of [
     "Erneut versuchen",
@@ -79,9 +80,8 @@ test("the queue shows states and a reason", async ({ page }) => {
     page.getByRole("menuitem", { name: "Reparatur-Session öffnen" }),
   ).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Erneut versuchen" })).toHaveCount(0);
-  await expect(
-    page.getByRole("menuitem", { name: "Aus der Warteschlange entfernen" }),
-  ).toHaveCount(0);
+  for (const name of ["Als erledigt markieren", "Aus der Warteschlange entfernen"])
+    await expect(page.getByRole("menuitem", { name })).toBeVisible();
   await page.getByRole("menuitem", { name: "Lauf öffnen" }).click();
   await expect(page).toHaveURL(/\/pipelines\/runs\/r9$/);
 });
