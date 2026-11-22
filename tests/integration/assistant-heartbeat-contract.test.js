@@ -1,6 +1,7 @@
 import test from "node:test";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,7 +10,6 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
-import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { telegramMessages } from "../../server/features/assistant-channels/telegram-messages.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
@@ -22,6 +22,16 @@ import { cronJobs } from "../helpers/native-cron-jobs.js";
 import { grantedToolNames } from "../helpers/assistant-model-server.js";
 
 const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
+// The installed OpenClaw: the pin, or its rollback target 2026.11.3, which the same
+// AgentPier build still starts until the owner activates the pin.
+const runtimeVersion =
+  installed &&
+  JSON.parse(
+    fs.readFileSync(
+      path.join(installed, "app/node_modules/openclaw/package.json"),
+      "utf8",
+    ),
+  ).version;
 const long = { timeoutMs: 60000 };
 const text = (request) => JSON.stringify(request.messages);
 const isCheckIn = (request) =>
@@ -76,7 +86,7 @@ test(
     runtime = new RuntimeSupervisor({
       dataDir: f.dataDir,
       install: async () => ({
-        version: runtimeManifest.version,
+        version: runtimeVersion,
         nodePath: path.join(installed, "node/bin/node"),
         entryPath: path.join(installed, "app/node_modules/openclaw/openclaw.mjs"),
       }),
@@ -105,7 +115,7 @@ test(
     // The compiled native configuration: memory-core, cron and the webhook policy.
     const plugin = provisionTeamPlugin({
       paths: runtime.paths,
-      runtimeVersion: runtimeManifest.version,
+      runtimeVersion,
     });
     // Every native tool call asks the bridge whether it runs in a memory step.
     bridge = await stepPolicyBridge("heartbeat-fixture");
@@ -187,6 +197,12 @@ test(
     assert.equal(read.runState.nextRunAtMs, job.state.nextRunAtMs);
     // OpenClaw's own per-agent heartbeat stays off: `every: "0m"` on 2026.11.3, retired
     // (and the key removed) since 2026.11.6 (heartbeatDefault, locked-core.js).
+    const compiled = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8"));
+    assert.deepEqual(
+      compiled.agents.defaults.heartbeat,
+      /^2026\.11\.[0-5]$/.test(runtimeVersion) ? { every: "0m" } : undefined,
+      runtimeVersion,
+    );
     assert.ok(
       (await cronJobs(runtime, agent.runtimeAgentId))
         .filter((j) => j.declarationKey === `heartbeat:${agent.runtimeAgentId}`)
@@ -332,8 +348,8 @@ test(
     assert.equal(midTurn().length, 1, "the chat receives the check-in once");
     // 4. After an owner /reset and /new (from Telegram) the check-in reads the new
     // session and commits into it. OpenClaw 2026.11.6 follows the chat itself
-    // (openclaw#199512), so the job stays as it is (chat-rebind.js re-creates it only
-    // on the 2026.11.3 rollback target).
+    // (openclaw#199512), so the job stays as it is; on the 2026.11.3 rollback target
+    // chat-rebind.js re-creates it (below).
     const commit = async (marker, command) => {
       checkIn = `${marker} check-in HEARTBEATCONTRACT`;
       offset = model.requests.length;
@@ -362,14 +378,34 @@ test(
       assert.equal(f.service.outbox.all(f.channel.id).length, sent + 1);
     };
     const first = jobId();
+    // 2026.11.3 keeps the chat as it was when the job was created and refuses a later
+    // one ("session rebound"): AgentPier re-creates the job after the command's turn,
+    // as the run reconciler does, or once a reset refused a commit.
+    const rebinds = /^2026\.11\.[0-5]$/.test(runtimeVersion);
     assert.equal((await wait(await send("/reset"))).status, "ok");
     assert.equal((await wait(await send("AFTERRESETTOKEN a new topic."))).status, "ok");
-    assert.equal(await reminders.followChat(f.channel.conversationId), 0);
+    assert.equal(await reminders.followChat(f.channel.conversationId), rebinds ? 1 : 0);
+    if (rebinds) assert.notEqual(jobId(), first, "/reset: the job is re-created");
     await commit("AFTERRESETTOKEN", "/reset");
     assert.equal((await wait(await send("/new"))).status, "ok");
     assert.equal((await wait(await send("AFTERNEWTOKEN a new topic."))).status, "ok");
+    if (rebinds) {
+      // /new without that step: the refused commit re-creates the job.
+      const stale = jobId();
+      const sentBefore = f.service.outbox.all(f.channel.id).length;
+      checkIn = "AFTERNEWTOKEN refused check-in HEARTBEATCONTRACT";
+      await force();
+      // Read on the job that ran: the refusal may re-create it before this returns.
+      const [refused] = await finished(2, stale);
+      assert.equal(refused.deliveryStatus, "not-delivered");
+      assert.match(refused.deliveryError, /^session rebound for sessionKey/);
+      const rebindDeadline = Date.now() + 15000;
+      while (jobId() === stale && Date.now() < rebindDeadline) await delay(100);
+      assert.notEqual(jobId(), stale, "/new: the refused commit re-creates the job");
+      assert.equal(f.service.outbox.all(f.channel.id).length, sentBefore, "nothing sent");
+    }
     await commit("AFTERNEWTOKEN", "/new");
-    assert.equal(jobId(), first, "the job is never re-created");
+    if (!rebinds) assert.equal(jobId(), first, "the job is never re-created");
     t.diagnostic(
       `MEMORY.md in any prompt: ${memoryInPrompt}; webhook summaries: ${JSON.stringify(received)}; run delivery statuses: ${JSON.stringify(after.map((e) => e.deliveryStatus))}; NO_REPLY run: ${JSON.stringify(runs.find((e) => e.summary === "NO_REPLY") || null).slice(0, 300)}.`,
     );
