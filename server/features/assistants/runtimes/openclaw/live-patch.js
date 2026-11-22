@@ -101,6 +101,47 @@ async function quiet(client, state, { settleMs, now, sleep, warn }) {
   }
 }
 
+// OpenClaw 2026.11.6 reports ready before its config reloader runs. A configuration
+// write in between is persisted but not applied: UNAVAILABLE "(unclaimed)"
+// (gateway-client.js `persistedWrite`), and the reloader applies the persisted file
+// once it starts. Such a write succeeded once config.get shows the written
+// configuration applied, within `settleMs`; any other outcome stays an error. Writes
+// carry a base hash or run one after the other, so a later write builds on this one.
+const settledWrites = new Set([
+  "config.patch",
+  "config.apply",
+  "agents.create",
+  "agents.update",
+  "agents.delete",
+]);
+const unclaimedWrite = (method, error) =>
+  settledWrites.has(method) &&
+  error?.answered === true &&
+  error.code === "UNAVAILABLE" &&
+  error.persisted?.outcome === "unclaimed";
+
+async function applied(client, { settleMs, now, sleep }) {
+  const deadline = now() + settleMs;
+  for (let pause = firstPollMs; ; pause = Math.min(lastPollMs, pause * 2)) {
+    const answer = await client.call("config.get", {}).catch(() => null);
+    if (answer && typeof answer.appliedConfigHash === "string" && !reloadPending(answer))
+      return answer;
+    if (now() >= deadline) return null;
+    await sleep(Math.min(pause, Math.max(0, deadline - now())));
+  }
+}
+
+// What the unclaimed write would have answered once it is applied: a configuration
+// write its hash; agents.create the agent it made, found by the name it was created
+// with (AgentPier's agent ids are already OpenClaw's normal form).
+async function settledAnswer(client, method, params, answer) {
+  if (method.startsWith("config.")) return { ok: true, hash: answer.hash };
+  if (method !== "agents.create") return { ok: true };
+  const { agents = [] } = await client.call("agents.list", {});
+  const agentId = String(params?.name ?? "").toLowerCase();
+  return agents.some((agent) => agent.id === agentId) ? { ok: true, agentId } : null;
+}
+
 /**
  * Runs `write(call, current)` after every earlier configuration write of `client`,
  * once the Gateway answered the timed-out ones and applied what is written
@@ -137,7 +178,15 @@ export function configWrite(
     const current = client
       ? await quiet(client, state, { settleMs, now, sleep, warn })
       : null;
-    return write(call, current);
+    const settling = (method, params, options) =>
+      call(method, params, options).catch(async (error) => {
+        if (!unclaimedWrite(method, error)) throw error;
+        const answer = await applied(client, { settleMs, now, sleep });
+        const settled = answer && (await settledAnswer(client, method, params, answer));
+        if (!settled) throw error;
+        return settled;
+      });
+    return write(settling, current);
   });
   state.chain = run.catch(() => {});
   return run;

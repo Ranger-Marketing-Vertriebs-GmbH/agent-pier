@@ -96,7 +96,16 @@ test(
       for await (const part of req) raw += part;
       const body = JSON.parse(raw);
       requests.push(body);
-      const tool = !body.messages.some((m) => m.role === "tool");
+      // A tool result comes as a `tool` message, or, for a tool the request no
+      // longer lists (tool search hydrated it for the call), as text in the
+      // assistant message (OpenClaw 2026.11.6: "[tool result id=… name=…] …").
+      const tool = !body.messages.some(
+        (m) =>
+          m.role === "tool" ||
+          (m.role === "assistant" &&
+            typeof m.content === "string" &&
+            m.content.includes("[tool result id=")),
+      );
       const bypass = JSON.stringify(body.messages).includes("TRY_NATIVE_SPAWN");
       const asking = JSON.stringify(body.messages).includes("ASK_MEMBER");
       const delta = tool
@@ -325,12 +334,18 @@ test(
         input: { memberId: "member-fixture", question: "What is the budget?" },
       },
     ]);
+    // The answer reaches the model as a tool result (a `tool` message, or the
+    // assistant's text for a tool the follow-up request no longer lists).
     const toolTurn = requests
       .slice(before)
-      .find((r) => r.messages.some((m) => m.role === "tool"));
-    assert.match(
-      JSON.stringify(toolTurn.messages.filter((m) => m.role === "tool")),
-      /The budget is five thousand/,
+      .find((r) => JSON.stringify(r.messages).includes("The budget is five thousand"));
+    assert.ok(toolTurn, "the answer reaches the model");
+    assert.ok(
+      toolTurn.messages.some(
+        (m) =>
+          (m.role === "tool" || m.role === "assistant") &&
+          JSON.stringify(m.content).includes("The budget is five thousand"),
+      ),
     );
     ledger.transition(askAttempt.id, "completed");
     await bridge.close();
