@@ -460,6 +460,7 @@ export class RuntimeSupervisor extends EventEmitter {
         await delay(this.timing.readyPollMs);
       }
     }
+    await client.settleStartup?.({ deadline, pollMs: this.timing.readyPollMs }); // 2026.11.6
     if (generation !== this.generation) {
       client.close();
       return;
