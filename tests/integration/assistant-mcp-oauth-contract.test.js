@@ -65,7 +65,6 @@ test(
     const h = await harness(t);
     const { runtime, turn, cli, login, status, allow, servers, gatewayEnv } = h;
     const client = runtime.client;
-    const generation = runtime.generation;
     const grants = () => oauth.log.filter((e) => e.grant).map((e) => e.grant);
     const state = async (name, env) => (await status(name, env)).server.authStatus;
     const gatewayLog = () =>
@@ -110,13 +109,11 @@ test(
       state: "unauthenticated",
     });
 
-    // Since 2026.10.10 a login beside the running Gateway is refused; the harness
-    // then runs it in a maintenance window, as AgentPier does (offline-commands.js).
-    if (h.windows.windowed) {
-      const refused = await h.direct(["mcp", "login", "docs"]);
-      assert.equal(refused.code, 1);
-      assert.match(refused.stderr, /exclusive offline state ownership/);
-    }
+    // A login beside the running Gateway is refused; the harness then runs it in a
+    // maintenance window, as AgentPier does (offline-commands.js).
+    const refused = await h.direct(["mcp", "login", "docs"]);
+    assert.equal(refused.code, 1);
+    assert.match(refused.stderr, /exclusive offline state ownership/);
 
     // (a) Login with the redirect port held prints the URL and exits at once.
     // Not stderr: like createMcpCli; OpenClaw may log its WAL upkeep there.
@@ -225,7 +222,6 @@ test(
     oauth.revokeRefreshTokens();
     oauth.expireAccessTokens();
     assert.deepEqual((await turn(null, "revoked")).offered, []);
-    const failedStart = Date.now();
     // The SDK drops the tokens on invalid_grant: `pending-authorization`, no tokens.
     assert.deepEqual(await state("docs"), {
       hasTokens: false,
@@ -241,21 +237,14 @@ test(
       /requires OAuth authorization\. Run openclaw mcp login docs/,
     );
 
-    // A new login right after a failed start: the server stays backed off for the
-    // next turn until an `mcp` config change resets the backoff.
-    // Since 2026.10.10 the login's window restarts the Gateway, which lifts it too.
+    // A new login right after a failed start: the login's maintenance window
+    // restarts the Gateway, which lifts the server's backoff.
     oauth.state.refreshRevoked = false;
     const redone = await signIn(h, oauth, redirectUrl);
     assert.equal(redone.code, 0, redone.stderr);
     exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
-    // The failed start above backs the server off for 30 s (doubling up to 10 min);
-    // a new session within that window is offered nothing despite valid tokens. Only
-    // a slow runner (AGENTPIER_CONTRACT_TIME_SCALE) may need longer for the login.
-    const inWindow = Date.now() - failedStart < 20000 || !(contractTimeout(1) > 1);
-    const relogged = (await turn(null, "relogin-backed-off")).offered;
-    const backedOff = inWindow && !h.windows.windowed;
-    assert.deepEqual(relogged, backedOff ? [] : relogged, "the backoff holds the server");
+    await turn(null, "relogin-backed-off");
     // AgentPier's reset after a login (McpOAuthLogins.resetBackoff): unset -> 0.
     await patchConfig(runtime.client, (config) => ({
       patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) } },
@@ -301,9 +290,8 @@ test(
       ...noFlags,
       state: "pending-authorization",
     });
-    // Before 2026.10.10 nothing restarts; since then one window per sign-in step.
-    if (!h.windows.windowed) assert.equal(runtime.generation, generation, "no restart");
-    else t.diagnostic(`maintenance windows: ${h.windows.count}`);
+    // One maintenance window per sign-in step.
+    t.diagnostic(`maintenance windows: ${h.windows.count}`);
   },
 );
 
@@ -314,7 +302,6 @@ test(
     const { oauth, redirectUrl, docs } = await oauthSetup(t);
     const h = await harness(t);
     const { runtime, cli, status, servers, gatewayEnv } = h;
-    const generation = runtime.generation;
     const grants = () => oauth.log.filter((e) => e.grant).map((e) => e.grant);
     const state = async (name, env) => (await status(name, env)).server.authStatus;
     await servers({ docs });
@@ -340,8 +327,7 @@ test(
       runtime: { ...runtime.runtime, cwd: runtime.paths.root },
       environment: gatewayEnv,
     });
-    if (h.windows.windowed) await h.offline(() => own.logout("docs", { server: docs }));
-    else await own.logout("docs", { server: docs });
+    await h.offline(() => own.logout("docs", { server: docs }));
     await servers({ renamed: null, docs }, ["mcp.servers.renamed"]);
     assert.equal((await state("docs")).state, "unauthenticated", "orphan cleared");
     const again = await signIn(h, oauth, redirectUrl);
@@ -367,8 +353,7 @@ test(
       path: path.join(gatewayEnv.HOME, ".openclaw", "openclaw.json"),
       servers: [],
     });
-    if (!h.windows.windowed) assert.equal(runtime.generation, generation, "no restart");
-    else t.diagnostic(`maintenance windows: ${h.windows.count}`);
+    t.diagnostic(`maintenance windows: ${h.windows.count}`);
     await runtime.close();
     assert.equal((await state("docs", minimal)).state, "authorized");
     // `login` on a server with a refresh token refreshes and prints no URL.

@@ -1,4 +1,3 @@
-import { atLeast } from "../../../tools/cli-version.js";
 import { boundPort } from "./openclaw-agents.js";
 
 // OpenClaw answers INVALID_REQUEST `unknown agent id "<id>"` for an agent it has not
@@ -16,16 +15,10 @@ const unknownAgent = (error) =>
  * report names it only for the agent it belongs to.
  */
 export const openClawSkills = (supervisor, clientOf) =>
-  boundPort(
-    (current) => skillsOver(current, () => supervisor.status?.()?.version),
-    supervisor,
-    clientOf,
-  );
+  boundPort((current) => skillsOver(current), supervisor, clientOf);
 
-// Since 2026.11.3 (openclaw#170341) OpenClaw rescans skill folders about once a
-// minute instead of watching them, and `refresh: true` rescans before it reports.
-// 2026.10.9 and earlier still watch them and refuse a parameter they do not know.
-export const skillRefreshRuntime = "2026.11.3";
+// OpenClaw rescans skill folders about once a minute instead of watching them
+// (openclaw#170341, 2026.11.3), and `refresh: true` rescans before it reports.
 
 /** The source OpenClaw reports for a skill of the agent's Skill Workshop. */
 export const learnedSource = "openclaw-workshop";
@@ -39,15 +32,15 @@ const withOrigins = (report) =>
       }
     : report;
 
-function skillsOver(current, version) {
+function skillsOver(current) {
   const call = async (...args) => current().call(...args);
   return {
-    // `refresh`: rescan first, after a local change; only where the Gateway takes it.
+    // `refresh`: rescan first, after a local change.
     status: async ({ agentId, refresh } = {}) =>
       withOrigins(
         await call("skills.status", {
           ...(agentId && { agentId }),
-          ...(refresh && atLeast(version(), skillRefreshRuntime) && { refresh: true }),
+          ...(refresh && { refresh: true }),
         }),
       ),
     unknownAgent,

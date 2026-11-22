@@ -330,16 +330,19 @@ test(
     await delay(1000);
     assert.equal(midTurn().length, 1, "the chat receives the check-in once");
     // 4. After an owner /reset and /new (from Telegram) the check-in reads the new
-    // session and commits into it. OpenClaw 2026.11.2 and later keep the chat as it
-    // was when the job was created and refuse a later one ("session rebound"), so
-    // AgentPier re-creates the job (chat-rebind.js): after the command's turn, as
-    // the run reconciler does, or once a reset refused a commit.
+    // session and commits into it. OpenClaw 2026.11.6 follows the chat itself
+    // (openclaw#199512), so the job stays as it is (chat-rebind.js re-creates it only
+    // on the 2026.11.3 rollback target).
     const commit = async (marker, command) => {
       checkIn = `${marker} check-in HEARTBEATCONTRACT`;
       offset = model.requests.length;
       const sent = f.service.outbox.all(f.channel.id).length;
+      // The job is kept across the command, so its earlier runs count too.
+      const done = (
+        await runtime.client.call("cron.runs", { id: jobId(), limit: 20 }, long)
+      ).entries.filter((e) => e.action === "finished").length;
       await force();
-      const entries = await finished(1);
+      const entries = await finished(done + 1);
       const request = model.requests.slice(offset).find(isCheckIn);
       assert.match(text(request), new RegExp(marker), `${command}: fresh session read`);
       assert.doesNotMatch(
@@ -357,28 +360,15 @@ test(
         await delay(100);
       assert.equal(f.service.outbox.all(f.channel.id).length, sent + 1);
     };
+    const first = jobId();
     assert.equal((await wait(await send("/reset"))).status, "ok");
     assert.equal((await wait(await send("AFTERRESETTOKEN a new topic."))).status, "ok");
-    const first = jobId();
-    assert.equal(await reminders.followChat(f.channel.conversationId), 1);
-    assert.notEqual(jobId(), first, "/reset: the job is re-created");
+    assert.equal(await reminders.followChat(f.channel.conversationId), 0);
     await commit("AFTERRESETTOKEN", "/reset");
-    // /new without that step: the refused commit re-creates the job.
     assert.equal((await wait(await send("/new"))).status, "ok");
     assert.equal((await wait(await send("AFTERNEWTOKEN a new topic."))).status, "ok");
-    const stale = jobId();
-    const sentBefore = f.service.outbox.all(f.channel.id).length;
-    checkIn = "AFTERNEWTOKEN refused check-in HEARTBEATCONTRACT";
-    await force();
-    // Read on the job that ran: the refusal may re-create it before this returns.
-    const [refused] = await finished(2, stale);
-    assert.equal(refused.deliveryStatus, "not-delivered");
-    assert.match(refused.deliveryError, /^session rebound for sessionKey/);
-    const rebindDeadline = Date.now() + 15000;
-    while (jobId() === stale && Date.now() < rebindDeadline) await delay(100);
-    assert.notEqual(jobId(), stale, "/new: the refused commit re-creates the job");
-    assert.equal(f.service.outbox.all(f.channel.id).length, sentBefore, "nothing sent");
     await commit("AFTERNEWTOKEN", "/new");
+    assert.equal(jobId(), first, "the job is never re-created");
     t.diagnostic(
       `MEMORY.md in any prompt: ${memoryInPrompt}; webhook summaries: ${JSON.stringify(received)}; run delivery statuses: ${JSON.stringify(after.map((e) => e.deliveryStatus))}; NO_REPLY run: ${JSON.stringify(runs.find((e) => e.summary === "NO_REPLY") || null).slice(0, 300)}.`,
     );

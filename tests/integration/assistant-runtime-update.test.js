@@ -94,7 +94,7 @@ test("a second process installing concurrently gets RUNTIME_BUSY until its lock 
   assert.equal(fs.existsSync(lock), true);
   other.kill("SIGKILL");
   await once(other, "exit");
-  assert.equal((await stageAssistantRuntime(options)).version, "2026.10.3");
+  assert.equal((await stageAssistantRuntime(options)).version, "2026.11.3");
   assert.equal(fs.existsSync(lock), false);
 });
 
@@ -109,7 +109,7 @@ async function activationFixture(t, { candidate, migrate }) {
   const paths = runtimePaths(dataDir);
   const selection = path.join(paths.root, "runtime.json");
   const journal = path.join(paths.root, "update.json");
-  const previous = { version: "2026.10.3", nodeVersion: "26.12.1" };
+  const previous = { version: "2026.11.3", nodeVersion: "26.12.1" };
   writePrivate(selection, previous);
   fs.writeFileSync(path.join(paths.state, "history"), "before");
   const calls = [];
@@ -157,7 +157,7 @@ async function activationFixture(t, { candidate, migrate }) {
 }
 
 test("a version change migrates the stopped runtime's state before its first start", async (t) => {
-  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1", nodePath: "/n" };
+  const candidate = { version: "2026.11.7", nodeVersion: "26.12.1", nodePath: "/n" };
   const f = await activationFixture(t, { candidate });
   await f.updates.activate();
   assert.equal(f.calls.length, 2);
@@ -167,14 +167,14 @@ test("a version change migrates the stopped runtime's state before its first sta
   // Inside the fence: the snapshot exists, the candidate is selected, nothing runs.
   assert.equal(migration.phase, "migrating");
   assert.match(migration.backup, /^[a-f0-9-]{36}$/);
-  assert.equal(migration.selected, "2026.10.7");
+  assert.equal(migration.selected, "2026.11.7");
   assert.equal(migration.running, false);
-  assert.equal(start, "start:2026.10.7");
+  assert.equal(start, "start:2026.11.7");
   assert.equal(f.updates.status().phase, "complete");
 });
 
 test("a failed migration restores the snapshot and reports UPDATE_MIGRATION_FAILED", async (t) => {
-  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1" };
+  const candidate = { version: "2026.11.7", nodeVersion: "26.12.1" };
   const f = await activationFixture(t, {
     candidate,
     migrate: (paths) => {
@@ -189,7 +189,7 @@ test("a failed migration restores the snapshot and reports UPDATE_MIGRATION_FAIL
   const { readJSON } = await import("../../server/lib/storage.js");
   assert.deepEqual(readJSON(f.selection), f.previous);
   assert.equal(fs.readFileSync(path.join(f.paths.state, "history"), "utf8"), "before");
-  assert.deepEqual(f.calls.slice(1), ["start:2026.10.3"]);
+  assert.deepEqual(f.calls.slice(1), ["start:2026.11.3"]);
   const status = f.updates.status();
   assert.equal(status.phase, "rolled_back");
   assert.equal(status.diagnostic, "UPDATE_MIGRATION_FAILED");
@@ -254,7 +254,7 @@ spawn(process.execPath, [${JSON.stringify(entryPath)}, "doctor"], { detached: tr
 }
 
 test("recovery after a crash stops a Doctor left running before restoring", async (t) => {
-  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1" };
+  const candidate = { version: "2026.11.7", nodeVersion: "26.12.1" };
   const { readJSON } = await import("../../server/lib/storage.js");
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-live-doctor-"));
   t.after(() => fs.rmSync(folder, { recursive: true, force: true }));
@@ -300,15 +300,15 @@ test("recovery after a crash stops a Doctor left running before restoring", asyn
 });
 
 test("a same-version runtime change never runs the migration", async (t) => {
-  const candidate = { version: "2026.10.3", nodeVersion: "26.13.0" };
+  const candidate = { version: "2026.11.3", nodeVersion: "26.13.0" };
   const f = await activationFixture(t, { candidate });
   await f.updates.activate();
-  assert.deepEqual(f.calls, ["start:2026.10.3"]);
+  assert.deepEqual(f.calls, ["start:2026.11.3"]);
   assert.equal(f.updates.status().phase, "complete");
 });
 
 test("an activation reports its phases, busy and snapshot progress to onChange", async (t) => {
-  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1", nodePath: "/n" };
+  const candidate = { version: "2026.11.7", nodeVersion: "26.12.1", nodePath: "/n" };
   const f = await activationFixture(t, { candidate });
   const seen = [];
   f.updates.onChange = () => {

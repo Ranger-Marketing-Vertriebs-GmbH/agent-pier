@@ -5,7 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import {
   OfflineCommands,
-  offlineOnly,
   queueName,
   stateOwned,
 } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
@@ -15,7 +14,7 @@ import { AssistantService } from "../../server/features/assistants/assistant-ser
 // A RuntimeSupervisor stand-in: a running Gateway child until stopped.
 function supervisor(
   t,
-  { version = "2026.11.3", running = true, startFails = false } = {},
+  { version = "2026.11.6", running = true, startFails = false } = {},
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-commands-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -51,8 +50,7 @@ function commands(t, options = {}) {
     supervisor: s,
     forget: async (entry) => {
       events.push(["forget", entry.agent, [...entry.sessions]]);
-      if (s.child && offlineOnly(s.runtime.version))
-        throw Object.assign(new Error("owned"), { stateOwned: true });
+      if (s.child) throw Object.assign(new Error("owned"), { stateOwned: true });
       if (options.forget) return options.forget(entry);
       forgets.push(entry);
     },
@@ -76,13 +74,7 @@ function commands(t, options = {}) {
 const file = (root) => path.join(root, queueName);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test("the guard exists from OpenClaw 2026.10.10 on; an unknown runtime counts as guarded", () => {
-  assert.equal(offlineOnly("2026.10.9"), false);
-  assert.equal(offlineOnly("2026.9.8"), false);
-  assert.equal(offlineOnly("2026.10.10"), true);
-  assert.equal(offlineOnly("2026.11.3"), true);
-  assert.equal(offlineOnly("2027.1.1-beta.1"), true);
-  assert.equal(offlineOnly(undefined), true);
+test("OpenClaw's refusal beside a Gateway is recognised", () => {
   assert.equal(
     stateOwned("Reason: This operation requires exclusive offline state ownership"),
     true,
@@ -147,12 +139,7 @@ test("without a pending restart the debounced forget opens a window of its own",
   assert.deepEqual(f.s.states.at(-1), { maintenanceWindow: false });
 });
 
-test("an older runtime or a stopped Gateway runs the forget at once", async (t) => {
-  const old = commands(t, { version: "2026.10.9" });
-  // 2026.10.9 has no guard: the command runs beside the Gateway, as before.
-  await old.queue.forget("orchid", ["s-1"]);
-  assert.deepEqual(old.events, [["forget", "orchid", ["s-1"]]], "no stop");
-  assert.equal(fs.existsSync(file(old.root)), false);
+test("a stopped Gateway runs the forget at once", async (t) => {
   const stopped = commands(t, { running: false });
   await stopped.queue.forget("orchid", ["s-1"]);
   assert.deepEqual(stopped.events, [["forget", "orchid", ["s-1"]]]);
@@ -182,12 +169,6 @@ test("an owner's command runs in a window with the queued forgets, then the Gate
   // The debounced request finds nothing left.
   await sleep(40);
   assert.deepEqual(f.requests, []);
-});
-
-test("an older runtime runs an owner's command directly", async (t) => {
-  const f = commands(t, { version: "2026.10.9" });
-  assert.equal(await f.queue.run(async () => "direct"), "direct");
-  assert.deepEqual(f.events, []);
 });
 
 test("a window refuses while maintenance or a restart runs", async (t) => {

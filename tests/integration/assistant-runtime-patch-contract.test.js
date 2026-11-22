@@ -18,7 +18,7 @@ import { assertSupersededPublicationRetried } from "../helpers/superseded-public
 // them, and OpenClaw's content inventory naming the patched file's digest and size.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "the provisioned pinned runtime carries the lease release, Codex catalog, restart resume and superseded publication patches",
+  "the provisioned pinned runtime carries the lease release and restart resume patches",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
@@ -55,10 +55,10 @@ test(
   },
 );
 
-// Independent of any patch: after a Gateway restart the installed package settles an
-// interrupted main-session turn and never asks the model to resume it, so a pin bump
-// cannot drop the patch unnoticed. The runtime contract's crash step checks the same
-// against a running Gateway (assistant-runtime-contract.test.js).
+// Independent of any patch: after a Gateway restart the installed package adopts no
+// restart marker and replays no queued message, so a pin bump cannot drop the patches
+// unnoticed. The runtime contract's crash step checks the outcome against a running
+// Gateway (assistant-runtime-contract.test.js).
 test(
   "the provisioned pinned runtime never resumes an interrupted turn on its own",
   { skip: !installed },
@@ -66,22 +66,22 @@ test(
     const app = path.join(installed, "app", "node_modules", "openclaw");
     const found = assertNoRestartResume(app);
     assert.deepEqual(
-      found.filter((site) => site.defines).map((site) => site.calls),
-      [0],
+      found.map((site) => [site.adopts, site.reserves]),
+      [[0, 0]],
     );
   },
 );
 
 // Independent of any patch: the agent database startup after a Doctor migration
 // publishes an agent again when a concurrent model runtime refresh (models.authRefresh)
-// superseded its publication, instead of leaving it degraded until the next restart,
-// so a pin bump cannot drop the patch unnoticed.
+// superseded its publication, instead of leaving it degraded until the next restart.
+// OpenClaw does this itself since 2026.11.6; a pin that loses it fails here.
 test(
   "the provisioned pinned runtime retries a superseded startup publication",
   { skip: !installed },
   () => {
     const app = path.join(installed, "app", "node_modules", "openclaw");
     const found = assertSupersededPublicationRetried(app);
-    assert.ok(found.length >= 1, JSON.stringify(found));
+    assert.ok(found.conversion.length >= 1, JSON.stringify(found));
   },
 );

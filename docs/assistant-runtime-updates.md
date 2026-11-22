@@ -425,40 +425,25 @@ AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/installed-runtime \
   node --test tests/integration/assistant-runtime-update-native.test.js
 ```
 
-This passed with OpenClaw 2026.9.8 and Node 26.7.0 on macOS arm64, and on 2026.10.7,
-where the activation also runs Doctor. The subsequent
-[cross-version qualification](assistant-release-qualification.md) also passed
-2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9, 2026.9.9 → 2026.10.3, 2026.9.8 → 2026.10.3
-and 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.7 activation and rollback after failed
-validation, and the later updates listed there (the updates to 2026.11.3 are not
-qualified yet). Other version pairs and native hosts remain unqualified.
+The [cross-version qualification](assistant-release-qualification.md) covers the
+update from the rollback target to the pin, activation and rollback after failed
+validation. Other version pairs and native hosts remain unqualified.
 
-The update to OpenClaw 2026.10.3 migrates the state database from schema 19 to 20,
-which 2026.9.9 and 2026.9.8 refuse. Rollback before commit restores the snapshot
-taken before activation, so it works as for any other update; after commit no
-downgrade to 2026.9.x is possible. The update to OpenClaw 2026.10.7 is one-way in
-the same way: its Doctor migrates each agent database from schema 24 to 25 (and the
-state database of a 2026.9.x installation from 19 to 20), and 2026.10.3, 2026.9.9 and
-2026.9.8 refuse the migrated agent databases. Before commit the snapshot restores the
-previous runtime and its schema-24 data; after commit the update panel offers only
-the pinned version, and retention has removed the previous installation. An older
-AgentPier (2.6.x or earlier) does not accept 2026.10.7 either: its team plugin
-refuses every OpenClaw version outside its own pin and rollback targets.
+AgentPier supports only the OpenClaw version it pins; its one rollback target is the
+directly previous pin (`rollbackTargets`, 2026.11.3 for 2026.11.6). The team plugin
+refuses every other version, so an installation still on an older runtime starts no
+agents until the owner activates the staged pin in the update panel. That update runs
+every Doctor migration between the two versions in one pass.
 
-OpenClaw 2026.10.9 keeps the schemas of 2026.10.7 (state 20, agent databases 25), so
-the update from 2026.10.7 migrates no data and 2026.10.7 still opens what 2026.10.9
-wrote. Activation still runs Doctor, which then has nothing to migrate. After commit
-the update panel offers only the pinned 2026.10.9, as for every update, and AgentPier
-2.7.x – 2.12.x refuses 2026.10.9 through its team plugin. The installer now also consumes the reviewed dependency lock described below;
-all separately downloaded package archives carry integrity checks.
-
-The update to OpenClaw 2026.11.3 is one-way again: its Doctor migrates the state
-database from schema 20 to 22 and each agent database from 25 to 27, and 2026.10.9
-and every earlier version refuse the migrated data. Before commit the snapshot
-restores the previous runtime and its data; after commit the update panel offers
-only the pinned 2026.11.3, and AgentPier 2.19.x or earlier refuses 2026.11.3 through
-its team plugin. Updates from 2026.10.3 or 2026.9.x run the earlier migrations in the
-same Doctor pass.
+The update to OpenClaw 2026.11.6 is one-way: its Doctor migrates the state database
+from schema 22 to 36 and each agent database from 27 to 38, converts OpenClaw's
+retired heartbeat monitors to ordinary automations, and 2026.11.3 refuses the
+migrated data. Before commit the snapshot restores the previous runtime and its data;
+after commit the update panel offers only the pinned 2026.11.6, and an AgentPier
+release that pins 2026.11.3 refuses 2026.11.6 through its team plugin. AgentPier no
+longer writes the retired `agents.defaults.heartbeat` (it kept the monitor off with
+`every: "0m"`) and removes it, and any agent's `heartbeat`, from the stored
+configuration at every compile, so the migrated Gateway starts.
 
 ## Locked dependency installation
 
@@ -471,15 +456,15 @@ the manifest. The graph fixes registry tarball versions and SHA-512 integrities,
 including platform-specific optional packages. Bundled dependencies are covered by
 their containing package archive's integrity. They are not listed in the lock:
 `npm install --package-lock-only` does not record the children of a bundled
-dependency, so Dependabot cannot report advisories for them. Since OpenClaw 2026.10.7
-that is npm's own bundle and `chrome-devtools-mcp`, the only package OpenClaw still
-bundles; `@openclaw/proxyline` and `undici` are ordinary dependencies now and appear
-in the lock.
+dependency, so Dependabot cannot report advisories for them. In OpenClaw 2026.11.6
+those are npm's own bundle, `chrome-devtools-mcp`, `playwright-core` and
+`@homebridge/ciao`; `@openclaw/proxyline` and `undici` are ordinary dependencies and
+appear in the lock.
 
 When OpenClaw pins a transitive package exactly at a version with a published
 advisory, the manifest's `dependencyOverrides` names the fixed version (exact
-versions only), for example `{ undici: "8.12.3", zod: "4.6.7" }` while OpenClaw
-2026.10.7 pins undici 8.11.2 and zod 4.6.5. The lock refresh writes them as npm
+versions only), for example `{ zod: "4.6.7" }` while OpenClaw 2026.11.3 pinned
+zod 4.6.5. 2026.11.6 ships zod 4.6.7 and undici 8.12.3 itself, so it needs none. The lock refresh writes them as npm
 `overrides` into `runtime-lock/package.json`. The lock check refuses a package.json
 whose overrides differ from the manifest and a graph in which any locked copy of an
 overridden package has another version. The receipt records the overrides; a runtime
@@ -503,82 +488,80 @@ staged beside it and the owner activates it through the usual update flow (same
 OpenClaw version, so no Doctor migration). Until then the unpatched runtime keeps
 running as installed. Starting a patched installation verifies its patches again.
 
-2026.11.3 carries these patches:
+2026.11.6 carries these patches:
 
-- `lease-release-retry`: `LEASE_CONTENTION_RETRY_TIMEOUT_MS`
-  (`dist/openclaw-state-lease-heartbeat-shared-*.mjs`, read only by the lease release)
-  goes from 2 s to 30 s, so a plugin lifecycle lease release that meets one SQLite
-  lock is retried instead of leaving the lease held for 5 minutes (see
-  `assistant-release-qualification.md`, "Lease release patch").
-- `codex-catalog-client-version` and `codex-catalog-client-version-setup`:
-  `OPENAI_CODEX_CLIENT_VERSION` (`dist/base-url-*.mjs` and the same constant in
-  `dist/extensions/openai/.setup/provider-policy-api-*.mjs`) goes from `0.164.0` to
-  `0.169.0`. ChatGPT-account model discovery sends it as `client_version` to
-  `chatgpt.com/backend-api/codex/models`, and the backend lists newer models such as
-  GPT-6.2-Astra only for a recent enough client; 0.164.0 does not list it. OpenClaw
-  would take the version from its Codex plugin (`resolveCodexClientVersion`), but the
-  npm package leaves that plugin out and AgentPier does not install it, so the
-  bundled constant is what is sent (see `assistant-gateway.md`, "ChatGPT assistant
-  accounts").
-- `no-restart-resume`: OpenClaw's main-session restart recovery
-  (`dist/main-session-restart-recovery-*.mjs`) no longer asks the model to continue
-  a turn that a Gateway restart interrupted. Its one resume call
-  (`resumeMainSession` in `recoverStore`) settles the turn instead, through
-  upstream's own no-replay path (`settleInterruptedRestartRecovery`): the session's
-  status becomes `interrupted`, the recovery claim and markers are cleared, and the
-  transcript gets OpenClaw's local notice "This interrupted turn could not resume
-  after the Gateway restarted: AgentPier never resumes an interrupted turn on its
-  own. …". No model request and no channel delivery follow. Every step before the
-  resume stays: marking orphaned sessions, settling turns whose reply was already
-  delivered, owed delivery notices and tombstones of exhausted recoveries. The
-  recovery runs at Gateway start, before the next visible turn of an interrupted
-  session and for a retried `chat.send`; all three now settle. AgentPier's ledger
-  keeps the turn interrupted or uncertain for the owner to review (see
-  `assistant-gateway.md`, "Interrupted turns after a restart"). OpenClaw has no
-  setting for this.
-- `superseded-publication-retry`: the agent database startup
-  (`dist/agent-database-startup-*.mjs`) publishes an agent again when a concurrent
-  model runtime refresh superseded its publication. After a Doctor migration the
-  first Gateway start prepares every agent once it listens, one after the other;
-  `publishAgent` refreshes the agent's prepared model runtime without joining a
-  superseding publication, so any concurrent refresh (a secrets snapshot activation
-  from `models.authRefresh`, for example) makes it throw
-  `PreparedModelRuntimePublicationSupersededError`. The startup loop retried only
-  its own `AgentDatabaseStartupSupersededError`, so the agent "remained degraded"
-  and its sessions answered `UNAVAILABLE` until the next restart (`doctor --fix`
-  does not help); an update from 2026.10.9 then failed its validation and rolled
-  back. The loop now retries this refusal too, within its own bound of four
-  attempts. The class is not imported in that module and sets no `name`, so it is
-  matched by its constructor's name.
+- `lease-release-retry`: the lease release (`releaseOpenClawStateLeaseBestEffort` in
+  `dist/openclaw-state-lease-storage-*.mjs`) retries a release that met a SQLite lock
+  for 30 s instead of the 5 s busy timeout (`OPENCLAW_SQLITE_BUSY_TIMEOUT_MS`), so a
+  plugin lifecycle lease release that meets one lock is retried instead of leaving
+  the lease held for 5 minutes (see `assistant-release-qualification.md`, "Lease
+  release patch"). Only the release's own window changes: the shared
+  `LEASE_CONTENTION_RETRY_TIMEOUT_MS`, which 2026.11.6 also reads in its agent
+  execution, stays as shipped. (2026.11.3 retried for 2 s; its patch raised that
+  constant, which only the release read there.)
+- `no-restart-resume` and `no-restart-resume-inputs`: OpenClaw's startup resume
+  (`resumeMarkedSessions` in `dist/session-restart-resume-*.mjs`) no longer continues
+  work a Gateway restart interrupted. Unpatched, a graceful shutdown marks every
+  session that was working (`resumeAfterRestart`), and the next start sends each one
+  "The Gateway restarted while you were working. Resume your work: …" and replays the
+  user messages queued behind it; a 2026.11.3 main-session recovery marker
+  (`mainRestartRecovery`) less than six hours old is resumed the same way. The first
+  patch makes the start adopt no marker: it still clears every marker but admits no
+  resume input. The second withdraws the queued messages a marker reserved with every
+  other input the previous Gateway left behind, instead of sending them again. No model
+  request and no channel delivery follow. AgentPier's ledger keeps the turn
+  interrupted or uncertain for the owner to review (see `assistant-gateway.md`,
+  "Interrupted turns after a restart"). OpenClaw has no setting for this.
+
+The 2026.11.3 installation, the rollback target, keeps the patches it was installed
+with (`5621321a947d`): the lease release window, the Codex client version (`0.164.0`
+to `0.169.0`), the settlement of its main-session restart recovery and the retry of
+a superseded startup publication. They are no longer listed here: an installation is
+never patched again, and starting a runtime whose version has no list skips the
+check of its patches.
+
+Upstream fixed what the other 2026.11.3 patches did, so 2026.11.6 has none of them:
+
+- `codex-catalog-client-version` and `-setup`: 2026.11.6 ships
+  `OPENAI_CODEX_CLIENT_VERSION = "0.169.0"` itself (`dist/base-url-*.mjs` and the
+  openai plugin's setup bundle). ChatGPT-account model discovery sends it as
+  `client_version` to `chatgpt.com/backend-api/codex/models`, and the backend lists
+  newer models such as GPT-6.2-Astra only for a recent enough client (see
+  `assistant-gateway.md`, "ChatGPT assistant accounts").
+- `superseded-publication-retry`: after a Doctor migration the first Gateway start
+  publishes every agent one by one, and a concurrent model runtime refresh (a secrets
+  snapshot activation from `models.authRefresh`, for example) makes a publication
+  throw `PreparedModelRuntimePublicationSupersededError`. 2026.11.3's startup loop
+  retried only its own `AgentDatabaseStartupSupersededError`, so the agent "remained
+  degraded" until the next restart, and the patch made the loop retry both. Since
+  2026.11.6 the Gateway's `publishAgent` turns that refusal (any plugin lifecycle
+  failure) into `AgentDatabaseStartupSupersededError`, which the loop retries within
+  its bound of four attempts.
 
 Remove an entry, and with it its part of the patch identity, once the pinned OpenClaw
 fixes the problem itself.
 
 Patches are keyed by OpenClaw version, so a pin bump drops them unless they are
-carried forward. For the Codex client version this is guarded: the runtime patch
-contract (`assistant-runtime-patch-contract.test.js`) and
-`scripts/verify-assistant-installation.mjs` check the installed package, whether a
-patch provided the value or not, and fail when any `OPENAI_CODEX_CLIENT_VERSION` or
-literal `client_version=` in `dist` is older than 0.169.0, or when the constant is
-not found at all (`tests/helpers/codex-client-version-floor.js`). When bumping the
-pin, carry both Codex entries forward to the new version (with its file names)
-unless the new version already ships 0.169.0 or newer; then drop them.
+carried forward. Three guards read the installed package itself, independent of the
+patch list, in the runtime patch contract (`assistant-runtime-patch-contract.test.js`)
+and `scripts/verify-assistant-installation.mjs`:
 
-The restart resume is guarded the same way: both checks fail when the installed
-package defines `resumeMainSession` and calls it anywhere in `dist`, when it no longer
-settles the turn in place of that call, or when the function is not found at all
-(`tests/helpers/restart-resume-guard.js`). Carry `no-restart-resume` forward to every
-new version (with its file name and, if the call changed, its text) until upstream
-offers a switch that turns automatic resumption off; then configure that switch and
-drop the patch.
-
-The superseded publication retry is guarded too: both checks fail when a startup
-publication retry in `dist` (`… || attempt >= STARTUP_PUBLICATION_ATTEMPTS) throw
-error;`) does not retry `PreparedModelRuntimePublicationSupersededError`, or when no
-such loop is found (`tests/helpers/superseded-publication-guard.js`). Carry
-`superseded-publication-retry` forward to every new version (with its file name)
-until upstream retries or joins superseded publications in its agent database
-startup; then update the guard and drop the patch.
+- The Codex client version: both fail when any `OPENAI_CODEX_CLIENT_VERSION` or literal
+  `client_version=` in `dist` is older than 0.169.0, or when the constant is not found
+  at all (`tests/helpers/codex-client-version-floor.js`). A pin that falls below needs
+  the constant patched again.
+- The restart resume: both fail when the package's `resumeMarkedSessions` still adopts
+  a restart marker (`resumeAfterRestart ?? (…)`) or keeps a marker's queued messages
+  from the withdrawal, or when the function is not found at all
+  (`tests/helpers/restart-resume-guard.js`). Carry both `no-restart-resume` entries
+  forward to every new version (with its file name and, if the code changed, its
+  text) until upstream offers a switch that turns automatic resumption off; then
+  configure that switch and drop the patches.
+- The superseded publication retry: both fail when no plugin lifecycle failure check
+  counts `PreparedModelRuntimePublicationSupersededError`, when `publishAgent` no
+  longer converts such a failure into `AgentDatabaseStartupSupersededError`, or when no
+  startup publication retry is found (`tests/helpers/superseded-publication-guard.js`).
+  A pin that loses the conversion needs the retry patched again.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
@@ -598,7 +581,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at the OpenClaw version (2026.11.3). They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.11.6). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not

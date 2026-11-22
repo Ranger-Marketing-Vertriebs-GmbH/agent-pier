@@ -202,17 +202,18 @@ logged.
 
 A turn that a Gateway crash, stop or restart interrupts is never run again on its
 own. AgentPier's ledger keeps it `interrupted` or `uncertain` until the owner reviews
-it in the chat's recovery flow. OpenClaw 2026.11.3 would resume such a turn itself
-after its next start (its main-session restart recovery asks the model "[System]
-Your previous turn was interrupted …") and has no setting to turn that off, so the
-installer patches it (`no-restart-resume` in `runtime-bundle-patches.js`, see
-`assistant-runtime-updates.md` "Package patches"). The patched recovery settles the
-turn instead: OpenClaw marks the session `interrupted` and adds its local notice
-"This interrupted turn could not resume after the Gateway restarted: AgentPier never
-resumes an interrupted turn on its own. …" to the transcript, without a model
-request or a channel message. The same applies before the next message in that
-chat and to a retried send. A runtime installed before the patch resumes until the
-owner activates the patched runtime in the update flow.
+it in the chat's recovery flow. OpenClaw 2026.11.6 would resume such a turn itself:
+a graceful shutdown marks every session that was working, and after the next start
+OpenClaw sends each one "The Gateway restarted while you were working. Resume your
+work: …" and replays the messages queued behind it (it also adopts a 2026.11.3
+recovery marker less than six hours old). There is no setting to turn that off, so
+the installer patches it (`no-restart-resume` and `no-restart-resume-inputs` in
+`runtime-bundle-patches.js`, see `assistant-runtime-updates.md` "Package patches"):
+the start still clears every marker but sends no resume input, and the queued
+messages are withdrawn like any other input the previous Gateway left behind. No
+model request and no channel message follow. (The 2026.11.3 installation, the
+rollback target, carries the earlier patch of that version's main-session recovery,
+which settled such a turn with a local transcript notice instead.)
 
 ## Installation and update lifecycle
 
@@ -516,7 +517,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.11.3 with Node 26.12.1 in private
+The foundation now provisions OpenClaw 2026.11.6 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it under Agents › Runtime provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -530,8 +531,8 @@ agent entry; 2026.9.x only warned. A fresh configuration therefore writes
 `agents.entries: { main: {} }`, and every compile converts a legacy list into keyed
 `agents.entries` (`canonicalAgentRoster()` in `runtimes/openclaw/runtime-config.js`). A roster of two
 or more agents gets `agents.ownership: "explicit"`, and `agents.defaults.systemAgent`
-and `talk` point at the former default agent. 2026.9.8, 2026.9.9 and 2026.10.3 all
-accept the converted shape.
+and `talk` point at the former default agent. The conversion stays for stored
+configurations from those versions; the supported runtimes accept the converted shape.
 
 AgentPier stores assistant definitions, configuration revisions, conversations,
 request identities and execution attempts in its assistant database. OpenClaw owns
@@ -634,7 +635,16 @@ and on 2026.11.3 the journaled delete took more than 10 s on slow macOS runners.
 delete that timed out stayed pending with `TIMEOUT` although the Gateway went on to
 finish it. A `TIMEOUT` error carries the unanswered call's `method` and `timeoutMs`.
 
-A write still runs in the Gateway after it timed out, and 2026.11.3 commits a written
+OpenClaw 2026.11.6 reports ready before its config reloader runs. A `config.patch`,
+`config.apply` or `agents.create`/`.update`/`.delete` in between is persisted but
+answered `UNAVAILABLE` "… (unclaimed)", and the reloader applies the persisted file
+once it starts. AgentPier counts such a write as done once `config.get` shows the
+written configuration applied, within the same settle bound (`live-patch.js`; an
+`agents.create` answers the agent `agents.list` then shows, and the client keeps only
+the outcome and the hash, never the configuration the answer carries); any other
+outcome stays an error.
+
+A write still runs in the Gateway after it timed out, and OpenClaw commits a written
 configuration in a reload that `config.get` reports (`configRevisionHash`, as written,
 runs ahead of `appliedConfigHash` until it is applied). On a slow disk that reload
 can fail while the Gateway creates an agent's database ("config reload failed:
@@ -642,7 +652,8 @@ database is locked", OpenClaw's SQLite busy timeout is 5 s); the failed reload k
 the plugin lifecycle lease for its 5 minutes, and `agents.create` and every later
 write wait on it until they time out. `agents.create` sets this off by itself, with
 nothing else in flight. The failed reload is the lease release meeting one SQLite
-lock without a retry; the installer patches 2026.11.3 to retry it
+lock with hardly any retry (5 s in 2026.11.6, 2 s in 2026.11.3); the installer
+patches the pinned runtime to retry it for 30 s
 (`runtime-bundle-patches.js`, see `assistant-runtime-updates.md` "Package patches" and
 `assistant-release-qualification.md`). AgentPier keeps its own writes apart from such
 work: before each write of a connection (`configWrite`) it waits for the late
@@ -657,11 +668,11 @@ another full wait, until a read shows it applied again. A patch builds on the
 unchanged one too, so the provider of an agent's model connection is written only when
 the configuration as written (`config.get`'s `sourceConfig`) does not already hold it.
 
-The same happens after a Doctor migration (a runtime update): OpenClaw 2026.11.3
-then opens, migrates and publishes every agent one by one once the first Gateway
-start listens, each agent pending until it is published. A model runtime refresh
-meanwhile, such as the `models.authRefresh` that reloads OpenClaw's auth profiles,
-supersedes the publication in progress, and that agent stays refused
+The same happens after a Doctor migration (a runtime update): OpenClaw then opens,
+migrates and publishes every agent one by one once the first Gateway start listens,
+each agent pending until it is published. A model runtime refresh meanwhile, such as
+the `models.authRefresh` that reloads OpenClaw's auth profiles, supersedes the
+publication in progress; 2026.11.3 then left that agent refused
 (`agent-database-inspection-failed`, reason "prepared model runtime publication was
 superseded") until the next restart. Every `models.authRefresh` AgentPier sends
 (`runtimes/openclaw/openclaw-models.js`: a ChatGPT login written, renewed, moved or
@@ -669,9 +680,10 @@ removed, and the status reload after a refused logout) therefore waits for the s
 admission first, and a ready Gateway no longer reloads every login:
 `beforeSpawn` writes them all into the store the new Gateway reads, and `afterReady`
 only reloads, without holding readiness, the ones renewed while it started
-(`model-accounts.js` `syncUnloaded`). The installer also patches 2026.11.3 to
-publish such an agent again (`superseded-publication-retry`, see
-`assistant-runtime-updates.md` "Package patches").
+(`model-accounts.js` `syncUnloaded`). Since 2026.11.6 OpenClaw publishes such an
+agent again itself; the 2026.11.3 installation carries AgentPier's
+`superseded-publication-retry` patch for it (see `assistant-runtime-updates.md`
+"Package patches").
 
 The roster stays watched after the wait (for at most 30 minutes per connection), so
 an agent refused later is found too. When the background admission ends, the list is
@@ -783,12 +795,10 @@ user and refuses the agent's own OAuth profiles with `FORBIDDEN`.
 Live discovery asks `chatgpt.com/backend-api/codex/models` with a `client_version`,
 and the backend lists newer models only for a recent enough client. OpenClaw sends
 its bundled Codex client version, because AgentPier does not install OpenClaw's Codex
-plugin that would report another one. The installer patches the pinned runtime to ask
-as client `0.169.0` instead of 2026.11.3's `0.164.0`, so current models such as
-GPT-6.2-Astra are listed (`runtime-bundle-patches.js`, see
-`assistant-runtime-updates.md` "Package patches"). A runtime installed before the
-patch lists them only once the owner activates the patched runtime in the update
-flow.
+plugin that would report another one. 2026.11.6 asks as client `0.169.0`, so current
+models such as GPT-6.2-Astra are listed (2026.11.3 shipped `0.164.0`, which the
+installer patched; see `assistant-runtime-updates.md` "Package patches"). The
+installation check fails a pinned runtime that asks as an older client.
 
 The list is cached in memory for ten minutes; a failed or stale read is retried
 after one minute, and the retry after a stale `openai` discovery is forced. Loading
@@ -1187,7 +1197,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.11.3 and its qualified rollback predecessors 2026.10.9, 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
+to OpenClaw 2026.11.6 and its rollback predecessor 2026.11.3. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive `session_status` and their own four
 [member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
@@ -1935,15 +1945,14 @@ was compacted and the plan was gone. Four rules close that gap:
   AGENTPIER-276).** An owner turn may start a long background `exec` (a render, a
   build) and end before it exits. With `tools.exec.notifyOnExit` (OpenClaw's
   default) the Gateway then runs the same session once more. The pinned OpenClaw
-  2026.10.7 sends an ordinary event turn (`enqueueSessionEventForHost`, source
-  `exec`), one per process, whose prompt is the bare line
-  `Exec <status> (<id8>, <exit>) :: <output>` behind OpenClaw's usual timestamp
-  envelope; its agent events carry no mark (`isHeartbeat: false`). The rollback
-  targets 2026.10.3, 2026.9.9 and 2026.9.8 wake the session through their heartbeat
-  runner instead, with agent events marked `isHeartbeat: true`. Both write the
-  completion's user entry with the input provenance
-  `{ kind: "internal_system", sourceTool: "exec" }`. That run has no AgentPier
-  attempt.
+  2026.11.6 sends an ordinary event turn (`enqueueSessionEventForHost`, source
+  `exec`) whose prompt, behind OpenClaw's usual timestamp envelope, is headed
+  `[OpenClaw exec completion]` and lists one line
+  `Exec <status> (<id8>, <exit>) :: <output>` per process; 2026.11.3 frames the same
+  lines with "An async command you ran earlier has completed. …". Its agent events
+  carry no mark (`isHeartbeat: false`). It writes the completion's user entry with the
+  input provenance `{ kind: "internal_system", sourceTool: "exec" }`. That run has no
+  AgentPier attempt.
 
   Until 2.12 AgentPier let such a run write only after proving, from the Gateway's
   own record of background processes, that the command came from the owner's own
@@ -1982,8 +1991,7 @@ was compacted and the plan was gone. Four rules close that gap:
   `CompletionRuns` (`completion-runs.js`) only tracks heartbeat-marked runs, so a
   goal's nudge waits for them, and Telegram follow-ups check the transcript entry
   (`completionRun`).
-  On 2026.10.7 `chat.history` also returns the completion's user entry, which
-  2026.10.3 hid. The chat history (`conversations.js`) never serves a user entry
+  `chat.history` also returns the completion's user entry. The chat history (`conversations.js`) never serves a user entry
   whose provenance kind is `internal_system`, whatever its source tool (OpenClaw's
   task, plugin and session events use the same kind), so it never appears as the
   owner's words; the completion run's reply is shown as before.
@@ -2575,9 +2583,9 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against (`advancedSettingsRuntime`, 2026.11.3); a rolled-back runtime
+list was qualified against (`advancedSettingsRuntime`, 2026.11.6); a rolled-back runtime
 starts with OpenClaw's defaults. After an AgentPier update that moves the approval
-(2026.10.3 to 2026.10.7, 2026.10.7 to 2026.10.9, then 2026.10.9 to 2026.11.3), stored overrides therefore stay
+(2026.11.3 to 2026.11.6), stored overrides therefore stay
 inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
 (`overridesFor`, `runtimes/openclaw/openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
@@ -2925,11 +2933,9 @@ every runtime status. Nothing beyond a normal Gateway restart is lost: turns tha
 run are drained by OpenClaw before it exits and reconciled after the start, as after
 the pending restart.
 
-On OpenClaw 2026.10.9 and older (the rollback target) every command runs directly,
-as before; a queue left by a newer runtime still runs at the next start. Once a
-release ships the Gateway's `mcp.authLogout` (upstream #188824, on `main` only, not
-in 2026.11.3 or 2026.11.5-beta.3), the logout can move to that RPC and needs no
-window; the login and the forget still do.
+Once a release ships the Gateway's `mcp.authLogout` (upstream #188824, on `main`
+only, not in 2026.11.6), the logout can move to that RPC and needs no window; the
+login and the forget still do.
 
 ### Unavailable states
 
@@ -2940,8 +2946,6 @@ window; the login and the forget still do.
   without a key): the **Search the web** switch is disabled and the web search
   settings show **Not configured**. `web_search` is withheld; OpenClaw would
   otherwise offer it and fail every call.
-- **Runtime without the bundled plugins** (an installation not yet updated, or a
-  rollback target): web search is unavailable until the staged update is activated.
 - **Documents:** OpenClaw offers `view_image` only for models that accept images.
   **Read images** grants `view_image` only; PDFs need **Read PDFs**, which reads with
   the agent's own model or the optional PDF fallback (see
@@ -4559,8 +4563,7 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   abort nor a session reset stops them. A Gateway stop or restart (including stopping or
   updating AgentPier) ends them on Linux, where OpenClaw starts commands through
   its spawn broker, which terminates its children when the Gateway goes away, and
-  since OpenClaw 2026.11.2 on macOS as well; on macOS 2026.10.9 and earlier kept them
-  running (see the
+  on macOS as well (see the
   [shell qualification](assistant-shell-qualification.md#h-aborting-turns-and-background-commands)).
   If a lowering cannot be
   applied, AgentPier tries once more, then aborts the agent's running turns and
@@ -4766,8 +4769,8 @@ without any.
   agent's final allow list. `agents.defaults.skills` stays `[]`, so every agent
   without its own list has no skills, and every Gateway start removes lists from
   entries AgentPier does not manage. `skills.allowBundled` is not a gate: AgentPier
-  writes none, so every bundled skill is allowed (2026.10.9 and earlier read an empty
-  list so too, 2026.11.2 reads it as "none"); the agents' own lists are.
+  writes none, so every bundled skill is allowed (OpenClaw reads an empty list as
+  "none"); the agents' own lists are.
 - **Live changes.** A save applies with `config.patch` (`reloadKind: "hot"`); a shorter
   or removed list names `agents.entries.<id>.skills` in `replacePaths`. OpenClaw
   refreshes the skill snapshot at the agent's next turn, without a Gateway restart.
@@ -4953,8 +4956,12 @@ no effect: the agent keeps no job. They need no Telegram chat (since AGENTPIER-1
 never paired starts checking in after that update); a new agent switches check-ins on
 after saving.
 
-It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
-"0m"`: that one delivers through OpenClaw channels, which AgentPier leaves empty. Each
+It is not OpenClaw's native heartbeat monitor, which delivered through OpenClaw
+channels that AgentPier leaves empty. AgentPier kept it off (`agents.defaults.heartbeat
+.every: "0m"`) until OpenClaw 2026.11.6 retired the monitor for ordinary automations
+and refused to start while a configuration still names `heartbeat`; every compile
+now removes the key from the defaults and every agent entry (`runtime-config.js`), so
+an updated installation's stored configuration starts without Doctor converting it. Each
 opted-in agent instead gets one native cron job
 (`server/features/assistants/native-heartbeats.js`) bound to the agent's main chat
 (the session `openConversation` created, which a Telegram pairing also uses; the
@@ -4967,10 +4974,12 @@ sync opens it when the agent has none yet):
   created. In the web chat AgentPier answers `/reset` and `/new` itself: `/new` opens
   a separate chat and `/reset` is refused, so neither reaches the Gateway. Sent from
   the owner's Telegram chat they start the conversation's next lifecycle (same
-  session id, new lifecycle revision). OpenClaw 2026.11.2 and later record the
-  conversation's lifecycle when a job with a chat target is created and refuse to
-  commit into a later one ("session rebound for sessionKey …", `not-delivered`), so
-  AgentPier re-creates the check-in job and every routine job that commits into
+  session id, new lifecycle revision). OpenClaw 2026.11.6 lets the jobs follow the
+  conversation into it (openclaw#199512). OpenClaw 2026.11.3, the rollback target,
+  records the conversation's lifecycle when a job with a chat target is created and
+  refuses to commit into a later one ("session rebound for sessionKey …",
+  `not-delivered`); on it (`pinsChat`, `openclaw-routines.js`) AgentPier re-creates
+  the check-in job and every routine job that commits into
   that conversation (`chat-rebind.js`): once the command's turn completed (the run
   reconciler), and, for a reset that reached the Gateway another way, once such a
   refusal comes back. A job re-created since that command or refused run is left
@@ -4978,9 +4987,8 @@ sync opens it when the agent has none yet):
   is re-created even while its refused run still shows as running (OpenClaw 2026.11.3
   clears `runningAtMs` before it sends the completion webhook), while a job with a
   newer run under way waits for that run's refusal. The binding keeps its id, its
-  earlier job ids (the last eight) and their run history. 2026.10.9 reads the conversation at each run and needs none of this;
-  upstream lets jobs follow the conversation again in openclaw#199512 (merged
-  2026-11-15, not yet released). Since 2026.11.2 OpenClaw commits a check-in even
+  earlier job ids (the last eight) and their run history. OpenClaw commits a
+  check-in even
   while a turn runs there (openclaw#181506), so one that comes due during the
   owner's turn appears between that turn's question and its answer; it does not
   know that answer yet. The owner's next
@@ -5037,14 +5045,11 @@ conversation, and is in the model input of the owner's next reply. `NO_REPLY` le
 no visible message and sends nothing. A check-in due during a running owner turn is
 committed inside that turn, between the owner's question and the answer (OpenClaw
 2026.11.2, openclaw#181506; before, after the answer), and reaches the chat once. A message sent after the job was created reaches
-the next check-in's model input. After an owner `/reset` sent from Telegram,
-AgentPier's re-creation (as after the command's turn) lets the next check-in read only
-the new session and commit into it (`deliveryStatus: "delivered"`); after a `/new`
-without that step the first check-in is refused ("session rebound"), the refusal
-re-creates the job and the next check-in commits. The
-`assistant-routine-contract` checks the same refusal and re-creation for a routine,
-and that its run history goes on. The
-agent's native heartbeat job stays disabled, and switching off removes the job.
+the next check-in's model input. After an owner `/reset` or `/new` sent from
+Telegram, the next check-in reads only the new session and commits into it
+(`deliveryStatus: "delivered"`) with the same job (OpenClaw 2026.11.6). The
+`assistant-routine-contract` checks the same for a routine, and that its run history
+goes on. Switching off removes the job.
 
 ### Recall across conversations is not offered yet
 
@@ -5077,12 +5082,13 @@ tool's own text, so a browser snapshot's page still reaches the model. It cut a 
 first request from about 21k to about 8k prompt tokens, and lets a 32k-context model
 work at all; the plain `"tools"` mode left small models unable to find their tools.
 The team plugin marks `agentpier_team_report` direct-only, as a member's only way to
-deliver its result. OpenClaw 2026.11.3 has no setting that marks a core tool
-(`web_search`, `web_fetch`) or the bundled browser plugin's `browser` direct-only:
-`catalogMode` is a property the tool's own code sets, and the runtime keeps only
-`message` (plus `web_search` and `web_fetch` for a native Ollama model while the key
-is absent) visible by name. These tools therefore stand in the directory and are
-called by name.
+deliver its result. OpenClaw has no setting that marks a core tool (`web_search`,
+`web_fetch`) or the bundled browser plugin's `browser` direct-only: `catalogMode` is
+a property the tool's own code sets, and the runtime keeps only `message` (plus
+`web_search` and `web_fetch` for a native Ollama model while the key is absent)
+visible by name. 2026.11.6 adds `include` and `exclude` selectors that could keep
+tools out of the directory; AgentPier sets neither, so these tools stand in the
+directory and are called by name.
 
 `tools.codeMode` is `false` on every Gateway. OpenClaw 2026.10 engages Code Mode while
 `tools.codeMode` is absent (`"auto"`) for models whose catalog entry prefers it, such
@@ -5213,10 +5219,9 @@ setting and clears what was pending.
   Gateway knows no session for the key and no archive names one is there no id to
   forget (`memory forget --session <key>` resolves a key only against live sessions
   and archives too, and would record the key literally).
-- **Resolved data directory.** On 2026.10.7 and later (checked through 2026.11.3) the
-  sweep fails every workspace (up to 2026.10.9 with "Canonical session reader
-  continuation is no longer current", 2026.11.2 and later without a log line) and writes no
-  corpus or notes when the state directory's path runs through a symbolic link. The data directory
+- **Resolved data directory.** OpenClaw (checked through 2026.11.3) fails the sweep
+  of every workspace without a log line and writes no corpus or notes when the state
+  directory's path runs through a symbolic link. The data directory
   must therefore not sit behind a symbolic link; `runtime-paths.js` does not resolve
   it. Default data directories have no linked ancestor.
 
@@ -5225,9 +5230,9 @@ agent's own chats into its own memory only, ingestion state rewritten wholesale,
 deleted or forgotten chat stays out, a live hour change during a turn) and
 `assistant-dreaming-scope-contract.test.js` (a temporary member is swept, a shared
 agent dreams over every chat while memory search returns no raw corpus, a sweep during
-a running turn, the managed schedule under the hardened heartbeat, no corpus under a
-symlinked data directory). On the rollback targets (2026.10.3, 2026.9.9 and 2026.9.8),
-which run this release's compiled configuration after a failed activation,
+a running turn, the managed schedule without a heartbeat monitor, no corpus under a
+symlinked data directory). On the rollback target (2026.11.3), which runs this
+release's compiled configuration after a failed activation,
 `assistant-dreaming-rollback-cross-version.test.js` pins in the cross-version job that
 the section is accepted, the managed job follows the switch and a live hour change
 without a restart, a sweep keeps each agent to its own chats, and a deleted chat leaves
@@ -5759,8 +5764,7 @@ type.
   routine run's or the session's own), and `agentpier_share_file` refuses another
   chat's file with `SHARE_NOT_FOUND`. What OpenClaw keeps beside the uploads names
   no chat: a channel's photo it stages under `media/inbound/openclaw-staged-<uuid>/`
-  of the workspace (OpenClaw before 2026.10.9 and again since 2026.11.2 stages chat
-  images there too), and its
+  of the workspace (OpenClaw stages chat images there too), and its
   media store `<state>/media/` (an image above 2 MB that the pinned Gateway offloads
   and names in the prompt as `media://inbound/<id>`, browser screenshots, created
   images), which every agent shares and which OpenClaw's `image` and `pdf` tools read
@@ -5851,8 +5855,7 @@ type.
   never part of a backup, sealed or not.
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folders and index for a
-  future deletion path. OpenClaw before 2026.10.9, and again since 2026.11.2,
-  also stages inline images it receives under `media/inbound/openclaw-staged-<uuid>/`
+  future deletion path. OpenClaw also stages inline images it receives under `media/inbound/openclaw-staged-<uuid>/`
   of the workspace, so such an image exists twice; an image above 2 MB is also
   offloaded to its own media store (`assistant-attachments-contract.test.js`).
 

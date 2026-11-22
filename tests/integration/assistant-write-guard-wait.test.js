@@ -9,7 +9,7 @@ import { AssistantService } from "../../server/features/assistants/assistant-ser
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { writeGuardWiring } from "../../server/features/assistants/write-guard-wait.js";
 
-// A ready 2026.10.3 Gateway whose plugin has not reported its write guard yet
+// A ready 2026.11.6 Gateway whose plugin has not reported its write guard yet
 // (WRITE_GUARD_PENDING), wired to the service exactly as assistant-graph.js does.
 async function pendingGuardService(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-guard-wait-"));
@@ -48,7 +48,7 @@ async function pendingGuardService(t) {
   const runtime = new EventEmitter();
   runtime.client = client;
   runtime.child = { pid: process.pid };
-  runtime.status = () => ({ availability: "ready", version: "2026.10.3" });
+  runtime.status = () => ({ availability: "ready", version: "2026.11.6" });
   runtime.close = async () => {};
   runtime.setState = () => {};
   const config = { reset() {} };

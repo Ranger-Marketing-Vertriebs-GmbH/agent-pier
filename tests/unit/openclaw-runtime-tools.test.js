@@ -107,29 +107,16 @@ test("skills, browser and models send the Gateway requests callers sent before t
   ]);
 });
 
-test("skills.status asks for a rescan only from a Gateway that accepts it", async () => {
-  // 2026.11.3 rescans skill folders about once a minute and takes `refresh`; 2026.10.9
-  // and earlier watch the folders and refuse any parameter they do not know.
-  for (const [version, sent] of [
-    ["2026.11.3", { agentId: "ap-1", refresh: true }],
-    ["2026.12.1", { agentId: "ap-1", refresh: true }],
-    ["2026.10.9", { agentId: "ap-1" }],
-    ["2026.9.8", { agentId: "ap-1" }],
-    [null, { agentId: "ap-1" }],
-  ]) {
-    const client = recorder();
-    const { skills } = createOpenClawRuntime({ client, status: () => ({ version }) });
-    await skills.status({ agentId: "ap-1", refresh: true });
-    await skills.status({ agentId: "ap-1" });
-    assert.deepEqual(
-      client.calls,
-      [
-        ["skills.status", sent],
-        ["skills.status", { agentId: "ap-1" }],
-      ],
-      String(version),
-    );
-  }
+test("skills.status asks for a rescan only when asked to", async () => {
+  // OpenClaw rescans skill folders about once a minute and takes `refresh`.
+  const client = recorder();
+  const { skills } = createOpenClawRuntime({ client });
+  await skills.status({ agentId: "ap-1", refresh: true });
+  await skills.status({ agentId: "ap-1" });
+  assert.deepEqual(client.calls, [
+    ["skills.status", { agentId: "ap-1", refresh: true }],
+    ["skills.status", { agentId: "ap-1" }],
+  ]);
 });
 
 test("skills.unknownAgent tells only OpenClaw's unknown agent refusal", () => {

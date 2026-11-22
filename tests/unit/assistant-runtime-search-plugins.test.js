@@ -54,7 +54,7 @@ test("fresh install places the plugins and exposes their directories", async (t)
         assert.ok(args.includes("--ignore-scripts"));
         const pkg = JSON.parse(fs.readFileSync(path.join(options.cwd, "package.json")));
         for (const id of pluginIds)
-          assert.equal(pkg.dependencies[`@openclaw/${id}-plugin`], "2026.10.3");
+          assert.equal(pkg.dependencies[`@openclaw/${id}-plugin`], "2026.11.3");
       }
       return execute(command, args, options);
     },
@@ -128,7 +128,7 @@ test("lock without the pinned plugin or with other integrity fails before downlo
         "sha512-" + Buffer.alloc(64).toString("base64");
     },
     (pkg, lock) => {
-      pkg.dependencies["@openclaw/brave-plugin"] = "^2026.10.3";
+      pkg.dependencies["@openclaw/brave-plugin"] = "^2026.11.3";
       lock.packages[""].dependencies = pkg.dependencies;
     },
   ]) {

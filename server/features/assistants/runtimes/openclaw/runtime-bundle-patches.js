@@ -7,112 +7,65 @@ import { createHash } from "node:crypto";
  * version, until upstream ships the fix. Each names a file under the package root,
  * the text it must contain exactly once and its replacement. Remove a version's
  * entry when the pin moves to a release with the fix; a version without entries is
- * installed unchanged.
+ * installed unchanged. The rollback target keeps the patches it was installed with:
+ * its installation is never patched again, and one whose version has no entries
+ * here starts without a check of them (runtime-install.js).
  *
- * 2026.11.3, "lease-release-retry": `releaseOpenClawStateLeaseBestEffort`
- * (src/state/openclaw-state-lease-storage.ts) retries a lease release only within
- * `LEASE_CONTENTION_RETRY_TIMEOUT_MS` (2 s, src/state/openclaw-state-lease-heartbeat-
- * shared.ts), while one attempt already waits SQLite's 5 s busy timeout. A release
- * that meets one lock (another writer of the state database holds it for about 5 s,
- * as during an agents.create on a slow disk) is never retried: the plugin lifecycle
- * lease stays held for its 5 minutes and every configuration write waits on it
- * ("config reload failed: database is locked", then `Waiting for plugin lifecycle
- * lease`). The constant is read by that release alone. 30 s ended the wedge in a
- * throttled reproduction (0 of 11 runs against 6 of 16;
- * docs/assistant-release-qualification.md "Lease release patch").
+ * 2026.11.6, "lease-release-retry": `releaseOpenClawStateLeaseBestEffort`
+ * (src/state/openclaw-state-lease-storage.ts) retries a lease release that met a
+ * SQLite lock only until `OPENCLAW_SQLITE_BUSY_TIMEOUT_MS` (5 s) after its first
+ * attempt (2026.11.3: `LEASE_CONTENTION_RETRY_TIMEOUT_MS`, 2 s). A release that meets
+ * one lock held for about 5 s (another writer of the state database, as during an
+ * agents.create on a slow disk) is then retried hardly or not at all: the plugin
+ * lifecycle lease stays held for its 5 minutes and every configuration write waits on
+ * it ("config reload failed: database is locked", then `Waiting for plugin lifecycle
+ * lease`). The patch gives the lock case 30 s, in the release alone; the shared
+ * `LEASE_CONTENTION_RETRY_TIMEOUT_MS`, which 2026.11.6 also reads in the agent
+ * execution, stays as shipped. 30 s ended the wedge in a throttled reproduction on
+ * 2026.11.3 (0 of 11 runs against 6 of 16; docs/assistant-release-qualification.md
+ * "Lease release patch").
  *
- * 2026.11.3, "codex-catalog-client-version" (and "-setup", the same constant in the
- * openai plugin's setup bundle): ChatGPT-account model discovery asks
- * chatgpt.com/backend-api/codex/models with `client_version`, and the backend lists
- * newer models (GPT-6.2-Astra) only for a recent enough client. The version comes from
- * the Codex plugin (`resolveCodexClientVersion`), which the npm package leaves out and
- * AgentPier never installs, so the bundled fallback `OPENAI_CODEX_CLIENT_VERSION`
- * (extensions/openai/base-url.ts, "0.164.0") is what OpenClaw sends. 0.164.0 does not
- * list GPT-6.2-Astra; 0.169.0 does (checked against a live ChatGPT account).
- *
- * 2026.11.3, "no-restart-resume": OpenClaw's main-session restart recovery
- * (src/agents/main-session-recovery/, started by the Gateway's post-attach startup,
- * by the next visible turn of an interrupted session and by a retried chat.send)
- * asks the model to continue a turn a Gateway restart interrupted ("[System] Your
- * previous turn was interrupted …"). AgentPier never replays interrupted work: its
- * ledger records the turn as interrupted or uncertain for the owner to review
- * (assistant-gateway.md). There is no configuration switch, so the one call that
- * dispatches the resume (`resumeMainSession` in `recoverStore`) settles the turn
- * instead, through upstream's own no-replay path `settleInterruptedRestartRecovery`:
- * status "interrupted", recovery claim and markers cleared, and a local notice
- * appended to the transcript, without a model request or channel delivery. Every
- * step before it stays: orphan marking, settling turns whose reply was delivered,
- * owed delivery notices, tombstones of exhausted recoveries.
- *
- * 2026.11.3, "superseded-publication-retry": after a Doctor migration the first
- * Gateway start prepares every agent once it listens, one after the other (open,
- * migrate, publish its prepared model runtime). `publishAgent` (gateway-prewarm.js)
- * refreshes the agent's model runtime with an `isPublicationCurrent` check and
- * without `joinSupersedingPublication`, so any concurrent refresh (a secrets snapshot
- * activation from `models.authRefresh`, say) makes it throw
- * `PreparedModelRuntimePublicationSupersededError`. The startup loop
- * (src/state/agent-database-startup.ts) retries only its own
- * `AgentDatabaseStartupSupersededError`, so that agent "remains degraded" and its
- * sessions answer UNAVAILABLE until the Gateway restarts; a runtime update then fails
- * its validation and rolls back. The loop retries this refusal too, within its own
- * bound (STARTUP_PUBLICATION_ATTEMPTS, 4). The class is not imported there and sets
- * no `name`, so it is told by its constructor's name, which the bundle keeps
- * (`var PreparedModelRuntimePublicationSupersededError = class …`). AgentPier also
- * no longer causes the refresh while agents are admitted (openclaw-models.js), and a
- * validation that still meets such an agent restarts the Gateway once
- * (runtime-update-validation.js).
+ * 2026.11.6, "no-restart-resume" (and "-inputs"): OpenClaw marks the sessions that
+ * were working when the Gateway shut down (`persistRunningSessionsForRestart`) and,
+ * after the next start, sends each one "The Gateway restarted while you were
+ * working. Resume your work: …" and replays the user messages queued behind it
+ * (`resumeMarkedSessions`, src/gateway/session-restart-resume.ts). It also adopts a
+ * 2026.11.3 main-session recovery marker less than six hours old the same way.
+ * AgentPier never replays interrupted work: its ledger records the turn as
+ * interrupted or uncertain for the owner to review (assistant-gateway.md). There is
+ * no configuration switch, so the startup pass adopts no marker: it still clears
+ * every marker (`resumeAfterRestart`, `mainRestartRecovery`) but admits no resume
+ * input, and the queued messages a marker reserved are withdrawn with every other
+ * orphaned input of the previous Gateway instead of being sent again.
  */
 export const runtimeBundlePatches = Object.freeze({
-  "2026.11.3": Object.freeze([
+  "2026.11.6": Object.freeze([
     Object.freeze({
       id: "lease-release-retry",
-      file: "dist/openclaw-state-lease-heartbeat-shared-BczGehzh.mjs",
-      before: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;",
-      after: "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;",
+      file: "dist/openclaw-state-lease-storage-BBSi-Imk.mjs",
+      before:
+        "const o = n + (a ? OPENCLAW_SQLITE_BUSY_TIMEOUT_MS : LEASE_CONTENTION_RETRY_TIMEOUT_MS);",
+      after: "const o = n + (a ? 3e4 : LEASE_CONTENTION_RETRY_TIMEOUT_MS);",
     }),
-    // Carry both Codex client version entries forward on a pin bump unless the new
-    // version already ships OPENAI_CODEX_CLIENT_VERSION >= 0.169.0; the patch contract
-    // and verify-assistant-installation.mjs fail otherwise
-    // (tests/helpers/codex-client-version-floor.js).
-    Object.freeze({
-      id: "codex-catalog-client-version",
-      file: "dist/base-url-Baro1bPi.mjs",
-      before: 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";',
-      after: 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";',
-    }),
-    Object.freeze({
-      id: "codex-catalog-client-version-setup",
-      file: "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs",
-      before: 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";',
-      after: 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";',
-    }),
-    // Carry this entry forward on every pin bump until upstream offers a switch that
-    // turns automatic resumption off; the patch contract and
+    // Carry both restart resume entries forward on every pin bump until upstream
+    // offers a switch that turns automatic resumption off; the patch contract and
     // verify-assistant-installation.mjs fail otherwise
-    // (tests/helpers/restart-resume-guard.js). The call's arguments (entry, observation,
-    // agentId, sessionKey, storePath) are what the settlement needs; it adds the reason
-    // and maps a notice it could not write to "failed", so the sweep retries it.
+    // (tests/helpers/restart-resume-guard.js).
     Object.freeze({
       id: "no-restart-resume",
-      file: "dist/main-session-restart-recovery-DekokRXp.mjs",
-      before: "const resumeResult = await resumeMainSession({",
-      after:
-        "const resumeResult = await (async (resume) => { const settled = await " +
-        "settleInterruptedRestartRecovery({ ...resume, reason: " +
-        '"AgentPier never resumes an interrupted turn on its own" }); ' +
-        'return settled === "notice_failed" ? "failed" : settled; })({',
+      file: "dist/session-restart-resume-BzRgzT_h.mjs",
+      before:
+        "const r = n.resumeAfterRestart ?? (n.mainRestartRecovery && " +
+        'n.abortedLastRun === true && n.status === "interrupted" && ' +
+        "n.updatedAt <= o && n.updatedAt >= o - LEGACY_RESTART_RESUME_WINDOW_MS ? " +
+        "{ queuedInputIds: [] } : void 0);",
+      after: "const r = void 0 /* AgentPier never resumes an interrupted turn */;",
     }),
-    // Carry this entry forward on every pin bump until upstream retries or joins
-    // superseded publications in its agent database startup; the patch contract and
-    // verify-assistant-installation.mjs fail otherwise
-    // (tests/helpers/superseded-publication-guard.js).
     Object.freeze({
-      id: "superseded-publication-retry",
-      file: "dist/agent-database-startup-DQZqWc4z.mjs",
-      before: "!(error instanceof AgentDatabaseStartupSupersededError)",
-      after:
-        "!(error instanceof AgentDatabaseStartupSupersededError || " +
-        'error?.constructor?.name === "PreparedModelRuntimePublicationSupersededError")',
+      id: "no-restart-resume-inputs",
+      file: "dist/session-restart-resume-BzRgzT_h.mjs",
+      before: "s.flatMap(({ entry: e }) => e.resumeAfterRestart?.queuedInputIds ?? [])",
+      after: "[] /* AgentPier never replays a queued message after a restart */",
     }),
   ]),
 });

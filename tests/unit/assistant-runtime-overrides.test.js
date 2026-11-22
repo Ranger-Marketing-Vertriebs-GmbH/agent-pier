@@ -49,7 +49,10 @@ function addOverride(f, { declared = true, locked = "8.12.3" } = {}) {
 
 test("shipped runtime graph resolves the patched security versions", () => {
   const { packageBytes, lockBytes } = readRuntimeLock(runtimeManifest);
-  assert.deepEqual(JSON.parse(packageBytes).overrides, lockedOverrides(runtimeManifest));
+  assert.deepEqual(
+    JSON.parse(packageBytes).overrides ?? {},
+    lockedOverrides(runtimeManifest),
+  );
   const { packages } = JSON.parse(lockBytes);
   // Advisories fixed in undici 8.12.2 and zod 4.6.6.
   for (const [name, minimum] of [

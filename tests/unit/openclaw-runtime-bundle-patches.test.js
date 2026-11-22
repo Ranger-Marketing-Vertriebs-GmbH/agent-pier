@@ -131,212 +131,154 @@ test("the pinned version's patches", () => {
   const list = runtimeBundlePatches[runtimeManifest.version];
   assert.deepEqual(
     list.map((patch) => patch.id),
-    [
-      "lease-release-retry",
-      "codex-catalog-client-version",
-      "codex-catalog-client-version-setup",
-      "no-restart-resume",
-      "superseded-publication-retry",
-    ],
+    ["lease-release-retry", "no-restart-resume", "no-restart-resume-inputs"],
   );
-  const [lease, ...rest] = list;
-  const codex = rest.slice(0, 2);
-  const [noResume, superseded] = rest.slice(2);
-  // The lease release retry window goes from 2 s to 30 s.
-  assert.equal(lease.before, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;");
-  assert.equal(lease.after, "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 3e4;");
-  // ChatGPT model discovery asks the Codex catalog as client 0.169.0 (GPT-6.2-Astra).
-  assert.deepEqual(
-    codex.map((patch) => patch.file),
-    [
-      "dist/base-url-Baro1bPi.mjs",
-      "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs",
-    ],
-  );
-  for (const patch of codex) {
-    assert.equal(patch.before, 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";');
-    assert.equal(patch.after, 'const OPENAI_CODEX_CLIENT_VERSION = "0.169.0";');
-  }
-  // The main-session restart recovery settles an interrupted turn instead of asking
-  // the model to resume it; every step before the resume stays as it was.
-  assert.equal(noResume.file, "dist/main-session-restart-recovery-DekokRXp.mjs");
-  assert.equal(noResume.before, "const resumeResult = await resumeMainSession({");
-  assert.ok(!noResume.after.includes("resumeMainSession"));
-  assert.match(noResume.after, /^const resumeResult = await \(async \(resume\) => \{/);
-  assert.match(
-    noResume.after,
-    /settleInterruptedRestartRecovery\(\{ \.\.\.resume, reason: /,
-  );
-  assert.match(noResume.after, /\}\)\(\{$/);
-  // The agent database startup loop retries a superseded model runtime publication.
-  assert.equal(superseded.file, "dist/agent-database-startup-DQZqWc4z.mjs");
+  const [lease, resume, inputs] = list;
+  // A lease release that met a SQLite lock is retried for 30 s instead of 5 s; the
+  // shared contention constant, which the agent execution also reads, stays as is.
+  assert.equal(lease.file, "dist/openclaw-state-lease-storage-BBSi-Imk.mjs");
+  assert.match(lease.before, /a \? OPENCLAW_SQLITE_BUSY_TIMEOUT_MS : /);
   assert.equal(
-    superseded.before,
-    "!(error instanceof AgentDatabaseStartupSupersededError)",
+    lease.after,
+    "const o = n + (a ? 3e4 : LEASE_CONTENTION_RETRY_TIMEOUT_MS);",
   );
-  assert.match(superseded.after, /PreparedModelRuntimePublicationSupersededError/);
-  // No rollback target carries a patch: they install unchanged.
+  // The startup resume adopts no restart marker and reserves no queued message.
+  for (const patch of [resume, inputs])
+    assert.equal(patch.file, "dist/session-restart-resume-BzRgzT_h.mjs");
+  assert.match(resume.before, /^const r = n\.resumeAfterRestart \?\? \(/);
+  assert.doesNotMatch(resume.after, /resumeAfterRestart|mainRestartRecovery/);
+  assert.match(inputs.before, /resumeAfterRestart\?\.queuedInputIds/);
+  assert.doesNotMatch(inputs.after, /resumeAfterRestart/);
+  // The rollback target keeps the patches its installation carries; none is applied
+  // or verified again for it here.
   for (const version of runtimeManifest.rollbackTargets)
     assert.equal(bundlePatchId(version), undefined);
 });
 
-// The call site of OpenClaw 2026.11.3's recoverStore (main-session-restart-recovery-
-// DekokRXp.mjs) as shipped, with its two callees stubbed: the patched text must still
-// parse, never resume, and settle the turn with the arguments the resume would get.
-const recoverySite = (call) => `
-let calls = [];
-async function resumeMainSession(params) { calls.push(["resume", params]); return "started"; }
-async function settleInterruptedRestartRecovery(params) {
-\tcalls.push(["settle", params]);
-\treturn globalThis.settleOutcome;
-}
-export async function recover(params, target, entry, recoveryView, resumeOptions) {
-\tcalls = [];
-\tconst dispatchSessionKey = target.sessionKey, completionSource = undefined;
-\t${call}
-\t\t...target,
-\t\tcanonicalSessionKey: dispatchSessionKey,
-\t\tcfg: params.cfg,
-\t\tentry,
-\t\tobservation: recoveryView.observation,
-\t\tcompletionSource,
-\t\trecoveryAttempt: recoveryView.nextAttempt,
-\t\trecoveryAdmission: params.recoveryAdmission,
-\t\tsignal: params.signal,
-\t\tgatewayRuntime: params.gatewayRuntime,
-\t\t...resumeOptions,
-\t\tlifecycleGeneration: params.lifecycleGeneration,
-\t\tshouldContinue: params.shouldContinue
-\t});
-\treturn { resumeResult, calls };
+// The marker read of OpenClaw 2026.11.6's resumeAgentSessions (session-restart-
+// resume-BzRgzT_h.mjs) as shipped, inside its applySessionEntryExactReplacements
+// update: the patched text must still parse, clear every marker and resume nothing.
+const markerSite = (line) => `
+const LEGACY_RESTART_RESUME_WINDOW_MS = 216e5;
+const canResumeSession = () => true;
+export function update(e, t, o) {
+\tconst n = e.find((e) => e.sessionKey === t)?.entry;
+\tif (!n || !n.resumeAfterRestart && !n.mainRestartRecovery) return { result: void 0 };
+\t${line}
+\tconst i = {
+\t\t...n,
+\t\tresumeAfterRestart: canResumeSession(t, n) ? r : void 0,
+\t\tmainRestartRecovery: void 0
+\t};
+\treturn {
+\t\tresult: r ? { entry: i, marker: r } : void 0,
+\t\treplacements: n.mainRestartRecovery || i.resumeAfterRestart !== n.resumeAfterRestart ? [{ sessionKey: t, entry: i }] : void 0
+\t};
 }
 `;
 
-test("the restart recovery patch settles an interrupted turn instead of resuming it", async () => {
-  const patch = runtimeBundlePatches["2026.11.3"].find(
-    (p) => p.id === "no-restart-resume",
-  );
-  const original = recoverySite(patch.before);
-  const patched = original.replace(patch.before, patch.after);
+test("the restart resume patch clears markers without resuming a session", async () => {
+  const [, patch] = runtimeBundlePatches[runtimeManifest.version];
   const load = (text) =>
     import(`data:text/javascript;base64,${Buffer.from(text).toString("base64")}`);
-  const target = { agentId: "main", sessionKey: "agent:main:main", storePath: "/s" };
-  const entry = { sessionId: "s1", abortedLastRun: true };
-  const recoveryView = { observation: { sessionId: "s1", cycleId: "c", revision: 2 } };
-  const run = (module) =>
-    module.recover({ cfg: {} }, target, entry, recoveryView, {
-      forceRestartSafeTools: true,
-    });
-  // Unpatched, the turn is resumed.
-  assert.equal((await run(await load(original))).resumeResult, "started");
-  const module = await load(patched);
-  for (const [outcome, expected] of [
-    ["settled", "settled"],
-    ["skipped", "skipped"],
-    // A notice that could not be written is retried like a failed resume.
-    ["notice_failed", "failed"],
-  ]) {
-    globalThis.settleOutcome = outcome;
-    const { resumeResult, calls } = await run(module);
-    assert.equal(resumeResult, expected);
-    assert.deepEqual(
-      calls.map(([name]) => name),
-      ["settle"],
-    );
-    const [, params] = calls[0];
-    assert.equal(params.entry, entry);
-    assert.equal(params.observation, recoveryView.observation);
-    assert.deepEqual(
-      [params.agentId, params.sessionKey, params.storePath],
-      ["main", "agent:main:main", "/s"],
-    );
-    assert.match(params.reason, /AgentPier/);
+  const original = await load(markerSite(patch.before));
+  const patched = await load(markerSite(patch.after));
+  const now = 1_000_000_000;
+  const entries = {
+    // A graceful shutdown's marker, with a queued message it reserved.
+    marked: { sessionId: "s1", resumeAfterRestart: { queuedInputIds: ["q1"] } },
+    // A 2026.11.3 main-session recovery marker less than six hours old.
+    legacy: {
+      sessionId: "s2",
+      mainRestartRecovery: { cycleId: "c" },
+      abortedLastRun: true,
+      status: "interrupted",
+      updatedAt: now - 60_000,
+    },
+  };
+  for (const [key, entry] of Object.entries(entries)) {
+    const rows = [{ sessionKey: key, entry }];
+    // Unpatched, the marker is adopted and the session resumed.
+    assert.ok(original.update(rows, key, now).result, key);
+    const { result, replacements } = patched.update(rows, key, now);
+    assert.equal(result, undefined, key);
+    assert.equal(replacements.length, 1, key);
+    const [{ entry: cleared }] = replacements;
+    assert.equal(cleared.resumeAfterRestart, undefined, key);
+    assert.equal(cleared.mainRestartRecovery, undefined, key);
+    assert.equal(cleared.sessionId, entry.sessionId, key);
   }
-  delete globalThis.settleOutcome;
 });
 
-// The publication loop of OpenClaw 2026.11.3's agent database startup (agent-database-
-// startup-DQZqWc4z.mjs) as shipped, with publishAgent stubbed: the patched text must
-// still parse, retry a superseded model runtime publication within the same bound and
-// still give up on any other failure at once.
-const startupSite = `
-const STARTUP_PUBLICATION_ATTEMPTS = 4;
-var AgentDatabaseStartupSupersededError = class extends Error {
-\tconstructor(agentId, subject) {
-\t\tsuper(\`Agent \${agentId} \${subject} preparation was superseded\`);
-\t\tthis.name = "AgentDatabaseStartupSupersededError";
-\t}
-};
-var PreparedModelRuntimeOwnerNotPublishedError = class extends Error {};
-var PreparedModelRuntimePublicationSupersededError = class extends PreparedModelRuntimeOwnerNotPublishedError {};
-export const errors = { PreparedModelRuntimePublicationSupersededError, PreparedModelRuntimeOwnerNotPublishedError };
-export async function publish(failures) {
-\tlet calls = 0;
-\tconst activation = { publishAgent: async () => { const failure = failures[calls++]; if (failure) throw failure; } };
-\tconst assertNotDeleted = async () => {};
-\tfor (let attempt = 1;; attempt++) try {
-\t\tawait activation.publishAgent({});
-\t\tbreak;
-\t} catch (error) {
-\t\tif (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= STARTUP_PUBLICATION_ATTEMPTS) throw error;
-\t\tawait assertNotDeleted();
-\t}
-\treturn calls;
-}
-`;
-
-test("the startup publication patch retries a superseded model runtime publication", async () => {
-  const patch = runtimeBundlePatches["2026.11.3"].find(
-    (p) => p.id === "superseded-publication-retry",
-  );
-  assert.equal(startupSite.split(patch.before).length - 1, 1);
-  const load = (text) =>
-    import(`data:text/javascript;base64,${Buffer.from(text).toString("base64")}`);
-  const original = await load(startupSite);
-  const patched = await load(startupSite.replace(patch.before, patch.after));
-  const superseded = (module) =>
-    new module.errors.PreparedModelRuntimePublicationSupersededError(
-      "prepared model runtime publication was superseded for /agent",
-    );
-  // Unpatched, one superseded publication leaves the agent degraded.
-  await assert.rejects(original.publish([superseded(original)]), /superseded for/);
-  // Patched, it is published again.
-  assert.equal(await patched.publish([superseded(patched)]), 2);
-  // Within the loop's own bound of four attempts.
-  await assert.rejects(
-    patched.publish(Array.from({ length: 4 }, () => superseded(patched))),
-    /superseded for/,
-  );
-  assert.equal(
-    await patched.publish(Array.from({ length: 3 }, () => superseded(patched))),
-    4,
-  );
-  // Another failure, its base class included, still fails at once.
-  await assert.rejects(patched.publish([Error("locked")]), /locked/);
-  await assert.rejects(
-    patched.publish([new patched.errors.PreparedModelRuntimeOwnerNotPublishedError("x")]),
-    /x/,
-  );
+test("the restart resume inputs patch withdraws every queued message", () => {
+  const [, , patch] = runtimeBundlePatches[runtimeManifest.version];
+  const site = (text) => new Function("s", `return ${text};`);
+  const summaries = [
+    { entry: { resumeAfterRestart: { queuedInputIds: ["q1", "q2"] } } },
+    { entry: {} },
+  ];
+  // Unpatched, a marker's queued messages are spared from the orphan withdrawal.
+  assert.deepEqual(site(patch.before)(summaries), ["q1", "q2"]);
+  assert.deepEqual(site(patch.after)(summaries), []);
 });
 
-test("the superseded publication guard fails a package that does not retry", (t) => {
+// OpenClaw 2026.11.6 fixed what "superseded-publication-retry" patched in 2026.11.3:
+// publishAgent turns a superseded model runtime publication into the refusal the
+// startup loop retries. The guard fails a package that lost the conversion.
+const lifecycleSite =
+  "function isPreparedModelRuntimePluginLifecycleFailure(e) {\n" +
+  "\treturn e instanceof PluginInstanceUnavailableError || e instanceof PreparedModelRuntimePluginGenerationRetiredError || e instanceof PreparedModelRuntimePublicationSupersededError;\n" +
+  "}\n";
+const conversionSite =
+  "const activation = { publishAgent: async () => { await t().catch(async (e) => {\n" +
+  "\tif (!isPreparedModelRuntimePluginLifecycleFailure(e)) throw e;\n" +
+  "\tawait l();\n" +
+  '\tthrow new AgentDatabaseStartupSupersededError(n, "startup");\n' +
+  "}); } };\n";
+const loopSite =
+  "const STARTUP_PUBLICATION_ATTEMPTS = 4;\n" +
+  "for (let e = 1;; e++) try {\n\tawait c.publishAgent(f);\n\tbreak;\n} catch (t) {\n" +
+  "\tconst n = t instanceof AgentDatabaseStartupSupersededError || t instanceof AgentDatabaseSchemaAdmissionChangedError;\n" +
+  "\tif (!n || e >= STARTUP_PUBLICATION_ATTEMPTS) throw n ? new AgentDatabaseStartupPublicationError(t) : t;\n" +
+  "}\n";
+
+test("the superseded publication guard checks upstream's own retry", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "superseded-guard-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   fs.mkdirSync(path.join(dir, "dist"));
-  const site = path.join(dir, "dist/agent-database-startup-DQZqWc4z.mjs");
-  assert.throws(() => assertSupersededPublicationRetried(dir), /No agent database/);
-  fs.writeFileSync(site, startupSite);
+  const write = (name, text) => fs.writeFileSync(path.join(dir, "dist", name), text);
+  write("agent-database-startup-DnP-Ft5D.mjs", loopSite);
+  write("prepared-model-runtime-admission-errors-LxrcCg4d.mjs", lifecycleSite);
+  // 2026.11.3: publishAgent let the superseded publication escape the loop.
+  write("gateway-prewarm.js", "const activation = { publishAgent: async () => t() };\n");
   assert.throws(
     () => assertSupersededPublicationRetried(dir),
-    /DQZqWc4z\.mjs.*superseded-publication-retry/,
+    /publishAgent converts no lifecycle failure/,
   );
-  const patch = runtimeBundlePatches["2026.11.3"].find(
-    (p) => p.id === "superseded-publication-retry",
+  write("gateway-prewarm.js", conversionSite);
+  assert.deepEqual(assertSupersededPublicationRetried(dir), {
+    lifecycle: [
+      {
+        file: "dist/prepared-model-runtime-admission-errors-LxrcCg4d.mjs",
+        superseded: true,
+      },
+    ],
+    conversion: [{ file: "dist/gateway-prewarm.js" }],
+    loop: [{ file: "dist/agent-database-startup-DnP-Ft5D.mjs" }],
+  });
+  // A superseded publication that no longer counts as a lifecycle failure fails.
+  write(
+    "prepared-model-runtime-admission-errors-LxrcCg4d.mjs",
+    lifecycleSite.replace(
+      " || e instanceof PreparedModelRuntimePublicationSupersededError",
+      "",
+    ),
   );
-  fs.writeFileSync(site, startupSite.replace(patch.before, patch.after));
-  assert.deepEqual(assertSupersededPublicationRetried(dir), [
-    { file: "dist/agent-database-startup-DQZqWc4z.mjs", retried: true },
-  ]);
+  assert.throws(() => assertSupersededPublicationRetried(dir), /no plugin lifecycle/);
+  // So does a package without the loop.
+  write("prepared-model-runtime-admission-errors-LxrcCg4d.mjs", lifecycleSite);
+  write("agent-database-startup-DnP-Ft5D.mjs", "export {};\n");
+  assert.throws(() => assertSupersededPublicationRetried(dir), /no startup publication/);
 });
 
 test("an installation made before the patch is not the shipped runtime", () => {

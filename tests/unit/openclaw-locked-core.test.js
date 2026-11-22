@@ -22,7 +22,10 @@ test("a drifted configuration is hardened again on the next start", (t) => {
     telemetry: { enabled: true },
     update: { checkOnStart: true, auto: { enabled: true } },
   });
-  drifted.agents.defaults.heartbeat = { every: "30m" };
+  // OpenClaw 2026.11.6 refuses to start with the retired heartbeat key, which
+  // AgentPier wrote as `every: "0m"` before; a stored one is dropped.
+  drifted.agents.defaults.heartbeat = { every: "0m" };
+  drifted.agents.entries.main.heartbeat = { every: "30m" };
   drifted.gateway.terminal = { enabled: true };
   fs.writeFileSync(paths.config, JSON.stringify(drifted));
   prepareRuntimeConfig(paths, 1234);
@@ -34,7 +37,8 @@ test("a drifted configuration is hardened again on the next start", (t) => {
   assert.equal(config.discovery.mdns.mode, "off");
   assert.equal(config.telemetry.enabled, false);
   assert.deepEqual(config.update, { checkOnStart: false, auto: { enabled: false } });
-  assert.deepEqual(config.agents.defaults.heartbeat, { every: "0m" });
+  assert.equal("heartbeat" in config.agents.defaults, false);
+  assert.equal("heartbeat" in config.agents.entries.main, false);
   assert.equal(config.gateway.terminal.enabled, false);
 });
 

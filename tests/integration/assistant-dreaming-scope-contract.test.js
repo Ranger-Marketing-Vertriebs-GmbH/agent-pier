@@ -208,12 +208,12 @@ test(
 );
 
 test(
-  "the managed schedule fires without cron.run under the hardened heartbeat",
+  "the managed schedule fires without cron.run and without a heartbeat monitor",
   options,
   async (t) => {
     const f = await nativeFixture(t);
     const agent = await f.create("Sleeper", memory, "orchid-model");
-    assert.equal((await f.effective()).agents.defaults.heartbeat.every, "0m");
+    assert.equal((await f.effective()).agents.defaults.heartbeat, undefined);
     await f.turn(agent, "Sleeper remembers the moon DREAMSCHEDULE.");
     const at = new Date(Date.now() + (new Date().getUTCSeconds() > 45 ? 120000 : 60000));
     const expr = `${at.getUTCMinutes()} ${at.getUTCHours()} * * *`;

@@ -496,7 +496,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Enable agents** (under **Agents**, or **Agents › Runtime › Function**), nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.11.3 installation and Node 26.12.1 under the data directory's
+private OpenClaw 2026.11.6 installation and Node 26.12.1 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
@@ -565,39 +565,22 @@ reach uv:
   update download with `PROXY_REQUIRES_NEWER_NODE` instead of trying a direct
   connection. Upgrade the Node that runs AgentPier to the supported range `^24.22.1 || >=26.12.1`.
 
-**The update to OpenClaw 2026.10.3 cannot be undone once committed.** It migrates
-the agent service's state database (schema 19 to 20), and OpenClaw 2026.9.9 and
-2026.9.8 refuse the migrated database. If activation fails before the update is
-committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
-neither **Agents › Runtime** nor an older AgentPier
-can return the agent service to 2026.9.x. Create a host backup under
-**Settings → Operations → Backups** before you activate 2026.10.3.
-
-**The update to OpenClaw 2026.10.7 cannot be undone once committed either.**
-Activation runs OpenClaw's own database migration before the agents start (status
-"Migrating data"). It took 15–17 seconds with one agent in our tests; a migration
-still running after 10 minutes is stopped, and the activation rolls back. It
-migrates each agent's OpenClaw database from schema 24 to 25, and OpenClaw
-2026.10.3, 2026.9.9 and 2026.9.8 refuse the migrated databases. If activation fails before the update is
-committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
-neither **Agents › Runtime** nor an older AgentPier
-(2.6.x or earlier) can return the agent service to 2026.10.3. Create a host backup
-under **Settings → Operations → Backups** before you activate 2026.10.7 or a later
-version from an older one.
-
-**OpenClaw 2026.10.9** keeps the database schemas of 2026.10.7, so the update from
-2026.10.7 migrates nothing.
-
-**The update to OpenClaw 2026.11.3 cannot be undone once committed either.**
-Activation runs OpenClaw's database migration again: the state database moves from
-schema 20 to 22 and each agent's OpenClaw database from 25 to 27, and OpenClaw
-2026.10.9 and every earlier version refuse the migrated databases. If activation
+**The update to OpenClaw 2026.11.6 cannot be undone once committed.** Activation
+runs OpenClaw's own database migration before the agents start (status "Migrating
+data"; a migration still running after 10 minutes is stopped, and the activation
+rolls back): the state database moves from schema 22 to 36 and each agent's OpenClaw
+database from 27 to 38, OpenClaw's own heartbeat monitors become ordinary
+automations, and OpenClaw 2026.11.3 refuses the migrated databases. If activation
 fails before the update is committed, AgentPier rolls back to the snapshot it took
-beforehand. After commit, neither **Agents › Runtime** nor an older AgentPier (2.19.x
-or earlier) can return the agent service to 2026.10.9. Create a host backup under
-**Settings → Operations → Backups** before you activate 2026.11.3. Installations on
-any earlier AgentPier update straight from the OpenClaw version their release pinned
-to 2026.11.3, with the one-way migrations described above.
+beforehand. After commit, neither **Agents › Runtime** nor an older AgentPier can
+return the agent service to 2026.11.3. Create a host backup under **Settings →
+Operations → Backups** before you activate 2026.11.6.
+
+AgentPier supports only the OpenClaw version it pins and rolls back only to the one
+before it (2026.11.3). An installation whose agents still run an older OpenClaw
+starts no agents after the AgentPier update until the owner activates 2026.11.6
+under **Agents › Runtime**; that activation runs every migration in between in one
+pass.
 
 For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.

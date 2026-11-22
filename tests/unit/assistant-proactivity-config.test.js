@@ -59,7 +59,8 @@ test("native Gateways keep proactive defaults off and recall unconfigured", (t) 
   assert.ok(!config.plugins.allow.includes("active-memory"));
   assert.equal(config.plugins.entries["active-memory"], undefined);
   assert.equal(config.memory.search.rememberAcrossConversations, false);
-  assert.deepEqual(config.agents.defaults.heartbeat, { every: "0m" });
+  // OpenClaw's heartbeat monitor is retired (2026.11.6); none is configured.
+  assert.equal("heartbeat" in config.agents.defaults, false);
   assert.equal(config.plugins.entries["memory-core"].config.dreaming.enabled, false);
   assert.equal(compile(t).plugins.allow, undefined);
 });

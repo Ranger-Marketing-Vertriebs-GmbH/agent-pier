@@ -17,7 +17,6 @@ import { selectedAssistantRuntime } from "../../server/features/assistants/runti
 import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { offlineOnly } from "../../server/features/assistants/runtimes/openclaw/offline-commands.js";
 import {
   defaultBusyRetryDelaysMs,
   leaseLocked,
@@ -154,13 +153,12 @@ export async function harness(t, { installed, contractDir }) {
   gatewayEnv.OPENCLAW_DEBUG = "1";
   // Like createMcpCli: a call whose lease transaction could not start while the
   // Gateway wrote the shared state database did nothing and is repeated.
-  // OpenClaw 2026.10.10 and later sign in and out only while no Gateway owns the
-  // state (offline-commands.js): such a call beside the running Gateway runs in a
-  // window of its own, as AgentPier runs it.
-  const windowed = offlineOnly(selected.version);
+  // OpenClaw signs in and out only while no Gateway owns the state
+  // (offline-commands.js): such a call beside the running Gateway runs in a window
+  // of its own, as AgentPier runs it.
   const guarded = (args) => args[0] === "mcp" && ["login", "logout"].includes(args[1]);
   async function cli(args, env = gatewayEnv) {
-    if (windowed && guarded(args) && runtime.child) return offline(() => cli(args, env));
+    if (guarded(args) && runtime.child) return offline(() => cli(args, env));
     for (let attempt = 0; ; attempt++) {
       const run = await cliOnce(args, env);
       if (run.code === 0 || !leaseLocked(run.stderr)) return run;
@@ -274,7 +272,7 @@ export async function harness(t, { installed, contractDir }) {
       );
     }
   }
-  const windows = { count: 0, windowed };
+  const windows = { count: 0 };
   return {
     dataDir,
     runtime,

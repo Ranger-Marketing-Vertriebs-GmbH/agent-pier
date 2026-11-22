@@ -8,7 +8,8 @@ import {
   codexClientVersionFloor,
   compareVersions,
 } from "../helpers/codex-client-version-floor.js";
-import { applyBundlePatches } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+import { runtimeBundlePatches } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 
 const constant = (version) => `const OPENAI_CODEX_CLIENT_VERSION = "${version}";\n`;
 
@@ -63,19 +64,10 @@ test("a package without the constant fails instead of passing silently", (t) => 
   );
 });
 
-test("the pinned version's patches lift 2026.11.3's constants over the floor", (t) => {
-  const files = {
-    "dist/openclaw-state-lease-heartbeat-shared-BczGehzh.mjs":
-      "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;\n",
-    "dist/base-url-Baro1bPi.mjs": constant("0.164.0"),
-    "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs": constant("0.164.0"),
-    "dist/main-session-restart-recovery-DekokRXp.mjs":
-      "const resumeResult = await resumeMainSession({ entry });\n",
-    "dist/agent-database-startup-DQZqWc4z.mjs":
-      "if (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= 4) throw error;\n",
-  };
-  const dir = packageDir(t, files);
-  assert.throws(() => assertCodexClientVersionFloor(dir));
-  applyBundlePatches(dir, "2026.11.3");
-  assert.equal(assertCodexClientVersionFloor(dir).length, 2);
+test("the pinned version reaches the floor without a Codex client patch", () => {
+  // OpenClaw 2026.11.6 ships 0.169.0 itself (dist/base-url-*.mjs and the openai
+  // plugin's setup bundle), so none of its patches touches the constant.
+  const patches = runtimeBundlePatches[runtimeManifest.version] || [];
+  assert.ok(!patches.some((patch) => patch.before.includes("CODEX_CLIENT_VERSION")));
+  assert.ok(!patches.some((patch) => patch.id.startsWith("codex-catalog")));
 });

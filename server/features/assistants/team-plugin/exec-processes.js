@@ -241,11 +241,10 @@ const detailsEnd = "\n\nTreat this completion";
 const processLine =
   /^Exec [a-z]+ \(([A-Za-z0-9_-]{1,8}), [^)\n]*\)(?: :: .*| without captured stdout\/stderr\.)?$/;
 // OpenClaw's fixed note after a process line when the command hit its timeout
-// (user-facing-text EXEC_TIMEOUT_RETRY_GUIDANCE), accepted verbatim and only there:
-// 2026.11.2's wording, and the earlier one the rollback targets still write.
+// (user-facing-text EXEC_TIMEOUT_RETRY_GUIDANCE), accepted verbatim and only there
+// (the same wording in 2026.11.3 and 2026.11.6).
 const timeoutGuidance = new Set([
   "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun commands unless repeating them is safe. Use a higher timeout only when the command is known to be safe to retry.",
-  "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun non-idempotent commands. Use a higher timeout only when the command is known to be safe to retry.",
 ]);
 // OpenClaw 2026.10.7's envelope before a turn's prompt (injectTimestamp:
 // `[<weekday> YYYY-MM-DD HH:MM <zone>] `); it leaves it out for an invalid zone.

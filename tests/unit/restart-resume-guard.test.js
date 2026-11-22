@@ -7,19 +7,29 @@ import {
   assertNoRestartResume,
   restartResumeSites,
 } from "../helpers/restart-resume-guard.js";
-import { applyBundlePatches } from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+import {
+  applyBundlePatches,
+  runtimeBundlePatches,
+} from "../../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 
-const recovery = "dist/main-session-restart-recovery-DekokRXp.mjs";
-// The shape of 2026.11.3's recovery module: the resume's definition and its one call.
+const pinned = runtimeManifest.version;
+const resume = "dist/session-restart-resume-BzRgzT_h.mjs";
+// The shape of 2026.11.6's startup resume (src/gateway/session-restart-resume.ts,
+// minified): its entry point, the orphan withdrawal that spares the queued messages
+// a marker reserved, and the marker adoption.
 const shipped = [
-  "async function resumeMainSession(params) {",
-  "\treturn await runWithMainSessionRecoveryAdmission(params);",
+  "async function resumeMarkedSessions(e) {",
+  "\tawait resumeAgentSessions(e, [], new Set());",
   "}",
-  "async function recoverStore(params) {",
-  "\t\t\tconst resumeResult = await resumeMainSession({",
-  "\t\t\t\t...target,",
-  "\t\t\t\tentry",
-  "\t\t\t});",
+  "async function resumeAgentSessions(e, t, n) {",
+  "\tconst o = performance.timeOrigin;",
+  "\tfor (const e of l) {",
+  "\t\tconst t = await listOrphanedSessionPendingInputTargets(e, s.flatMap(({ entry: e }) => e.resumeAfterRestart?.queuedInputIds ?? []));",
+  "\t\tfor (const { sessionKey: t, entry: n } of s) {",
+  '\t\t\tconst r = n.resumeAfterRestart ?? (n.mainRestartRecovery && n.abortedLastRun === true && n.status === "interrupted" && n.updatedAt <= o && n.updatedAt >= o - LEGACY_RESTART_RESUME_WINDOW_MS ? { queuedInputIds: [] } : void 0);',
+  "\t\t}",
+  "\t}",
   "}",
   "",
 ].join("\n");
@@ -37,45 +47,39 @@ function packageDir(t, files) {
 
 // The other files the pinned version's patches touch, unpatched.
 const others = {
-  "dist/openclaw-state-lease-heartbeat-shared-BczGehzh.mjs":
-    "const LEASE_CONTENTION_RETRY_TIMEOUT_MS = 2e3;\n",
-  "dist/base-url-Baro1bPi.mjs": 'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";\n',
-  "dist/extensions/openai/.setup/provider-policy-api-BhWaBu5H.mjs":
-    'const OPENAI_CODEX_CLIENT_VERSION = "0.164.0";\n',
-  "dist/agent-database-startup-DQZqWc4z.mjs":
-    "if (!(error instanceof AgentDatabaseStartupSupersededError) || attempt >= 4) throw error;\n",
+  "dist/openclaw-state-lease-storage-BBSi-Imk.mjs":
+    "const o = n + (a ? OPENCLAW_SQLITE_BUSY_TIMEOUT_MS : LEASE_CONTENTION_RETRY_TIMEOUT_MS);\n",
 };
 
-test("the shipped recovery module resumes and fails the guard", (t) => {
-  const dir = packageDir(t, { [recovery]: shipped });
-  assert.deepEqual(restartResumeSites(dir), [
-    { file: recovery, defines: true, calls: 1 },
-  ]);
-  assert.throws(
-    () => assertNoRestartResume(dir),
-    /DekokRXp\.mjs \(1\).*no-restart-resume/,
-  );
+test("the shipped startup resume adopts markers and fails the guard", (t) => {
+  const dir = packageDir(t, { [resume]: shipped });
+  assert.deepEqual(restartResumeSites(dir), [{ file: resume, adopts: 1, reserves: 1 }]);
+  assert.throws(() => assertNoRestartResume(dir), /BzRgzT_h\.mjs.*no-restart-resume/);
 });
 
-test("the pinned version's patches leave no resume call", (t) => {
-  const dir = packageDir(t, { ...others, [recovery]: shipped });
-  applyBundlePatches(dir, "2026.11.3");
+test("the pinned version's patches leave no marker adoption or reservation", (t) => {
+  const patches = runtimeBundlePatches[pinned];
+  assert.deepEqual(
+    patches.filter((patch) => patch.file === resume).map((patch) => patch.id),
+    ["no-restart-resume", "no-restart-resume-inputs"],
+  );
+  const dir = packageDir(t, { ...others, [resume]: shipped });
+  applyBundlePatches(dir, pinned);
   assert.deepEqual(assertNoRestartResume(dir), [
-    { file: recovery, defines: true, calls: 0 },
+    { file: resume, adopts: 0, reserves: 0 },
   ]);
 });
 
-test("a call in another file fails too", (t) => {
-  const dir = packageDir(t, { ...others, [recovery]: shipped });
-  applyBundlePatches(dir, "2026.11.3");
-  fs.writeFileSync(
-    path.join(dir, "dist/chat-retry.mjs"),
-    "await resumeMainSession({ entry });\n",
-  );
-  assert.throws(() => assertNoRestartResume(dir), /chat-retry\.mjs \(1\)/);
+test("either patch alone still fails the guard", (t) => {
+  for (const id of ["no-restart-resume", "no-restart-resume-inputs"]) {
+    const dir = packageDir(t, { ...others, [resume]: shipped });
+    const one = { [pinned]: runtimeBundlePatches[pinned].filter((p) => p.id === id) };
+    applyBundlePatches(dir, pinned, one);
+    assert.throws(() => assertNoRestartResume(dir), /no-restart-resume/, id);
+  }
 });
 
-test("a package without the resume fails instead of passing silently", (t) => {
+test("a package without the startup resume fails instead of passing silently", (t) => {
   const dir = packageDir(t, { "dist/other.mjs": "export const x = 1;\n" });
-  assert.throws(() => assertNoRestartResume(dir), /No resumeMainSession/);
+  assert.throws(() => assertNoRestartResume(dir), /No resumeMarkedSessions/);
 });

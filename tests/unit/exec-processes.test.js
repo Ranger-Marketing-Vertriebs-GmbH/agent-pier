@@ -182,10 +182,9 @@ test("an exec call's id is open per session and run", (t) => {
   assert.equal(g.proof("o", "w1").complete, false, "still open in the other session");
 });
 
-// OpenClaw 2026.11.2's timeout note, and the one 2026.10.9 and earlier write.
+// OpenClaw's timeout note (2026.11.3 and 2026.11.6).
 const timeoutNotes = [
   "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun commands unless repeating them is safe. Use a higher timeout only when the command is known to be safe to retry.",
-  "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun non-idempotent commands. Use a higher timeout only when the command is known to be safe to retry.",
 ];
 
 test("OpenClaw's timeout guidance is read after its process line, nothing else", () => {
@@ -227,7 +226,7 @@ test("OpenClaw's timeout guidance is read after its process line, nothing else",
   assert.deepEqual(
     completedProcesses(
       text(
-        `Exec failed (brisk-or, code 124)\n\n${timeoutNotes[0]}\nExec failed (cool-nud, code 124)\n\n${timeoutNotes[1]}`,
+        `Exec failed (brisk-or, code 124)\n\n${timeoutNotes[0]}\nExec failed (cool-nud, code 124)\n\n${timeoutNotes[0]}`,
       ),
     ),
     ["brisk-or", "cool-nud"],

@@ -69,28 +69,22 @@ test("runtime selection rejects symlinked executable ancestors", async (t) => {
   await assert.rejects(selectedAssistantRuntime({ dataDir }), /unsafe/i);
 });
 
-test("the manifest pins OpenClaw 2026.11.3 and its predecessors as rollback targets", () => {
-  assert.equal(runtimeManifest.version, "2026.11.3");
-  assert.deepEqual(runtimeManifest.rollbackTargets, [
-    "2026.10.9",
-    "2026.10.7",
-    "2026.10.3",
-    "2026.9.9",
-    "2026.9.8",
-  ]);
+test("the manifest pins OpenClaw 2026.11.6 and only its direct predecessor as rollback target", () => {
+  assert.equal(runtimeManifest.version, "2026.11.6");
+  assert.deepEqual(runtimeManifest.rollbackTargets, ["2026.11.3"]);
 });
 
 test("fresh enable uses private Node and reuses a verified installation on update", async (t) => {
   const { dataDir, options } = assistantInstallFixture(t);
   const installed = await ensureAssistantRuntime(options);
-  assert.equal(installed.version, "2026.10.3");
+  assert.equal(installed.version, "2026.11.3");
   assert.ok(fs.existsSync(installed.nodePath));
   assert.ok(fs.existsSync(installed.entryPath));
   const { stageAssistantRuntime, selectedAssistantRuntime } =
     await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   assert.equal(typeof stageAssistantRuntime, "function");
   const active = path.join(dataDir, "assistants", "runtime.json");
-  const previous = { ...installed, version: "2026.9.9" };
+  const previous = { ...installed, version: "2026.11.2" };
   delete previous.dependencyLockSha256;
   fs.writeFileSync(active, JSON.stringify(previous));
   assert.equal((await stageAssistantRuntime(options)).version, installed.version);

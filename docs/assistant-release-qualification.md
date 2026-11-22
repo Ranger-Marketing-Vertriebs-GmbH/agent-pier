@@ -93,7 +93,7 @@ What is real and what is a double:
 
 | Part               | In the run                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway            | The pinned OpenClaw 2026.11.3 runtime (Node 26.12.1, lock `b6416c1203e6…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
+| Gateway            | The pinned OpenClaw 2026.11.6 runtime (Node 26.12.1, lock `9870a9aff363…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
 | AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.      |
 | Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                  |
 | Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                              |
@@ -336,28 +336,20 @@ for its fresh native platform matrix and remaining boundaries.
 ### Update paths installed users take
 
 An installed AgentPier updates to the newest release, and its next start stages the
-runtime that release pins (`stageRuntimeInBackground`); the owner activates it. No
-release requires an intermediate step, so a user's runtime update goes from whatever
-runtime their last release pinned straight to the current pin. The release tags pin:
+runtime that release pins (`stageRuntimeInBackground`); the owner activates it.
+AgentPier supports only the OpenClaw version it pins, and its one rollback target is
+the directly previous pin: the team plugin refuses every other version, so the agents
+of an installation still on an older runtime stay stopped until the owner activates
+the current pin, whose Doctor runs every migration in between in one pass.
 
-| AgentPier release | Pinned OpenClaw (Node) | Rollback targets                         | Update path to the current pin (2026.11.3, Node 26.12.1) |
-| ----------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------- |
-| v1.27.0 – v1.28.1 | 2026.9.8 (26.7.0)      | 2026.9.7                                 | 2026.9.8 → 2026.11.3 (skip update)                       |
-| v2.0.0            | 2026.9.9 (26.7.0)      | 2026.9.8, 2026.9.7                       | 2026.9.9 → 2026.11.3 (skip update)                       |
-| v2.1.0 – v2.5.1   | 2026.10.3 (26.7.0)     | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.3, with Node 26.7.0 → 26.12.1        |
-| v2.6.x            | 2026.10.3 (26.12.1)    | 2026.9.9, 2026.9.8                       | 2026.10.3 → 2026.11.3 (skip update)                      |
-| v2.7.0 – v2.12.0  | 2026.10.7 (26.12.1)    | 2026.10.3, 2026.9.9, 2026.9.8            | 2026.10.7 → 2026.11.3 (skip update)                      |
-| v2.13.0 – v2.19.0 | 2026.10.9 (26.12.1)    | 2026.10.7, 2026.10.3, 2026.9.9, 2026.9.8 | 2026.10.9 → 2026.11.3                                    |
+| AgentPier release             | Pinned OpenClaw (Node) | Rollback target | Update path to the current pin (2026.11.6, Node 26.12.1) |
+| ----------------------------- | ---------------------- | --------------- | -------------------------------------------------------- |
+| v2.20.0-rc.1 – v2.20.0-rc.8   | 2026.11.3 (26.12.1)    | 2026.10.9       | 2026.11.3 → 2026.11.6 (qualified, rollback target)       |
+| v2.13.0 – v2.19.0 and earlier | 2026.10.9 or older     | –               | activate 2026.11.6 (not qualified; agents wait for it)   |
 
-Releases before v1.27.0 had no managed assistants. 2026.9.7 was never pinned by a
-release, so no installed user runs it. 2026.9.8 → 2026.9.9 and every update to
-2026.10.3 or 2026.10.7 are no longer reachable: users of every release update
-straight to a release that pins 2026.11.3. v2.1.0 – v2.5.1 and v2.6.x pin the same
-OpenClaw and lock, so the `cross-version` job qualifies that pair with v2.6.1; the
-Node change of the older releases is part of the same activation. v2.7.0 – v2.12.0
-all pin the 2026.10.7 lock `aba8ef1b9a94…`; the job qualifies them with v2.12.0.
-v2.13.0 – v2.17.0 (and the 2.18.0 release candidates) all pin the 2026.10.9 lock
-`c4e4b69d557d…`; the job qualifies them with v2.17.0.
+The `cross-version` job qualifies the rollback target with `v2.20.0-rc.8`, the last
+release candidate that pins 2026.11.3 with its final lock `b6416c1203e6…` and patches
+`5621321a947d`.
 
 ### OpenClaw 2026.9.8 → 2026.10.3 skip update (2026-10-19)
 
@@ -404,10 +396,10 @@ AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/2026.10.3-runtime \
   tests/integration/assistant-mcp-oauth-cross-version.test.js
 ```
 
-The `cross-version` job of the `Assistant runtime` workflow now repeats both
-pairs on Ubuntu x64 nightly, on demand and before a release. It checks out the
-release tags `v1.28.1` and `v2.0.0` (and `v2.6.1` since 2026.10.7, `v2.12.0` since 2026.10.9, `v2.17.0` since 2026.11.2), provisions their runtimes as above, and fails
-when a test skips. Its matrix must follow `rollbackTargets`: a predecessor that
+The `cross-version` job of the `Assistant runtime` workflow repeats the update from
+the rollback target on Ubuntu x64 nightly, on demand and before a release. It checks
+out the release tag that pins the rollback target (`v2.20.0-rc.8` for 2026.11.3),
+provisions its runtime as above, and fails when a test skips. Its matrix must follow `rollbackTargets`: a predecessor that
 leaves the list is refused by the team plugin and leaves the matrix too.
 
 ### Node 26.12.1 security update (2026-10-23)
@@ -1006,6 +998,77 @@ five predecessors (`v1.28.1`, `v2.0.0`, `v2.6.1`, `v2.12.0`, `v2.17.0`) and the 
 fresh native installations (Linux x64/arm64, macOS x64/arm64, with the new
 `@openclaw/proc-safe` and `@resvg/resvg-js` prebuilds). Its native contracts fail on
 Linux and macOS with exactly the open items above.
+
+### OpenClaw 2026.11.3 → 2026.11.6 (2026-11-22)
+
+The update skips 2026.11.4 and 2026.11.5. With it AgentPier supports only the
+OpenClaw version it pins: `rollbackTargets` names the previous pin, 2026.11.3, alone
+(the team plugin refuses every other version), `writeGuardRuntimes` names the two,
+and the compatibility code for 2026.10.9 and older is gone (the offline-command
+version gate, the skills `refresh` version gate, the 2026.10.x exec timeout
+wording, the cross-version matrix entries of older releases).
+
+**Pins.** `openclaw` 2026.11.6 (`sha512-4MGjAMv8…BhHLw==`, checked against the npm
+registry's `dist.integrity` and the downloaded archive) and the search plugins
+`@openclaw/{duckduckgo,perplexity,brave}-plugin` 2026.11.6. The lock was resolved in
+full twice, byte for byte the same (443 entries, `9870a9aff363…`): 10 packages added
+(among them `@modelcontextprotocol/{client,core,node,server}`), 7 removed
+(`playwright-core` and `@homebridge/ciao` are now bundled inside the OpenClaw
+archive, `@mistralai/mistralai` is gone), 60 moved. 2026.11.6 ships zod 4.6.7 and
+undici 8.12.3 itself, so `dependencyOverrides` is empty. `advancedSettingsRuntime`
+moves to 2026.11.6.
+
+**Database migration.** The state database goes from schema 22 to 36 and each agent
+database from 27 to 38 (`OPENCLAW_STATE_SCHEMA_VERSION`, `OPENCLAW_AGENT_SCHEMA_VERSION`
+in the package); 2026.11.3 refuses the migrated data, so the update is one-way after
+commit.
+
+**Retired heartbeat monitor.** 2026.11.6 replaces OpenClaw's heartbeat monitor with
+ordinary automations; `agents.defaults.heartbeat` and `agents.entries.*.heartbeat`
+are retired keys that keep the Gateway from starting until `openclaw doctor --fix`
+converts them. AgentPier wrote `heartbeat: { every: "0m" }` to keep the monitor off;
+the compiler now removes the key from the defaults and every agent entry on each
+start, and it stays a locked path. AgentPier's check-ins are its own cron jobs
+(`native-heartbeats.js`) and need no monitor. A routine's `wakeMode: "next-heartbeat"`
+(sent only for `wakeNow: false`) is still accepted on a cron job, where 2026.11.6
+ignores it; only an untargeted `wake` RPC needs a scheduled automation now, and
+AgentPier sends none.
+
+**Package patches** (`runtime-bundle-patches.js`, `assistant-runtime-updates.md`
+"Package patches"):
+
+- `lease-release-retry` is kept and moved: 2026.11.6 retries a release that met a
+  SQLite lock until `OPENCLAW_SQLITE_BUSY_TIMEOUT_MS` (5 s) after the first attempt,
+  still too short for a lock held about 5 s; the patch sets 30 s in the release's own
+  deadline (`openclaw-state-lease-storage-*.mjs`), because the shared
+  `LEASE_CONTENTION_RETRY_TIMEOUT_MS` is now also read by the agent execution.
+- `no-restart-resume` is rewritten as two edits of `session-restart-resume-*.mjs`:
+  2026.11.6 replaced the main-session recovery with a startup resume that sends every
+  session marked at a graceful shutdown a resume input and replays its queued
+  messages; the patched start clears the markers without adopting them and
+  withdraws the queued messages.
+- `codex-catalog-client-version` (and `-setup`) is dropped: 2026.11.6 ships
+  `OPENAI_CODEX_CLIENT_VERSION = "0.169.0"`.
+- `superseded-publication-retry` is dropped: 2026.11.6's `publishAgent` converts a
+  superseded model runtime publication into the refusal its startup loop retries.
+  Its guard now checks that conversion.
+
+**Chats followed across a reset.** After an owner `/reset` or `/new` from Telegram,
+2026.11.6 commits a check-in or routine into the chat's new lifecycle with the same
+job (openclaw#199512); 2026.11.3 refused it ("session rebound"). `pinsChat` now
+answers true only below 2026.11.6, so `chat-rebind.js` re-creates jobs on the
+rollback target alone; the heartbeat and routine contracts pin the kept job.
+
+**Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
+adds `include`/`exclude` selectors, which AgentPier does not set.
+
+**Unclaimed configuration writes.** The native contracts first failed nearly
+everywhere with `UNAVAILABLE`: 2026.11.6 publishes readiness before it starts its
+config reloader, and a `config.patch` (or an `agents.create`/`.update`/`.delete`)
+in between is answered "… (unclaimed)"; the reloader applies the persisted file
+about a second later on its own (reproduced with a bare `maxConcurrent` patch right
+after readiness). `live-patch.js` now waits until `config.get` shows it applied and
+counts the write as done (see `assistant-gateway.md`).
 
 ### Native architectures (2026-10-19)
 

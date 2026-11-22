@@ -33,15 +33,20 @@ export const openClawRoutines = (supervisor, clientOf) =>
     clientOf,
   );
 
-// From 2026.11.2 a job with a chat target records the chat's lifecycle revision when
-// it is created and commits into no later one (../../chat-rebind.js).
-export const chatPinRuntime = "2026.11.2";
+// OpenClaw 2026.11.3 records a chat-target job's chat lifecycle revision when the job
+// is created and commits into no later one (../../chat-rebind.js); 2026.11.6 follows
+// the chat across a reset itself (openclaw#199512), so only the rollback target needs
+// the re-creation.
+export const chatFollowRuntime = "2026.11.6";
 
 function routinesOver(current, version, stateDir) {
   const call = async (...args) => current().call(...args);
   const port = {
     // Whether a chat target keeps the chat as it was when the job was created.
-    pinsChat: () => atLeast(version(), chatPinRuntime),
+    pinsChat: () => {
+      const running = version();
+      return !!running && !atLeast(running, chatFollowRuntime);
+    },
     // Every routine of `agentId` (every agent's without one), disabled ones included.
     async list({ agentId } = {}) {
       const jobs = [];
