@@ -294,7 +294,7 @@ export class McpOAuthLogins {
    * status 400 and runs nothing. Returns `{ serverId, result: "connected" }` or
    * `{ serverId, result: "error", reason }` with a stable reason.
    */
-  async complete({ state, code, error } = {}) {
+  async complete({ state, code, error, iss } = {}) {
     const login = typeof state === "string" ? this.pending.get(state) : undefined;
     // Single use: consumed synchronously, before anything awaits.
     if (login) this.pending.delete(state);
@@ -321,7 +321,7 @@ export class McpOAuthLogins {
       return { serverId, result: "error", reason: "code-missing" };
     let failed = null;
     try {
-      await this.serial(login.name, () => this.cli.completeLogin(login.name, code));
+      await this.serial(login.name, () => this.cli.completeLogin(login.name, code, iss));
     } catch (error) {
       failed = error;
     } finally {

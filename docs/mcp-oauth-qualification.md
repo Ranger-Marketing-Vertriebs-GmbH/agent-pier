@@ -95,7 +95,13 @@ Could not start the local OAuth callback (listen EADDRINUSE: address already in 
 Open this URL to authorize "<name>":
 <authorization URL>
 After approval, run openclaw mcp login <name> --code <code>.
+If the callback URL includes iss, pass its exact value with --issuer <iss> when completing login manually.
 ```
+
+OpenClaw 2026.11.6 added the last line: it checks a provider's `iss` (RFC 9207)
+with the code. AgentPier's OAuth callback passes the `iss` it receives as
+`--issuer` (`openclaw-mcp-cli.js` `completeLogin`, an http(s) URL without whitespace
+or fragment).
 
 The authorization URL is the line after `Open this URL to authorize "<name>":`. Its
 query carries `response_type=code`, `client_id`, `code_challenge`,
@@ -342,6 +348,7 @@ Could not start the local OAuth callback (OAuth callback redirect must use HTTP 
 Open this URL to authorize "<name>":
 <authorization URL>
 After approval, run openclaw mcp login <name> --code <code>.
+If the callback URL includes iss, pass its exact value with --issuer <iss> when completing login manually.
 ```
 
 The URL carries that `redirect_uri`; the authorization server redirects there, and

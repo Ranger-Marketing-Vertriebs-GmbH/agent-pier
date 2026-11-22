@@ -78,9 +78,9 @@ export class McpOAuthHolders {
     }
     return { authorizationUrl: started.authorizationUrl };
   }
-  async complete({ state, code, error } = {}) {
+  async complete({ state, code, error, iss } = {}) {
     const login = this.agentpier?.take(state);
-    if (!login) return this.legacy.complete({ state, code, error });
+    if (!login) return this.legacy.complete({ state, code, error, iss });
     let definition = null;
     try {
       definition = this.legacy.definition(login.serverId);
