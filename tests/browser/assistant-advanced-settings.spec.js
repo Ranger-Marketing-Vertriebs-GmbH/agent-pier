@@ -259,7 +259,7 @@ for (const phone of [false, true])
     page,
   }) => {
     if (phone) await page.setViewportSize({ width: 390, height: 844 });
-    const { state } = await setup(page, { hermes: "0.22.5" });
+    const { state } = await setup(page, { hermes: "0.23.3" });
     await page.goto(baseURL + "/settings/assistants-advanced");
     await expect(
       page.getByText("Settings without “OpenClaw only” also apply to Hermes agents."),
@@ -310,7 +310,7 @@ test("a Hermes version the mapping is not approved for is named", async ({ page 
 
 for (const [label, options] of [
   ["without Hermes", {}],
-  ["with Hermes but no Hermes agent", { hermes: "0.22.5", hermesAgents: 0 }],
+  ["with Hermes but no Hermes agent", { hermes: "0.23.3", hermesAgents: 0 }],
 ])
   test(`${label} the page names no runtime per setting`, async ({ page }) => {
     await setup(page, options);
