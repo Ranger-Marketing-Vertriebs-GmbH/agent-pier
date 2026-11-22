@@ -8,7 +8,7 @@ import { GatewayClient } from "../../server/features/assistants/runtimes/opencla
 import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // A pinned HTTPS origin like the Gateway's, serving managed media by path.
-async function origin(t, pair = issueGatewayCertificate()) {
+async function origin(t, pair = issueGatewayCertificate(), startup = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "gateway-download-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const certPath = path.join(directory, "gateway-cert.pem");
@@ -16,6 +16,8 @@ async function origin(t, pair = issueGatewayCertificate()) {
   const seen = [];
   const server = https.createServer(pair, (req, res) => {
     seen.push({ url: req.url, authorization: req.headers.authorization });
+    if (req.url === "/startupz" && startup.settled !== undefined)
+      return res.writeHead(startup.settled ? 200 : 503).end();
     if (req.url.startsWith("/api/chat/media/outgoing/big")) {
       res.writeHead(200, { "content-type": "image/png" });
       return res.end(Buffer.alloc(2048));
@@ -53,6 +55,25 @@ test("managed media is read from the pinned Gateway origin without its token", a
   await assert.rejects(
     client.download("/api/chat/media/outgoing/big", { maxBytes: 1024 }),
   );
+});
+
+test("a start waits for the Gateway's startup check, at most until its deadline", async (t) => {
+  const startup = { settled: false };
+  const { client, seen } = await origin(t, undefined, startup);
+  assert.equal(await client.startupSettled(), false);
+  const from = Date.now();
+  await client.settleStartup({ deadline: from + 300, pollMs: 50 });
+  assert.ok(Date.now() - from >= 250, "it polled until the deadline");
+  setTimeout(() => (startup.settled = true), 100);
+  await client.settleStartup({ deadline: Date.now() + 5000, pollMs: 50 });
+  assert.equal(await client.startupSettled(), true);
+  assert.ok(seen.every((r) => r.url === "/startupz" && r.authorization === undefined));
+  // A Gateway without the check (404) is settled at once.
+  assert.equal(await (await origin(t)).client.startupSettled(), true);
+  // A Gateway with another certificate than the pinned one is never settled.
+  const other = await origin(t, issueGatewayCertificate(), { settled: true });
+  other.client.certPath = (await origin(t)).certPath;
+  assert.equal(await other.client.startupSettled(), false);
 });
 
 test("a download never leaves the Gateway's origin", async (t) => {

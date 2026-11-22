@@ -312,6 +312,56 @@ export class GatewayClient extends EventEmitter {
     return pinnedSocket(url.href, this.certPath, { connected: false, secured: false });
   }
   /**
+   * OpenClaw 2026.11.6 accepts connections before its startup settled and starts its
+   * config reloader only then: a configuration write in between is left unclaimed
+   * and can wedge the reloader's first reconciliation ("config reload superseded"
+   * without end). So a start waits until `/startupz` answers 200, until `deadline`;
+   * a Gateway whose check never settles is used as before.
+   */
+  async settleStartup({ deadline, pollMs = 250 }) {
+    while (
+      !this.closed &&
+      !(await this.startupSettled()) &&
+      Date.now() + pollMs < deadline
+    )
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  /**
+   * Whether the Gateway's unauthenticated startup check (`/startupz`) answers 200,
+   * or 404 from a Gateway without one; pinned like the RPC connection, and false for
+   * any other answer or failure.
+   */
+  startupSettled({ timeoutMs = 2000 } = {}) {
+    let pin;
+    try {
+      pin = readGatewayPin(this.certPath);
+    } catch {
+      return Promise.resolve(false);
+    }
+    const url = new URL("/startupz", this.url.replace(/^wss:/, "https:"));
+    return new Promise((resolve) => {
+      const request = https.get(
+        url,
+        {
+          ca: pin.cert,
+          rejectUnauthorized: true,
+          servername: net.isIP(url.hostname) ? "" : url.hostname,
+          checkServerIdentity: (_host, certificate) =>
+            certificate?.fingerprint256 === pin.fingerprint
+              ? undefined
+              : gatewayError("ENDPOINT_UNTRUSTED"),
+          timeout: timeoutMs,
+        },
+        (response) => {
+          response.resume();
+          resolve([200, 404].includes(response.statusCode));
+        },
+      );
+      request.on("timeout", () => request.destroy());
+      request.on("error", () => resolve(false));
+    });
+  }
+  /**
    * Reads one file the Gateway serves on its own HTTPS origin (a managed media path
    * with its short-lived ticket, as artifacts.download returns it), pinned like the
    * RPC connection and bounded to `maxBytes`. Never sends the Gateway token.
