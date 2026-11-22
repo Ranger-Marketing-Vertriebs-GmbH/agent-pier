@@ -28,6 +28,7 @@ import {
 import { agentChatPath, chatFolderPath } from "../../../chat-file-folders.js";
 import { isShared } from "../../../../users/user-access.js";
 import { OLD_IMAGES, leftoverImages } from "./hermes-image-migration.js";
+import { cdpRefusal } from "./hermes-cdp-policy.js";
 
 // The OpenClaw tool each Hermes file tool corresponds to for the write rule
 // (tool-guard.js writeTools): write_file writes a file, patch edits one, and its V4A
@@ -367,6 +368,9 @@ export async function hermesGuard(bridge, input) {
   if (!agent || runtimeIdOf(agent) !== "hermes") return deny(writeRefusals.unauthorized);
   input = { ...input, ...chatKey(bridge, agent, input) };
   if (input.toolName.startsWith("browser_")) {
+    // Raw CDP reaches only the web pages the agent works on (hermes-cdp-policy.js).
+    const raw = input.toolName === "browser_cdp" ? cdpRefusal(args) : null;
+    if (raw) return deny(raw);
     const policy = await bridge.browserPolicy({
       agentId: input.agentId,
       ...(input.sessionKey && { sessionKey: input.sessionKey }),
