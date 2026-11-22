@@ -5,6 +5,9 @@
 //   compaction model call follows, then `preparing_workspace` for the run itself;
 // - inside a run: the `compaction` stream, phase `start`, then `end` (`willRetry`
 //   keeps it going).
+// 2026.11.6 runs the memory-triggered flush and compaction after a turn as optional
+// session maintenance without a run, and reports neither: only a run's own
+// `compaction` stream (and a preflight that has a run id) still shows here.
 // A run that ends or fails ends its compaction too, and so does any event of another
 // run on the session. The chat shows it only for the conversation's active attempt. The finished compaction is a
 // `kind: "compaction"` marker in chat.history (publicMessages).

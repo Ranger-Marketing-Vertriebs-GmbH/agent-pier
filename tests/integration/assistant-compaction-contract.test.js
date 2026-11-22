@@ -91,7 +91,7 @@ async function compactingModel(seen, summarising) {
 
 const packageRoot = process.env.AGENTPIER_ASSISTANT_MEMORY_RUNTIME;
 test(
-  "pinned runtime: a run that compacts its history reports it before it answers",
+  "pinned runtime: memory-triggered compaction runs as silent maintenance between turns",
   { skip: !packageRoot, timeout: contractTimeout(180000) },
   async (t) => {
     const runtimeVersion = JSON.parse(
@@ -233,11 +233,18 @@ test(
         idempotencyKey: attempt.id,
       });
       ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
-      const done = await runtime.client.call(
-        "agent.wait",
-        { runId: sent.runId, timeoutMs: 60000 },
-        { timeoutMs: 65000 },
-      );
+      // OpenClaw 2026.11.6 answers a run queued behind the session's compaction at
+      // once as pending; it is awaited again until it ran.
+      let done;
+      for (let n = 0; n < 240; n++) {
+        done = await runtime.client.call(
+          "agent.wait",
+          { runId: sent.runId, timeoutMs: 60000 },
+          { timeoutMs: 65000 },
+        );
+        if (done.status !== "pending") break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
       ledger.transition(attempt.id, "completed");
       return done;
     }
@@ -246,19 +253,21 @@ test(
       firstFrames = frames.length;
     await turn("And the DNS server at 10.0.0.53.", { kind: "owner" });
     const second = seen.slice(before);
-    // The run flushes memory, then summarises, then answers; AgentPier showed the
-    // session as summarising until the answer. The cut splits the first turn:
-    // 2026.10.3 summarises only its prefix (one call), 2026.10.7 also reconciles the
-    // history (two calls).
-    const summaries = /^2026\.(9\.|10\.[0-5]$)/.test(runtimeVersion) ? 1 : 2;
+    // 2026.11.6 flushes memory and summarises after the first turn, as optional
+    // session maintenance (preemptible, without a run of its own); the second turn
+    // waits for it, then answers. The cut splits the first turn: one summary of its
+    // prefix and one reconciliation of the history.
     assert.deepEqual(
       second.map((s) => s.kind),
-      ["flush", ...Array(summaries).fill("summary"), "turn"],
+      ["flush", "summary", "summary", "turn"],
       JSON.stringify(second),
     );
+    // Maintenance reports nothing on the operator connection: no run_status
+    // `memory_flushing` and no `compaction` stream, so AgentPier shows no summarising
+    // state for it (compactions.js still follows a run's own compaction).
     assert.deepEqual(
       second.map((s) => s.summarising),
-      [true, ...Array(summaries).fill(true), false],
+      [false, false, false, false],
       JSON.stringify(second),
     );
     assert.equal(compactions.active(created.key), false, "over once the run is");
@@ -267,18 +276,15 @@ test(
       fs.readFileSync(path.join(runtime.paths.logs, "gateway-console.log"), "utf8"),
       /quality_guard_degraded_fallback|failed quality checks/,
     );
-    // The phases on the source session, in order: memory_flushing, preparing_context
-    // (the flush ended, the summary call follows), preparing_workspace (the run).
-    const phases = frames
-      .slice(firstFrames)
-      .filter((f) => f.stream === "run_status" && f.sessionKey === created.key)
-      .map((f) => f.phase);
-    const flushAt = phases.indexOf("memory_flushing");
-    assert.ok(flushAt >= 0, JSON.stringify(phases));
+    const later = frames.slice(firstFrames);
     assert.deepEqual(
-      phases.slice(flushAt, flushAt + 3),
-      ["memory_flushing", "preparing_context", "preparing_workspace"],
-      JSON.stringify(phases),
+      later.filter(
+        (f) =>
+          f.stream === "compaction" ||
+          (f.stream === "run_status" && f.phase === "memory_flushing"),
+      ),
+      [],
+      JSON.stringify(later),
     );
     // The finished compaction is a marker in the history with its token counts.
     const history = await runtime.client.call("chat.history", {
