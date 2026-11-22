@@ -131,7 +131,13 @@ test("the pinned version's patches", () => {
   const list = runtimeBundlePatches[runtimeManifest.version];
   assert.deepEqual(
     list.map((patch) => patch.id),
-    ["lease-release-retry", "no-restart-resume", "no-restart-resume-inputs"],
+    [
+      "lease-release-retry",
+      "no-restart-resume",
+      "no-restart-resume-inputs",
+      "hydrated-tools-kept",
+      "hydrated-tools-kept-list",
+    ],
   );
   const [lease, resume, inputs] = list;
   // A lease release that met a SQLite lock is retried for 30 s instead of 5 s; the
