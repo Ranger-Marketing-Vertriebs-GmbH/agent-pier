@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { HermesRoutineMeta } from "../../server/features/assistants/runtimes/hermes/hermes-routine-meta.js";
+import {
+  HermesRoutineMeta,
+  routineMetaOf,
+} from "../../server/features/assistants/runtimes/hermes/hermes-routine-meta.js";
+import { HermesRoutineDeliveries } from "../../server/features/assistants/runtimes/hermes/hermes-routines.js";
 import {
   fakeHermesSupervisor,
   hermesTestRuntime,
@@ -73,4 +77,59 @@ test("routines keep their meta although Hermes refuses the field, and old jobs u
   const updated = await routines.update({ id: "old1", patch: { enabled: false } });
   assert.equal(updated.marker, "agentpier-reminder:o");
   assert.equal(updated.enabled, false);
+});
+
+test("only a job Hermes no longer knows loses its meta, not one a listing missed", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-routine-prune-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const supervisor = { agentId: "ap-1", agentPaths: () => ({ hermesHome: home }) };
+  const meta = routineMetaOf(supervisor);
+  meta.set("kept", { marker: "k" });
+  meta.set("gone", { marker: "g" });
+  // A listing without the jobs (Hermes answers [] while its jobs.json is missing).
+  const client = {
+    ready: true,
+    call: async (_method, { path: route }) =>
+      route === "/api/cron/jobs"
+        ? { status: 200, body: [] }
+        : route.endsWith("/gone")
+          ? { status: 404, body: { detail: "Job not found" } }
+          : { status: 200, body: { id: "kept" } },
+  };
+  const deliveries = new HermesRoutineDeliveries({ supervisor, file: null });
+  deliveries.client = client;
+  await deliveries.pass();
+  assert.deepEqual(meta.ids(), ["kept"]);
+});
+
+test("an unreadable meta file is set aside and reported, never overwritten", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-routine-corrupt-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const errors = [];
+  t.mock.method(console, "error", (line) => errors.push(String(line)));
+  for (const text of ["{not json", "[1, 2]"]) {
+    const file = path.join(dir, "agentpier-routines.json");
+    fs.writeFileSync(file, text);
+    const meta = new HermesRoutineMeta(file);
+    assert.deepEqual(meta.ids(), []);
+    const aside = fs.readdirSync(dir).filter((name) => name.includes(".corrupt-"));
+    assert.ok(
+      aside.some((name) => fs.readFileSync(path.join(dir, name), "utf8") === text),
+      text,
+    );
+    meta.set("j1", { marker: "m" });
+    assert.deepEqual(meta.ids(), ["j1"]);
+    fs.rmSync(file);
+  }
+  assert.equal(errors.filter((e) => /HERMES_ROUTINE_META_UNREADABLE/.test(e)).length, 2);
+});
+
+test("an agent without its folders gets no routine meta that would vanish", () => {
+  const supervisor = {
+    agentPaths: () => {
+      throw Object.assign(Error("Invalid Hermes agent id."), { code: "HERMES_AGENT_ID" });
+    },
+  };
+  assert.throws(() => routineMetaOf(supervisor), { code: "HERMES_AGENT_ID" });
+  assert.throws(() => routineMetaOf(supervisor), { code: "HERMES_AGENT_ID" });
 });

@@ -1261,7 +1261,11 @@ of delivered runs: Hermes v0.23 refuses to update any job field its REST routes 
 list (`hermes_cli/web_routers/cron.py`). A job written for Hermes v0.22.5 still carries
 that part in its own `agentpier` field, which counts until AgentPier writes the job's
 entry, so jobs of either release are read and a rollback to v0.22.5 keeps the routines
-added since. A job is created paused, given its entry and only then resumed, so it never
+added since. An entry goes only once Hermes answers "not found" for its job, never because
+a listing missed it (Hermes lists none while its `cron/jobs.json` is missing); a file
+that is no JSON object is set aside as `agentpier-routines.json.corrupt-<time>` and
+reported (`HERMES_ROUTINE_META_UNREADABLE` in the server log), never written over.
+A job is created paused, given its entry and only then resumed, so it never
 runs without AgentPier's marker. Hermes's forced run (`trigger`) resumes a paused job; a
 routine that was disabled (event routines, hook runs) is paused again right after it.
 The trigger answers once the run ended; a run still going after 15 seconds counts as

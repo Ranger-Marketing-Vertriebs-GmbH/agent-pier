@@ -83,6 +83,18 @@ const jobPath = (id) => {
   return `/api/cron/jobs/${id}`;
 };
 
+// Of the job ids `ids`, the ones the gateway answers "not found" for.
+async function gone(client, ids) {
+  const found = [];
+  for (const id of ids)
+    try {
+      await hermesRest(client, "GET", jobPath(id));
+    } catch (error) {
+      if (error.code === "NOT_FOUND") found.push(id);
+    }
+  return found;
+}
+
 // The jobs of the gateway's home, each with AgentPier's part (`meta`,
 // hermes-routine-meta.js); a listing that is no list is unavailable.
 async function listJobs(client, meta) {
@@ -120,7 +132,12 @@ export async function repinned(client, job, { zone, now = Date.now() } = {}) {
 
 function routinesOver(current, supervisor, deliveries, zone) {
   const agentId = supervisor.agentId;
-  const meta = routineMetaOf(supervisor);
+  // Read at each call: binding the port names no folder yet.
+  const meta = {
+    attach: (job) => routineMetaOf(supervisor).attach(job),
+    set: (id, value) => routineMetaOf(supervisor).set(id, value),
+    delete: (id) => routineMetaOf(supervisor).delete(id),
+  };
   const timing = () => ({ zone: zoneOf(zone), now: Date.now() });
   const link = async () => reachable(current());
   const own = (routine) => {
@@ -371,11 +388,13 @@ export class HermesRoutineDeliveries {
     const client = this.client;
     if (!client?.ready) return;
     const meta = routineMetaOf(this.supervisor);
-    // Only meta older than the listing can name a job that is gone: a routine added
-    // meanwhile keeps its own.
+    // Only meta older than the listing can name a job that is gone (a routine added
+    // meanwhile keeps its own), and only Hermes's own "not found" for that job drops
+    // it: a listing can miss jobs (it answers [] while its jobs.json is missing).
     const known = meta.ids();
     const jobs = await listJobs(client, meta);
-    meta.prune(known.filter((id) => !jobs.some((job) => job.id === id)));
+    const missing = known.filter((id) => !jobs.some((job) => job.id === id));
+    meta.prune(await gone(client, missing));
     const records = this.records();
     let changed = false;
     for (const id of Object.keys(records))
