@@ -9,7 +9,10 @@ import { hangGuard } from "../helpers/hang-guard.js";
 import { HermesSupervisor } from "../../server/features/assistants/runtimes/hermes/hermes-supervisor.js";
 import { createHermesAgentHost } from "../../server/features/assistants/runtimes/hermes/hermes-host.js";
 import { clientOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
-import { hermesEnvironment } from "../../server/features/assistants/runtimes/hermes/hermes-environment.js";
+import {
+  harnessRuntimeDir,
+  hermesEnvironment,
+} from "../../server/features/assistants/runtimes/hermes/hermes-environment.js";
 import { HOST_AVAILABILITY } from "../../server/features/assistants/runtimes/agent-runtime.js";
 
 // Waits follow the processes' own progress: a loaded host stretches process starts
@@ -107,15 +110,53 @@ test("stop ends both process groups, descendants included, and nothing stays", a
     "utf8",
   );
   assert.ok(fs.existsSync(socket));
+  const harness = harnessRuntimeDir(supervisor.agentPaths().home);
+  assert.ok(fs.existsSync(harness));
   await host.stop();
-  // The killed gateway's control socket folder is gone with it.
+  // The killed gateway's control socket folder is gone with it, and the browser
+  // engine's runtime folder.
   assert.equal(fs.existsSync(path.dirname(socket)), false);
+  assert.equal(fs.existsSync(harness), false);
   assert.equal(host.status().availability, "disabled");
   assert.equal(host.connected(connection), false);
   assert.equal(dropped, 1);
   for (const pid of [...pids, grandchild]) assert.equal(alive(pid), false, String(pid));
   await host.assertStopped();
   assert.equal(host.restartNeeded(), false);
+});
+
+test("stop ends the browser engine daemons that published their pid", async (t) => {
+  const fake = hermesFakeRuntime(t);
+  const { supervisor, host } = supervised(t, fake);
+  await host.start();
+  const harness = harnessRuntimeDir(supervisor.agentPaths().home);
+  // A daemon in a session of its own, as browser-harness starts one, and a process
+  // that is none: only the daemon is ended.
+  const daemon = spawn(
+    process.execPath,
+    ["-e", "setInterval(() => {}, 1000)", "browser_harness.daemon"],
+    { detached: true, stdio: "ignore" },
+  );
+  const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    detached: true,
+    stdio: "ignore",
+  });
+  t.after(() => {
+    for (const child of [daemon, other])
+      try {
+        process.kill(child.pid, "SIGKILL");
+      } catch {
+        /* Gone. */
+      }
+  });
+  await delay(200);
+  fs.writeFileSync(path.join(harness, "bu-local-1.pid"), `${daemon.pid}\n`);
+  fs.writeFileSync(path.join(harness, "bu-local-2.pid"), `${other.pid}\n`);
+  await host.stop();
+  for (let n = 0; n < 50 && alive(daemon.pid); n++) await delay(50);
+  assert.equal(alive(daemon.pid), false);
+  assert.equal(alive(other.pid), true);
+  assert.equal(fs.existsSync(harness), false);
 });
 
 test(

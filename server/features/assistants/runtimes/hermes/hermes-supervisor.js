@@ -6,7 +6,7 @@ import { execFileSync, spawn as spawnProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readJSON } from "../../../../lib/storage.js";
 import { hermesAgentPaths, hermesPaths } from "./hermes-paths.js";
-import { hermesEnvironment } from "./hermes-environment.js";
+import { harnessRuntimeDir, hermesEnvironment } from "./hermes-environment.js";
 import { selectedHermesRuntime } from "./hermes-install.js";
 import { rpcTransport, stdioTransport } from "./hermes-transport.js";
 import { createHermesClient } from "./hermes-connection.js";
@@ -354,17 +354,58 @@ export class HermesSupervisor extends EventEmitter {
       ? folder
       : null;
   }
-  /** Removes the set's control socket folder once no process of the set runs. */
+  /**
+   * Removes the set's control socket folder and its browser engine's runtime folder
+   * (hermes-environment.js harnessRuntimeDir) once no process of the set runs.
+   */
   removeControlSocket(set) {
-    const folder = set.socketFolder || this.controlSocketFolder(this.agentPaths());
-    if (!folder) return;
+    let agent = null;
     try {
-      const stat = fs.lstatSync(folder);
-      if (!stat.isDirectory() || (process.getuid && stat.uid !== process.getuid()))
-        return;
-      fs.rmSync(folder, { recursive: true, force: true });
+      agent = this.agentPaths();
     } catch {
-      /* Already gone. */
+      /* No folders: nothing of them to remove. */
+    }
+    const folders = [
+      set.socketFolder || (agent && this.controlSocketFolder(agent)),
+      agent && harnessRuntimeDir(agent.home),
+    ];
+    for (const folder of folders.filter(Boolean))
+      try {
+        const stat = fs.lstatSync(folder);
+        if (!stat.isDirectory() || (process.getuid && stat.uid !== process.getuid()))
+          continue;
+        if (agent && folder === harnessRuntimeDir(agent.home)) this.endHarness(folder);
+        fs.rmSync(folder, { recursive: true, force: true });
+      } catch {
+        /* Already gone. */
+      }
+  }
+  /**
+   * Ends the browser engine daemons that published their pid in `folder`: each runs in
+   * a session of its own and outlives the set; Hermes v0.23 ends its own, v0.22.5 left
+   * them running. Only a process that is a browser-harness daemon is signalled.
+   */
+  endHarness(folder) {
+    for (const name of fs.readdirSync(folder)) {
+      if (!name.endsWith(".pid")) continue;
+      const pid = Number.parseInt(fs.readFileSync(path.join(folder, name), "utf8"), 10);
+      if (!Number.isSafeInteger(pid) || pid <= 1) continue;
+      let command = "";
+      try {
+        command = execFileSync("ps", ["-o", "command=", "-p", String(pid)], {
+          encoding: "utf8",
+        });
+      } catch {
+        continue;
+      }
+      if (!/\bbrowser_harness\.daemon\b/.test(command)) continue;
+      for (const target of [-pid, pid])
+        try {
+          this.kill(target, "SIGTERM");
+          break;
+        } catch {
+          /* Not a group of its own, or gone. */
+        }
     }
   }
   /**
