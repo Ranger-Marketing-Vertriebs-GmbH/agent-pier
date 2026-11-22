@@ -91,7 +91,10 @@ async function cdp(t, browser) {
   const waiting = new Map();
   ws.onmessage = (event) => {
     const message = JSON.parse(event.data);
-    waiting.get(message.id)?.(message);
+    if (!Number.isInteger(message.id) || !waiting.has(message.id)) return;
+    const resolve = waiting.get(message.id);
+    waiting.delete(message.id);
+    resolve(message);
   };
   return (method, params = {}, sessionId) =>
     new Promise((resolve) => {
