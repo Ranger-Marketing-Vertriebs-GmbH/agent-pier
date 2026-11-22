@@ -247,10 +247,11 @@ test(
 
     // 3. OpenClaw's completion run in the chat's session ends. 2026.10.3 marks its
     // events heartbeat-driven; 2026.10.7's ordinary event turn has no marked event,
-    // so it is the session's one run that is not the owner's.
+    // so it is the session's one run that is not the owner's (2026.11.6 leaves
+    // `isHeartbeat` out).
     const ended = (e) =>
       (eventTurns
-        ? e.isHeartbeat === false && e.runId !== owner.runId
+        ? e.isHeartbeat !== true && e.runId !== owner.runId
         : e.isHeartbeat === true) &&
       e.sessionKey === session.key &&
       e.stream === "lifecycle" &&

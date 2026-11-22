@@ -130,9 +130,11 @@ test(
     ]);
     assert.equal(new URL(printed[2]).href, authorizationUrl.href);
     const query = authorizationUrl.searchParams;
-    // Dynamic client registration as a public client for exactly that redirect URL.
+    // Dynamic client registration as a public native client (2026.11.6) for exactly
+    // that redirect URL.
     const [registration] = oauth.log.filter((e) => e.path === "/register");
     assert.deepEqual(registration.metadata, {
+      application_type: "native",
       client_name: "OpenClaw MCP",
       redirect_uris: [redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],
@@ -223,19 +225,17 @@ test(
     oauth.revokeRefreshTokens();
     oauth.expireAccessTokens();
     assert.deepEqual((await turn(null, "revoked")).offered, []);
-    // The SDK drops the tokens on invalid_grant: `pending-authorization`, no tokens.
-    assert.deepEqual(await state("docs"), {
-      hasTokens: false,
-      requiresAuthorization: false,
-      hasClientInformation: true,
-      hasCodeVerifier: false,
-      hasDiscoveryState: true,
-      hasLastAuthorizationUrl: false,
-      state: "pending-authorization",
-    });
+    // 2026.11.6 keeps the stored tokens after invalid_grant and still reports
+    // `authorized` (2026.11.3 dropped them and reported `pending-authorization`); the
+    // server stays without tools, and the Gateway logs the refusal as an outage it
+    // retries ("MCP OAuth refresh failed (400): invalid_grant; server unavailable").
+    const revoked = await state("docs");
+    t.diagnostic(`after a revoked refresh token: ${JSON.stringify(revoked)}`);
+    assert.equal(revoked.hasClientInformation, true);
+    assert.equal(revoked.hasCodeVerifier, false);
     assert.match(
       gatewayLog().at(-1),
-      /requires OAuth authorization\. Run openclaw mcp login docs/,
+      /requires OAuth authorization\. Run openclaw mcp login docs|MCP OAuth refresh failed \(400\): invalid_grant/,
     );
 
     // A new login right after a failed start: the login's maintenance window

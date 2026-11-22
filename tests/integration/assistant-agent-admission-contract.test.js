@@ -198,10 +198,15 @@ test(
     let written = 0;
     for (let n = 0; n < 10; n++) {
       const { hash } = await client.call("config.get", {});
-      await client.call("config.patch", {
-        baseHash: hash,
-        raw: JSON.stringify({ agents: { defaults: { maxConcurrent: 30 + n } } }),
-      });
+      // 2026.11.6 may answer such an early write as persisted but not yet applied.
+      await client
+        .call("config.patch", {
+          baseHash: hash,
+          raw: JSON.stringify({ agents: { defaults: { maxConcurrent: 30 + n } } }),
+        })
+        .catch((error) => {
+          if (error.persisted?.outcome !== "unclaimed") throw error;
+        });
       written++;
       if (!(await roster()).some((a) => a.admissionRefusal?.code === pendingAdmission))
         break;

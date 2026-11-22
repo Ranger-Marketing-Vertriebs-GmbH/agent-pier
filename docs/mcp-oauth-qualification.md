@@ -82,7 +82,7 @@ seconds, 0 skips, 0 failures. Each CLI call took 1.0 to 1.9 seconds.
 
 `mcp.servers.*.auth` and `mcp.servers.*.oauth` reload hot. OpenClaw registers
 itself by DCR as a public client for exactly the configured redirect URL:
-`{"client_name":"OpenClaw MCP","redirect_uris":[<redirectUrl>],"grant_types":["authorization_code","refresh_token"],"response_types":["code"],"token_endpoint_auth_method":"none"}`.
+`{"application_type":"native","client_name":"OpenClaw MCP","redirect_uris":[<redirectUrl>],"grant_types":["authorization_code","refresh_token"],"response_types":["code"],"token_endpoint_auth_method":"none"}`.
 
 ## Verified facts
 

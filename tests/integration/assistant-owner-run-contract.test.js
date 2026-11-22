@@ -277,9 +277,9 @@ test(
     assert.notEqual(write.runId, owner.runId, "a run of its own");
     assert.ok(run.length, "the completion run's agent events reach AgentPier");
     if (eventTurns) {
-      // No agent event marks it.
+      // No agent event marks it (2026.11.6 leaves `isHeartbeat` out).
       assert.ok(
-        run.every((e) => e.isHeartbeat === false),
+        run.every((e) => e.isHeartbeat !== true),
         "no event marks it",
       );
     } else {
@@ -306,9 +306,11 @@ test(
       }));
     t.diagnostic(`sessions.get users=${JSON.stringify(users)}`);
     assert.equal(users[0].idempotencyKey, `${owner.attempt.id}:user`);
+    // 2026.11.6 names the run that started the command: the owner turn's.
     assert.deepEqual(users.at(-1).provenance, {
       kind: "internal_system",
       sourceTool: "exec",
+      runId: owner.runId,
       ...(users.at(-1).provenance?.sourceSessionKey !== undefined && {
         sourceSessionKey: users.at(-1).provenance.sourceSessionKey,
       }),
@@ -330,7 +332,11 @@ test(
       assert.equal(page.messages[first - 1], entry, "the run's user entry");
       assert.equal(entry.__openclaw?.runId, undefined);
       assert.notEqual(entry.idempotencyKey, `${write.runId}:user`);
-      assert.deepEqual(entry.provenance, { kind: "internal_system", sourceTool: "exec" });
+      assert.deepEqual(entry.provenance, {
+        kind: "internal_system",
+        sourceTool: "exec",
+        runId: owner.runId,
+      });
       // 2026.10.7 – 2026.10.9 keep no projection; 2026.11.2 keeps the framed prompt
       // of 2026.10.3 again (version 1), naming the same processes as the line.
       const projection = entry.__openclaw?.modelPromptProjection;

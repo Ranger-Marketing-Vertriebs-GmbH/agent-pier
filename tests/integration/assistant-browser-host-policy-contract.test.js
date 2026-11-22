@@ -230,7 +230,7 @@ async function listen(t, host, handler) {
 }
 
 test(
-  "native browser redirect rejection is not a pre-request network boundary",
+  "native browser redirects are checked hop by hop before their request",
   options,
   async (t) => {
     const native = await runtime();
@@ -306,18 +306,14 @@ test(
       /private|internal/i,
     );
     assert.equal(blockedRequests, 0);
-    const response = await native.gotoPageWithNavigationGuard({
-      ...opts,
-      url: `${source}/`,
-    });
+    // 2026.11.6 fences every redirect hop (installNavigationAuthorityFence): the
+    // redirect to the private target is refused before its request is sent (2026.11.3
+    // reached it and denied only the result).
     await assert.rejects(
-      native.assertPageNavigationCompletedSafely({ ...opts, response }),
+      native.gotoPageWithNavigationGuard({ ...opts, url: `${source}/` }),
       /private|internal/i,
     );
-    assert.ok(
-      blockedRequests > 0,
-      "the redirect target was reached before the result was denied",
-    );
+    assert.equal(blockedRequests, 0, "the redirect target was never requested");
     // Each permanent agent still has its own browser context. Both get the same
     // global permission; neither receives the other context's cookies.
     for (let index = 0; index < 2; index++) {

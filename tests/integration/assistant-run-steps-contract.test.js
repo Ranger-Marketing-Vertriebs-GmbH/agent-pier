@@ -2,6 +2,7 @@ import test from "node:test";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { setTimeout as delay } from "node:timers/promises";
 import { shellGateway } from "../helpers/assistant-shell-gateway.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { RunSteps } from "../../server/features/assistants/run-steps.js";
@@ -173,10 +174,16 @@ test(
     assert.ok(retries.length > 0);
     assert.equal(retries[0].payload.data.reason, "timeout");
     assert.ok(Number.isInteger(retries[0].payload.data.maxRetries));
-    const ended = events.find(
-      (e) => e.event === "chat" && e.payload.state === "error" && e.payload.errorKind,
-    );
-    assert.equal(ended?.payload.errorKind, "timeout", JSON.stringify(events.at(-1)));
+    // 2026.11.6 publishes the terminal chat frame once the run's end is persisted,
+    // which can be after agent.wait answered.
+    const chatError = () =>
+      ofRun(watcher.events, sent.runId).find(
+        (e) => e.event === "chat" && e.payload.state === "error",
+      );
+    for (let n = 0; n < 100 && !chatError(); n++) await delay(100);
+    const ended = chatError();
+    t.diagnostic(`terminal chat frame=${JSON.stringify(ended?.payload)}`);
+    assert.equal(openClawRunEvent(ended).reason, "timeout", JSON.stringify(ended));
     const steps = new RunSteps();
     for (const event of retries) steps.observe(openClawRunEvent(event));
     assert.equal(steps.view(sent.runId).phase, "retrying");

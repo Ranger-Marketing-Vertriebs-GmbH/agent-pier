@@ -189,8 +189,10 @@ test(
     );
     t.diagnostic(`corpus files: ${JSON.stringify(fs.readdirSync(corpusDir))}`);
 
-    // 1. Removed by hand while the transcript remains: the next run reads the state
-    // at its start and writes it back whole at its end, so the chat is re-ingested.
+    // 1. Removed by hand while the transcript remains: 2026.11.6 writes back the
+    // ingestion state it holds (files entry and seen hashes return), so the chat is
+    // not ingested again and its stripped corpus lines stay out. Only memory-core's
+    // own forget (3. below) removes a chat; AgentPier never edits this state by hand.
     // A short-lived handle on the live Gateway's databases, closed on every path.
     const withDb = (file, options, use) => {
       const db = new DatabaseSync(file, options);
@@ -245,8 +247,8 @@ test(
     const retainedKey = second.files.some((k) => k.endsWith(`/${ids.retain}`));
     assert.deepEqual(
       [retained, retainedKey],
-      [true, true],
-      "a hand removal does not survive while the transcript remains",
+      [false, true],
+      "a hand removal of state rows is undone, its corpus lines are not re-written",
     );
     // The run drops the files entry of a chat whose transcript is gone, but keeps
     // its corpus lines and its seen-message hashes.
