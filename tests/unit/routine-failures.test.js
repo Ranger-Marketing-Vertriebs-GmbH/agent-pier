@@ -21,6 +21,10 @@ test("OpenClaw's run errors map to a readable cause", () => {
   // 2026.11.2 records a run its Gateway's restart interrupted so.
   assert.equal(reason("Gateway stopping."), "gateway-restart");
   assert.equal(
+    reason("agent run aborted for restart | OPENCLAW_RESTART_ABORT"),
+    "gateway-restart",
+  );
+  assert.equal(
     reason("cron: active runs did not drain before shutdown timeout"),
     "gateway-restart",
   );

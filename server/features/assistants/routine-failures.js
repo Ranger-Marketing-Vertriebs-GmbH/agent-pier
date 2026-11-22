@@ -38,11 +38,12 @@ const modelReasons = new Set([
 // reason ("cron: job interrupted by gateway restart", "… because owner is
 // unavailable" when the Gateway went away, an agent missing from the configuration).
 const outside = [
-  // Also a run started while a restarted Gateway still settles its cron receipts, and
-  // 2026.11.2's "Gateway stopping." for a run the restart interrupted.
+  // Also a run started while a restarted Gateway still settles its cron receipts,
+  // "Gateway stopping." for a run the restart interrupted, and 2026.11.6's "agent run
+  // aborted for restart | OPENCLAW_RESTART_ABORT".
   [
     "gateway-restart",
-    /interrupted by gateway restart|did not drain before shutdown|receipt authority is unavailable|^\s*gateway stopping\.?\s*$/im,
+    /interrupted by gateway restart|did not drain before shutdown|receipt authority is unavailable|^\s*gateway stopping\.?\s*$|aborted for restart|OPENCLAW_RESTART_ABORT/im,
   ],
   [
     "gateway-stopped",
