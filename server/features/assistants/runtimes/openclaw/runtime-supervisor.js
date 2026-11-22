@@ -450,8 +450,7 @@ export class RuntimeSupervisor extends EventEmitter {
         child.starting = false;
         break;
       } catch (error) {
-        // ENDPOINT_UNTRUSTED: something else answers on the probed port without our
-        // certificate. The token was not sent; retry on a fresh port instead.
+        // ENDPOINT_UNTRUSTED: another listener without our certificate; use a new port.
         if (
           ["UNAUTHORIZED", "PROTOCOL_MISMATCH", "ENDPOINT_UNTRUSTED"].includes(error.code)
         )
@@ -460,7 +459,8 @@ export class RuntimeSupervisor extends EventEmitter {
         await delay(this.timing.readyPollMs);
       }
     }
-    await client.settleStartup?.({ deadline, pollMs: this.timing.readyPollMs }); // 2026.11.6
+    const live = () => generation === this.generation && child.exitCode === null;
+    await client.settleStartup?.({ deadline, pollMs: this.timing.readyPollMs, live });
     if (generation !== this.generation) {
       client.close();
       return;

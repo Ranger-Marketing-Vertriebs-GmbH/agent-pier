@@ -315,28 +315,30 @@ export class GatewayClient extends EventEmitter {
    * OpenClaw 2026.11.6 accepts connections before its startup settled and starts its
    * config reloader only then: a configuration write in between is left unclaimed
    * and can wedge the reloader's first reconciliation ("config reload superseded"
-   * without end). So a start waits until `/startupz` answers 200, until `deadline`;
-   * a Gateway whose check never settles is used as before.
+   * without end). So a start waits while `/startupz` answers 503, until `deadline`
+   * or until `live()` turns false; a Gateway still starting then is used as before.
    */
-  async settleStartup({ deadline, pollMs = 250 }) {
+  async settleStartup({ deadline, pollMs = 250, live = () => true }) {
     while (
       !this.closed &&
+      live() &&
       !(await this.startupSettled()) &&
       Date.now() + pollMs < deadline
     )
       await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
   /**
-   * Whether the Gateway's unauthenticated startup check (`/startupz`) answers 200,
-   * or 404 from a Gateway without one; pinned like the RPC connection, and false for
-   * any other answer or failure.
+   * Whether the Gateway's unauthenticated startup check (`/startupz`, pinned like the
+   * RPC connection) no longer answers a server error (503 while it starts). Any other
+   * answer, no answer within `timeoutMs` or a failed request counts as settled: the
+   * RPC connection already stands, and only a starting Gateway is waited for.
    */
   startupSettled({ timeoutMs = 2000 } = {}) {
     let pin;
     try {
       pin = readGatewayPin(this.certPath);
     } catch {
-      return Promise.resolve(false);
+      return Promise.resolve(true);
     }
     const url = new URL("/startupz", this.url.replace(/^wss:/, "https:"));
     return new Promise((resolve) => {
@@ -354,11 +356,11 @@ export class GatewayClient extends EventEmitter {
         },
         (response) => {
           response.resume();
-          resolve([200, 404].includes(response.statusCode));
+          resolve(!(response.statusCode >= 500));
         },
       );
       request.on("timeout", () => request.destroy());
-      request.on("error", () => resolve(false));
+      request.on("error", () => resolve(true));
     });
   }
   /**
