@@ -1,3 +1,4 @@
+import { atLeast, isCliVersion } from "../../../../tools/cli-version-compare.js";
 import { telegramSurfaces } from "./telegram-senders.js";
 
 // Paths AgentPier owns. A later capability step moves a path out of this list
@@ -29,7 +30,7 @@ export const lockedPaths = [
   "agents.defaults.workspace",
   "agents.defaults.skills",
   "agents.defaults.maxConcurrent",
-  // Retired by OpenClaw 2026.11.6; the compiler removes it (runtime-config.js).
+  // Off on 2026.11.3, retired by 2026.11.6 (heartbeatDefault below).
   "agents.defaults.heartbeat",
   // The owner's PDF fallback or a placeholder (pdf-model-settings.js); compiled per start.
   "agents.defaults.pdfModel",
@@ -50,6 +51,19 @@ export function isLockedPath(target) {
       target.startsWith(`${locked}.`) ||
       locked.startsWith(`${target}.`),
   );
+}
+
+/**
+ * OpenClaw's heartbeat monitor: 2026.11.3 runs it every 30 minutes unless
+ * `agents.defaults.heartbeat.every` is "0m" (AgentPier runs its own check-ins as
+ * routines, native-heartbeats.js); 2026.11.6 retired it and refuses to start while
+ * the key is set. The defaults' value for `version`, or undefined to remove it; no
+ * (or no release) version means the pinned runtime.
+ */
+export function heartbeatDefault(version) {
+  return isCliVersion(version) && !atLeast(version, "2026.11.6")
+    ? { every: "0m" }
+    : undefined;
 }
 
 // Written on every start, not only into a fresh file.

@@ -144,3 +144,20 @@ export const shadowedSkills = (root, assistant, names) => {
   const found = shadowingSkillNames(skillShadowRoots(root, assistant));
   return names.filter((name) => found.has(anyName) || found.has(name));
 };
+
+/**
+ * A start's skill drops by runtime agent id: each agent's assigned skills, and the
+ * `builtIn` names (candidates unconditionally: a candidate only drops), that a
+ * same-named skill in its folders would replace, and its catalog skills
+ * `catalogDrops(assigned)` leaves out.
+ */
+export const startSkillDrops = (root, agents, builtIn, catalogDrops) =>
+  Object.fromEntries(
+    agents.map((agent) => [
+      agent.runtimeAgentId,
+      [
+        ...shadowedSkills(root, agent, [...agent.skills.assigned, ...builtIn]),
+        ...catalogDrops(agent.skills.assigned),
+      ],
+    ]),
+  );

@@ -9,7 +9,7 @@ import {
   memoryTools,
 } from "../../native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
-import { hardenedDefaults } from "./openclaw-config/locked-core.js";
+import { hardenedDefaults, heartbeatDefault } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
 import { dreamingSection } from "./openclaw-config/dreaming.js";
@@ -164,7 +164,8 @@ export function compileOpenClawConfig({
   desired,
   teams,
   overrides = [],
-  runtime: { maintenance = false } = {},
+  // The OpenClaw version this start runs; undefined compiles for the pinned one.
+  runtime: { maintenance = false, version } = {},
   tls,
   // { search, browser, searchPlugins }; see openclaw-config/web-tools.js.
   webTools,
@@ -206,12 +207,12 @@ export function compileOpenClawConfig({
   // Compiler-owned, never from overrides: the only extra skill root is AgentPier's
   // catalog; each agent's own list decides which of its skills it sees.
   config.skills.load = { extraDirs: [paths.catalogSkills], watch: true };
-  // OpenClaw retired its heartbeat monitor for ordinary automations (2026.11.6): a
-  // configuration that still names `heartbeat` on the defaults or an agent keeps the
-  // Gateway from starting until Doctor converts it. AgentPier wrote `every: "0m"`
-  // (off) there before; it runs its own heartbeats as routines (native-heartbeats.js),
-  // so the key is dropped from stored configurations instead of converted.
-  delete config.agents.defaults.heartbeat;
+  // OpenClaw's heartbeat monitor stays off: `every: "0m"` on 2026.11.3, whose default
+  // is 30 minutes; from 2026.11.6, which retired it and refuses to start with the key,
+  // removed from the defaults and every agent (heartbeatDefault, locked-core.js).
+  const heartbeat = heartbeatDefault(version);
+  if (heartbeat) config.agents.defaults.heartbeat = heartbeat;
+  else delete config.agents.defaults.heartbeat;
   for (const entry of Object.values(config.agents.entries || config.agents.list || {}))
     if (entry && typeof entry === "object") delete entry.heartbeat;
   // Compiler-owned: only applyWebTools sets the image model, while an agent creates
@@ -435,6 +436,7 @@ export function prepareRuntimeConfig(
   desired,
   {
     maintenance = false,
+    version,
     tls,
     overrides = [],
     webTools,
@@ -461,7 +463,7 @@ export function prepareRuntimeConfig(
       desired,
       teams: desired,
       overrides,
-      runtime: { maintenance },
+      runtime: { maintenance, version },
       tls,
       webTools,
       shell,

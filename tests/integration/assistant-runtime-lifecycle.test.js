@@ -44,6 +44,26 @@ test("foreign ownership blocks startup without terminating that process", async 
   await supervisor.close();
 });
 
+test("a start compiles the heartbeat setting of the OpenClaw version it runs", async (t) => {
+  for (const [version, heartbeat] of [
+    ["2026.11.3", { every: "0m" }],
+    ["2026.11.6", undefined],
+  ]) {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-heartbeat-"));
+    t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    const entryPath = path.join(dataDir, "invalid.mjs");
+    fs.writeFileSync(entryPath, "process.exit(78)");
+    const supervisor = new RuntimeSupervisor({
+      dataDir,
+      install: async () => ({ nodePath: process.execPath, entryPath, version }),
+    });
+    t.after(() => supervisor.close());
+    await assert.rejects(supervisor.start(), { code: "INVALID_CONFIG" });
+    const config = JSON.parse(fs.readFileSync(supervisor.paths.config, "utf8"));
+    assert.deepEqual(config.agents.defaults.heartbeat, heartbeat, version);
+  }
+});
+
 test("invalid config exit is terminal and never enters restart loop", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-invalid-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
