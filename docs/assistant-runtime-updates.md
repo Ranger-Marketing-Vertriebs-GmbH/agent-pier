@@ -440,10 +440,11 @@ from schema 22 to 36 and each agent database from 27 to 38, converts OpenClaw's
 retired heartbeat monitors to ordinary automations, and 2026.11.3 refuses the
 migrated data. Before commit the snapshot restores the previous runtime and its data;
 after commit the update panel offers only the pinned 2026.11.6, and an AgentPier
-release that pins 2026.11.3 refuses 2026.11.6 through its team plugin. AgentPier no
-longer writes the retired `agents.defaults.heartbeat` (it kept the monitor off with
-`every: "0m"`) and removes it, and any agent's `heartbeat`, from the stored
-configuration at every compile, so the migrated Gateway starts.
+release that pins 2026.11.3 refuses 2026.11.6 through its team plugin. A start of
+2026.11.6 or later no longer gets the retired `agents.defaults.heartbeat`: the compile
+removes it, and any agent's `heartbeat`, from the stored configuration, so the
+migrated Gateway starts. A start of 2026.11.3 keeps `every: "0m"`, because that
+version runs its monitor every 30 minutes without the key.
 
 ## Locked dependency installation
 

@@ -185,7 +185,8 @@ test(
     const read = (await reminders.jobs(agent)).find((r) => r.id === job.id);
     assert.deepEqual(read.target, { kind: "chat", sessionKey: session.key });
     assert.equal(read.runState.nextRunAtMs, job.state.nextRunAtMs);
-    // OpenClaw's own per-agent heartbeat stays off (agents.defaults.heartbeat 0m).
+    // OpenClaw's own per-agent heartbeat stays off: `every: "0m"` on 2026.11.3, retired
+    // (and the key removed) since 2026.11.6 (heartbeatDefault, locked-core.js).
     assert.ok(
       (await cronJobs(runtime, agent.runtimeAgentId))
         .filter((j) => j.declarationKey === `heartbeat:${agent.runtimeAgentId}`)

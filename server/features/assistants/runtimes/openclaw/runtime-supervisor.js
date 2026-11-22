@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runtimePaths } from "../../runtime-paths.js";
 import { selectedAssistantRuntime } from "./runtime-install.js";
 import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
-import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
+import { startSkillDrops } from "./openclaw-config/skill-shadows.js";
 import { bundledSkillNames } from "../../agent-skills.js";
 import { builtInSkillNames } from "../../built-in-skills.js";
 import { GatewayClient } from "./gateway-client.js";
@@ -338,23 +338,13 @@ export class RuntimeSupervisor extends EventEmitter {
     const bundled = bundledSkillNames(runtime.entryPath);
     const token = prepareRuntimeConfig(this.paths, port, desired, {
       maintenance: !!this.maintenance?.(),
+      version: runtime.version,
       tls,
       overrides: this.configOverrides?.(runtime.version) || [],
       shell,
-      // Assigned skills a same-named skill in the agent's folders would replace, and
-      // catalog skills this start must not load (catalogDrops).
-      skillShadows: Object.fromEntries(
-        agents.map((agent) => [
-          agent.runtimeAgentId,
-          [
-            // Built-in names are candidates unconditionally: a candidate only drops.
-            ...shadowedSkills(this.paths.root, agent, [
-              ...agent.skills.assigned,
-              ...builtInSkillNames,
-            ]),
-            ...this.catalogDrops(agent.skills.assigned, bundled),
-          ],
-        ]),
+      // Skills a same-named one in the agent's folders would replace, catalogDrops' too.
+      skillShadows: startSkillDrops(this.paths.root, agents, builtInSkillNames, (names) =>
+        this.catalogDrops(names, bundled),
       ),
     });
     await this.beforeSpawn?.();

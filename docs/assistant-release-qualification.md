@@ -1026,9 +1026,11 @@ commit.
 **Retired heartbeat monitor.** 2026.11.6 replaces OpenClaw's heartbeat monitor with
 ordinary automations; `agents.defaults.heartbeat` and `agents.entries.*.heartbeat`
 are retired keys that keep the Gateway from starting until `openclaw doctor --fix`
-converts them. AgentPier wrote `heartbeat: { every: "0m" }` to keep the monitor off;
-the compiler now removes the key from the defaults and every agent entry on each
-start, and it stays a locked path. AgentPier's check-ins are its own cron jobs
+converts them. The compiler follows the version it starts (`heartbeatDefault`): on
+2026.11.3, which installations keep running until the owner activates the new pin and
+which runs the monitor every 30 minutes without the key, it keeps writing
+`heartbeat: { every: "0m" }`; from 2026.11.6 on it removes the key from the defaults
+and every agent entry on each start. It stays a locked path. AgentPier's check-ins are its own cron jobs
 (`native-heartbeats.js`) and need no monitor. A routine's `wakeMode: "next-heartbeat"`
 (sent only for `wakeNow: false`) is still accepted on a cron job, where 2026.11.6
 ignores it; only an untargeted `wake` RPC needs a scheduled automation now, and
