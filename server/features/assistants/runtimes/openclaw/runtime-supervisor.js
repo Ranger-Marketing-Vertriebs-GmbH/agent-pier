@@ -437,7 +437,8 @@ export class RuntimeSupervisor extends EventEmitter {
       }
       try {
         await client.connect();
-        child.starting = false;
+        // The next start's budget: the settle below is bounded by the deadline itself.
+        this.lastReadyMs = Date.now() - spawned;
         break;
       } catch (error) {
         // ENDPOINT_UNTRUSTED: another listener without our certificate; use a new port.
@@ -455,7 +456,10 @@ export class RuntimeSupervisor extends EventEmitter {
       client.close();
       return;
     }
-    this.lastReadyMs = Date.now() - spawned;
+    // Exited (or replaced) while it settled: still starting, so this launch reports it.
+    if (child.exitCode !== null || this.child !== child)
+      throw Object.assign(Error("Assistant Gateway exited."), { code: "PROCESS_EXIT" });
+    child.starting = false;
     // Live applies grant web tools against the state this Gateway was started with.
     this.webTools = webTools;
     // Whether it loaded the memory wiki's plugin (memory-wiki.js optionsRestart).
