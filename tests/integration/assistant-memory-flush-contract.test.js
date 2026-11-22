@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
+import { setTimeout as delay } from "node:timers/promises";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
@@ -248,14 +249,20 @@ test(
       denied.every((p) => p.allow === false),
       "a forwarded run's flush is refused",
     );
+    // 2026.11.6 may still run a flush of the forwarded turns after they answered.
+    for (let n = -1; n !== seen.length;) {
+      n = seen.length;
+      await delay(2000);
+    }
     assert.equal(daily() || "", "", "nothing was written for the forwarded run");
     // The owner's own turns: the next compaction's flush appends to the day note,
     // keeping what it already holds (OpenClaw's append-only flush writer).
     fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
     fs.writeFileSync(path.join(workspace, seen[0].target), "existing note\n");
     const flushes = seen.length;
-    await turn("My router lives at 10.0.0.1.", { kind: "owner" });
-    await turn("And the DNS server at 10.0.0.53.", { kind: "owner" });
+    // 2026.11.6 compacts (and flushes) only every few turns after a compaction.
+    for (let n = 0; n < 6 && seen.length === flushes; n++)
+      await turn(`My router ${n} lives at 10.0.0.${n + 1}.`, { kind: "owner" });
     assert.ok(seen.length > flushes, "the owner's run flushed");
     const admitted = policies.filter(
       (p) => p.sessionKey.includes(":internal-session-effects:") && p.allow,
