@@ -264,9 +264,10 @@ export class ExecApprovals {
         ? p.expiresAtMs
         : this.now() + defaultExpiryMs;
       // A task member's or a hook run's request offers no "Always allow"
-      // (exec-decisions.js).
+      // (exec-decisions.js), nor one that shows a shortened command (`partial`,
+      // hermes-approval-queue.js): it would remember only what it shows.
       const agent = this.w.a.store.getAssistant(owner.assistantId);
-      const once = onceOnly || temporaryMember(agent);
+      const once = onceOnly || temporaryMember(agent) || p.request.partial === true;
       action = store.reserve({
         ...owner,
         payload: {

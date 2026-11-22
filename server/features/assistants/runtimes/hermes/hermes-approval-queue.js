@@ -28,6 +28,14 @@ import { hermesError } from "./hermes-rpc-client.js";
 
 const defaultTimeoutS = 300;
 const pluginTarget = /^<[\w.-]{1,64}> \(plugin approval rule\)$/;
+// The longest command a card carries.
+const commandMax = 32768;
+/**
+ * How AgentPier's guard (hermes-config/guard-plugin.js) ends a message it shortened.
+ * A card showing a shortened command is allow-once only (`partial`, exec-approvals.js):
+ * "Always allow" remembers the text shown, which another command could begin with.
+ */
+export const shortenedMark = " … [shortened]";
 // How many ended requests a connection remembers for history().
 const keptHistory = 200;
 const choices = { "allow-once": "once", "allow-session": "session", deny: "deny" };
@@ -100,10 +108,15 @@ export class HermesApprovalQueue {
     // synthetic target, "<terminal> (plugin approval rule)" (tools/approval.py
     // request_tool_approval); the guard's message is the command itself.
     const plugin = pluginTarget.test(params.command || "") && !!params.description;
+    const shown = plugin ? params.description : params.command;
+    const partial =
+      typeof shown === "string" &&
+      (shown.length > commandMax || (plugin && shown.endsWith(shortenedMark)));
     const item = {
       id,
       request: {
-        command: text(plugin ? params.description : params.command, 32768),
+        command: text(shown, commandMax),
+        ...(partial && { partial: true }),
         cwd: this.cwd,
         agentId: this.runs.agentId,
         sessionKey,
