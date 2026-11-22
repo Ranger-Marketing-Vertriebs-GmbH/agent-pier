@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { readJSON, writePrivate } from "../../../../lib/storage.js";
+import { writePrivate } from "../../../../lib/storage.js";
 import { metaField } from "./hermes-routine-jobs.js";
 
 // AgentPier's part of each routine of one Hermes agent (hermes-routine-jobs.js
@@ -21,10 +21,31 @@ export class HermesRoutineMeta {
     this.file = file;
     this.memory = {};
   }
+  /**
+   * The saved meta by job id. A file that is not a JSON object is never written
+   * over: it is set aside as `<file>.corrupt-<time>` for the owner and reported, and
+   * the store starts empty (a job written for v0.22.5 still reads its own field).
+   */
   records() {
     if (!this.file) return this.memory;
-    const saved = readJSON(this.file, {});
-    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    let text;
+    try {
+      text = fs.readFileSync(this.file, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return {};
+      throw error;
+    }
+    try {
+      const saved = JSON.parse(text);
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) return saved;
+    } catch {
+      /* Set aside below. */
+    }
+    fs.renameSync(this.file, `${this.file}.corrupt-${Date.now()}`);
+    console.error(
+      "AgentPier set aside an unreadable Hermes routine store: HERMES_ROUTINE_META_UNREADABLE",
+    );
+    return {};
   }
   save(records) {
     if (!this.file) this.memory = records;
@@ -64,16 +85,15 @@ export class HermesRoutineMeta {
   }
 }
 
-/** The routine meta of one agent's process set, kept beside its HERMES_HOME. */
+/**
+ * The routine meta of one agent's process set, kept beside its HERMES_HOME. An agent
+ * whose folders cannot be named throws (no meta that would vanish with the process);
+ * a home that does not exist (a test double's) keeps it in memory.
+ */
 export function routineMetaOf(supervisor) {
   if (stores.has(supervisor)) return stores.get(supervisor);
-  let file = null;
-  try {
-    const home = supervisor.agentPaths().hermesHome;
-    if (fs.existsSync(home)) file = path.join(home, "agentpier-routines.json");
-  } catch {
-    /* A supervisor without folders (a test double) keeps it in memory. */
-  }
+  const home = supervisor.agentPaths().hermesHome;
+  const file = fs.existsSync(home) ? path.join(home, "agentpier-routines.json") : null;
   const store = new HermesRoutineMeta(file);
   stores.set(supervisor, store);
   return store;
