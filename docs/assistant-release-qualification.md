@@ -999,7 +999,7 @@ fresh native installations (Linux x64/arm64, macOS x64/arm64, with the new
 `@openclaw/proc-safe` and `@resvg/resvg-js` prebuilds). Its native contracts fail on
 Linux and macOS with exactly the open items above.
 
-### OpenClaw 2026.11.3 → 2026.11.6 (2026-11-22, in progress)
+### OpenClaw 2026.11.3 → 2026.11.6 (2026-11-22)
 
 The update skips 2026.11.4 and 2026.11.5. With it AgentPier supports only the
 OpenClaw version it pins: `rollbackTargets` names the previous pin, 2026.11.3, alone
@@ -1063,27 +1063,57 @@ rollback target alone; the heartbeat and routine contracts pin the kept job.
 code of a manual `mcp login --code` and prints a hint for it; AgentPier's OAuth
 callback now passes the `iss` it receives as `--issuer`.
 
-**Qualification is not complete.** Local macOS arm64 run of the native contracts
-(2026-11-22) after the fixes above: the runtime, patch, advanced settings, native
-interfaces, heartbeat, routine, skills, write guard, team plugin, web tools,
-dreaming scope and runtime update contracts pass. Open:
+**Tool calls kept structured** (`hydrated-tools-kept`, `hydrated-tools-kept-list`).
+2026.11.6 builds each next turn's tools from the session's own tool list
+(`createSessionPrepareNextTurnWithContext`), so after the model called a tool-search
+directory entry by name the next request no longer declared that tool, and the new
+Chat Completions transport (openclaw#174797) replayed the call and its result as
+assistant text ("[tool call id=… name=…]", "[tool result id=… name=…]"). Models then
+repeated calls (SSH, reminder, memory, provider, mail and coding contracts). Upstream
+tracks it as openclaw#202415, fixed by #202436 after 2026.11.6. The patch keeps the
+hydrated tools for the next turn while the session's tool list is unchanged; the
+team plugin contract asserts the structured `tool` messages again and
+`hydrated-tools-guard.js` checks the installed package. Tool search stays in
+directory mode.
 
-- **Tool results inlined as text.** When the model calls a tool-search directory entry
-  by name, 2026.11.6's next model request does not declare that tool and inlines the
-  call and its result into the assistant message ("[tool call id=… name=…]",
-  "[tool result id=… name=…]", `openai-completions-transport`), later requests
-  declare it again. Contract model fixtures that look for `tool` messages then call
-  the tool again (SSH, reminder, memory, provider, mail and coding contracts). The team
-  plugin contract reads both shapes now; whether real models repeat calls on the inlined
-  form is unverified.
-- **`browser.request` unknown** right after the start (browser host policy, browser
-  window, upload contracts).
-- **Changed runtime behaviour** to re-check: the exec completion run (owner run, work
-  goals, Telegram follow-ups), compaction events, the silent-model timeout
-  (run steps), memory flushes, routine failure causes ("gateway-restart"),
-  `COMMAND_CARRIER_EXECUTABLES` no longer exported (shell), ChatGPT profiles in
-  `models.authStatus` (account logout, ChatGPT access, routine account contracts),
-  the agent admission contract and the remaining dreaming contract case.
+**Startup settlement.** 2026.11.6 accepts connections before its startup settled and
+starts the config reloader only then. Besides the unclaimed writes (below), an early
+write could wedge the reloader ("config reload superseded by a newer runtime config
+source" without end): later `agents.update` calls hung and `browser.request` was
+unknown right after a start. The supervisor now waits until the pinned `/startupz`
+answers 200 (404 counts as settled), bounded by the start deadline.
+
+**Changed runtime behaviour** that AgentPier follows now:
+
+- Exec completion runs: the completion's provenance adds the starting run's `runId`
+  (`completionRun` accepts it, so Telegram delivers the reply again), the prompt is
+  framed `[OpenClaw exec completion]` and no agent event carries `isHeartbeat`.
+- A routine run cut by a restart fails with "agent run aborted for restart |
+  OPENCLAW_RESTART_ABORT", now classified `gateway-restart`; such an abort no longer
+  counts among the errors in a row.
+- The memory-triggered flush and compaction run after a turn as optional,
+  preemptible session maintenance without a run and without events; `agent.wait`
+  answers a turn queued behind it as `pending`. The chat shows no summarising status
+  for it (`compactions.js` still follows a run's own compaction).
+- The terminal `chat` error of a silent model (`errorKind: "timeout"`) arrives once
+  the run's end is persisted, possibly after `agent.wait` answered.
+- Redirects in the managed browser are checked hop by hop before their request
+  (`assistant-web-tools-qualification.md`).
+- A revoked MCP refresh token keeps the stored tokens: `mcp status` still reports
+  `authorized` and the Gateway logs a retried outage ("MCP OAuth refresh failed (400):
+  invalid_grant; server unavailable") instead of asking for a new login; the server
+  offers no tools until the owner signs in again. Dynamic client registration declares
+  `application_type: "native"`.
+- The shell carriers are the cases of `resolveCarrierCommandArgv` (env, command,
+  builtin, sudo, doas, exec); `COMMAND_CARRIER_EXECUTABLES` is gone. A pending approval
+  cancelled by a restart is recorded in `approval.history`, while its resolved event
+  may not reach the closing connection.
+- A hand-removed dreaming ingestion state is written back by the next run, whose
+  stripped corpus lines stay out; `memory forget` still removes a chat.
+
+**Result.** Local macOS arm64 run of all 69 native contract files on 2026.11.6
+(2026-11-22): 138 tests, 138 passed. Not covered locally: Linux and the WebKit
+browser suites, which CI runs.
 
 **Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
 adds `include`/`exclude` selectors, which AgentPier does not set.

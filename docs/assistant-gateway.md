@@ -1907,7 +1907,11 @@ was compacted and the plan was gone. Four rules close that gap:
   `compaction` stream with phase `start` and `end` (`willRetry: true` keeps it
   going). OpenClaw has no own run status for the compaction call
   (`preflight_compacting` stays internal), and a preflight compaction without a
-  memory flush is not signalled at all. `Compactions` (`compactions.js`) follows
+  memory flush is not signalled at all. Since 2026.11.6 the memory-triggered flush
+  and compaction usually run after a turn as optional, preemptible session
+  maintenance without a run of their own and report neither event; the next turn
+  waits for them (`agent.wait` answers `pending`) and the chat shows no summarising
+  status for that time. `Compactions` (`compactions.js`) follows
   these events per session with the run id; `lifecycle` `end` or `error`, and any
   event of another run on the session (the end of a cancelled or dead run may be
   lost), ends it, a reconnect clears it and a status older than an hour expires on
@@ -1924,8 +1928,8 @@ was compacted and the plan was gone. Four rules close that gap:
   team results) take assistant turns only, and AgentPier never sets
   `agents.defaults.compaction.notifyUser`, so Telegram receives nothing.
   `assistant-compaction-contract.test.js` checks on the pinned runtime that the
-  status covers the flush and the summary calls but not the answer, and that the
-  marker carries both token counts. OpenClaw's compaction safeguard checks every
+  maintenance flushes and summarises between the turns without any event, and that
+  the marker carries both token counts. OpenClaw's compaction safeguard checks every
   summary for its required sections (decisions, open to-dos, constraints, pending
   asks, exact identifiers) and the latest ask. On 2026.10.7 a compaction that splits
   a turn makes two summary calls (the history and the split turn's prefix; 2026.10.3
@@ -1951,8 +1955,9 @@ was compacted and the plan was gone. Four rules close that gap:
   `Exec <status> (<id8>, <exit>) :: <output>` per process; 2026.11.3 frames the same
   lines with "An async command you ran earlier has completed. …". Its agent events
   carry no mark (`isHeartbeat: false`). It writes the completion's user entry with the
-  input provenance `{ kind: "internal_system", sourceTool: "exec" }`. That run has no
-  AgentPier attempt.
+  input provenance `{ kind: "internal_system", sourceTool: "exec" }` (2026.11.6 adds
+  the `runId` of the run that started the command; `completionRun` accepts exactly
+  that besides). That run has no AgentPier attempt.
 
   Until 2.12 AgentPier let such a run write only after proving, from the Gateway's
   own record of background processes, that the command came from the owner's own
@@ -5580,7 +5585,8 @@ AgentPier's side:
   providers, the ChatGPT accounts' `openclaw-native-codex-responses` transport
   included; `models.providers.<id>.timeoutSeconds` replaces it), retries it a few
   times with growing delays (each retry a `run_status` event) and then ends the turn
-  with a `chat` error of `errorKind: "timeout"`. The run budget
+  with a `chat` error of `errorKind: "timeout"` (2026.11.6 publishes it once the run's
+  end is persisted, which can be after `agent.wait` answered). The run budget
   `agents.defaults.timeoutSeconds` (48 hours, **Agent service › Advanced settings › Time limit per task**)
   bounds the whole turn. A turn that failed for want of an answer keeps
   `failure: "timeout"` on its attempt (`run-reconciler.js`).
