@@ -63,9 +63,15 @@ function fieldPath(error) {
 /**
  * Runs a GraphQL request. Errors that concern only `optional` fields (paths such as
  * "repository.mergeQueue", which a token may not be allowed to read) leave the data in
- * use; any other error decides the code.
+ * use, and so does a FORBIDDEN answer for a `forbidden` field or one below it, whose
+ * path is then added to `denied`; any other error decides the code.
  */
-async function graphql(access, query, variables, { signal, optional = [] } = {}) {
+async function graphql(
+  access,
+  query,
+  variables,
+  { signal, optional = [], forbidden = [], denied = null } = {},
+) {
   const { data } = await requestJson({
     fetchImpl: access.fetchImpl,
     url: graphqlUrl(access.apiBase),
@@ -77,10 +83,15 @@ async function graphql(access, query, variables, { signal, optional = [] } = {})
   if (!data || typeof data !== "object") throw new TicketSourceError("invalidResponse");
   const result = data.data && typeof data.data === "object" ? data.data : null;
   const errors = Array.isArray(data.errors) ? data.errors : [];
-  const tolerated = (error) => optional.includes(fieldPath(error));
+  const below = (path, field) => path === field || path?.startsWith(`${field}.`);
+  const refused = (error) =>
+    error?.type === "FORBIDDEN" &&
+    forbidden.some((field) => below(fieldPath(error), field));
+  const tolerated = (error) => optional.includes(fieldPath(error)) || refused(error);
   if (errors.length > 0 && !(result && errors.every(tolerated)))
     throw new TicketSourceError(graphqlError(errors));
   if (!result) throw new TicketSourceError("invalidResponse");
+  for (const error of errors) if (refused(error)) denied?.add(fieldPath(error));
   return result;
 }
 
@@ -189,7 +200,7 @@ const PULL_QUERY = `query($owner: String!, $repo: String!, $n: Int!) {
       id number url state headRefName headRefOid baseRefName
       mergeable mergeStateStatus reviewDecision isInMergeQueue
       autoMergeRequest { enabledAt }
-      commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) {
+      commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) {
         nodes {
           __typename
           ... on CheckRun { name status conclusion isRequired(pullRequestNumber: $n) }
@@ -238,12 +249,50 @@ function word(value) {
   return typeof value === "string" && /^[A-Z_]{1,40}$/.test(value) ? value : null;
 }
 
+// GitHub refuses check data a token may not read with FORBIDDEN errors next to the
+// pull request: on this field as a whole (a fine-grained token without "Commit
+// statuses: read"), or on single check runs below it (fine-grained tokens cannot be
+// given "Checks: read" at all, so GitHub Actions results stay hidden from them).
+const CHECKS_PATH = "repository.pullRequest.commits.nodes.commit.statusCheckRollup";
+const ROLLUP_STATES = {
+  SUCCESS: "success",
+  FAILURE: "failure",
+  ERROR: "failure",
+  PENDING: "pending",
+  EXPECTED: "pending",
+};
+// The name of the one check that stands for GitHub's overall state of all checks.
+export const ROLLUP_CHECK = "checks";
+
+/**
+ * The checks of a pull request whose check data GitHub refused in part or in whole:
+ * the rollup's overall state as one check that is not required, or null when that is
+ * hidden too. The overall state covers every check, so it never passes while a single
+ * one is red or pending.
+ */
+function summaryChecks(pull) {
+  const rollup = pull.commits?.nodes?.[0]?.commit?.statusCheckRollup;
+  const state = ROLLUP_STATES[rollup?.state];
+  return state ? [{ name: ROLLUP_CHECK, state, required: false }] : null;
+}
+
+/**
+ * The pull request as the sequence engine needs it. When the token may not read the
+ * single checks, `checks` is their overall state (see summaryChecks). When it may not
+ * read that either, `checksUnreadable` is true: state, head and reviews are still
+ * valid, `checks` is empty and says nothing, so such a PR must never be merged on its
+ * checks.
+ */
 export async function readPullRequest(access, number, { signal } = {}) {
   const variables = { owner: access.owner, repo: access.repo, n: Number(number) };
+  const denied = new Set();
   const data = await graphql(access, PULL_QUERY, variables, {
     signal,
     optional: ["repository.mergeQueue"],
+    forbidden: [CHECKS_PATH],
+    denied,
   });
+
   const repository = data.repository;
   const pull = repository?.pullRequest;
   if (!repository || !pull) throw new TicketSourceError("notFound");
@@ -253,6 +302,9 @@ export async function readPullRequest(access, number, { signal } = {}) {
   if (!state) throw new TicketSourceError("invalidResponse");
   const defaultBranch = plainLine(repository.defaultBranchRef?.name, REF_LIMIT);
   const baseRef = plainLine(pull.baseRefName, REF_LIMIT);
+  // The field refused as a whole carries no state of its own.
+  const partly = denied.size > 0 && !denied.has(CHECKS_PATH);
+  const summary = partly ? summaryChecks(pull) : null;
   let mergeQueue = Boolean(repository.mergeQueue?.id);
   // The query above reads the default branch's queue; another base needs its own.
   if (baseRef && baseRef !== defaultBranch) {
@@ -278,7 +330,8 @@ export async function readPullRequest(access, number, { signal } = {}) {
     reviewDecision: word(pull.reviewDecision),
     autoMerge: Boolean(pull.autoMergeRequest),
     inMergeQueue: pull.isInMergeQueue === true,
-    checks: checksOf(pull),
+    checks: summary ?? (denied.size > 0 ? [] : checksOf(pull)),
+    checksUnreadable: denied.size > 0 && !summary,
     repo: {
       autoMergeAllowed: repository.autoMergeAllowed === true,
       mergeQueue,

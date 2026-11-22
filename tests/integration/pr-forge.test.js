@@ -251,6 +251,7 @@ test("readPullRequest maps checks, reviews and repository merge settings", async
       { name: "ci/legacy", state: "failure", required: false },
       { name: "ci/wait", state: "pending", required: false },
     ],
+    checksUnreadable: false,
     repo: {
       autoMergeAllowed: true,
       mergeQueue: true,

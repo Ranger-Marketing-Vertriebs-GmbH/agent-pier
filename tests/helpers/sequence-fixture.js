@@ -87,13 +87,25 @@ function fakeSources(calls, { getError } = {}) {
 
 export async function sequenceFixture(
   t,
-  { pulls = [], repoSettings = {}, failures = {}, fetchImpl, getError } = {},
+  {
+    pulls = [],
+    repoSettings = {},
+    failures = {},
+    graphqlErrors = null,
+    fetchImpl,
+    getError,
+  } = {},
 ) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-seq-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const repoPath = repo(root);
   const dataDir = path.join(root, "data");
-  const forge = await fakeGithubPulls(t, { pulls, repo: repoSettings, failures });
+  const forge = await fakeGithubPulls(t, {
+    pulls,
+    repo: repoSettings,
+    failures,
+    graphqlErrors,
+  });
   const clock = { now: T0 };
   const now = () => clock.now;
   const sourceCalls = [];

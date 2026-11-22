@@ -8536,6 +8536,7 @@
   "ticket-sequences:ticketQueueCopy.prUnchecked": "de:2586f8645c47 en:7fcdc1dcd8fd",
   "ticket-sequences:ticketQueueCopy.pullRequest": "de:5db7a46b7c11 en:aaf93f497eac",
   "ticket-sequences:ticketQueueCopy.reasons.armRefused": "de:cd8495df2e46 en:13d58779f872",
+  "ticket-sequences:ticketQueueCopy.reasons.checksUnreadable": "de:6c73dbd596eb en:4e59abb14b06",
   "ticket-sequences:ticketQueueCopy.reasons.failedRounds": "de:ddf9b18f8b4b en:f09609f5559e",
   "ticket-sequences:ticketQueueCopy.reasons.forgeUnreachable": "de:80cd4c0a7d68 en:d11d0a9aa008",
   "ticket-sequences:ticketQueueCopy.reasons.githubRequired": "de:bb78ef74d1d6 en:a96361653be9",

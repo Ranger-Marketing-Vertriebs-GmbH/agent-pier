@@ -191,9 +191,13 @@ test("remove takes a running item out, never one awaiting its merge", async (t) 
     state: "awaiting-merge",
     pr: { number: 3, url: "https://github.com/acme/app/pull/3", headRef: "t" },
   });
-  const busy = await call(`${queue}/${second.id}`, { method: "DELETE" });
+  // A ticket that awaits its merge cannot be retried, but it can leave the queue.
+  const busy = await call(`${queue}/${second.id}/retry`, { method: "POST" });
   assert.equal(busy.status, 409);
   assert.equal(busy.body.error, copy.itemBusy);
+  const gone = await call(`${queue}/${second.id}`, { method: "DELETE" });
+  assert.equal(gone.status, 200);
+  assert.deepEqual(gone.body.queue.items, []);
 });
 
 test("done and remove go on with force=true when the PR cannot be read", async (t) => {

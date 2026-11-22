@@ -11,6 +11,7 @@ import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
 import { resumeStart, startItem } from "./sequence-start.js";
 import { isTransient, timedCalls } from "./sequence-reasons.js";
+import { watchParked } from "./sequence-parked.js";
 import {
   FORGE_LIMIT_MS,
   IDLE_LIMIT_MS,
@@ -249,7 +250,7 @@ export class TicketSequenceEngine {
     ) {
       const queue = this.store.queue(projectId);
       const item = this.store.head(projectId);
-      if (!queue || !item || item.state === "needs-owner") return;
+      if (!queue || !item || (item.state === "needs-owner" && !item.pr)) return;
       let more = false;
       try {
         const ctx = { ...(await this.context(queue, item)), merged };
@@ -282,7 +283,7 @@ export class TicketSequenceEngine {
     if (item.state === "running" && item.starting) return resumeStart(this, ctx, item);
     if (item.state === "running") return this.watchRun(ctx, item);
     if (item.state === "awaiting-merge") return this.watchPr(ctx, item);
-    return false;
+    return item.state === "needs-owner" ? watchParked(this, ctx, item) : false;
   }
 
   save(ctx, item, patch) {
@@ -494,6 +495,7 @@ export class TicketSequenceEngine {
     // Cleared only after the fix step: its fetch of the PR branch counts as a read too.
     saved = this.forgeOk(ctx, fixed.item);
     if (!saved.options.allowMerge) return false;
+    if (snapshot.checksUnreadable) return this.park(ctx, saved, "checksUnreadable");
     try {
       return await this.mergeStep(ctx, saved, snapshot, verdict);
     } catch (error) {

@@ -25,6 +25,8 @@ export const ticketQueueCopy = {
     mergeDisarmed: "Auto-Merge oder die Merge-Queue wurde auf GitHub abgeschaltet.",
     armRefused: "GitHub hat Auto-Merge oder die Merge-Queue abgelehnt.",
     mergeRefused: "GitHub hat den Merge abgelehnt.",
+    checksUnreadable:
+      "Das GitHub-Token darf die Checks dieses Pull Requests nicht lesen. Merge ihn selbst oder gib dem Token Lesezugriff auf Commit-Status.",
     idle: "Der Pull Request blieb 30 Minuten lang rot.",
     failedRounds: "Die Checks sind dreimal fehlgeschlagen.",
     forgeUnreachable: "GitHub war 30 Minuten lang nicht erreichbar.",

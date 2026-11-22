@@ -350,7 +350,7 @@ export class TicketSequenceService {
    */
   markDone(projectId, itemId, { force = false } = {}) {
     return this.withItem(projectId, itemId, async (project, item) => {
-      if (item.state !== "needs-owner" && item.state !== "waiting")
+      if (item.state === "running" || item.state === "done")
         throw problem(copy.itemBusy, 409);
       const unchecked = await this.disarmOrForce(project, item, force);
       this.store.patch(project.id, item.id, {
@@ -366,13 +366,11 @@ export class TicketSequenceService {
   /**
    * Removes an item; an armed pull request is disarmed (or, with `force`, left as it may
    * be when GitHub cannot be read). A running item may go too: its session or run stays,
-   * and nobody watches or merges its pull request afterwards. An item awaiting its merge
-   * is parked or marked done first.
+   * and nobody watches or merges its pull request afterwards.
    */
   async remove(projectId, itemId, { force = false } = {}) {
     let unchecked = null;
     const view = await this.withItem(projectId, itemId, async (project, item) => {
-      if (item.state === "awaiting-merge") throw problem(copy.itemBusy, 409);
       if (await this.disarmOrForce(project, item, force))
         unchecked = { key: item.key, pr: { number: item.pr.number, url: item.pr.url } };
       this.store.remove(project.id, item.id);
@@ -397,11 +395,13 @@ export class TicketSequenceService {
   }
 
   /**
-   * A parked item whose PR AgentPier may merge. The engine saves `armed`/`armedHead`
-   * only after the arm call, so an unrecorded arm is possible and GitHub is read.
+   * A parked or watched item whose PR AgentPier may merge. The engine saves
+   * `armed`/`armedHead` only after the arm call, so an unrecorded arm is possible and
+   * GitHub is read.
    */
   mayBeArmed(item) {
-    return item.state === "needs-owner" && !!item.pr && item.options.allowMerge;
+    const watched = item.state === "needs-owner" || item.state === "awaiting-merge";
+    return watched && !!item.pr && item.options.allowMerge;
   }
 
   /** Turns GitHub's auto-merge off or takes the PR out of the merge queue. */

@@ -30,9 +30,11 @@ export function prVerdict(snapshot) {
   const failed = counted
     .filter((check) => check.state === "failure")
     .map((check) => check.name);
-  // A failed check is final for its round; pending only wins over passed.
+  // A failed check is final for its round; pending only wins over passed. Checks the
+  // token may not read are "unknown": never passed, so nothing merges on them.
   let checks = "passed";
-  if (failed.length > 0) checks = "failed";
+  if (snapshot.checksUnreadable) checks = "unknown";
+  else if (failed.length > 0) checks = "failed";
   else if (counted.some((check) => check.state !== "success")) checks = "pending";
   const changesRequested = snapshot.reviewDecision === "CHANGES_REQUESTED";
   const reviewBlocks = changesRequested || snapshot.reviewDecision === "REVIEW_REQUIRED";
