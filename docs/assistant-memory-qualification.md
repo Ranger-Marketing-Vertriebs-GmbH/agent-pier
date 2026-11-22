@@ -90,8 +90,9 @@ owner's switch on, and a third pins it on the rollback targets (see the
   (`AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME`, run by the cross-version job for each
   rollback target): on the predecessor runtime the compiled section is accepted, the
   managed job follows the switch, a live hour change and the switch-off without a
-  Gateway restart, a forced sweep keeps each agent to its own chats, and a deleted
-  chat leaves the corpus and stays out of later runs.
+  Gateway restart, a forced sweep keeps each agent to its own chats, the live
+  `memory forget` is refused, and a deleted chat, forgotten in the maintenance window
+  the offline command queue opens, leaves the corpus and stays out of later runs.
 
 The archived transcript copy OpenClaw keeps after a deletion
 (`session_transcript_archives` and the `.jsonl.deleted.*` files) is purged before the
