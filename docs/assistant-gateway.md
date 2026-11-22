@@ -638,11 +638,13 @@ finish it. A `TIMEOUT` error carries the unanswered call's `method` and `timeout
 OpenClaw 2026.11.6 reports ready before its config reloader runs. A `config.patch`,
 `config.apply` or `agents.create`/`.update`/`.delete` in between is persisted but
 answered `UNAVAILABLE` "… (unclaimed)", and the reloader applies the persisted file
-once it starts. AgentPier counts such a write as done once `config.get` shows the
-written configuration applied, within the same settle bound (`live-patch.js`; an
-`agents.create` answers the agent `agents.list` then shows, and the client keeps only
-the outcome and the hash, never the configuration the answer carries); any other
-outcome stays an error.
+once it starts. AgentPier counts such a write as done only with proof, within the same
+settle bound (`live-patch.js`): a configuration write once `config.get` shows the hash
+it persisted applied (never an earlier answer or another writer's file); an
+`agents.create` or `.update` once `agents.list` names the agent, an `agents.delete`
+once it no longer does (still listed, its session cleanup may be pending). The client
+keeps only the outcome and the hash, never the configuration the answer carries. Any
+other outcome, or a failed confirmation read, keeps the write's error.
 
 A write still runs in the Gateway after it timed out, and OpenClaw commits a written
 configuration in a reload that `config.get` reports (`configRevisionHash`, as written,
