@@ -932,17 +932,30 @@ all agent browsers** is on (`tools/browser_url_policy.py`), and cloud metadata
 addresses always. That check reads only the addresses the code spells out, so
 AgentPier enforces the setting in the browser itself: each launch of the agent's
 Chromium starts AgentPier's navigation guard (`hermes-browser-guard.js`), one CDP
-connection that intercepts every document request at the browser target (`Fetch`,
-request stage), whatever tab, frame, window or browser context makes it, redirects
-included. With the setting off a document on an address that is not public is failed
-(`BlockedByClient`, the page shows Chromium's error page); cloud metadata addresses fail
-either way. A browser whose guard cannot start or whose guard connection ends is
-stopped. Like OpenClaw's policy, the guard checks the documents the browser goes to,
-not the requests a page makes: neither is a network firewall. Saving the setting
-applies every Hermes agent that browses (`web-tools-changes.js`), which restarts its
-process set and with it the browser.
-`browser_exec` itself is Python on the host, so an agent with a shell reaches the
-network as its shell does; the setting limits the browser, not the shell.
+connection on the browser target that
+
+- intercepts every request (`Fetch`, request stage), whatever tab, frame, worker,
+  window or browser context makes it, redirects, a page's own `fetch` and XHR and a
+  service worker's requests included. With the setting off a request to an address that
+  is not public fails (`BlockedByClient`; a page shows Chromium's error page). Cloud
+  metadata addresses and names, `file:` and `filesystem:` fail either way. An IPv6 form
+  of an IPv4 address (`::ffff:a.b.c.d`, `::a.b.c.d`, NAT64 `64:ff9b::/96`) counts as
+  that address, and a name that does not resolve fails. A verdict on a name holds for
+  30 seconds.
+- attaches to each page and frame as it starts and watches its answers (`Network`): an
+  answer from an address the guard refuses, because the name resolved to another
+  address when Chromium connected (DNS rebinding), closes that page.
+- closes a page that shows one of the browser's own pages (`chrome:`, `devtools:`,
+  `view-source:`), which no request reaches; the new tab page stays.
+
+A browser whose guard cannot start or whose guard connection ends is stopped. Not
+covered: WebSocket connections, which `Fetch` does not intercept, and what a rebinding
+page does between its answer and its close. The guard is no network firewall. Saving
+the setting applies every Hermes agent that browses (`web-tools-changes.js`), which
+restarts its process set and with it the browser. `browser_exec` itself is Python on
+the host, so an agent with a shell reaches the network as its shell does; the setting
+limits the browser, not the shell. `hermes-browser-guard-contract.test.js` drives these
+paths on a real Chromium.
 
 A temporary team member whose lead grants the browser (`desiredAgent`
 `browser.borrowed`) runs its own AgentPier Chromium in its own home. It shows a window
