@@ -66,6 +66,29 @@ export const agentDeleteTimeoutMs = 30000;
 // OpenClaw 2026.10.7 refuses a session of an agent whose database it has not
 // admitted with UNAVAILABLE and the refusal as `details` (agent-admission.js).
 const admissionCodes = /^agent-database-[a-z-]{1,60}$/;
+// OpenClaw 2026.11.6 answers a configuration write it persisted but did not apply as
+// UNAVAILABLE: config.patch and config.apply "… persisted but was not applied to the
+// active Gateway (<outcome>) …" with the persisted hash, agents.create, .update and
+// .delete "Agent configuration was saved but its application to the active Gateway
+// was not confirmed (<outcome>) …". "unclaimed": its config reloader, which starts
+// only after the Gateway reports ready, did not take the write; it then applies the
+// persisted file on its own (live-patch.js).
+const notApplied =
+  /(?:persisted but was not applied to the active Gateway|saved but its application to the active Gateway was not confirmed) \(([a-z-]{1,40})\)/;
+export const persistedWrite = (error) => {
+  const hash = error?.details?.persistedConfig?.hash;
+  const outcome =
+    error?.code === "UNAVAILABLE" && typeof error.message === "string"
+      ? notApplied.exec(error.message)?.[1]
+      : undefined;
+  if (!outcome) return {};
+  return {
+    persisted: {
+      outcome,
+      ...(typeof hash === "string" && hash.length <= 200 && { hash }),
+    },
+  };
+};
 const admissionRefusal = (error) =>
   error?.code === "UNAVAILABLE" &&
   admissionCodes.test(error.details?.code) &&
@@ -182,6 +205,9 @@ export class GatewayClient extends EventEmitter {
                   /^[A-Z][A-Za-z]{0,80}Error(?=: )/.test(frame.error.message)
                     ? { remoteError: frame.error.message.split(":", 1)[0] }
                     : {}),
+                  // A configuration write OpenClaw persisted but did not apply yet
+                  // (live-patch.js): the hash it persisted and why, never the config.
+                  ...persistedWrite(frame.error),
                   // A short state word a plugin names in its refusal's details (the
                   // memory wiki's `rebuilding`, `compile-required`).
                   ...(typeof frame.error?.details?.state === "string" &&

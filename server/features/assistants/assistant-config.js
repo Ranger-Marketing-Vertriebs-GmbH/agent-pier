@@ -326,23 +326,21 @@ export class AssistantConfig {
     const ssh = !!this.sshGranted?.(assistant);
     // Craft Anything rebuilds are available (agentpier_craft), read at every apply.
     const craft = !!this.craftAvailable?.();
-    const allowed = profileTools(
-      assistant,
-      this.teamReady?.(),
-      nativeReady,
-      !!this.writeGuard?.(),
-      available,
-      mcpTools,
-      ssh,
-      craft,
-    ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
     // "Learns its own skills" (skill-learning.js) and the memory wiki's tools, each
     // with whether some agent has it (the global tools); never with a bot for others.
     const grants = { nativeReady, senderFacing: this.senderFacing };
     grants.profiles = this.store.listAssistants?.();
     const learning = this.compiler.learning(assistant, grants);
     const wiki = this.compiler.wiki?.(assistant, grants);
-    allowed.push(...learning.tools, ...(wiki?.tools || []));
+    // The tools with or without the proven write guard, which may report meanwhile.
+    const rest = [available, mcpTools, ssh, craft];
+    const toolsFor = (guard) =>
+      profileTools(assistant, this.teamReady?.(), nativeReady, guard, ...rest)
+        .filter((tool) => !senderFacing || !senderLockedTools.includes(tool))
+        .concat(learning.tools, wiki?.tools || []);
+    const guarded = !!this.writeGuard?.();
+    const allowed = toolsFor(guarded);
+    let written = guarded;
     // The agent's SSH agent, synced first so this turn's PATH and instructions name
     // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
     const plainSsh = nativeReady
@@ -523,7 +521,7 @@ export class AssistantConfig {
           state: () => ({
             teamsReady: !!this.teamReady?.(),
             nativeReady,
-            guardProven: !!this.writeGuard?.(),
+            guardProven: (written = !!this.writeGuard?.()),
             toolsManaged: !!(this.teamReady || this.nativeReady),
             memoryManaged: !!this.nativeReady,
             available,
@@ -560,7 +558,7 @@ export class AssistantConfig {
           config: effective.config,
           expected: {
             managed: !!(this.teamReady || this.nativeReady),
-            tools: allowed,
+            tools: written === guarded ? allowed : toolsFor(written),
             exec,
             skills,
             shellGlobal,
