@@ -13,7 +13,10 @@ import path from "node:path";
  */
 const definition = /\bfunction createSessionPrepareNextTurnWithContext\s*\(/;
 const reset = /tools: v \? m\.slice\(\) : c\.context\.tools\?\.slice\(\)/;
-const kept = /keepHydrated/;
+// Kept only with the resolver's record of what it hydrated (hydrated-tools-resolved).
+const kept =
+  /keepHydrated[\s\S]*\.hydrated\?\.has\(|\.hydrated\?\.has\([\s\S]*keepHydrated/;
+const recorded = /\.hydrated \?\?= new WeakSet\(\)\)\.add\(/;
 
 function* scripts(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -32,7 +35,7 @@ export function hydratedToolsSites(packageDir) {
     found.push({
       file: path.relative(packageDir, file).split(path.sep).join("/"),
       resets: reset.test(text),
-      keeps: kept.test(text),
+      keeps: kept.test(text) && recorded.test(text),
     });
   }
   return found;

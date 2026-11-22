@@ -1066,7 +1066,8 @@ code of a manual `mcp login --code` and prints a hint for it; AgentPier's OAuth
 callback now passes the `iss` it receives as `--issuer`, to 2026.11.6 and later only:
 2026.11.3's `mcp login` refuses the unknown option.
 
-**Tool calls kept structured** (`hydrated-tools-kept`, `hydrated-tools-kept-list`).
+**Tool calls kept structured** (`hydrated-tools-kept`, `hydrated-tools-kept-list`,
+`hydrated-tools-resolved`).
 2026.11.6 builds each next turn's tools from the session's own tool list
 (`createSessionPrepareNextTurnWithContext`), so after the model called a tool-search
 directory entry by name the next request no longer declared that tool, and the new
@@ -1074,7 +1075,8 @@ Chat Completions transport (openclaw#174797) replayed the call and its result as
 assistant text ("[tool call id=… name=…]", "[tool result id=… name=…]"). Models then
 repeated calls (SSH, reminder, memory, provider, mail and coding contracts). Upstream
 tracks it as openclaw#202415, fixed by #202436 after 2026.11.6. The patch keeps the
-hydrated tools for the next turn while the session's tool list is unchanged; the
+hydrated tools for the next turn while the session's tool list is unchanged, and only
+those the session's deferred resolver returned (recorded by identity); the
 team plugin contract asserts the structured `tool` messages again and
 `hydrated-tools-guard.js` checks the installed package. Tool search stays in
 directory mode.

@@ -137,6 +137,7 @@ test("the pinned version's patches", () => {
       "no-restart-resume-inputs",
       "hydrated-tools-kept",
       "hydrated-tools-kept-list",
+      "hydrated-tools-resolved",
     ],
   );
   const [lease, resume, inputs] = list;
