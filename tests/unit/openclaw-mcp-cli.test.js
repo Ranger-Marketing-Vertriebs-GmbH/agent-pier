@@ -303,6 +303,31 @@ test("completeLogin passes the callback's issuer and refuses a malformed one", a
     await rejects(setup(t).cli.completeLogin("docs", "abc", issuer), "invalid-code");
 });
 
+test("completeLogin leaves the issuer out for OpenClaw 2026.11.3", async (t) => {
+  // 2026.11.3's `mcp login` declares only `--code` and refuses unknown options; it
+  // does not check `iss`. 2026.11.6 and later get it.
+  for (const [version, issued] of [
+    ["2026.11.3", false],
+    ["2026.11.6", true],
+  ]) {
+    const ok = setup(t, "ok", { runtime: { ...runtime, version } });
+    await ok.cli.completeLogin("docs", "abc", "https://accounts.example.test/realm");
+    assert.equal(
+      ok.recorded().argv.includes("--issuer=https://accounts.example.test/realm"),
+      issued,
+      version,
+    );
+    assert.deepEqual(ok.recorded().argv.slice(0, 4), [
+      "mcp",
+      "login",
+      "docs",
+      "--code=abc",
+    ]);
+    // A malformed issuer is refused on every version.
+    await rejects(ok.cli.completeLogin("docs", "abc", "ftp://x.test"), "invalid-code");
+  }
+});
+
 test("invalid server names never reach the CLI", async (t) => {
   const { cli } = setup(t);
   for (const bad of ["a b", "-x", "a;rm", "", null, "a".repeat(31), "$(x)"]) {

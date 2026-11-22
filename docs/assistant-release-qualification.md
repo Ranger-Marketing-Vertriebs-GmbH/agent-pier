@@ -1063,7 +1063,8 @@ rollback target alone; the heartbeat and routine contracts pin the kept job.
 
 **MCP sign-in issuer.** 2026.11.6 checks a provider's `iss` (RFC 9207) with the
 code of a manual `mcp login --code` and prints a hint for it; AgentPier's OAuth
-callback now passes the `iss` it receives as `--issuer`.
+callback now passes the `iss` it receives as `--issuer`, to 2026.11.6 and later only:
+2026.11.3's `mcp login` refuses the unknown option.
 
 **Tool calls kept structured** (`hydrated-tools-kept`, `hydrated-tools-kept-list`).
 2026.11.6 builds each next turn's tools from the session's own tool list

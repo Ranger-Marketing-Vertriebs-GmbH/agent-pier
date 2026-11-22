@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { compilerFor } from "../runtime-for.js";
 import { namePattern } from "../../../mcp-servers/command-resolution.js";
+import { atLeast, isCliVersion } from "../../../tools/cli-version-compare.js";
 
 export const mcpCliErrorCodes = Object.freeze([
   "runtime-unavailable",
@@ -377,7 +378,9 @@ export function createMcpCli({
       }
     },
     // `issuer`: the callback's `iss` (RFC 9207), which OpenClaw 2026.11.6 checks
-    // against the provider and requires where the provider sends one.
+    // against the provider and requires where the provider sends one. 2026.11.3's
+    // `mcp login` declares only `--code` and refuses other options, so the runtime's
+    // `version` below 2026.11.6 gets no `--issuer` (no version: the pinned runtime).
     async completeLogin(name, code, issuer) {
       checkedName(name);
       if (
@@ -391,7 +394,9 @@ export function createMcpCli({
         throw new McpCliError("invalid-code", "Invalid OAuth issuer.");
       // `--code=<code>` keeps a code that starts with "-" from reading as an option.
       const args = ["login", name, `--code=${code}`];
-      if (issuer !== undefined) args.push(`--issuer=${issuer}`);
+      const version = resolve(runtime)?.version;
+      const takesIssuer = !isCliVersion(version) || atLeast(version, "2026.11.6");
+      if (issuer !== undefined && takesIssuer) args.push(`--issuer=${issuer}`);
       const stdout = await run("login", args, [code]);
       if (!lines(stdout).includes(`MCP OAuth credentials saved for "${name}".`))
         throw new McpCliError(
@@ -499,6 +504,7 @@ export function supervisorMcpCli(supervisor, options = {}) {
         ? {
             nodePath: current().nodePath,
             entryPath: current().entryPath,
+            version: current().version,
             cwd: supervisor.paths.root,
           }
         : null,
