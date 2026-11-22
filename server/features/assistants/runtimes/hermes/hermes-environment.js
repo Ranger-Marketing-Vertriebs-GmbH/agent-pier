@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { harnessMarker } from "./hermes-harness-sweep.js";
 import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
 
 // Hermes treats these as launch policy or supervisor claims (its
@@ -81,6 +82,17 @@ export function hermesEnvironment({
     "/sbin",
   ];
   const harness = claimed(harnessRuntimeDir(agent.home));
+  // Whose folder it is, for AgentPier's start sweep (hermes-harness-sweep.js).
+  if (harness)
+    try {
+      fs.writeFileSync(
+        path.join(harness, harnessMarker),
+        `${JSON.stringify({ home: agent.home })}\n`,
+        { mode: 0o600 },
+      );
+    } catch {
+      /* The sweep treats a folder without its marker as stale. */
+    }
   return {
     ...proxyEnvironment(parent),
     ...(parent.TZ ? { TZ: parent.TZ } : {}),

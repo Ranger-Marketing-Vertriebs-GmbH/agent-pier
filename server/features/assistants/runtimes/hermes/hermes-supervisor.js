@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { readJSON } from "../../../../lib/storage.js";
 import { hermesAgentPaths, hermesPaths } from "./hermes-paths.js";
 import { harnessRuntimeDir, hermesEnvironment } from "./hermes-environment.js";
+import { endHarnessDaemons } from "./hermes-harness-sweep.js";
 import { selectedHermesRuntime } from "./hermes-install.js";
 import { rpcTransport, stdioTransport } from "./hermes-transport.js";
 import { createHermesClient } from "./hermes-connection.js";
@@ -374,39 +375,12 @@ export class HermesSupervisor extends EventEmitter {
         const stat = fs.lstatSync(folder);
         if (!stat.isDirectory() || (process.getuid && stat.uid !== process.getuid()))
           continue;
-        if (agent && folder === harnessRuntimeDir(agent.home)) this.endHarness(folder);
+        if (agent && folder === harnessRuntimeDir(agent.home))
+          endHarnessDaemons(folder, { kill: this.kill });
         fs.rmSync(folder, { recursive: true, force: true });
       } catch {
         /* Already gone. */
       }
-  }
-  /**
-   * Ends the browser engine daemons that published their pid in `folder`: each runs in
-   * a session of its own and outlives the set; Hermes v0.23 ends its own, v0.22.5 left
-   * them running. Only a process that is a browser-harness daemon is signalled.
-   */
-  endHarness(folder) {
-    for (const name of fs.readdirSync(folder)) {
-      if (!name.endsWith(".pid")) continue;
-      const pid = Number.parseInt(fs.readFileSync(path.join(folder, name), "utf8"), 10);
-      if (!Number.isSafeInteger(pid) || pid <= 1) continue;
-      let command = "";
-      try {
-        command = execFileSync("ps", ["-o", "command=", "-p", String(pid)], {
-          encoding: "utf8",
-        });
-      } catch {
-        continue;
-      }
-      if (!/\bbrowser_harness\.daemon\b/.test(command)) continue;
-      for (const target of [-pid, pid])
-        try {
-          this.kill(target, "SIGTERM");
-          break;
-        } catch {
-          /* Not a group of its own, or gone. */
-        }
-    }
   }
   /**
    * Ends a gateway that owns this agent's home without being this set's: one Hermes

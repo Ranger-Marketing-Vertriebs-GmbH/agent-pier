@@ -831,7 +831,13 @@ HOME and failed); no AgentPier token or owner credential. Each runs in its own p
 group; stopping ends both groups (TERM, then KILL after 10 seconds), then any gateway
 that owns the home without being the set's, the control socket folder Hermes leaves in
 the temporary directory, and the engine's folder with the daemons whose pid it holds
-(v0.22.5 leaves them running). A crash ends and restarts the set after 1, 2, 4, … up to 30
+(v0.22.5 leaves them running). Each folder is marked with its agent's HOME
+(`agentpier.json`); when the agents are switched on, before any Hermes agent runs,
+AgentPier removes the folders a set left when AgentPier ended without stopping it,
+after ending the daemons they list (`hermes-harness-sweep.js`): only this user's
+private `aph-` folders (mode 0700) whose marker names an agent of this data directory,
+a HOME that no longer exists, or none; another data directory's agent keeps its own.
+A crash ends and restarts the set after 1, 2, 4, … up to 30
 seconds; after five starts in a row that never got ready the agent's host reports
 `failed` until the next start. Logs are
 `<data>/assistants/hermes/logs/<agent>/gateway.log` and `rpc-bridge.log`.

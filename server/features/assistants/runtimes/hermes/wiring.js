@@ -1,3 +1,4 @@
+import { sweepHarnessDirs } from "./hermes-harness-sweep.js";
 import { pdfFallbackId } from "../../pdf-policy.js";
 import { runtimesChanged } from "../../live-runtime-topics.js";
 import { ownProcessUpdateScope } from "../../runtime-update-scope.js";
@@ -27,6 +28,14 @@ import { hermesRoutes } from "./hermes-routes.js";
  * services, whose attachments move a Hermes agent's uploads before it starts.
  */
 export function hermesAgentFleet(supervisor, { dataDir, store, created = {} }) {
+  // Before any agent of this data directory runs: the browser engine folders and
+  // daemons a set left when AgentPier ended without stopping it go.
+  if (dataDir)
+    try {
+      sweepHarnessDirs({ dataDir });
+    } catch {
+      /* Left for the next start. */
+    }
   // Read at each start; an invalid row is reported where OpenClaw's start reads it.
   let overrides = null;
   return attachHermesFleet(
