@@ -1127,8 +1127,9 @@ everywhere with `UNAVAILABLE`: 2026.11.6 publishes readiness before it starts it
 config reloader, and a `config.patch` (or an `agents.create`/`.update`/`.delete`)
 in between is answered "… (unclaimed)"; the reloader applies the persisted file
 about a second later on its own (reproduced with a bare `maxConcurrent` patch right
-after readiness). `live-patch.js` now waits until `config.get` shows it applied and
-counts the write as done (see `assistant-gateway.md`).
+after readiness). `live-patch.js` now counts it as done only with proof: the hash it
+persisted applied in `config.get`, or the agent written listed (deleted: no longer
+listed) in `agents.list` (see `assistant-gateway.md`).
 
 ### Native architectures (2026-10-19)
 

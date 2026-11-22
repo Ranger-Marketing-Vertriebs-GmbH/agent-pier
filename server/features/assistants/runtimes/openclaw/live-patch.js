@@ -105,8 +105,11 @@ async function quiet(client, state, { settleMs, now, sleep, warn }) {
 // write in between is persisted but not applied: UNAVAILABLE "(unclaimed)"
 // (gateway-client.js `persistedWrite`), and the reloader applies the persisted file
 // once it starts. Such a write succeeded once config.get shows the written
-// configuration applied, within `settleMs`; any other outcome stays an error. Writes
-// carry a base hash or run one after the other, so a later write builds on this one.
+// configuration applied, within `settleMs` (a configuration write's own persisted
+// hash, never an earlier or another writer's), and an agent write's result shows in
+// agents.list; any other outcome, or a failed confirmation read, keeps the write's
+// error. Writes carry a base hash or run one after the other, so a later write builds
+// on this one.
 const settledWrites = new Set([
   "config.patch",
   "config.apply",
@@ -120,11 +123,16 @@ const unclaimedWrite = (method, error) =>
   error.code === "UNAVAILABLE" &&
   error.persisted?.outcome === "unclaimed";
 
-async function applied(client, { settleMs, now, sleep }) {
+async function applied(client, hash, { settleMs, now, sleep }) {
   const deadline = now() + settleMs;
   for (let pause = firstPollMs; ; pause = Math.min(lastPollMs, pause * 2)) {
     const answer = await client.call("config.get", {}).catch(() => null);
-    if (answer && typeof answer.appliedConfigHash === "string" && !reloadPending(answer))
+    if (
+      answer &&
+      typeof answer.appliedConfigHash === "string" &&
+      !reloadPending(answer) &&
+      (hash === undefined || answer.hash === hash)
+    )
       return answer;
     if (now() >= deadline) return null;
     await sleep(Math.min(pause, Math.max(0, deadline - now())));
@@ -133,13 +141,24 @@ async function applied(client, { settleMs, now, sleep }) {
 
 // What the unclaimed write would have answered once it is applied: a configuration
 // write its hash; agents.create the agent it made, found by the name it was created
-// with (AgentPier's agent ids are already OpenClaw's normal form).
+// with (AgentPier's agent ids are already OpenClaw's normal form); agents.update the
+// agent still listed; agents.delete the agent gone (still listed, its session cleanup
+// may be pending). Null when unconfirmed, a failed read included.
 async function settledAnswer(client, method, params, answer) {
   if (method.startsWith("config.")) return { ok: true, hash: answer.hash };
-  if (method !== "agents.create") return { ok: true };
-  const { agents = [] } = await client.call("agents.list", {});
-  const agentId = String(params?.name ?? "").toLowerCase();
-  return agents.some((agent) => agent.id === agentId) ? { ok: true, agentId } : null;
+  const agentId = String(
+    (method === "agents.create" ? params?.name : params?.agentId) ?? "",
+  ).toLowerCase();
+  let listed;
+  try {
+    const { agents = [] } = await client.call("agents.list", {});
+    listed = agents.some((agent) => agent.id === agentId);
+  } catch {
+    return null;
+  }
+  if (method === "agents.delete") return listed ? null : { ok: true };
+  if (!listed) return null;
+  return method === "agents.create" ? { ok: true, agentId } : { ok: true };
 }
 
 /**
@@ -181,7 +200,9 @@ export function configWrite(
     const settling = (method, params, options) =>
       call(method, params, options).catch(async (error) => {
         if (!unclaimedWrite(method, error)) throw error;
-        const answer = await applied(client, { settleMs, now, sleep });
+        const hash = method.startsWith("config.") ? error.persisted.hash : undefined;
+        if (method.startsWith("config.") && typeof hash !== "string") throw error;
+        const answer = await applied(client, hash, { settleMs, now, sleep });
         const settled = answer && (await settledAnswer(client, method, params, answer));
         if (!settled) throw error;
         return settled;

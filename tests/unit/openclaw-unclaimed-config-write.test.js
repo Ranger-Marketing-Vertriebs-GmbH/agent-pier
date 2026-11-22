@@ -45,7 +45,8 @@ test("only a persisted, not applied write keeps its outcome and hash", () => {
 });
 
 // A Gateway whose config.get answers `gets` in turn (the last one again and again)
-// and that refuses every write as unclaimed.
+// and that refuses every write as unclaimed. `agents` is its agents.list answer, or
+// a function throwing its failure.
 function gateway(gets, agents = []) {
   const calls = [];
   const queue = [...gets];
@@ -53,7 +54,8 @@ function gateway(gets, agents = []) {
     calls,
     async call(method) {
       calls.push(method);
-      if (method === "agents.list") return { agents };
+      if (method === "agents.list")
+        return { agents: typeof agents === "function" ? agents() : agents };
       if (method === "config.get") return queue.length > 1 ? queue.shift() : queue[0];
       if (method === "config.patch") throw refusal(unclaimedPatch);
       if (method.startsWith("agents.")) throw refusal(unclaimedAgent);
@@ -99,9 +101,58 @@ test("an unclaimed agents.create answers the agent it made once applied", async 
     configWrite(missing, (call) => call("agents.create", { name: "ap-1" })),
     (error) => error.persisted.outcome === "unclaimed",
   );
-  const updated = gateway([initial, applied]);
+});
+
+// A bounded clock for writes the Gateway never confirms.
+const bounded = () => {
+  let clock = 0;
+  return {
+    settleMs: 1000,
+    now: () => clock,
+    sleep: async (ms) => void (clock += ms),
+  };
+};
+const unclaimed = (error) =>
+  error.code === "UNAVAILABLE" && error.persisted?.outcome === "unclaimed";
+
+test("an unclaimed configuration write counts only with the hash it persisted", async () => {
+  // A config.get from before the write, or of another writer's file, applies
+  // another hash: never this write's proof.
+  const other = { hash: "h9", configRevisionHash: "r9", appliedConfigHash: "r9" };
+  for (const gets of [[initial], [initial, other]])
+    await assert.rejects(
+      configWrite(
+        gateway(gets),
+        (call) => call("config.patch", { raw: "{}" }),
+        bounded(),
+      ),
+      unclaimed,
+    );
+  // The written hash applied, after another answer: the write is done.
+  const g = gateway([initial, other, applied]);
   assert.deepEqual(
-    await configWrite(updated, (call) => call("agents.update", { agentId: "ap-1" })),
-    { ok: true },
+    await configWrite(g, (call) => call("config.patch", { raw: "{}" }), bounded()),
+    { ok: true, hash: "h2" },
   );
+});
+
+test("an unclaimed agent update or delete counts only once agents.list shows it", async () => {
+  const run = (agents, method) =>
+    configWrite(
+      gateway([initial, applied], agents),
+      (call) => call(method, { agentId: "ap-1" }),
+      bounded(),
+    );
+  // An updated agent is listed, a deleted one is not.
+  assert.deepEqual(await run([{ id: "ap-1" }], "agents.update"), { ok: true });
+  assert.deepEqual(await run([], "agents.delete"), { ok: true });
+  await assert.rejects(run([], "agents.update"), unclaimed);
+  // A delete still listed is not done: its session cleanup may be pending.
+  await assert.rejects(run([{ id: "ap-1" }], "agents.delete"), unclaimed);
+  // A failed confirmation read keeps the write's own error.
+  const failing = () => {
+    throw Object.assign(Error("list failed"), { code: "RPC_FAILED" });
+  };
+  for (const method of ["agents.create", "agents.update", "agents.delete"])
+    await assert.rejects(run(failing, method), unclaimed);
 });
