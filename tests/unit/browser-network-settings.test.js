@@ -138,3 +138,45 @@ test("a saved setting applies every Hermes agent that browses", async (t) => {
   // Its home and its browser's navigation guard take the setting at that restart.
   assert.deepEqual(applied, ["h1"]);
 });
+
+test("Hermes agents take a saved setting also when the Gateway restart fails", async (t) => {
+  const applied = [];
+  const browserNetwork = settings(t);
+  const service = new WebToolsChanges({
+    assistants: {
+      runtime: {
+        client: { ready: true },
+        status: () => ({ availability: "ready" }),
+        webTools: { browserAllowPrivateNetwork: false },
+      },
+      store: {
+        listAssistants: () => [
+          {
+            id: "h1",
+            runtimeAgentId: "ap-h1",
+            runtime: "hermes",
+            capabilities: { browser: true },
+          },
+        ],
+      },
+      config: { apply: async (id) => applied.push(id) },
+    },
+    browserNetwork,
+  });
+  // No pending restart: the owner confirmed an immediate one, which fails after the
+  // setting was saved.
+  service.restart = async (save) => {
+    save();
+    throw Object.assign(Error("restart failed"), { code: "RESTART_FAILED" });
+  };
+  await assert.rejects(
+    service.saveBrowserNetwork(
+      { revision: 0, allowPrivateNetwork: true },
+      { confirmed: true },
+    ),
+    { code: "RESTART_FAILED" },
+  );
+  assert.equal(browserNetwork.get().allowPrivateNetwork, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(applied, ["h1"]);
+});

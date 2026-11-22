@@ -98,6 +98,13 @@ export class WebToolsChanges {
         outcome: "success",
       });
       this.assistants.changed?.();
+      // A Hermes agent compiles the setting into its home and its browser's
+      // navigation guard (runtimes/hermes/hermes-browser-guard.js): an apply restarts
+      // each one that browses, and with it that browser, once the setting is saved,
+      // whatever becomes of the Gateway's restart.
+      this.applyOwnProcessAgents(
+        (agent) => agent.browser.wanted || agent.browser.borrowed,
+      );
     };
     // Queue even while starting/reconnecting or no agent currently uses a browser:
     // a compiled global policy and existing browser tabs can still be present.
@@ -110,10 +117,6 @@ export class WebToolsChanges {
       this.confirm(confirmed);
       await this.restart(save);
     }
-    // A Hermes agent compiles the setting into its home and its browser's navigation
-    // guard (runtimes/hermes/hermes-browser-guard.js): an apply restarts each one that
-    // browses, and with it that browser.
-    this.applyOwnProcessAgents((agent) => agent.browser.wanted || agent.browser.borrowed);
     return this.networkStatus();
   }
   /**
