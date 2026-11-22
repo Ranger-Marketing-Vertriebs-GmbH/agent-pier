@@ -1118,7 +1118,11 @@ deadline and only while that start is current and its process alive.
   stripped corpus lines stay out; `memory forget` still removes a chat.
 
 **Result.** Local macOS arm64 run of all 69 native contract files on 2026.11.6
-(2026-11-22): 138 tests, 138 passed. Not covered locally: Linux and the WebKit
+(2026-11-22, patch set with `hydrated-tools-resolved`): 138 tests, 138 passed. The same
+build on the 2026.11.3 rollback target, which installations keep running until the
+owner activates the pin: the heartbeat contract (monitor off with `every: "0m"`, chat
+re-bound after `/reset` and `/new`) and the compiled MCP OAuth contract (a callback
+with `iss`, no `--issuer` passed) pass. Not covered locally: Linux and the WebKit
 browser suites, which CI runs.
 
 **Tool search.** `tools.toolSearch: { mode: "directory" }` stays as before; 2026.11.6
