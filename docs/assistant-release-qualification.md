@@ -1087,7 +1087,17 @@ write could wedge the reloader ("config reload superseded by a newer runtime con
 source" without end): later `agents.update` calls hung and `browser.request` was
 unknown right after a start. The supervisor now waits while the pinned `/startupz`
 answers 503 (2026.11.6 answers 503 while it starts, then 200), bounded by the start
-deadline and only while that start is current and its process alive.
+deadline and only while that start is current and its process alive. The background
+admission after an unclean stop ends before `/startupz` turns 200, so a write during
+the admission is a write into the start. Two such writes in a row, without waiting
+for the admission or the first one's application (which AgentPier never sends), can
+supersede a model runtime publication of the start itself: the Gateway then fails its
+start ("Gateway failed to start: prepared model runtime publication was superseded",
+in 4 of 9 Linux arm64 runs of the agent admission contract, AGENTPIER-485) and
+the supervisor starts it again, which admits every agent. The contract accepts that
+outcome for its write that does not wait; AgentPier's own writes after a crash and
+after a clean restart (each waiting as `live-patch.js` does) never set it off in the
+same runs.
 
 **Changed runtime behaviour** that AgentPier follows now:
 
