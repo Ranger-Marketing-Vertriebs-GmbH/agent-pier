@@ -897,9 +897,16 @@ cloud browser: it ranks before every other backend. `browser_exec` is plain Pyth
 the host, so Hermes offers it only to an agent with a shell (`terminal` among its tools,
 `model_tools.py` `_rewrite_browser_exec`), and AgentPier's guard asks before it on the
 asking levels ([shell levels](#shell-levels)). An agent without a shell, such as a task
-member or an agent of restricted users, browses with `browser_cdp`: raw CDP commands
-on the same browser, which Hermes checks for private addresses itself
-(`tools/browser_cdp_tool.py`). `browser_dialog` and `browser_vault` come with the
+member its lead grants none or an agent of restricted users, browses with
+`browser_cdp`: raw CDP commands on the same browser, which Hermes checks for private
+addresses itself (`tools/browser_cdp_tool.py`). The team plugin's guard refuses the
+commands that reach past the web pages it works on (`tools/hermes-cdp-policy.js`):
+`DOM.setFileInputFiles` (staged files go through `agentpier_browser_upload`),
+`Page.setDownloadBehavior`, every `Browser.*` command but `Browser.getVersion`,
+`Network.loadNetworkResource`, `Target.exposeDevToolsProtocol`,
+`Target.attachToBrowserTarget` and `Security.setIgnoreCertificateErrors`, and a
+`Page.navigate` or `Target.createTarget` to anything but an `http`/`https` address or
+`about:blank`; nothing refused there starts the browser. `browser_dialog` and `browser_vault` come with the
 toolset. A home compiled for Hermes v0.22, whose `browser.backend: off` kept that
 release's own browser tools, loses the key at its next start, before Hermes reads it, so
 the agent switches to `browser_exec` without Hermes's one-time notice about the removed

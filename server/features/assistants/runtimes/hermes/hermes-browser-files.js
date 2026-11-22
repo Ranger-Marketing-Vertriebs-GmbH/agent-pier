@@ -1,11 +1,13 @@
 // Fills a file field of a page in a Hermes agent's AgentPier-owned Chromium
-// (hermes-browser.js) with files AgentPier staged: an agent with Hermes's browser
-// (`browser_exec`, `browser_cdp`) and no shell cannot reach them, and with a shell
-// the upload is still the one OpenClaw's agents make, checked and recorded for the
-// owner. AgentPier sets the files itself over CDP (`DOM.setFileInputFiles`) on the
-// page the agent works in. The files are ones
-// AgentPier staged for the agent (browser-upload-staging.js), admitted before this
-// runs (hermes-browser-upload.js).
+// (hermes-browser.js) with files AgentPier staged for the agent
+// (browser-upload-staging.js), admitted before this runs (hermes-browser-upload.js):
+// the upload of agentpier_browser_upload, checked and recorded for the owner as
+// OpenClaw's. AgentPier sets the files itself over CDP (`DOM.setFileInputFiles`) on
+// the page the agent works in. Hermes's browser_cdp may not send that command
+// (tools/hermes-cdp-policy.js), so an agent without a shell uploads staged files
+// only; with a shell, browser_exec is Python on the host and can name any file the
+// shell can, past this upload, which is why the guard asks the owner before it
+// (hermes-config/guard-plugin.js).
 
 const problem = (code) => Object.assign(Error(code), { code });
 const timeoutMs = 10000;
