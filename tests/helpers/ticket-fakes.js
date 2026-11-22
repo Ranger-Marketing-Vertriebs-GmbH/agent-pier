@@ -215,6 +215,13 @@ function checkDone(node) {
       : "failure";
 }
 
+// GitHub's overall state of a commit's checks.
+function rollupState(contexts) {
+  const states = contexts.map(checkDone);
+  if (states.includes("failure")) return "FAILURE";
+  return states.includes("pending") ? "PENDING" : "SUCCESS";
+}
+
 /**
  * The PR's merge state: its own when set, else GitHub's rule of thumb: BLOCKED while a
  * required check is not green or a review is missing or requests changes, UNSTABLE when
@@ -276,7 +283,16 @@ export async function fakeGithubPulls(
     isInMergeQueue: pull.inMergeQueue,
     autoMergeRequest: pull.autoMerge ? { enabledAt: "2026-11-03T10:05:00Z" } : null,
     commits: {
-      nodes: [{ commit: { statusCheckRollup: { contexts: { nodes: pull.contexts } } } }],
+      nodes: [
+        {
+          commit: {
+            statusCheckRollup: {
+              state: rollupState(pull.contexts),
+              contexts: { nodes: pull.contexts },
+            },
+          },
+        },
+      ],
     },
   });
   const queue = (branch) =>

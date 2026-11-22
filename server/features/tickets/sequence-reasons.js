@@ -14,6 +14,8 @@ export const PARK_REASONS = Object.freeze([
   "mergeDisarmed",
   "armRefused",
   "mergeRefused",
+  // The token may not read the PR's checks, so AgentPier cannot merge on them.
+  "checksUnreadable",
   // Task 9: fix attempts and owner limits.
   "idle",
   "failedRounds",
