@@ -10,7 +10,18 @@ import { setTimeout as delay } from "node:timers/promises";
 //   restart or a suspension (`details.reason`, 2026.11.3, retryAfterMs 1000), or
 //   before a plugin or config operation entered (`details.mutationAccepted: false`);
 // - one of a read, which changes nothing either way: a models.list that a newer
-//   catalog generation superseded (2026.11.2), the auth status or a probe.
+//   catalog generation superseded (2026.11.2), the auth status or a probe;
+// - a sessions.send with its idempotency key that OpenClaw 2026.11.6 refused because
+//   the session changed between the request's authorization and the turn's admission
+//   (INVALID_REQUEST "session changed before sessions.send; retry the request",
+//   `details.code` SESSION_MUTATION_AUTHORIZATION_CHANGED, no `retryable`; it races
+//   the end of an exec completion's run in the same chat). OpenClaw answers it only
+//   before its acknowledgement and so before it dispatches the turn
+//   (chat-send-input-dispatch.ts: the setup error comes ahead of `startChatDispatch`);
+//   a user message it may already have written is keyed `<key>:user`, which the
+//   repeat replays instead of appending again. A fresh request is authorized against
+//   the current session. Without the key OpenClaw would mint a new run id, so such a
+//   send is passed on.
 //
 // This layer alone repeats those; live-patch.js keeps only the control-plane budget
 // of config.patch (a retryable refusal without such a reason) and passes the ones
@@ -37,23 +48,37 @@ export const refusedBeforeDispatch = (error) =>
   (beforeDispatch.has(error.details?.reason) ||
     error.details?.mutationAccepted === false);
 
-/** Whether `method` may be sent again after `error` (a GatewayClient rejection). */
-export const repeatable = (method, error) =>
+/** Whether a refusal frame's error says the session changed before the request ran. */
+export const refusedSessionChanged = (error) =>
+  error?.code === "INVALID_REQUEST" &&
+  error.details?.code === "SESSION_MUTATION_AUTHORIZATION_CHANGED";
+// Methods whose session-changed refusal is answered before anything is dispatched,
+// when the request carries an idempotency key.
+const sessionChangedMethods = new Set(["sessions.send"]);
+
+/**
+ * Whether `method` may be sent again after `error` (a GatewayClient rejection);
+ * `keyed` says the request carries its idempotency key.
+ */
+export const repeatable = (method, error, keyed = false) =>
   error?.answered === true &&
-  error.retryable === true &&
-  (error.beforeDispatch === true || repeatableReads.has(method));
+  ((error.retryable === true &&
+    (error.beforeDispatch === true || repeatableReads.has(method))) ||
+    (error.sessionChanged === true && keyed && sessionChangedMethods.has(method)));
 
 /**
  * Runs `attempt(timeoutMs)` and repeats it while `repeatable` allows, at most
  * `retries` times, all within `timeoutMs` from now; each attempt gets what is left.
  * `current()` says whether the connection that answered still serves; `signal` ends a
- * wait at once (the connection closed). Either way the refusal is passed on.
+ * wait at once (the connection closed). Either way the refusal is passed on. `keyed`
+ * says the request carries its idempotency key.
  */
 export async function repeating(
   method,
   attempt,
   {
     timeoutMs,
+    keyed = false,
     current = () => true,
     signal,
     retries = 10,
@@ -72,7 +97,7 @@ export async function repeating(
       const asked = Number.isFinite(error?.retryAfterMs) ? error.retryAfterMs : 0;
       const wait = Math.min(maxWaitMs, Math.max(minWaitMs, asked));
       const left = deadline - now() - wait;
-      if (!repeatable(method, error) || n >= retries || left <= 0 || left < floor)
+      if (!repeatable(method, error, keyed) || n >= retries || left <= 0 || left < floor)
         throw error;
       if (signal?.aborted) throw error;
       try {

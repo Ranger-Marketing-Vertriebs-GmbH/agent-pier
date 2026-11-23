@@ -1175,6 +1175,22 @@ after readiness). `live-patch.js` now counts it as done only with proof: the has
 persisted applied in `config.get`, or the agent written listed (deleted: no longer
 listed) in `agents.list` (see `assistant-gateway.md`).
 
+**Session changed before sessions.send (AGENTPIER-489).** In the 2.20.0-rc.11 release
+run (Linux arm64), an owner `sessions.send` right after an exec completion's run in the
+same chat was refused with `INVALID_REQUEST` "session changed before sessions.send;
+retry the request" (`details.code` `SESSION_MUTATION_AUTHORIZATION_CHANGED`, no
+`retryable`). OpenClaw raises it when the session it authorized the request against
+changed before the turn's admission (`sessionMutationTargetChanged`,
+`src/gateway/session-sharing-authorization.ts`). It answers so only before it
+acknowledges the turn, ahead of `startChatDispatch` (`chat-send-input-dispatch.ts`),
+and a user message it already wrote is keyed `<idempotency key>:user`, which the next
+attempt replays instead of appending again. `GatewayClient.call` therefore sends such a
+`sessions.send` again when it carries its idempotency key, as it does for other
+refusals before dispatch (`gateway-retry.js`). The work goals contract failure in the
+same run (macOS, "the model received the continuation") is not this refusal: that
+continuation's `sessions.send` was acknowledged. The contract now logs the Gateway's
+answer, the `agent.wait` result and what the model was asked when it fails again.
+
 ### Native architectures (2026-10-19)
 
 The runtime manifest pins Node checksums for darwin-arm64, darwin-x64, linux-arm64
