@@ -6,7 +6,11 @@ import https from "node:https";
 import WebSocket from "ws";
 import { gatewayHandshake, gatewayError } from "./gateway-protocol.js";
 import { readGatewayPin } from "./gateway-tls.js";
-import { refusedBeforeDispatch, repeating } from "./gateway-retry.js";
+import {
+  refusedBeforeDispatch,
+  refusedSessionChanged,
+  repeating,
+} from "./gateway-retry.js";
 
 // The token is a bearer secret, so only a Gateway holding the private key of the
 // certificate in our private runtime folder may receive it. The pin is re-read on
@@ -183,6 +187,9 @@ export class GatewayClient extends EventEmitter {
                   // connection, OpenClaw 2026.10).
                   // Refused before dispatch: repeating it cannot run it twice.
                   ...(refusedBeforeDispatch(frame.error) ? { beforeDispatch: true } : {}),
+                  // The session changed between authorization and admission
+                  // (OpenClaw 2026.11.6): a keyed sessions.send may go again.
+                  ...(refusedSessionChanged(frame.error) ? { sessionChanged: true } : {}),
                   ...(Number.isFinite(frame.error?.retryAfterMs) &&
                   frame.error.retryAfterMs >= 0
                     ? { retryAfterMs: frame.error.retryAfterMs }
@@ -260,6 +267,7 @@ export class GatewayClient extends EventEmitter {
       (timeoutMs) => this.request(method, params, { ...options, timeoutMs }),
       {
         timeoutMs: options.timeoutMs ?? this.timeoutMs,
+        keyed: typeof params?.idempotencyKey === "string" && params.idempotencyKey !== "",
         current: () => this.ready && this.ws === ws,
         signal: lifetime?.signal,
       },

@@ -98,6 +98,45 @@ test("a drain refusal or a not-entered operation without retryable is passed on"
   assert.equal(sent("config.patch"), 1);
 });
 
+// As OpenClaw 2026.11.6 refuses a request whose session changed between its
+// authorization and the turn's admission (sessionMutationTargetChanged): no
+// `retryable`, no wait.
+const sessionChanged = (method) => ({
+  code: "INVALID_REQUEST",
+  message: `session changed before ${method}; retry the request`,
+  details: {
+    code: "SESSION_MUTATION_AUTHORIZATION_CHANGED",
+    method,
+    sessionKey: "agent:ap-1:dashboard:1",
+  },
+});
+
+test("a sessions.send refused because its session changed is sent again under its key", async (t) => {
+  const { client, sent } = await connected(t, {
+    "sessions.send": [sessionChanged("sessions.send"), sessionChanged("sessions.send")],
+  });
+  const turn = { key: "agent:ap-1:dashboard:1", message: "Hi", idempotencyKey: "a-1" };
+  assert.deepEqual(await client.call("sessions.send", turn), { value: 42 });
+  assert.equal(sent("sessions.send"), 3);
+});
+
+test("a session-changed refusal is passed on without a key or for another method", async (t) => {
+  const { client, sent } = await connected(t, {
+    "sessions.send": [sessionChanged("sessions.send")],
+    "sessions.patch": [sessionChanged("sessions.patch")],
+  });
+  // Without its idempotency key OpenClaw would admit the message under a new run id.
+  await assert.rejects(client.call("sessions.send", { key: "k", message: "Hi" }), {
+    code: "INVALID_REQUEST",
+    remoteMessage: "session changed before sessions.send; retry the request",
+  });
+  assert.equal(sent("sessions.send"), 1);
+  await assert.rejects(client.call("sessions.patch", { key: "k", idempotencyKey: "p" }), {
+    code: "INVALID_REQUEST",
+  });
+  assert.equal(sent("sessions.patch"), 1);
+});
+
 test("a connection that closes during the wait ends it; the repeat never goes out", async (t) => {
   const { client, sent } = await connected(t, {
     "sessions.send": [{ ...draining("sessions.send"), retryAfterMs: 2000 }],
