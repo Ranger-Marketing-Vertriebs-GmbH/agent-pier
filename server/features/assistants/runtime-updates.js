@@ -290,13 +290,19 @@ export class RuntimeUpdates {
         this.persist(this.journal.phase, { diagnostic: "INSUFFICIENT_SPACE" });
         throw failure("INSUFFICIENT_SPACE", 507);
       }
-      const wasRunning = this.host.status().availability !== "disabled";
+      const { availability } = this.host.status();
+      // A rollback that left this runtime stopped (restartPrevious) keeps the wish
+      // that the agents run. A failed Gateway may fail again in a rollback's start.
+      const { previousStopped: kept, previous: last } = this.journal;
+      const wasRunning =
+        availability !== "disabled" || (!!kept && this.host.sameInstall(last, previous));
       const id = randomUUID();
       this.journal = {
         phase: "staged",
         candidate,
         previous,
         wasRunning,
+        wasFailed: availability === "failed",
         id,
         blockers: [],
         blockerItems: [],
@@ -465,10 +471,7 @@ export class RuntimeUpdates {
       }
       this.fence.open();
       durablePrivate(this.selection, journal.previous);
-      if (journal.wasRunning) {
-        await this.host.start();
-        await this.maintenance.validate();
-      }
+      if (journal.wasRunning) await this.restartPrevious(journal);
       this.persist("rollback_committed", { diagnostic });
       await this.maintenance.leave();
       this.persist("rolled_back");
@@ -482,6 +485,24 @@ export class RuntimeUpdates {
       this.persist("recovery_required", { diagnostic: "UPDATE_RECOVERY_REQUIRED" });
       throw failure("UPDATE_RECOVERY_REQUIRED");
     }
+  }
+  /**
+   * The restored runtime runs again as before the activation. One this AgentPier
+   * cannot start (an installation still on an older OpenClaw) stays stopped and waits
+   * for the owner to activate the pin, as it did before; so does one whose Gateway had
+   * failed before the activation and fails to start again. Neither needs recovery.
+   */
+  async restartPrevious(journal) {
+    if (this.host.startable?.(journal.previous) ?? true)
+      try {
+        await this.host.start();
+        return await this.maintenance.validate();
+      } catch (error) {
+        if (!journal.wasFailed || this.host.status().availability === "ready")
+          throw error;
+        await this.host.stop();
+      }
+    this.persist(this.journal.phase, { previousStopped: true });
   }
   recover() {
     return this.exclusive(async () => {
@@ -516,7 +537,9 @@ export class RuntimeUpdates {
         if (this.journal.phase === "committed" && this.journal.backup)
           markBackupSuccessful(this.paths, this.journal.backup);
         this.fence.open();
-        if (this.journal.wasRunning) {
+        if (this.journal.wasRunning && completed === "rolled_back")
+          await this.restartPrevious(this.journal);
+        else if (this.journal.wasRunning) {
           await this.host.start();
           await this.maintenance.validate();
         }

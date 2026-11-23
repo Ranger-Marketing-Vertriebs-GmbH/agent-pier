@@ -62,6 +62,8 @@ async function failedUpdate(t, { dataDir, paths, scope, during }) {
       leave: async () => {},
     },
     stage: async () => ({ version: "2.0.0", nodeVersion: "26.12.1" }),
+    // The fake versions stand for runtimes this build starts (a rollback restarts them).
+    host: { startable: () => true },
     freeSpace: async () => Number.MAX_SAFE_INTEGER,
     migrate: async () => {
       during();

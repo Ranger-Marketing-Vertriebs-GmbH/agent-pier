@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { privateFolder } from "./runtime-paths.js";
-import { runtimeManifest } from "./runtimes/openclaw/runtime-manifest.js";
+import { runnableVersion } from "./runtimes/openclaw/runtime-manifest.js";
 const source = fileURLToPath(new URL("./team-plugin/", import.meta.url));
 const files = [
   "index.js",
@@ -60,11 +60,7 @@ export const teamPluginDirectory = (
 ) => path.join(root, "plugins", `teams-${integrity.slice(0, 16)}`);
 export function provisionTeamPlugin({ paths, runtimeVersion }) {
   // The shipped runtime and its declared rollback targets; nothing else is assumed.
-  if (
-    ![runtimeManifest.version, ...runtimeManifest.rollbackTargets].includes(
-      runtimeVersion,
-    )
-  )
+  if (!runnableVersion(runtimeVersion))
     throw Error("Incompatible assistant team runtime.");
   const { contents, integrity } = shippedPlugin();
   privateFolder(path.join(paths.root, "plugins"));

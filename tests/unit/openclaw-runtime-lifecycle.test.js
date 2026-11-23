@@ -36,6 +36,16 @@ test("the OpenClaw host ships the manifest's version and recognises its records"
   assert.equal(host.current({ ...shipped, version: "2026.1.1" }), false);
 });
 
+test("the OpenClaw host starts only the pin and its rollback targets", () => {
+  const host = hostOf();
+  assert.equal(host.startable({ version: runtimeManifest.version }), true);
+  for (const version of runtimeManifest.rollbackTargets)
+    assert.equal(host.startable({ version }), true);
+  // An installation an older AgentPier selected waits for the pin (AGENTPIER-490).
+  assert.equal(host.startable({ version: "2026.10.9" }), false);
+  assert.equal(host.startable(null), false);
+});
+
 test("the OpenClaw host installs into the data folder and compares install records", async (t) => {
   const { dataDir, options } = assistantInstallFixture(t);
   const host = hostOf();

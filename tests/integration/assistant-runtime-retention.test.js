@@ -78,6 +78,8 @@ function fixture(t, { fenced = false } = {}) {
     stage: async () => next,
     freeSpace: async () => Number.MAX_SAFE_INTEGER,
     migrate: async () => {},
+    // The fake versions stand for runtimes this build starts (a rollback restarts them).
+    host: { startable: () => true },
   };
   return {
     dataDir,

@@ -70,6 +70,8 @@ function fixture(t) {
     maintenance,
     stage: async () => target,
     migrate: async () => {},
+    // The fake versions stand for runtimes this build starts (a rollback restarts them).
+    host: { startable: () => true },
   };
   return {
     ...options,
