@@ -51,7 +51,7 @@ and agents that work as a team.
   line comments on a run's changes that go back with the gate's feedback, and a
   finished run sent back to a chosen stage with them,
   plus a built-in software factory from spec to pull request
-  ([pipelines](docs/pipelines.md#software-factory)).
+  ([pipelines](docs/pipelines.md#software-factory)). The sidebar’s **Active pipelines** group lists runs awaiting your decision first.
 - **Delete a project:** the owner deletes a project and its folder from disk after a check that blocks on running sessions, runs and processes and warns about unsaved Git work, or removes a project whose folder is gone from AgentPier ([projects page](docs/memory.md#deleting-a-project)).
 - **Tickets:** a project's **Tickets** tab lists open GitHub issues and Plane work items,
   starts one as a session or a pipeline run, marks it "In progress" and shows it on the

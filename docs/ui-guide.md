@@ -416,9 +416,8 @@ The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).
 
 - **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)** on macOS or **Search (Ctrl+K)** elsewhere, **Menu**), brand
-  with the LOCAL, TAILNET or NETWORK badge (how AgentPier is reached), **Inbox**, the **Views** group (only wider than 1150 px), the
-  **Agents** group, the **Sessions** group and the host status. It belongs to agents and sessions; never add a permanent list of
-  areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
+  with the LOCAL, TAILNET or NETWORK badge (how AgentPier is reached), **Inbox**, **Active pipelines** while runs are running or awaiting a decision, the **Views** group (only wider than 1150 px), the
+  **Agents** group, the **Sessions** group and the host status. A pipeline awaiting a decision appears first and opens its run. The group header shows how many decisions are pending, including when collapsed. The Agents and Sessions heads carry two icon buttons each: Agents → **Manage all agents**
   (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs
   and extensions** (`/coding/clis`) and **New session**. These "+" buttons are the
   sidebar's only way to create; it has no **New** button. The phone drawer shows the

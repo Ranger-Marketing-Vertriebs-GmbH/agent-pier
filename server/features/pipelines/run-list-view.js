@@ -7,7 +7,7 @@
 // cuts it to 160 characters); a longer cut keeps that ellipsis decision intact.
 const TASK_LINE_MAX = 400;
 
-const taskLine = (task) =>
+export const taskLine = (task) =>
   typeof task === "string"
     ? task.trim().split(/\r?\n/, 1)[0].slice(0, TASK_LINE_MAX)
     : "";

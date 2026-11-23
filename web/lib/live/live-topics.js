@@ -96,6 +96,11 @@ export const liveTopics = Object.freeze({
     path: under("/craft/rebuilds"),
     interval: 5000,
   }),
+  "pipeline.active": Object.freeze({
+    mode: "state",
+    path: () => "/pipeline-active-runs",
+    interval: 5000,
+  }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),

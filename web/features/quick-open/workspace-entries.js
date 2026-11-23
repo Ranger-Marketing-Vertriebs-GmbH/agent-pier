@@ -174,28 +174,29 @@ export function chatEntries({ agents = [], conversations = [] } = {}) {
     });
 }
 
-/** The runs of the pushed first page of the run list, newest first, with their status. */
-export function runEntries(runs = []) {
+/** Recent runs and active sidebar runs beyond the first page, once per id. */
+export function runEntries(recent = [], active = []) {
   const root = join(
     bilingual(() => pipelineCopy.title),
     bilingual(() => pipelineCopy.runs),
   );
-  return runs
-    .filter((run) => run?.id)
-    .map((run) =>
-      entry(
-        "runs",
-        `run:${run.id}`,
-        same(runTitle(run) || run.id),
-        run.pipelineName ? join(root, same(run.pipelineName)) : root,
-        { route: { view: "pipelines", pipelineTab: "runs", pipelineItem: run.id } },
-        {
-          meta: bilingual(() => runStatusLabel(run.status)),
-          icon: "refresh",
-          extra: [run.pipelineName, run.projectName, run.id].filter(Boolean),
-        },
-      ),
-    );
+  const runs = new Map(
+    [...recent, ...active].filter((run) => run?.id).map((run) => [run.id, run]),
+  );
+  return [...runs.values()].map((run) =>
+    entry(
+      "runs",
+      `run:${run.id}`,
+      same(runTitle(run) || run.id),
+      run.pipelineName ? join(root, same(run.pipelineName)) : root,
+      { route: { view: "pipelines", pipelineTab: "runs", pipelineItem: run.id } },
+      {
+        meta: bilingual(() => runStatusLabel(run.status)),
+        icon: "refresh",
+        extra: [run.pipelineName, run.projectName, run.id].filter(Boolean),
+      },
+    ),
+  );
 }
 
 /** Pipeline definitions, opened in the definition editor. */
@@ -363,7 +364,7 @@ export function workspaceEntries(sources = {}, { agentsEnabled = false } = {}) {
     ...(agentsEnabled ? sessionAgentAccessEntries(sources.workspace || {}) : []),
     ...sessionActionEntries(sources.workspace || {}),
     ...cliAccountEntries(sources.workspace || {}),
-    ...runEntries(sources.runs || []),
+    ...runEntries(sources.runs, sources.activeRuns),
     ...pipelineEntries(sources.pipelines || []),
     ...profileEntries(sources.profiles || []),
     ...viewEntries(sources.views || []),

@@ -230,6 +230,7 @@ test("a sub whose have is not an object closes with 1008", async ({ page }) => {
 const startTopics = [
   "state",
   "inbox",
+  "pipeline.active",
   "pipeline.counts",
   "pipeline.runs:*:awaiting-human",
   "pipeline.runs:*:failed",

@@ -54,6 +54,7 @@ export default function SearchDialog({
           repositories: connections?.repositories || [],
           projects: sources.projects,
           runs: sources.runs,
+          activeRuns: sources.activeRuns,
           pipelines: sources.pipelines,
           profiles: sources.profiles,
           inbox: sources.inbox,

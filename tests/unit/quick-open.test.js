@@ -106,6 +106,17 @@ const owner = workspaceEntries(sources, { agentsEnabled: true });
 const find = (query, entries = owner) => flat(searchEntries(entries, query));
 const pathOf = (item) => (item.target.route ? routePath(item.target.route) : null);
 
+test("quick open includes older active pipeline runs and lists each run once", () => {
+  const activeRuns = [
+    { ...sources.runs[0], status: "awaiting-human" },
+    { id: "older", status: "running", task: "Rebuild index" },
+  ];
+  const entries = workspaceEntries({ ...sources, activeRuns });
+  const matching = find("flaky login", entries).map((item) => item.meta.en);
+  assert.deepEqual(matching, ["Decision required"]);
+  assert.equal(pathOf(find("Rebuild index", entries)[0]), "/pipelines/runs/older");
+});
+
 test("a running coding session offers its agent access; others do not", () => {
   const sessions = [
     ...sources.workspace.sessions,
@@ -294,28 +305,16 @@ test("New run and Open inbox are actions", () => {
   assert.equal(pathOf(action("Eingang öffnen")), "/inbox");
 });
 
-test("Start tickets is an owner action only, not in the user's search", () => {
+test("ticket actions appear only in the owner's search", () => {
   const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
-  const action = (query) => flat(searchEntries(owners, query))[0];
-  assert.equal(action("Start tickets").id, "action:start-tickets");
-  assert.equal(action("Tickets starten").id, "action:start-tickets");
   const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
-  assert.equal(
-    users.some((item) => item.id === "action:start-tickets"),
-    false,
-  );
-});
-
-test("Add label rule is an owner action only, not in the user's search", () => {
-  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
-  const action = (query) => flat(searchEntries(owners, query))[0];
-  assert.equal(action("Add label rule").id, "action:add-label-rule");
-  assert.equal(action("Label-Regel hinzufügen").id, "action:add-label-rule");
-  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
-  assert.equal(
-    users.some((item) => item.id === "action:add-label-rule"),
-    false,
-  );
+  for (const [id, en, de] of [
+    ["action:start-tickets", "Start tickets", "Tickets starten"],
+    ["action:add-label-rule", "Add label rule", "Label-Regel hinzufügen"],
+  ]) {
+    for (const label of [en, de]) assert.equal(find(label, owners)[0].id, id);
+    assert.ok(!users.some((item) => item.id === id));
+  }
 });
 
 test("Delete project is an owner action only, not in the user's search", () => {

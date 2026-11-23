@@ -41,6 +41,9 @@ Organise by object, not by technology. The owner decided:
    **Inbox** and **Agents**: head, brand, **Inbox**, **Views**, **Agents**, **Sessions**,
    host status. It exists only in windows wider than 1150 px; phones and narrower
    windows keep the previous order. See [Views](../views.md).
+   _Amended 2026-11-23:_ **Active pipelines** follows **Inbox** on desktop and
+   phone whenever a run is active. Runs awaiting a decision appear first. The
+   collapsed group keeps the decision count visible.
 3. **Menu content in two groups with status hints:** **Work** (Overview, Projects,
    Pipelines, Files, Artifacts) and **Set up** (Agents, CLIs and extensions,
    Connections, Settings). Hints come only from data the app already has or reads once
