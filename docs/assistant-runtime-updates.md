@@ -369,6 +369,20 @@ commit, recovery preserves current state even if the process crashes while admis
 is resuming. The same rule applies after a successful rollback. A damaged journal or
 snapshot requires recovery; it does not silently start the candidate.
 
+A rollback starts the restored runtime again only when its Gateway was not stopped
+before the activation, and only when this AgentPier can start that version at all:
+the pin or one of its `rollbackTargets` (host `startable`). A previous runtime it
+cannot start, such as the 2026.10.9 an installation updated from v2.19.0 still
+selects, gets its data and selection back but stays stopped, as it was before the
+attempt; the update ends `rolled_back` with its diagnostic and the staged pin, and
+the owner can activate it again. A Gateway that had already failed before the
+activation and fails to start again after the restore is left stopped the same way
+instead of requiring recovery; one that was running and fails to start does require
+it. When a rollback left the Gateway stopped this way, the next activation starts
+the pin after it commits, as the first one would have. `recover()` finishes a
+rollback that an earlier build left in `recovery_required` on such a runtime the
+same way: it restores the snapshot again and ends `rolled_back`.
+
 The application maintenance adapter must gate all mutations, pause and join channel,
 team, login and reconciliation workers, and await native webhook handlers after the
 Gateway stops. Startup invokes update recovery before starting those workers. The
@@ -411,6 +425,7 @@ node --test tests/unit/assistant-runtime-install.test.js \
   tests/unit/runtime-update-validation.test.js \
   tests/integration/assistant-runtime-activation.test.js \
   tests/integration/assistant-runtime-update.test.js \
+  tests/integration/assistant-runtime-unstartable-previous.test.js \
   tests/integration/assistant-runtime-lifecycle.test.js \
   tests/blackbox/assistant-runtime-update-routes.test.js
 ```
@@ -433,7 +448,10 @@ AgentPier supports only the OpenClaw version it pins; its one rollback target is
 directly previous pin (`rollbackTargets`, 2026.11.3 for 2026.11.6). The team plugin
 refuses every other version, so an installation still on an older runtime starts no
 agents until the owner activates the staged pin in the update panel. That update runs
-every Doctor migration between the two versions in one pass.
+every Doctor migration between the two versions in one pass. When it fails, the
+rollback restores the older runtime's data without starting it, and the owner can
+activate the pin again (see the rollback paragraph above; AgentPier before this fix
+left such an update in `recovery_required`, which `recover()` now ends).
 
 The update to OpenClaw 2026.11.6 is one-way: its Doctor migrates the state database
 from schema 22 to 36 and each agent database from 27 to 38, converts OpenClaw's

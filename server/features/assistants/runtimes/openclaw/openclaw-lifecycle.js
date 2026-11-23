@@ -1,4 +1,4 @@
-import { runtimeManifest } from "./runtime-manifest.js";
+import { runnableVersion, runtimeManifest } from "./runtime-manifest.js";
 import { sameRuntime, shippedRuntime, stageAssistantRuntime } from "./runtime-install.js";
 import { stageRuntimeInBackground } from "./runtime-provisioning.js";
 import {
@@ -29,6 +29,9 @@ export function openClawLifecycle(supervisor) {
       nodeVersion: runtimeManifest.nodeVersion,
     }),
     current: (record) => shippedRuntime(record),
+    // Whether this AgentPier can start an install record at all: the pin and its
+    // rollback targets. A rollback never starts another one (runtime-updates.js).
+    startable: (record) => runnableVersion(record?.version),
     // After an AgentPier update: installs the shipped version in the background when
     // the selected one is outdated; the job, or null when nothing is due.
     stageUpdate: (options) => stageRuntimeInBackground(options),

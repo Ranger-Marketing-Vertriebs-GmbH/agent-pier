@@ -50,3 +50,11 @@ export const runtimeManifest = {
     "linux-x64": "0fd1eb7770598f52a21995edf6ed35fc690400fa437c2386af329519e9143132",
   },
 };
+/**
+ * Whether this AgentPier can run an OpenClaw version: the pin and its rollback
+ * targets only (the managed team plugin refuses every other one). An installation
+ * still on another version waits for the owner to activate the pin.
+ */
+export const runnableVersion = (version) =>
+  version === runtimeManifest.version ||
+  runtimeManifest.rollbackTargets.includes(version);

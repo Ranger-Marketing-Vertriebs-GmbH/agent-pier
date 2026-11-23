@@ -342,14 +342,43 @@ the directly previous pin: the team plugin refuses every other version, so the a
 of an installation still on an older runtime stay stopped until the owner activates
 the current pin, whose Doctor runs every migration in between in one pass.
 
-| AgentPier release             | Pinned OpenClaw (Node) | Rollback target | Update path to the current pin (2026.11.6, Node 26.12.1) |
-| ----------------------------- | ---------------------- | --------------- | -------------------------------------------------------- |
-| v2.20.0-rc.1 – v2.20.0-rc.8   | 2026.11.3 (26.12.1)    | 2026.10.9       | 2026.11.3 → 2026.11.6 (qualified, rollback target)       |
-| v2.13.0 – v2.19.0 and earlier | 2026.10.9 or older     | –               | activate 2026.11.6 (not qualified; agents wait for it)   |
+| AgentPier release           | Pinned OpenClaw (Node) | Rollback target | Update path to the current pin (2026.11.6, Node 26.12.1) |
+| --------------------------- | ---------------------- | --------------- | -------------------------------------------------------- |
+| v2.20.0-rc.1 – v2.20.0-rc.8 | 2026.11.3 (26.12.1)    | 2026.10.9       | 2026.11.3 → 2026.11.6 (qualified, rollback target)       |
+| v2.13.0 – v2.19.0           | 2026.10.9              | –               | activate 2026.11.6 (qualified manually, see below)       |
+| v2.12.x and earlier         | older than 2026.10.9   | –               | activate 2026.11.6 (not qualified; agents wait for it)   |
 
 The `cross-version` job qualifies the rollback target with `v2.20.0-rc.8`, the last
 release candidate that pins 2026.11.3 with its final lock `b6416c1203e6…` and patches
-`5621321a947d`.
+`5621321a947d`. It cannot cover 2026.10.9: this build's team plugin refuses that
+version, so the harness cannot start it as the previous runtime.
+
+#### AgentPier v2.19.0 (OpenClaw 2026.10.9) → 2026.11.6 (2026-11-23)
+
+Qualified manually on macOS arm64 in disposable data directories with their own
+ports and tmux servers, against fake model, ChatGPT/Codex and MCP OAuth endpoints (no
+real account). `git archive v2.19.0` provisioned 2026.10.9 with its own code and lock
+and seeded two agents through its HTTP API: a chat on a fixture model and one on an
+AgentPier-held ChatGPT login, with history, memory, a routine, a reminder, a
+check-in, heartbeat settings, a catalog skill and an MCP OAuth server. Main then
+started on that data directory, staged 2026.11.6 on its first start, and reported
+the Gateway `failed` (`START_FAILED`): it cannot start 2026.10.9.
+
+- **Activation.** The owner's activation ran Doctor (agent databases schema 25 → 38,
+  configuration read as compiled), started 2026.11.6 and admitted both agents in
+  about 25 s. History, memory, routines, reminder and check-in jobs, heartbeat
+  settings, the skill, the MCP OAuth connection and the ChatGPT access profile
+  survived; chat turns worked on both agents, on a new ChatGPT agent and after a
+  Gateway restart. A control run without the account model rediscovery after
+  OpenClaw starts (#840) failed the ChatGPT turns, which that fix covers.
+- **Failed activation.** An injected validation failure after Doctor restored
+  2026.10.9 and schema 25, but then started 2026.10.9 again, which failed, and left
+  the update in `recovery_required`; recovery and a new activation were refused,
+  also after a restart of AgentPier (AGENTPIER-490). The rollback now leaves a
+  runtime this build cannot start stopped and ends `rolled_back`, so the owner can
+  activate the pin again, and `recover()` ends an update stranded that way.
+  `assistant-runtime-unstartable-previous.test.js` covers both; the fixed rollback
+  was not repeated on the native runtimes.
 
 ### OpenClaw 2026.9.8 → 2026.10.3 skip update (2026-10-19)
 
