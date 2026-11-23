@@ -32,13 +32,19 @@ function fixture(
   const starts = [];
   // Like the real start: the previous selection fails before any Gateway runs, unless
   // it is one this build runs and nothing else keeps it from starting.
+  // The version is the last one a start launched, as the supervisor keeps it
+  // (runtime-supervisor.js): a stop leaves it.
   const runtime = {
     availability: "failed",
+    version: null,
     failStarts: !startable,
     asserts: 0,
     stuckAt: 0,
     status() {
-      return { availability: this.availability };
+      return { availability: this.availability, version: this.version };
+    },
+    setState(patch) {
+      Object.assign(this, patch);
     },
     async stop() {
       this.availability = "disabled";
@@ -49,6 +55,7 @@ function fixture(
     async start() {
       const version = readJSON(selected).version;
       starts.push(version);
+      this.version = version;
       if (version !== target.version && this.failStarts) {
         this.availability = "failed";
         throw Error("Incompatible assistant team runtime.");
@@ -85,6 +92,13 @@ function fixture(
     old,
     target,
     accept: () => (rejectCandidate = false),
+    // The owner's Stop or Start under Agents › Runtime (routes/assistants.js).
+    async owner(action) {
+      writePrivate(path.join(paths.root, "settings.json"), {
+        enabled: action !== "stop",
+      });
+      if (action === "stop") await runtime.stop();
+    },
   };
 }
 
@@ -171,4 +185,53 @@ test("a rollback target that was running and fails to start again requires recov
   await f.updates.stage();
   await assert.rejects(f.updates.activate(), { code: "UPDATE_RECOVERY_REQUIRED" });
   assert.equal(f.updates.status().phase, "recovery_required");
+});
+
+test("the status never reports the version a rollback left behind", async (t) => {
+  const f = fixture(t);
+  await f.updates.stage();
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  // The candidate's start set its version; the restored selection is 2026.10.9.
+  assert.deepEqual(f.starts, ["2026.11.6"]);
+  assert.equal(f.updates.host.status().version, "2026.10.9");
+  assert.equal(f.updates.host.version(), "2026.10.9");
+});
+
+test("an owner who stops the agents after a rollback keeps them stopped on the retry", async (t) => {
+  const f = fixture(t);
+  await f.updates.stage();
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  assert.equal(f.runtime.availability, "disabled");
+  await f.owner("stop");
+  f.accept();
+  await f.updates.activate();
+  assert.equal(f.updates.status().phase, "complete");
+  assert.deepEqual(f.starts, ["2026.11.6", "2026.11.6"]);
+  assert.equal(f.runtime.availability, "disabled");
+});
+
+test("an owner who stopped the agents before the first attempt keeps them stopped", async (t) => {
+  const f = fixture(t);
+  await f.owner("stop");
+  await f.updates.stage();
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  f.accept();
+  await f.updates.activate();
+  assert.equal(f.updates.status().phase, "complete");
+  assert.equal(f.runtime.availability, "disabled");
+});
+
+test("the wish that the agents run survives an attempt refused before the stop", async (t) => {
+  const f = fixture(t);
+  await f.updates.stage();
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_ROLLED_BACK" });
+  // The retry is refused before anything stops: open work blocks it.
+  const blockers = f.options.maintenance.blockers;
+  f.options.maintenance.blockers = async () => ["chat_turn"];
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_BLOCKED" });
+  f.options.maintenance.blockers = blockers;
+  f.accept();
+  await f.updates.activate();
+  assert.equal(f.updates.status().phase, "complete");
+  assert.equal(f.runtime.availability, "ready");
 });

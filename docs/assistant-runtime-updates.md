@@ -45,6 +45,12 @@ status names the reason:
   Try again a minute later.
 - `UPDATE_PREPARE_FAILED`: another failure before the stop.
 
+An activation that fails after the stop and rolls back cleanly (`UPDATE_ROLLED_BACK`,
+also after a failed migration, `UPDATE_MIGRATION_FAILED`) answers HTTP 409 with the
+key `updateRolledBack`: the previous version and its data are back, the update ends
+`rolled_back` with its diagnostic and failed step, and the owner can activate again.
+Only a rollback that needs recovery answers 503.
+
 ### Blocker items
 
 `server/features/assistants/runtime-update-blockers.js` reads every item without
@@ -379,7 +385,12 @@ the owner can activate it again. A Gateway that had already failed before the
 activation and fails to start again after the restore is left stopped the same way
 instead of requiring recovery; one that was running and fails to start does require
 it. When a rollback left the Gateway stopped this way, the next activation starts
-the pin after it commits, as the first one would have. `recover()` finishes a
+the pin after it commits, as the first one would have, unless the owner stopped the
+agents under **Agents › Runtime** since: their switch (`assistants/settings.json`)
+decides. The wish survives an attempt refused before the stop (blockers, a busy
+configuration). While the Gateway is stopped, its status (`GET
+/api/assistant-runtime`) names the version the update selected last (host
+`selected`), never a candidate that was rolled back. `recover()` finishes a
 rollback that an earlier build left in `recovery_required` on such a runtime the
 same way: it restores the snapshot again and ends `rolled_back`.
 

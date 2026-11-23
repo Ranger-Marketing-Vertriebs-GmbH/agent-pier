@@ -21,67 +21,15 @@ import {
   removeBackup,
   terminalPhases as terminal,
 } from "./runtime-retention.js";
+import {
+  activationFailure,
+  clearedFailure,
+  failurePhases,
+  stageCause,
+} from "./runtime-update-failures.js";
 
+export { activationFailure, stageCause };
 const failure = (code, status = 503) => Object.assign(Error(code), { code, status });
-const stableCode = (code) =>
-  typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) ? code : null;
-/**
- * Why staging failed, for the owner and the log: the failure's most specific stable
- * code and the HTTP status of a download the server refused. Most specific first:
- * the original code an installer kept beside its own (`diagnosticCode`, as
- * hermes-install.js keeps ENOSPC under HERMES_INSTALL_FAILED), the cause's (a failed
- * fetch carries ECONNRESET there), then the failure's own. Never a message: it may
- * hold paths or URLs.
- */
-export function stageCause(error) {
-  const code =
-    stableCode(error?.diagnosticCode) ||
-    stableCode(error?.cause?.code) ||
-    stableCode(error?.code);
-  const status = error?.upstreamStatus;
-  const upstreamStatus =
-    Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
-  return code || upstreamStatus ? { code, upstreamStatus } : null;
-}
-// The steps of an activation after the stop, as the journal names the one that failed.
-const activationSteps = new Set([
-  "stop",
-  "snapshot",
-  "migrate",
-  "start",
-  "validate",
-  "verify",
-]);
-// A validation check (runtime-update-validation.js): "host", "routines", "roster",
-// "roster:<runtimeAgentId>", "session:<conversationId>" or "blockers".
-const checkTag = /^(host|routines|roster|blockers|(roster|session):[A-Za-z0-9_-]{1,64})$/;
-const errorTag = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
-/**
- * Where an activation failed, for the journal of the rollback that follows: its step,
- * and for a validation the check that failed and the runtime's code. Only names that
- * pass these patterns: never a message, a path or a secret.
- */
-export function activationFailure(step, error) {
-  const tag = (value, pattern) =>
-    typeof value === "string" && pattern.test(value) ? value : null;
-  return {
-    diagnosticStep: activationSteps.has(step) ? step : null,
-    diagnosticCheck: tag(error?.check, checkTag),
-    diagnosticErrorCode: tag(error?.errorCode, errorTag) || tag(error?.code, errorTag),
-  };
-}
-const clearedFailure = {
-  diagnosticStep: null,
-  diagnosticCheck: null,
-  diagnosticErrorCode: null,
-};
-// The phases that show where the activation failed: its rollback and after.
-const failurePhases = new Set([
-  "rolling_back",
-  "rollback_committed",
-  "rolled_back",
-  "recovery_required",
-]);
 async function availableBytes(directory) {
   const stat = await fsp.statfs(directory);
   return stat.bavail * stat.bsize;
@@ -208,6 +156,21 @@ export class RuntimeUpdates {
       busy: this.busy,
     };
   }
+  // Whether the owner wants the agents running: their switch under Agents › Runtime
+  // (settings.json, routes/assistants.js), on unless explicitly stopped. A damaged
+  // file says nothing either way and keeps the wish.
+  wanted() {
+    try {
+      return readJSON(path.join(this.paths.root, "settings.json"), {})?.enabled !== false;
+    } catch {
+      return true;
+    }
+  }
+  // Selects an install record; a stopped host's status names it (host.selected).
+  select(record) {
+    durablePrivate(this.selection, record);
+    this.host.selected?.(record);
+  }
   persist(phase, changes = {}) {
     const next = { ...this.journal, ...changes, phase };
     durablePrivate(this.file, next);
@@ -292,16 +255,19 @@ export class RuntimeUpdates {
       }
       const { availability } = this.host.status();
       // A rollback that left this runtime stopped (restartPrevious) keeps the wish
-      // that the agents run. A failed Gateway may fail again in a rollback's start.
+      // that the agents run, unless the owner has stopped them since; the journal
+      // carries it through an attempt refused before the stop. A failed Gateway may
+      // fail again in a rollback's start.
       const { previousStopped: kept, previous: last } = this.journal;
-      const wasRunning =
-        availability !== "disabled" || (!!kept && this.host.sameInstall(last, previous));
+      const resumed = !!kept && this.host.sameInstall(last, previous) && this.wanted();
+      const wasRunning = availability !== "disabled" || resumed;
       const id = randomUUID();
       this.journal = {
         phase: "staged",
         candidate,
         previous,
         wasRunning,
+        previousStopped: resumed,
         wasFailed: availability === "failed",
         id,
         blockers: [],
@@ -360,7 +326,7 @@ export class RuntimeUpdates {
           this.progress = null;
         }
         this.persist("activating", { backup: id });
-        durablePrivate(this.selection, candidate);
+        this.select(candidate);
         // A new version migrates its stopped state (host.migrate: OpenClaw's Doctor);
         // a crash meanwhile restores the snapshot like any unfinished activation.
         if (candidate.version !== previous.version) {
@@ -470,7 +436,7 @@ export class RuntimeUpdates {
         await this.onRolledBack({ createdAt: restored.createdAt });
       }
       this.fence.open();
-      durablePrivate(this.selection, journal.previous);
+      this.select(journal.previous);
       if (journal.wasRunning) await this.restartPrevious(journal);
       this.persist("rollback_committed", { diagnostic });
       await this.maintenance.leave();
@@ -496,7 +462,8 @@ export class RuntimeUpdates {
     if (this.host.startable?.(journal.previous) ?? true)
       try {
         await this.host.start();
-        return await this.maintenance.validate();
+        await this.maintenance.validate();
+        return this.persist(this.journal.phase, { previousStopped: false });
       } catch (error) {
         if (!journal.wasFailed || this.host.status().availability === "ready")
           throw error;

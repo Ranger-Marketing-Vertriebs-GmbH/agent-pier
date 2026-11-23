@@ -42,6 +42,13 @@ export function openClawLifecycle(supervisor) {
     // and removes what a migration left beside the restored state.
     stopMigration: (handle) => stopDoctor(handle),
     clearMigration: (paths) => removeMigrationLeftovers(paths),
+    // The update selected `record` while the Gateway is stopped (an activation or its
+    // rollback): the status names that version from now on, never the one the last
+    // start ran, such as a candidate that was rolled back. A start sets its own.
+    selected(record) {
+      if (supervisor.status?.().availability === "disabled")
+        supervisor.setState?.({ version: record?.version ?? null });
+    },
     // Rejects while a Gateway process of this host still runs.
     assertStopped: async () => supervisor.assertStopped?.(),
     // The Gateway start that compiled the configuration now running, or null: a
