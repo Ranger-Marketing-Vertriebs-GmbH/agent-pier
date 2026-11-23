@@ -203,6 +203,7 @@ test(
       const request = f.assistants.ledger.accept(conversationId, input);
       teams.store.recordContext(request.id, context);
       const attempt = f.assistants.ledger.recordAttempt(request.id);
+      const requestsBefore = model.requests.length;
       const sent = await runtime.client.call(
         "sessions.send",
         { key: session.key, message: input.text, idempotencyKey: attempt.id },
@@ -211,10 +212,22 @@ test(
       f.assistants.ledger.transition(attempt.id, "running", { runtimeRunId: sent.runId });
       const settled = runtime.client
         .call("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 })
-        .then(() => f.assistants.ledger.transition(attempt.id, "completed"));
+        .then((waited) => {
+          f.assistants.ledger.transition(attempt.id, "completed");
+          return waited;
+        });
       // A failed assertion before the await must not leave an unhandled rejection.
       settled.catch(() => {});
-      sends.push({ input, context, request, attempt, runId: sent.runId, settled });
+      sends.push({
+        input,
+        context,
+        request,
+        attempt,
+        sent,
+        runId: sent.runId,
+        requestsBefore,
+        settled,
+      });
       return { request, attempt };
     };
     const background = () =>
@@ -280,11 +293,23 @@ test(
     assert.equal(continuation.input.text, continuationPrompt(goal));
     assert.equal(continuation.context.kind, "owner");
     assert.equal(continuation.context.goal.anchorRequestId, owner.request.id);
-    await continuation.settled;
+    const waited = await continuation.settled;
 
     // 5. The model got the continuation prompt as the turn's user message and wrote
     // the note: the tool guard admitted the write as the owner's turn.
     const prompted = model.requests.filter((r) => asked(r).includes(continuationMark));
+    // What the Gateway answered and what the model was asked from the send on, so a
+    // failure tells a refused or lost turn from one the model saw differently.
+    if (!prompted.length)
+      t.diagnostic(
+        `continuation sent=${JSON.stringify(continuation.sent)} waited=${JSON.stringify(
+          waited,
+        )} asked=${JSON.stringify(
+          model.requests
+            .slice(continuation.requestsBefore)
+            .map((r) => r.messages.slice(-3).map((m) => [m.role, text(m).slice(0, 160)])),
+        )}`,
+      );
     assert.ok(prompted.length, "the model received the continuation");
     const user = lastUser(prompted[0])[0];
     assert.equal(user.role, "user");
