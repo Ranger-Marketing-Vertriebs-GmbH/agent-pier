@@ -36,7 +36,9 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     whether a record is that version (install status: false means an update is
  *     due). startable(record), optional: whether this AgentPier can start a record at
  *     all (OpenClaw: the pin and its rollback targets); a rollback leaves a previous
- *     runtime it cannot start stopped. stageUpdate({ dataDir }): after an AgentPier
+ *     runtime it cannot start stopped. selected(record), optional: an update
+ *     selected a record while the host is stopped; status() then names its version,
+ *     never a rolled-back candidate's. stageUpdate({ dataDir }): after an AgentPier
  *     update, installs the shipped version in the background when it is due; the
  *     job, or null.
  *   - migrate(paths, record, { onSpawn }): applies an update to the stopped state

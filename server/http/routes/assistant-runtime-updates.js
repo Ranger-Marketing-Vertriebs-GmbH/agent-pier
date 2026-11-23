@@ -5,6 +5,11 @@ const updateFailures = {
   UPDATE_BLOCKED: ["updateBlocked", 409],
   UPDATE_CONFIG_BUSY: ["configBusy", 503],
   UPDATE_PREPARE_FAILED: ["updatePrepareFailed", 503],
+  // An activation that failed and rolled back cleanly: the previous runtime and its
+  // data are back and the staged pin can be activated again, so the service is not
+  // unavailable. Its diagnostic and failed step are in the status.
+  UPDATE_ROLLED_BACK: ["updateRolledBack", 409],
+  UPDATE_MIGRATION_FAILED: ["updateRolledBack", 409],
 };
 export function assistantRuntimeUpdateRoutes({ assistantUpdates, assistants }) {
   const router = Router();

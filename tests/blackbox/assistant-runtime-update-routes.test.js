@@ -116,11 +116,15 @@ test("an activation refused before any change names its reason, not a running re
     ["UPDATE_BLOCKED", 409, "updateBlocked"],
     ["UPDATE_CONFIG_BUSY", 503, "configBusy"],
     ["UPDATE_PREPARE_FAILED", 503, "updatePrepareFailed"],
+    // A failed activation that rolled back cleanly: the previous runtime is active
+    // again and the owner may retry, so not "unavailable" (AGENTPIER-491).
+    ["UPDATE_ROLLED_BACK", 409, "updateRolledBack"],
+    ["UPDATE_MIGRATION_FAILED", 409, "updateRolledBack"],
     ["UPDATE_BUSY", 409, "active"],
   ]) {
     failure = Object.assign(Error(code), {
       code,
-      status: code === "UPDATE_BUSY" ? 409 : 503,
+      status: { UPDATE_BUSY: 409, UPDATE_MIGRATION_FAILED: 500 }[code] || 503,
     });
     const response = await fetch(url, { method: "POST", headers, body: "{}" });
     assert.equal(response.status, status);
