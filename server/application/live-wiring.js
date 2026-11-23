@@ -7,6 +7,7 @@ import { sessionModelsTopic } from "../features/models/live-topics.js";
 import { sessionAgentAccessTopic } from "../features/session-talk/live-topics.js";
 import { inboxTopic } from "../features/inbox/live-topics.js";
 import {
+  pipelineActiveTopic,
   pipelineCountsTopic,
   pipelineQueueTopic,
   pipelineRunTopic,
@@ -106,6 +107,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(inboxTopic(services));
   hub.define(pipelineRunTopic(services));
   hub.define(pipelineQueueTopic(services));
+  hub.define(pipelineActiveTopic(services));
   hub.define(pipelineCountsTopic(services));
   hub.define(pipelineRunsTopic(services));
   hub.define(pipelineRunsChangedTopic());

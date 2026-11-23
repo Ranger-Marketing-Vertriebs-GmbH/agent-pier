@@ -66,6 +66,10 @@ async function ownerFixture(page, { os = "linux" } = {}) {
           { id: "review", name: "Code review", graph: { nodes: [], edges: [] } },
         ],
       });
+    if (path === "/api/pipeline-active-runs")
+      return json(route, {
+        runs: [{ id: "old-gate", task: "Review navigation", status: "awaiting-human" }],
+      });
     if (path === "/api/pipeline-runs")
       return json(route, {
         runs: [
@@ -197,6 +201,7 @@ test("finds sessions, runs, inbox items, projects and chats, fuzzy and recent fi
 
   // An inbox item, then a project, a chat, a pipeline and an action.
   for (const [query, groupName, address] of [
+    ["Review navigation", "Pipelines", /\/pipelines\/runs\/old-gate$/],
     ["npm publish", "Inbox", /\/inbox\/approval\/appr-1$/],
     ["billing-api", "Projects", /\/projects\/proj-billing$/],
     ["scout travel", "Chats", /\/agents\/scout\/chats\/c2$/],

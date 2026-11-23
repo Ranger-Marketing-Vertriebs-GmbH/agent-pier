@@ -301,3 +301,49 @@ test(
     live.ws.close();
   },
 );
+
+test(
+  "active runs push every pending decision, including older runs outside page one",
+  hangGuard,
+  async (t) => {
+    const { f, store } = await seeded(t);
+    for (let i = 0; i < 21; i++)
+      store.create(run(`done-${i}`, "project-two", "completed", i));
+    const topic = "pipeline.active";
+    const { live, first } = await listening(f, topic);
+    try {
+      const rows = first[topic].data.runs;
+      assert.deepEqual(
+        rows.map((row) => row.id),
+        ["run-c", "run-a"],
+      );
+      assert.deepEqual(first[topic].data, await json(f, "/api/pipeline-active-runs"));
+      const next = async () =>
+        (
+          await live.next(
+            (frame) => frame.topic === topic && frame.type === "state",
+            progress,
+          )
+        ).data.runs;
+      const waiting = store.get("run-a");
+      waiting.status = "awaiting-human";
+      waiting.task = "# Review changes\nPrivate task details";
+      store.save(waiting);
+      assert.deepEqual((await next())[0], {
+        id: "run-a",
+        status: "awaiting-human",
+        task: "# Review changes",
+        pipelineName: "Release",
+      });
+      finish(store, "run-a");
+      assert.deepEqual(
+        (await next()).map((row) => row.id),
+        ["run-c"],
+      );
+      store.remove("run-c");
+      assert.deepEqual(await next(), []);
+    } finally {
+      live.ws.close();
+    }
+  },
+);

@@ -116,6 +116,8 @@ export function pipelineListsChanged(hub, before, after, afterListed) {
   if (counted && before.listed === afterListed) return;
   const projects = new Set(places.map((place) => place.projectId).filter(Boolean));
   const statuses = new Set(places.map((place) => place.status));
+  if (statuses.has("running") || statuses.has("awaiting-human"))
+    hub.invalidate("pipeline.active");
   const ofProject = (param) => param === undefined || projects.has(param);
   if (!counted) hub.invalidateWhere("pipeline.counts", ofProject);
   hub.invalidateWhere("pipeline.runs.changed", ofProject);
@@ -144,6 +146,17 @@ export function pipelineCountsTopic(services) {
     authorize: owner,
     scopeKey: () => "owner",
     read: (_principal, projectId) => runCountsView(services.pipelineRunCounts, projectId),
+  };
+}
+
+/** All active runs across projects, with the owner's decisions first. */
+export function pipelineActiveTopic(services) {
+  return {
+    name: "pipeline.active",
+    mode: "state",
+    authorize: owner,
+    scopeKey: () => "owner",
+    read: () => services.pipelines.store.activeRuns(),
   };
 }
 

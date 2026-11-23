@@ -52,6 +52,7 @@ export const sidebarCopy = {
   searchRow: "Search",
   workGroup: "Work",
   setupGroup: "Set up",
+  activePipelines: "Active pipelines",
   manageAgents: "Manage all agents",
   clisAndExtensions: "CLIs and extensions",
   hints: {

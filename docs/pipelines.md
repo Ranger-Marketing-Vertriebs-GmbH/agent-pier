@@ -57,6 +57,10 @@ Available actions depend on the current state: accept, approve risky changes (se
 
 Some CLIs, notably `opencode run`, report their final step and then never exit. When a turn's native output reports completion and stays idle for a grace period, AgentPier stops the turn's process group and concludes the stage from that result. Every native turn is also bounded by an inactivity timeout and a wall-clock turn timeout that fail the stage clearly; a timed-out turn is stopped like a finished one, so it can still be retried or overridden. Operators can tune them in the data directory's `config.json`: `"pipelines": { "completionGraceSeconds": 30, "inactivityTimeoutMinutes": 120, "turnTimeoutMinutes": 360 }` (`0` disables the wall-clock bound).
 
+The sidebar’s **Active pipelines** group shows running pipelines across projects and updates as their status changes. Runs marked **Decision required** appear first. Select a run to open its current stage and review the decision. The header shows the number of pending decisions even when the group is collapsed.
+
+![Active pipeline runs in the sidebar](screenshots/active-pipelines-sidebar.png)
+
 ## Reviewing a run's changes
 
 The run view has a **Changes** section under the spec, closed until you press **Review changes** (also offered in the search, ⌘K or Ctrl+K, as **Review changes**, German **Änderungen prüfen**, or "Diff", while a run is open). It shows everything the run changed in its worktree since its base commit, committed or not, in the same diff view as a session's [Changes tab](diff-review.md); AgentPier's own `.pipeline/` report area is never part of it. The section reads the diff again when the run moves on (status, current stage, a new attempt or a group member that starts waiting) and on **Refresh changes**. A run whose worktree was removed says so instead, and an imported history run has no section. A stage's own diff (its evidence tile) is shown in the same view, read-only.

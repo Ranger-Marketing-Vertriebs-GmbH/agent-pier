@@ -68,6 +68,8 @@ test("areas, tabs, settings groups and subpages are indexed with their routes", 
     ["MCP-Verzeichnis", "/settings"],
     ["Aufgabenprofile", "/pipelines/profiles"],
     ["Eingang", "/inbox"],
+    ["Aktive Pipelines", "/pipelines"],
+    ["Active pipelines", "/pipelines"],
   ];
   for (const [query, path] of cases) {
     const hit = first(query);

@@ -656,6 +656,7 @@
   "app:appRecoveryCopy.updateTitle": "de:2bd631b4f99b en:e848cbed198f",
   "app:mobileHeaderCopy.iconButtonAriaLabel": "de:c19f0cafff50 en:0ed77fd2619b",
   "app:mobileHeaderCopy.mobileBrand": "de:1ad0f7db738a en:1ad0f7db738a",
+  "app:sidebarCopy.activePipelines": "de:d40d56387a06 en:ff9ab213b732",
   "app:sidebarCopy.ariaLabel": "de:e8fc666068c9 en:eb355944b92d",
   "app:sidebarCopy.badges.local": "de:a2712db7d078 en:646c19373ac9",
   "app:sidebarCopy.badges.network": "de:3cf3ba7d1b0d en:b5a9716fcd63",

@@ -32,6 +32,9 @@ export function pipelineRunRoutes({ pipelines, pipelineRunCounts, pipelineQueue 
       ),
     ),
   );
+  router.get("/pipeline-active-runs", (_req, res) =>
+    res.json(pipelines.store.activeRuns()),
+  );
   router.get("/pipeline-runs", (req, res) => {
     const status = filter(req.query.status, serverMessages.pipelines.invalidStatusFilter);
     if (

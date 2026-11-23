@@ -1,5 +1,6 @@
 // Bilingual quick-open index: pages, agent settings, connections and actions.
 // Old labels remain searchable as aliases.
+import { sidebarCopy } from "../lib/i18n/messages/app.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { assistantPdfCopy } from "../lib/i18n/messages/assistant-pdf.js";
 import { agentGroupSearchAction } from "../features/assistants/groups/group-search.js";
@@ -121,7 +122,12 @@ export function pageEntries() {
         ],
       },
     ),
-    area("pipelines", menuWork, { route: pipelinesRoute("runs") }),
+    area(
+      "pipelines",
+      menuWork,
+      { route: pipelinesRoute("runs") },
+      { aliases: [() => sidebarCopy.activePipelines] },
+    ),
     ...["runs", "definitions", "profiles", "verification"].map((tab) =>
       pageEntry(`pipelines-${tab}`, () => pipelineCopy[tab], pipelines, {
         route: pipelinesRoute(tab),

@@ -26,6 +26,10 @@ export async function fulfillDormantAssistantRequest(route) {
     await route.fulfill({ json: noPreviews });
     return true;
   }
+  if (path === "/api/pipeline-active-runs") {
+    await route.fulfill({ json: { runs: [] } });
+    return true;
+  }
   // Wide pages follow the split views; fixtures have none.
   if (path === "/api/views") {
     await route.fulfill({ json: noViews });

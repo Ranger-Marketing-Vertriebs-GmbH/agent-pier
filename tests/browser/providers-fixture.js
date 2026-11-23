@@ -482,6 +482,8 @@ export async function fixture(page, { account, session } = {}) {
     if (/^\/api\/assistants\/[^/]+\/chats$/.test(path) && method === "GET")
       return route.fulfill({ json: [] });
     // The Menü hints and the settings summary rows; nothing to report here.
+    if (path === "/api/pipeline-active-runs" && method === "GET")
+      return route.fulfill({ json: { runs: [] } });
     if (path === "/api/pipeline-runs" && method === "GET")
       return route.fulfill({ json: { runs: [], total: 0, page: 1, pageSize: 20 } });
     if (path === "/api/pipeline-run-counts" && method === "GET")

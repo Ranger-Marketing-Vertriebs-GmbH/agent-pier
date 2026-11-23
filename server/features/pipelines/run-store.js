@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { problem } from "../../lib/storage.js";
+import { taskLine } from "./run-list-view.js";
 
 export function runId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(value))
@@ -72,6 +73,20 @@ export class RunStore {
       .prepare(`SELECT doc FROM runs WHERE ${FIELDS.status}=? ORDER BY rowid DESC`)
       .all(status)
       .map((r) => normalizeRun(JSON.parse(r.doc)));
+  }
+  /** Sidebar rows, including older active runs beyond the first page of history. */
+  activeRuns() {
+    const rows = this.db
+      .prepare(
+        `
+      SELECT id, ${FIELDS.status} AS status, json_extract(doc,'$.task') AS task,
+             json_extract(doc,'$.pipelineName') AS pipelineName
+      FROM runs WHERE ${FIELDS.status} IN ('awaiting-human', 'running')
+      ORDER BY ${FIELDS.status}, rowid DESC
+    `,
+      )
+      .all();
+    return { runs: rows.map((row) => ({ ...row, task: taskLine(row.task) })) };
   }
   /** Whether any run belongs to the project. */
   hasProject(projectId) {

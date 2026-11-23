@@ -131,3 +131,64 @@ test("a status-filtered first page and its pill follow the pushed list and count
   ).toHaveText(/^Fehlgeschlagen\s*1$/);
   expect(listings).toEqual([]);
 });
+
+for (const [language, groupLabel, pending, decisionLabel] of [
+  ["de", "Aktive Pipelines", "1 Entscheidung", "Entscheidung erforderlich"],
+  ["en", "Active pipelines", "1 decision", "Decision required"],
+]) {
+  test(`the sidebar follows active pipelines and opens a pending decision (${language})`, async ({
+    page,
+    liveStub,
+  }) => {
+    const phone = language === "en";
+    if (phone) await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      (lang) => localStorage.setItem("agentpier-language", lang),
+      language,
+    );
+    const state = await pipelinesFixture(page);
+    const review = { ...sampleRun(state), task: "# Review navigation" };
+    const build = {
+      ...sampleRun(state, "run-build"),
+      task: "Build dashboard",
+      status: "running",
+    };
+    await page.goto(baseURL + "/inbox");
+    await pushState(page, liveStub);
+    if (phone) await page.getByRole("button", { name: "Open navigation" }).click();
+    const topic = "pipeline.active";
+    await liveStub.waitForSubscribe(topic);
+    const group = page.locator(".pipeline-runs-group");
+    liveStub.push(topic, { runs: [] });
+    await expect(group).toHaveCount(0);
+    liveStub.push(topic, { runs: [{ ...review, status: "running" }, build] });
+    const toggle = group.getByRole("button", { name: groupLabel, exact: true });
+    await toggle.click();
+    liveStub.push(topic, { runs: [review, build] });
+    const alertToggle = group.getByRole("button", { name: `${groupLabel}, ${pending}` });
+    await expect(alertToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(alertToggle.getByText(pending, { exact: true })).toBeVisible();
+    await alertToggle.click();
+    const link = group.getByRole("link", { name: `Review navigation ${decisionLabel}` });
+    await expect(group.getByRole("link").first()).toHaveAttribute(
+      "href",
+      "/pipelines/runs/run-one",
+    );
+    await link.click();
+    await expect(page).toHaveURL(/\/pipelines\/runs\/run-one$/);
+    await liveStub.waitForSubscribe("pipeline.run:run-one");
+    liveStub.push("pipeline.run:run-one", { run: review });
+    await expect(page.locator(".run-header-status")).toHaveText(decisionLabel);
+    if (phone) {
+      await expect(page.locator(".sidebar")).toHaveAttribute("inert", "");
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    }
+    await expect(link).toHaveAttribute("aria-current", "page");
+    liveStub.push(topic, { runs: [build] });
+    await expect(link).toHaveCount(0);
+    await expect(toggle).toBeVisible();
+    liveStub.push(topic, { runs: [] });
+    await expect(group).toHaveCount(0);
+    expect(reads(state, "/pipeline-active-runs")).toEqual([]);
+  });
+}
