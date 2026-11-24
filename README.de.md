@@ -32,6 +32,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [Neu laden und fortsetzen](docs/session-reload.md),
   [Nachrichten auf dem Handy](docs/mobile-delivery.md),
   [Diktat](docs/assistant-gateway.md#live-dictation-in-the-chats)).
+- **Autopilot-Aufträge:** Die Owner-API öffnet pro Projektauftrag eine eigene interaktive Composer-Sitzung. Batch-Plan, Pause und Fortsetzen sowie die Merge-Freigabe gelten pro Auftrag ([API und Speicherung](docs/autopilot-orders.md), auf Englisch).
 - **Eingang:** alle Fragen und Freigaben der CLIs, Pipeline-Gates und Anfragen deiner
   Agenten, die auf dich warten, mit Live-Zähler an einer Stelle beantwortet;
   Claude-Code-Freigaben bieten „Dauerhaft erlauben“ pro Account und zeigen Pläne vor

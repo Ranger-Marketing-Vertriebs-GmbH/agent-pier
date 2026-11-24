@@ -112,6 +112,8 @@ tool for all projects, source accounts and provider connections, including resou
 added later. There are no permission submenus. Uncheck it to launch without access.
 The working directory is registered as a project when access is enabled.
 
+[Autopilot order sessions](autopilot-orders.md) use a grant scoped to their project and configured pipeline profiles. The grant checks the order’s execution policy before a pipeline starts. Start receipts follow the order through explicit session recovery.
+
 AgentPier injects `agentpier_session` as a native stdio MCP into that session's
 launch configuration. No global MCP configuration, browser OAuth callback or SSH
 tunnel is needed. Existing external MCP registrations are independent and remain
