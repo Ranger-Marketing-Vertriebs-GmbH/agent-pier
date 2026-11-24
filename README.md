@@ -28,6 +28,7 @@ and agents that work as a team.
   [live updates](docs/native-chat-delivery.md#live-chat-updates),
   [reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md),
   [dictation](docs/assistant-gateway.md#live-dictation-in-the-chats)).
+- **Autopilot orders:** the owner API opens a separate interactive Composer session for each project brief. Orders have a durable batch plan, pause and resume controls, and individual merge permission ([order API and storage](docs/autopilot-orders.md)).
 - **Inbox:** every CLI question and approval, pipeline gate and agent request that
   waits on you, with live counts, answered in place or in one list; Claude Code
   approvals offer Always allow per account and show plans before you approve them
