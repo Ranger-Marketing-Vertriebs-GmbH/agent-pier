@@ -478,6 +478,11 @@ export async function createApplication(config) {
     /^\/api\/pipeline-runs\/[^/]+\/gate$/,
     express.json({ limit: "256kb", strict: true }),
   );
+  // A 64 KiB order brief can occupy six times that size when JSON-escaped.
+  app.use(
+    /^\/api\/autopilot\/orders\/?$/,
+    express.json({ limit: "512kb", strict: true }),
+  );
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) => api.mount(router);
   mount(artifactsRoutes(services));

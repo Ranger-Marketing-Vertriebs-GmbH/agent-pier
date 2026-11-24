@@ -11,23 +11,23 @@ export const autopilot = Object.freeze({
     "Nur abgeschlossene, von AgentPier verwaltete Aufträge ohne offene Arbeit können entfernt werden.",
   invalidOrder: "Prüfe die Felder des Autopilot-Auftrags.",
   selectionRequired:
-    "Wähle eine Coding-CLI oder einen CLI-Account für die Composer-Sitzung.",
+    "Wähle eine Coding-CLI oder einen CLI-Account für die Composer-Session.",
   composerSkillUnavailable:
     "Installiere die aktuelle mitgelieferte Version von agentpier-composer im ausgewählten CLI-Profil.",
   sessionRecoveryRequired:
-    "Die zugeordnete Composer-Sitzung fehlt. Stelle die Sitzung aus dem gespeicherten Auftrag wieder her.",
+    "Die zugeordnete Composer-Session fehlt. Stelle die Session aus dem gespeicherten Auftrag wieder her.",
   sessionUnavailable:
-    "Prüfe den Zustand der Composer-Sitzung und setze sie über die Sitzungsansicht fort.",
+    "Prüfe den Zustand der Composer-Session und setze sie über die Session-Ansicht fort.",
   worktreeBusy:
-    "Beende aktive Sitzungen, Prozesse und Läufe im Composer-Worktree vor dem Entfernen.",
+    "Beende aktive Sessions, Prozesse und Läufe im Composer-Worktree vor dem Entfernen.",
   worktreeDirty:
     "Sichere lokale Änderungen und zusätzliche Dateien im Composer-Worktree vor dem Entfernen.",
   worktreeUnmerged: "Der Composer-Branch enthält Commits, die im Basisbranch fehlen.",
   ownershipMismatch:
-    "Die gespeicherten Eigentumsdaten stimmen nicht mit dem Composer-Worktree oder der Sitzung überein.",
+    "Die gespeicherten Eigentumsdaten stimmen nicht mit dem Composer-Worktree oder der Session überein.",
   deliveryFailed:
-    "Prüfe die Nachrichtenzustellung in der Composer-Sitzung und wiederhole den Vorgang.",
-  unmanaged: "Für diesen Auftrag ist keine von AgentPier verwaltete Sitzung registriert.",
+    "Prüfe die Nachrichtenzustellung in der Composer-Session und wiederhole den Vorgang.",
+  unmanaged: "Für diesen Auftrag ist keine von AgentPier verwaltete Session registriert.",
   executionUnavailable:
     "Setze diesen Auftrag fort und gib die Umsetzung frei, bevor du eine weitere Pipeline startest.",
   inactive: "Dieser Auftrag ist abgeschlossen oder wird gerade entfernt.",
