@@ -48,7 +48,12 @@ export function checkSelection(value) {
       throw orderError("selectionRequired", 400);
   }
   if (value.tool && !isCodingCli(value.tool)) throw orderError("selectionRequired", 400);
-  return { ...value };
+  // Stable request receipts are independent of JSON field order.
+  return Object.fromEntries(
+    [...selectionKeys]
+      .filter((key) => Object.hasOwn(value, key))
+      .map((key) => [key, value[key]]),
+  );
 }
 
 function composerSkill(services, account) {

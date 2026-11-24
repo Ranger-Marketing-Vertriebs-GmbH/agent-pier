@@ -69,12 +69,12 @@ test("the owner opens a normal Composer chat, sees legacy orders, and can pause 
     projectId,
     requestId: "request-1",
     title: "Migration",
-    brief: "Plan the change",
-    session: { tool: "codex" },
+    brief: "Plan the change".padEnd(65536, "."),
+    session: { tool: "codex", accountId: "local-codex" },
   };
   const created = await f.request(base, { method: "POST", body });
   const order = await created.json();
-  assert.equal(created.status, 201, JSON.stringify(order));
+  assert.equal(created.status, 201, order.error);
   assert.equal(order.projectId, projectId);
   assert.equal(order.state, "draft");
   assert.match(order.session.link, /\/chat$/);
@@ -89,7 +89,12 @@ test("the owner opens a normal Composer chat, sees legacy orders, and can pause 
     await f.request(base + "/" + order.id + "/pause", { method: "POST" })
   ).json();
   assert.equal(pause.state, "paused");
-  const replay = await (await f.request(base, { method: "POST", body })).json();
+  const replay = await (
+    await f.request(base, {
+      method: "POST",
+      body: { ...body, session: { accountId: "local-codex", tool: "codex" } },
+    })
+  ).json();
   assert.equal(replay.session.id, order.session.id);
   assert.equal(replay.manualPaused, true);
   assert.equal(prompts.length, 1);
