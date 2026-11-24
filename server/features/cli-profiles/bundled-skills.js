@@ -28,7 +28,11 @@ export function seedBundledSkills(dataDir, target) {
       let staging;
       try {
         staging = fs.mkdtempSync(path.join(parent, `.install-${name}-`));
-        for (const relative of ["SKILL.md", "agents/openai.yaml"]) {
+        for (const relative of [
+          "SKILL.md",
+          "agents/openai.yaml",
+          "scripts/order-progress.mjs",
+        ]) {
           const destination = path.join(staging, relative);
           fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
           fs.copyFileSync(
