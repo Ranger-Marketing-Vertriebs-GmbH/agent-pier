@@ -11,6 +11,11 @@ function tool(scope, description, shape, readOnly = true) {
   return { scope, description, schema: z.strictObject(shape), readOnly };
 }
 export const toolSchemas = {
+  autopilot_policy: tool(
+    "runs:read",
+    "Read the current owner decisions for this interactive Autopilot order before acting.",
+    {},
+  ),
   projects_list: tool(
     "catalog:read",
     "List authorized projects available on the AgentPier host.",

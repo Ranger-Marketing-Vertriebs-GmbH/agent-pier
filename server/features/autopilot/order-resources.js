@@ -6,7 +6,10 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { nativeModelFor } from "../../application/session-selection.js";
 import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { profileLocation, readShared } from "../cli-profiles/configuration.js";
-import { seedBundledSkills } from "../cli-profiles/bundled-skills.js";
+import {
+  seedBundledSkills,
+  upgradeStockComposerForOrder,
+} from "../cli-profiles/bundled-skills.js";
 import { safePath } from "../extensions/mcp-config.js";
 import { skillMetadata } from "../extensions/skill-packages.js";
 import { sessionScope } from "../chat/chat-delivery.js";
@@ -66,6 +69,7 @@ function composerSkill(services, account) {
   const file = path.join(dir, "SKILL.md"),
     helper = path.join(dir, "scripts", "order-progress.mjs");
   try {
+    upgradeStockComposerForOrder(dir, source.boundary);
     for (const part of [file, helper]) {
       safePath(part, source.boundary);
       const st = fs.statSync(part);
@@ -75,7 +79,7 @@ function composerSkill(services, account) {
     const content = fs.readFileSync(file);
     if (
       skillMetadata(content).name !== skillName ||
-      !content.includes("agentpier-order-contract-v1")
+      !content.includes("agentpier-order-contract-v2")
     )
       throw orderError("composerSkillUnavailable");
     const skills = readShared(source).skills?.config;
@@ -265,7 +269,7 @@ export class OrderResources {
         `Read and continue the existing order at ${JSON.stringify(file)} (id ${JSON.stringify(ctx.id)}).`,
         `Run this skill's progress helper with the AgentPier Node executable at ${JSON.stringify(process.execPath)}.`,
         "Reconcile all recorded batches, tickets, pipeline runs and pull requests before starting any work.",
-        "Check manualPaused before each action. Use the brief and recorded execution authorization; allowMerge is a separate per-order control.",
+        "Read autopilot_policy before each external action and check its orderId. Honor manualPaused, implementationAuthorized and allowMerge from this response.",
       ].join("\n");
       const receipt = await confirmedDelivery(
         s.chatDelivery,

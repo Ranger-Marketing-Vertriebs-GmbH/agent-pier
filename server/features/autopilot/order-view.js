@@ -163,9 +163,7 @@ export async function orderView(
   const manualPaused = doc.manualPaused === true;
   const status = manualPaused ? "paused" : reportedStatus;
   const openRuns = runs.some((r) => ["running", "awaiting-human"].includes(r.status));
-  const openPR = pullRequests.some((p) =>
-    ["open", "closed"].includes(p.status?.toLowerCase()),
-  );
+  const openPR = pullRequests.some((p) => p.status?.toLowerCase() === "open");
   const openBatch = approved.some(
     (b) =>
       (b.status && !done.has(b.status)) ||

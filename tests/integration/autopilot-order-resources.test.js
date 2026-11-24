@@ -38,7 +38,7 @@ function fixture(t) {
   fs.mkdirSync(path.join(skill, "scripts"), { recursive: true });
   fs.writeFileSync(
     path.join(skill, "SKILL.md"),
-    "---\nname: agentpier-composer\ndescription: Fixture\n---\nagentpier-order-contract-v1\n",
+    "---\nname: agentpier-composer\ndescription: Fixture\n---\nagentpier-order-contract-v2\n",
   );
   fs.writeFileSync(path.join(skill, "scripts", "order-progress.mjs"), "");
   const sessions = new SessionManager({ dataDir });
