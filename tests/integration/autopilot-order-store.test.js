@@ -190,3 +190,72 @@ test("an interrupted creation publishes the same reserved file on retry", async 
   assert.equal(document.id, ref.id);
   assert.equal((await store.list()).length, 1);
 });
+
+test("session pipeline starts require current policy, the registered repository and the active order session", async (t) => {
+  const { open, project, input, directory } = await fixture(t);
+  const store = open();
+  const { ref } = await store.create(project.id, { ...input, allowMerge: true });
+  await store.setReference(ref.id, {
+    resources: { sessionId: "current", retiredSessionIds: ["retired"] },
+  });
+  const reopened = open();
+  assert.equal(reopened.sessionOrder("current").id, ref.id);
+  assert.equal(reopened.sessionOrder("retired").id, ref.id);
+  assert.equal(reopened.byId(ref.id).projectId, project.id);
+  assert.equal(reopened.byId("constructor"), null);
+  assert.equal(reopened.sessionOrder("ordinary"), null);
+  assert.doesNotThrow(() => reopened.assertStart("ordinary", project.id));
+  const denied = { code: "AUTOPILOT_EXECUTION_UNAVAILABLE", status: 403 };
+  const start = () => reopened.assertStart("current", project.id);
+  assert.throws(start, denied);
+  await store.update(ref.id, (d) => ({
+    ...d,
+    implementationAuthorized: true,
+    allowMerge: false,
+  }));
+  assert.doesNotThrow(start);
+  assert.throws(() => reopened.assertStart("retired", project.id), denied);
+  assert.throws(() => reopened.assertStart("current", "foreign-project"), denied);
+  for (const patch of [
+    { manualPaused: true },
+    { status: "completed" },
+    { implementationAuthorized: "true" },
+  ]) {
+    const { document } = await store.get(ref.id);
+    await store.update(ref.id, (d) => ({ ...d, ...patch }));
+    assert.throws(start, denied);
+    await store.update(ref.id, () => document);
+  }
+  await store.setReference(ref.id, { cleanup: true });
+  assert.throws(start, denied);
+  await store.setReference(ref.id, { cleanup: false });
+  const orderFile = path.join(directory, ref.filename);
+  const doc = fs.readFileSync(orderFile, "utf8");
+  fs.writeFileSync(orderFile, JSON.stringify({ ...JSON.parse(doc), id: "wrong" }));
+  assert.throws(start, denied);
+  fs.unlinkSync(orderFile);
+  assert.throws(start, denied);
+  const gitDir = path.dirname(directory);
+  fs.renameSync(gitDir, gitDir + ".old");
+  fs.mkdirSync(directory, { recursive: true });
+  fs.writeFileSync(orderFile, doc);
+  assert.throws(start, denied);
+});
+
+test("a local file cannot attach a session to its order", async (t) => {
+  const { open, project, directory } = await fixture(t);
+  fs.mkdirSync(directory);
+  fs.writeFileSync(
+    path.join(directory, "legacy.json"),
+    JSON.stringify({
+      id: "legacy",
+      sessionId: "forged",
+      resources: { sessionId: "forged" },
+      manualPaused: true,
+    }),
+  );
+  const store = open();
+  assert.equal((await store.list()).length, 1);
+  assert.equal(store.sessionOrder("forged"), null);
+  assert.doesNotThrow(() => store.assertStart("forged", project.id));
+});
