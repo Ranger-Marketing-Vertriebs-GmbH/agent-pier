@@ -15,9 +15,7 @@ export function orderActions(order) {
     resume: Boolean(canStart && order.manualPaused),
     recover: Boolean(
       canStart &&
-      (order.session?.status !== "running" ||
-        order.state === "draft" ||
-        order.manualPaused),
+      (order.session?.status !== "running" || order.deliveryRejected === true),
     ),
     remove: Boolean(
       order.managed &&

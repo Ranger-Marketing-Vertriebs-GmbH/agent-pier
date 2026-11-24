@@ -219,6 +219,8 @@ export async function orderView(
     status,
     state,
     reportedStatus,
+    deliveryRejected:
+      ref.managed === true && ref.resources?.deliveryRetry?.rejected === true,
     manualPaused,
     checkpoint: string(doc.checkpoint),
     nextAction: string(doc.nextAction),
