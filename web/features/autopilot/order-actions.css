@@ -1,0 +1,47 @@
+dialog.autopilot-new-order {
+  width: min(840px, calc(100vw - var(--space-5) * 2));
+}
+
+.autopilot-new-form {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.autopilot-order-fields {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-3);
+  border: 0;
+}
+
+.autopilot-order-fields legend {
+  margin-bottom: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+}
+
+.autopilot-controls {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.autopilot-order-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 700px) {
+  dialog.autopilot-new-order {
+    width: 100%;
+  }
+  .autopilot-new-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .autopilot-order-buttons .button {
+    min-height: var(--touch-target);
+  }
+}

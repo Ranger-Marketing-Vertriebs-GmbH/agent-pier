@@ -40,6 +40,8 @@ export async function apiError(response) {
       .map(({ id, name }) => ({ id, name }));
   // The account's open sign-in session behind a refused start (SESSION_LOGIN_OPEN).
   if (typeof data.sessionId === "string") error.sessionId = data.sessionId;
+  // A failed Composer launch may already have reserved this order.
+  if (typeof data.orderId === "string") error.orderId = data.orderId;
   // The outdated CLI behind a refused launch: { tool, found, required }.
   if (data.updateRequired && typeof data.updateRequired === "object")
     error.updateRequired = data.updateRequired;
