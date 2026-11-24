@@ -27,9 +27,10 @@ function english(text) {
 }
 
 /** An item as a client sees it; the task text only for its own items. */
-function summary(item, grant) {
+function summary(item, grant, tools) {
   return {
     id: item.id,
+    ...tools.requests.orderReceipt(grant, item.id),
     projectId: item.projectId,
     pipelineId: item.pipelineId,
     pipelineName: item.pipelineName,
@@ -54,7 +55,11 @@ function replayQueued(tools, grant, requestId, input) {
   const item = tools.services.pipelineQueue.find(previous.runId);
   if (item)
     return {
-      item: summary(tools.services.pipelineQueue.item(item.projectId, item.id), grant),
+      item: summary(
+        tools.services.pipelineQueue.item(item.projectId, item.id),
+        grant,
+        tools,
+      ),
       replayed: true,
     };
   let run;
@@ -69,7 +74,7 @@ function replayQueued(tools, grant, requestId, input) {
   }
   // The item started its run and left the queue since.
   requireRun(grant, run, previous);
-  return { item: null, run: tools.summary(run), replayed: true };
+  return { item: null, run: tools.summary(run, grant), replayed: true };
 }
 
 /** Adds a client's item to its project's queue; see McpTools.serialStart. */
@@ -93,7 +98,7 @@ async function queueAdd(tools, args, grant, resolveGrant) {
   const fields = { pipelineId, task, baseBranch, tokenBudget, externalRef };
   // A refused item (a full queue, an invalid reference) leaves the request ID unused.
   queue.check(projectId, fields);
-  const receipt = tools.requests.reserve(grant.id, args.requestId, input);
+  const receipt = tools.reserveStart(grant, args.requestId, input);
   const item = queue.add(projectId, fields, {
     id: receipt.runId,
     // The scopes it had now bound what its grant may do when the item starts.
@@ -107,7 +112,7 @@ async function queueAdd(tools, args, grant, resolveGrant) {
   tools.audit("pipeline.created", "pipeline", item.id, grant, projectId, {
     kind: "queue",
   });
-  return { item: summary(item, grant), replayed: false };
+  return { item: summary(item, grant, tools), replayed: false };
 }
 
 export const queueTools = {
@@ -134,7 +139,7 @@ export const queueTools = {
             ),
       );
     return pageItems(
-      items.map((item) => summary(item, grant)),
+      items.map((item) => summary(item, grant, tools)),
       args,
     );
   },

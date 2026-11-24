@@ -50,6 +50,20 @@ export async function orderView(
   const doc = record(document) ? document : {};
   const limits = new Set(limitations);
   const sources = orderSources(ref, services, { remote });
+  // A CLI can disappear after AgentPier accepts a start and before it checkpoints
+  // the returned run ID. Only this order's private MCP receipts fill that gap.
+  const receipts = ref.managed
+    ? (services.mcpTools?.requests.forOrder(ref.id, ref.projectId) ?? [])
+    : [];
+  const byRequest = new Map();
+  const startReceipts = receipts.map(({ requestId, runId }) => {
+    const queue = services.pipelineQueue?.find(runId);
+    const queueState = queue?.projectId === ref.projectId ? queue.state : null;
+    const confirmed = sources.run(runId).resolution === "live";
+    if (confirmed) byRequest.set(requestId, runId);
+    else if (!queueState) limits.add("unconfirmedStart");
+    return { requestId, runId, confirmed, queueState };
+  });
   const all = { runs: [], tickets: [], pullRequests: [], findings: [] };
   async function links(entry) {
     const ticketRefs = [...array(entry.tickets), entry.ticket].filter(record);
@@ -58,6 +72,7 @@ export async function orderView(
     const ids = owners
       .flatMap((owner) => [
         owner.runId,
+        byRequest.get(owner.requestId),
         ...array(owner.runIds),
         ...array(owner.runs).map((r) => r?.id ?? r?.runId ?? r),
       ])
@@ -122,6 +137,7 @@ export async function orderView(
   }
 
   await links(doc);
+  await links({ runIds: [...byRequest.values()] });
   const unassigned = [];
   for (const value of array(doc.items)) unassigned.push(await item(value));
   const topics = await batches(doc.topics);
@@ -155,7 +171,10 @@ export async function orderView(
       (b.status && !done.has(b.status)) ||
       b.items.some((i) => i.status && !done.has(i.status)),
   );
-  const hasOpenWork = openRuns || openPR || openBatch;
+  const queued = startReceipts.some((receipt) =>
+    ["queued", "starting"].includes(receipt.queueState),
+  );
+  const hasOpenWork = openRuns || openPR || openBatch || queued;
   let state = "unknown";
   if (status === "paused") state = "paused";
   else if (requests.length || runs.some((r) => r.gate) || waiting.has(status))
@@ -221,6 +240,7 @@ export async function orderView(
     pullRequests,
     findings,
     hasOpenWork,
+    startReceipts,
     counts: {
       batches: counts(approved),
       items: counts(approved.flatMap((b) => b.items)),
