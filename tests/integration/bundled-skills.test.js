@@ -39,6 +39,16 @@ for (const tool of ["codex", "claude", "opencode"]) {
       "SKILL.md",
     );
     assert.equal(fs.realpathSync(managedFile), fs.realpathSync(file));
+    const writer = fs.readFileSync(
+      new URL(
+        `../../server/features/cli-profiles/skills/${name}/scripts/order-progress.mjs`,
+        import.meta.url,
+      ),
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(path.dirname(managedFile), "scripts/order-progress.mjs")),
+      writer,
+    );
     fs.writeFileSync(file, "User customization");
     await f.restart();
     f.application.sharedProfiles.prepare(f.application.accounts.get(account.id), {});
@@ -123,4 +133,18 @@ test("a failed policy copy leaves no partial skill and a subsequent launch retri
       .allow_implicit_invocation,
     false,
   );
+});
+
+test("the shipped Composer declares the managed-order protocol and its progress writer", () => {
+  const skill = bundled.toString("utf8");
+  for (const part of [
+    "agentpier-order-contract-v1",
+    "scripts/order-progress.mjs",
+    "manualPaused",
+    "allowMerge",
+    "implementationAuthorized",
+    "draftBatches",
+    "requestId",
+  ])
+    assert.ok(skill.includes(part), part);
 });
