@@ -228,9 +228,9 @@ the pass (AGENTPIER-492). The pass for that agent is skipped for this start: its
 restart markers stay until the session's next turn or the next start, and the queued
 inputs the previous Gateway left behind (which no later Gateway sends) until the next
 start withdraws them. Nothing is lost that AgentPier would act on, since it resumes
-no turn. The `Session registry
-maintenance skipped` and `deferred` warnings of the same start are OpenClaw's
-maintenance waiting for that preparation; it retries on its own.
+no turn. The `Session registry maintenance skipped` and `deferred` warnings of the
+same start are OpenClaw's maintenance waiting for that preparation; it retries on its
+own.
 
 ## Installation and update lifecycle
 
