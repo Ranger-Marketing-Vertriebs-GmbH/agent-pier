@@ -327,7 +327,7 @@ export class McpTools {
           grant.id.startsWith(orderGrantPrefix) &&
           this.services.autopilot?.sessionPolicy(grant.sessionId, grant.projectIds[0]);
         if (!policy || grant.id !== orderGrantPrefix + policy.orderId)
-          throw problem("Autopilot order access required.", 403);
+          throw problem(serverMessages.autopilot.executionUnavailable, 403);
         return policy;
       }
       case "projects_list":
