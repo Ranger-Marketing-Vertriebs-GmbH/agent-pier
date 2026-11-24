@@ -8,6 +8,8 @@ repeat it. **Agents › All agents** shows how many agent approvals wait, with a
 the **Agents** tab here. The start page shows the first items under **Needs you**, and
 each card opens its item here (see [start page](system-status.md#start-page)).
 
+The **Control Room** below Inbox groups work by Composer order. A waiting decision there opens the same session or pipeline as **Open in context** in the inbox. See [Autopilot orders](autopilot-orders.md).
+
 ## What it lists
 
 | Tab           | Items                                                                                                                                                                                                                                                                                                |
