@@ -5,7 +5,7 @@ export const controlRoomCopy = {
   autopilot: "Autopilot",
   composer: "Composer",
   empty: "No orders yet. Open a new order to discuss a project brief with Composer.",
-  loading: "Loading orders…",
+  loading: "Loading orders …",
   back: "Back to orders",
   order: "Order",
 };
