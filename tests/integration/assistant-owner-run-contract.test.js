@@ -18,6 +18,7 @@ import { completedProcesses } from "../../server/features/assistants/team-plugin
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import { waitForRun } from "../helpers/assistant-run-wait.js";
 import {
   fixtureModels,
   proactivityModel,
@@ -228,11 +229,9 @@ test(
         long,
       );
       f.assistants.ledger.transition(attempt.id, "running", { runtimeRunId: sent.runId });
-      await runtime.client.call(
-        "agent.wait",
-        { runId: sent.runId, timeoutMs: 60000 },
-        { timeoutMs: 65000 },
-      );
+      // A turn queued behind a completion run that is just ending is answered
+      // "pending" at once (AGENTPIER-493): wait until it has run.
+      await waitForRun(runtime.client, sent.runId);
       f.assistants.ledger.transition(attempt.id, "completed");
       return { attempt, runId: sent.runId };
     };
