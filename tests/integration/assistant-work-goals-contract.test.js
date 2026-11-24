@@ -16,7 +16,9 @@ import { continuationPrompt } from "../../server/features/assistants/goal-turns.
 import { nudgeDelayMs } from "../../server/features/assistants/work-goal-nudges.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { terminalState } from "../../server/features/assistants/run-reconciler.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import { waitForRun } from "../helpers/assistant-run-wait.js";
 import {
   fixtureModels,
   proactivityModel,
@@ -197,7 +199,10 @@ test(
 
     // A turn as AgentPier sends it (conversation-turns.js): the request with its
     // trusted context, the attempt id as the idempotency key; it settles once the run
-    // ends. The nudge sends its continuations through the same path.
+    // ends, as the reconciler sees it. The nudge sends its continuations through the
+    // same path. A continuation that goes out as the completion run ends can be
+    // queued behind it; `agent.wait` then answers "pending" before the run has
+    // started (AGENTPIER-493), so waitForRun asks again until the run has ended.
     const sends = [];
     f.assistants.send = async (conversationId, input, context = { kind: "owner" }) => {
       const request = f.assistants.ledger.accept(conversationId, input);
@@ -210,12 +215,11 @@ test(
         long,
       );
       f.assistants.ledger.transition(attempt.id, "running", { runtimeRunId: sent.runId });
-      const settled = runtime.client
-        .call("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 })
-        .then((waited) => {
-          f.assistants.ledger.transition(attempt.id, "completed");
-          return waited;
-        });
+      const settled = waitForRun(runtime.client, sent.runId).then((waited) => {
+        const state = terminalState(waited);
+        if (state) f.assistants.ledger.transition(attempt.id, state);
+        return waited;
+      });
       // A failed assertion before the await must not leave an unhandled rejection.
       settled.catch(() => {});
       sends.push({

@@ -1220,6 +1220,19 @@ same run (macOS, "the model received the continuation") is not this refusal: tha
 continuation's `sessions.send` was acknowledged. The contract now logs the Gateway's
 answer, the `agent.wait` result and what the model was asked when it fails again.
 
+**Queued continuation (AGENTPIER-493).** Those diagnostics showed the cause, reproduced
+on macOS under parallel load (1 in 48 runs): the continuation went out right after the
+completion run's `lifecycle` `end`, while the session still had work after it
+(presumably the session maintenance OpenClaw 2026.11.6 runs after a turn, see
+`assistant-gateway.md`). OpenClaw queued the turn and answered `agent.wait` at once
+with `{ status: "pending", timeoutPhase: "queue", providerStarted: false }`; the
+contract took that for the run's end and looked for the model request before the run
+had started. A turn sent while another run holds the session gets the same answer
+every time. AgentPier itself was not affected: the reconciler counts only a terminal
+`agent.wait` answer (`run-reconciler.js` `terminalState`). The native contracts that
+send a turn right after a completion run (work goals, owner run) now wait with
+`tests/helpers/assistant-run-wait.js`, which asks again until the run has ended.
+
 ### Native architectures (2026-10-19)
 
 The runtime manifest pins Node checksums for darwin-arm64, darwin-x64, linux-arm64
