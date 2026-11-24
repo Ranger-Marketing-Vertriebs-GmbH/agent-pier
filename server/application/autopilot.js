@@ -39,6 +39,7 @@ export function createAutopilot(services) {
       const ref = store.byId(id);
       return ref?.managed && !ref.cleanup ? (ref.resources?.sessionId ?? null) : null;
     },
+    sessionPolicy: (id, projectId) => store.sessionPolicy(id, projectId),
     assertStart: (sessionId, projectId) => store.assertStart(sessionId, projectId),
     projects: async () => ({
       projects: (await projects()).map(({ id, name, cwd }) => ({ id, name, cwd })),

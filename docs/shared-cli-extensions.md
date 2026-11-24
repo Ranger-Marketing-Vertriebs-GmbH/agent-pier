@@ -130,7 +130,7 @@ The shared description and activation section express the same boundary for othe
 hosts, including OpenCode. Existing user-owned packages remain untouched; update
 the installed skill explicitly when adopting this policy for an existing profile.
 
-Opening an [Autopilot order](autopilot-orders.md) explicitly invokes Composer in its own interactive session. Managed orders require the current complete package, including `scripts/order-progress.mjs`. Existing profiles retain their installed version. To upgrade, preserve local edits and install the complete bundled `agentpier-composer` directory in the chosen native profile.
+Opening an [Autopilot order](autopilot-orders.md) explicitly invokes Composer in its own interactive session. Managed orders require the current complete package, including `scripts/order-progress.mjs`. Opening an order upgrades a recognized, unmodified stock Composer brief and installs its progress writer. Custom and removed skills remain under the owner’s control. To adapt a customized package, compare it with the bundled `agentpier-composer` directory and incorporate the managed-order contract.
 
 The composer identifies each ticket's system, instance and project from the task and
 verifies the ticket through an available integration, CLI or API. It does not assume

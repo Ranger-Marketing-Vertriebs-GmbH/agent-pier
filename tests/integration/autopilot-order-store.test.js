@@ -208,6 +208,20 @@ test("session pipeline starts require current policy, the registered repository 
   const denied = { code: "AUTOPILOT_EXECUTION_UNAVAILABLE", status: 403 };
   const start = () => reopened.assertStart("current", project.id);
   assert.throws(start, denied);
+  const file = path.join(directory, ref.filename);
+  const recorded = JSON.parse(fs.readFileSync(file));
+  fs.writeFileSync(
+    file,
+    JSON.stringify({ ...recorded, implementationAuthorized: true, allowMerge: false }),
+  );
+  assert.throws(start, denied);
+  assert.deepEqual(reopened.sessionPolicy("current", project.id), {
+    orderId: ref.id,
+    implementationAuthorized: false,
+    manualPaused: false,
+    allowMerge: true,
+  });
+  assert.equal((await reopened.get(ref.id)).document.implementationAuthorized, false);
   await store.update(ref.id, (d) => ({
     ...d,
     implementationAuthorized: true,

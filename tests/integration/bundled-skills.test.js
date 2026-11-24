@@ -138,7 +138,7 @@ test("a failed policy copy leaves no partial skill and a subsequent launch retri
 test("the shipped Composer declares the managed-order protocol and its progress writer", () => {
   const skill = bundled.toString("utf8");
   for (const part of [
-    "agentpier-order-contract-v1",
+    "agentpier-order-contract-v2",
     "scripts/order-progress.mjs",
     "manualPaused",
     "allowMerge",

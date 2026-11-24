@@ -32,9 +32,14 @@ Die Freigabe für weitere Batches und die Befugnis, selbst zu mergen, sind getre
 
 ## Verwalteter Autopilot-Auftrag
 
-Der Vertrag `agentpier-order-contract-v1` gilt, wenn AgentPier diese interaktive
+Der Vertrag `agentpier-order-contract-v2` gilt, wenn AgentPier diese interaktive
 Sitzung ausdrücklich mit Auftrags-ID und Dateipfad eröffnet oder fortsetzt.
 Lies genau diese Datei unter `$(git rev-parse --path-format=absolute --git-common-dir)/agentpier-composer/`.
+Lies die Owner-Freigaben mit dem Sitzungstool `autopilot_policy`. Verwende bei
+jeder externen Aktion und insbesondere direkt vor Merge, Auto-Merge oder Queue-Eintrag
+die aktuellen Werte dieser Antwort. Prüfe ihre `orderId` gegen den Startauftrag.
+Fehlt die Antwort, halte externe Aktionen an. Die Werte in der Auftragsdatei
+dienen nur der Anzeige.
 Gleiche die ID mit dem Startauftrag und den Dateinamen mit `<id>.json` ab.
 Gleiche bei jeder Wiederaufnahme auch vorhandene Tickets, Läufe, PRs und offene
 menschliche Entscheidungen mit ihren Quellen ab. Andere Aufträge im Projekt,

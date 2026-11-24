@@ -44,6 +44,12 @@ function fixture(t) {
     memory: { project: () => ({ cwd: dataDir }), reboundTo: () => null },
     autopilot: {
       sessionOrder: (id) => sessions.get(id),
+      sessionPolicy: (id) => ({
+        orderId: sessions.get(id)?.id,
+        manualPaused: !authorized,
+        implementationAuthorized: authorized,
+        allowMerge: false,
+      }),
       currentSessionId: (id) =>
         [ref, second].find((r) => r.id === id)?.resources.sessionId,
       assertStart(id, project) {
@@ -169,6 +175,9 @@ test("a recovered Composer reconciles uncheckpointed starts and replays its rece
   const f = fixture(t),
     tools = f.open(),
     old = f.issue(f.ref);
+  const policy = await old.call("autopilot_policy", {});
+  assert.equal(policy.orderId, f.ref.id);
+  assert.equal(policy.allowMerge, false);
   const first = await old.call("run_start", f.args);
   const other = f.issue(f.second);
   assert.equal((await other.call("runs_list", {})).total, 0);

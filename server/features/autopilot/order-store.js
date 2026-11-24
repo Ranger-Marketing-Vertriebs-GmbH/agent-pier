@@ -60,7 +60,17 @@ const protectedReference = new Set([
   "requestId",
   "receipt",
   "initial",
+  "policy",
 ]);
+// Only the owner's registered decisions can authorize a managed session.
+// A missing policy on an older register needs an explicit owner decision.
+function ownerPolicy(value) {
+  return {
+    implementationAuthorized: value?.implementationAuthorized === true,
+    allowMerge: value?.allowMerge === true,
+    manualPaused: value?.manualPaused !== false,
+  };
+}
 function reference(state, id) {
   const ref = Object.hasOwn(state.refs, id) && state.refs[id];
   if (!ref) throw orderError("orderNotFound", 404);
@@ -127,9 +137,9 @@ export class OrderStore {
     );
   }
 
-  assertStart(sessionId, grantProjectId) {
+  sessionPolicy(sessionId, grantProjectId) {
     const ref = this.sessionOrder(sessionId);
-    if (!ref) return;
+    if (!ref) return null;
     if (
       !ref.cleanup &&
       ref.resources.sessionId === sessionId &&
@@ -147,18 +157,22 @@ export class OrderStore {
           if (
             doc.id === ref.id &&
             doc.projectId === ref.projectId &&
-            doc.implementationAuthorized === true &&
-            doc.manualPaused === false &&
             typeof doc.status === "string" &&
             doc.status !== "completed"
           )
-            return;
+            return { orderId: ref.id, ...ownerPolicy(ref.policy) };
         }
       } catch {
         // Missing, replaced and unreadable orders all withhold execution.
       }
     }
     throw orderError("executionUnavailable", 403);
+  }
+
+  assertStart(sessionId, grantProjectId) {
+    const policy = this.sessionPolicy(sessionId, grantProjectId);
+    if (policy && (!policy.implementationAuthorized || policy.manualPaused))
+      throw orderError("executionUnavailable", 403);
   }
 
   async #project(id) {
@@ -220,8 +234,9 @@ export class OrderStore {
     } catch (e) {
       return result(ref, null, [e.code === "ENOENT" ? "missingFile" : "unreadableFile"]);
     }
-    if (ref.managed && document.id !== ref.id)
+    if (ref.managed && (document.id !== ref.id || document.projectId !== ref.projectId))
       return result(ref, null, ["identityMismatch"]);
+    if (ref.managed) Object.assign(document, ownerPolicy(ref.policy));
     return result(ref, document);
   }
 
@@ -332,6 +347,7 @@ export class OrderStore {
           selection,
           baseBranch,
           initial: document,
+          policy: ownerPolicy(document),
         };
         state.refs[id] = ref;
         this.#save(state);
@@ -365,13 +381,23 @@ export class OrderStore {
     const saved = reference(this.#state(), id);
     const project = await this.#project(saved.projectId);
     return withOrderLock(() => {
-      const ref = reference(this.#state(), id);
+      const state = this.#state();
+      const ref = reference(state, id);
       this.#requiredProject(project, ref);
       const { document } = this.#read(ref, project);
       if (!document) throw orderError("orderFileUnavailable");
       const oldId = document.id;
       const updated = transform(document);
       if (!updated || updated.id !== oldId) throw orderError("invalidOrder", 400);
+      if (ref.managed) {
+        const policy = ownerPolicy(updated);
+        Object.assign(updated, policy);
+        if (!isDeepStrictEqual(ref.policy, policy)) {
+          ref.policy = policy;
+          this.#save(state);
+          this.onChange(ref.projectId, id);
+        }
+      }
       try {
         writeOrderFile(orderDirectory(ref.commonDir), ref.filename, updated);
       } catch {

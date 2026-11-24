@@ -64,8 +64,11 @@ export class McpTools {
   }
   list(grant, context) {
     return [
-      ...Object.entries(toolSchemas).filter(([, tool]) =>
-        grant.scopes.includes(tool.scope),
+      ...Object.entries(toolSchemas).filter(
+        ([name, tool]) =>
+          grant.scopes.includes(tool.scope) &&
+          (name !== "autopilot_policy" ||
+            (grant.sessionId && grant.id.startsWith(orderGrantPrefix))),
       ),
       ...artifactToolEntries(grant, context),
       ...previewToolEntries(grant, context),
@@ -318,6 +321,15 @@ export class McpTools {
       pipelines,
     } = this.services;
     switch (name) {
+      case "autopilot_policy": {
+        const policy =
+          grant.sessionId &&
+          grant.id.startsWith(orderGrantPrefix) &&
+          this.services.autopilot?.sessionPolicy(grant.sessionId, grant.projectIds[0]);
+        if (!policy || grant.id !== orderGrantPrefix + policy.orderId)
+          throw problem("Autopilot order access required.", 403);
+        return policy;
+      }
       case "projects_list":
         return pageItems(
           memory

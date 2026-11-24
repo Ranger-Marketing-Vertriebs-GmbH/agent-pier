@@ -311,3 +311,19 @@ test("live owner questions and the register's cleanup context survive an unreada
   assert.deepEqual(view.selection, { tool: "codex" });
   assert.ok(!JSON.stringify(view).includes("private"));
 });
+
+test("a closed superseded PR remains visible on a completed order without blocking cleanup", async () => {
+  const view = await orderView(
+    {
+      ref,
+      document: {
+        status: "completed",
+        pullRequests: [{ url: run.pullRequestUrl, status: "closed" }],
+      },
+    },
+    {},
+  );
+  assert.equal(view.pullRequests[0].status, "closed");
+  assert.equal(view.state, "completed");
+  assert.equal(view.hasOpenWork, false);
+});
