@@ -2,7 +2,7 @@
 .sidebar-inbox {
   padding: 0 14px 12px;
 }
-.inbox-entry {
+.sidebar-shortcut {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -13,14 +13,14 @@
   font-size: 13px;
   color: var(--text-menu);
 }
-.inbox-entry:hover {
+.sidebar-shortcut:hover {
   background: var(--button-secondary-bg);
 }
-.inbox-entry.selected {
+.sidebar-shortcut.selected {
   background: var(--nav-selected);
   color: var(--accent-text);
 }
-.inbox-entry-label {
+.sidebar-shortcut-label {
   flex: 1;
   min-width: 0;
   text-align: left;

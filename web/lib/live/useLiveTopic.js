@@ -55,6 +55,7 @@ export default function useLiveTopic(topicId, path) {
     () => reader.current?.refresh() ?? Promise.resolve(null),
     [],
   );
+  const invalidate = useCallback(() => reader.current?.invalidate(), []);
   const written = useCallback(
     () => reader.current?.written() ?? Promise.resolve(null),
     [],
@@ -68,6 +69,7 @@ export default function useLiveTopic(topicId, path) {
     // When the server began the read behind `data` (read-stamps.js), or null.
     readAt: shown.readAt ?? null,
     refresh,
+    invalidate,
     written,
   };
 }

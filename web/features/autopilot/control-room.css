@@ -1,0 +1,25 @@
+.order-list-group + .order-list-group,
+.order-read-error + .order-list-group {
+  margin-top: var(--space-5);
+}
+.order-group-count {
+  color: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  margin-inline-start: var(--space-1);
+}
+.order-read-error,
+.control-room-empty {
+  padding: var(--space-4);
+}
+.order-read-error .button {
+  margin-top: var(--space-2);
+}
+.control-room .list-row-label,
+.control-room .list-row-sub {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .app:has(.control-room) .mobile-header {
+    display: none;
+  }
+}

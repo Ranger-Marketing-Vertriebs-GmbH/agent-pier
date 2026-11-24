@@ -253,6 +253,8 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     // the older answer it asked for). Resolves null when the read failed (its error
     // is in the state), the tab is hidden (the read runs once it is visible) or the
     // topic has no REST route; it never rejects, so no caller waits on a failure.
+    // Another source joined by this view changed. Coalesce signals during a read.
+    invalidate: fetchAfterChange,
     refresh: () => fetchOnce().then((data) => data ?? null),
     // After the caller's own write: resolves with the first value shown that was read
     // after the write's answer (its X-Read-Started), or reads the route after

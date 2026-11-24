@@ -14,6 +14,8 @@ import { craftCopy } from "../lib/i18n/messages/craft.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { extensionsHubCopy } from "../lib/i18n/messages/extensions.js";
 import { galleryCopy } from "../lib/i18n/messages/gallery.js";
+import { orderActionEntries } from "../features/autopilot/search.js";
+import { controlRoomCopy } from "../lib/i18n/messages/control-room.js";
 import { inboxCopy } from "../lib/i18n/messages/inbox.js";
 import { mcpDirectoryCopy } from "../lib/i18n/messages/mcp-directory.js";
 import { operationsCopy } from "../lib/i18n/messages/operations.js";
@@ -103,6 +105,20 @@ export function pageEntries() {
   return [
     area("overview", null, { route: { view: "workspace", sessionId: "" } }),
     area("inbox", null, { route: { view: "inbox" } }),
+    pageEntry(
+      "control-room",
+      () => controlRoomCopy.title,
+      null,
+      { route: { view: "control-room" } },
+      {
+        suggested: true,
+        aliases: [
+          () => controlRoomCopy.autopilot,
+          () => controlRoomCopy.composer,
+          () => controlRoomCopy.orders,
+        ],
+      },
+    ),
     ...["questions", "approvals", "gates", "agents"].map((tab) =>
       pageEntry(`inbox-${tab}`, () => inboxCopy.tabs[tab], inbox, {
         route: { view: "inbox", inboxTab: tab },
@@ -397,6 +413,7 @@ export function actionEntries() {
       { action: "launch" },
       { primary: true },
     ),
+    ...orderActionEntries(action, bilingual),
     agentGroupSearchAction(action, bilingual(text.agents)),
     action(
       "new-agent",

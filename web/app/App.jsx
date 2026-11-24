@@ -51,6 +51,7 @@ const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx")
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const CraftPage = lazy(() => import("../features/craft/CraftPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
+const ControlRoom = lazy(() => import("../features/autopilot/ControlRoom.jsx"));
 const InboxPage = lazy(() => import("../features/inbox/InboxPage.jsx"));
 const SplitViewPage = lazy(() => import("../features/views/SplitViewPage.jsx"));
 export default function App() {
@@ -383,6 +384,15 @@ function Application() {
                     onOpenCraftAnything={() => setModal({ type: "craft-anything" })}
                   />
                 </Suspense>
+              ) : view === "control-room" ? (
+                <ControlRoom
+                  route={route}
+                  state={state}
+                  refreshWorkspace={refresh}
+                  navigate={navigate}
+                  openNavigation={openNavigation}
+                  navigationOpen={mobileNav}
+                />
               ) : view === "inbox" ? (
                 <InboxPage
                   pushHealth={state.pushHealth ?? null}

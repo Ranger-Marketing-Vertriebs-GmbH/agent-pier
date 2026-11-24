@@ -26,6 +26,9 @@ const addresses = [
   "/coding/clis/extensions/local-codex",
   "/accounts",
   "/inbox",
+  "/control-room",
+  "/control-room/new",
+  "/control-room/order-1",
   ...inboxTypes.filter((type) => type !== "craft").map((type) => `/inbox/${type}/item-1`),
   `/inbox/craft/${uuid}%3Aq-1`,
   "/repositories",
@@ -96,4 +99,18 @@ test("API, asset and unknown paths are not app documents", () => {
     "/assets/index.js",
   ])
     assert.equal(appDocumentPath.test(address), false, address);
+});
+
+test("Control Room routes round-trip individual orders and the create form", () => {
+  for (const [suffix, fields] of [
+    ["", {}],
+    ["/new", { creating: true }],
+    ["/order-1", { orderId: "order-1" }],
+  ]) {
+    const address = "/control-room" + suffix;
+    const route = readRoute(new URL(address, "http://localhost"));
+    assert.deepEqual(route, { view: "control-room", ...fields });
+    assert.equal(routePath(route), address);
+  }
+  assert.equal(readRoute({ pathname: "/control-room/one/two" }).view, "missing");
 });
