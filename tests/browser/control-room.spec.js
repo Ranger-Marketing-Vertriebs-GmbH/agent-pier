@@ -282,3 +282,31 @@ test("discovering a historical order does not give its claimed session or worktr
     for (const cleanup of cleanups.reverse()) await cleanup();
   }
 });
+
+test.describe("new order deep link", () => {
+  test.use({ live: "manual" });
+
+  test("a cold start waits for the workspace before choosing the Composer account", async ({
+    page,
+    liveStub,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+    await page.route("**/api/autopilot/projects", (route) =>
+      route.fulfill({ json: { projects: [{ id: "atlas", name: "Atlas" }] } }),
+    );
+    await page.goto("/control-room/new");
+    await liveStub.waitForSubscribe("state");
+    await expect(page.locator(".control-room h1")).toHaveText("Control Room");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    liveStub.push("state", {
+      tools: [{ id: "codex", name: "Codex", installed: true }],
+      accounts: [{ id: "local-codex", tool: "codex", name: "Codex", kind: "local" }],
+      sessions: [],
+      home: "/home/test",
+    });
+    const form = page.getByRole("dialog");
+    await form.getByLabel("Order title", { exact: true }).fill("Check exports");
+    await form.getByLabel("Brief", { exact: true }).fill("Review the migration.");
+    await expect(form.getByRole("button", { name: "Open Composer" })).toBeEnabled();
+  });
+});
