@@ -305,10 +305,11 @@ test("New run and Open inbox are actions", () => {
   assert.equal(pathOf(action("Eingang öffnen")), "/inbox");
 });
 
-test("ticket actions appear only in the owner's search", () => {
+test("order and ticket actions appear only in the owner's search", () => {
   const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
   const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
   for (const [id, en, de] of [
+    ["action:autopilot-new", "New order", "Neuer Auftrag"],
     ["action:start-tickets", "Start tickets", "Tickets starten"],
     ["action:add-label-rule", "Add label rule", "Label-Regel hinzufügen"],
   ]) {

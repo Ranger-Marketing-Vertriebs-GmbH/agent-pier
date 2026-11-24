@@ -19,6 +19,7 @@ import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
 import { codingRoute } from "../features/coding/routes.js";
 import SessionRow from "./SessionRow.jsx";
+import { controlRoomCopy } from "../lib/i18n/messages/control-room.js";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
 import PipelineSidebarGroup from "../features/pipelines/PipelineSidebarGroup.jsx";
 import ViewsSidebarGroup from "../features/views/ViewsSidebarGroup.jsx";
@@ -177,6 +178,19 @@ export default function Sidebar({
           active={view === "inbox"}
           onOpen={() => navigate({ view: "inbox" })}
         />
+        <a
+          className={`sidebar-shortcut ${view === "control-room" ? "selected" : ""}`}
+          aria-current={view === "control-room" ? "page" : undefined}
+          href="/control-room"
+          onClick={(event) => {
+            if (!isPlainClick(event)) return;
+            event.preventDefault();
+            navigate({ view: "control-room" });
+          }}
+        >
+          <Icon name="grid" size={17} />
+          <span className="sidebar-shortcut-label">{controlRoomCopy.title}</span>
+        </a>
       </div>
       <div className="sidebar-scroll">
         <PipelineSidebarGroup navigate={navigate} route={route} />

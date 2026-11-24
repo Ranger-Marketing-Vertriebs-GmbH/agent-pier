@@ -139,6 +139,13 @@ export function readRoute(location) {
       // An MCP OAuth login's result; the address drops it (see routePath).
       ...readMcpOAuthResult(location.search),
     });
+  const order = /^\/control-room(?:\/([A-Za-z0-9][A-Za-z0-9_-]{0,99}))?$/.exec(pathname);
+  if (order) {
+    if (order[1] === "new") return { view: "control-room", creating: true };
+    return order[1]
+      ? { view: "control-room", orderId: order[1] }
+      : { view: "control-room" };
+  }
   const inbox = readInboxRoute(pathname, location.search);
   if (inbox) return inbox;
   if (pathname === "/repositories") return projectsRoute();
@@ -360,6 +367,12 @@ function pinboardQuery(route) {
 function basePath(route) {
   if (route.view === "artifacts") return artifactsRoutePath(route);
   if (route.view === "files") return `/files${explorerQuery(route)}`;
+  if (route.view === "control-room") {
+    if (route.creating) return "/control-room/new";
+    return route.orderId
+      ? `/control-room/${encodeURIComponent(route.orderId)}`
+      : "/control-room";
+  }
   if (route.view === "inbox") return inboxRoutePath(route);
   if (route.view === "agents")
     return route.conversationId

@@ -14,6 +14,7 @@ import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { codingRoute } from "../features/coding/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
 import { projectOnScreen } from "./project-search-entries.js";
+import { orderActionIds } from "../features/autopilot/search.js";
 import { pageActionOffered, requestPageAction } from "./page-action.js";
 import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
@@ -117,6 +118,7 @@ export default function AppSearch({
       return navigate({ ...route, mode: "changes" });
     // The run page on screen takes the requested page action and opens its changes.
     if (
+      orderActionIds.includes(target.pending) ||
       target.action === "run-changes" ||
       target.action === "chat-new" ||
       target.action === "chat-summarise" ||
@@ -165,6 +167,7 @@ export default function AppSearch({
               pageActionOffered("run-changes")
             }
             offered={[
+              ...orderActionIds.filter(pageActionOffered),
               ...chatActions.filter(pageActionOffered),
               ...(pageActionOffered("view-new") ? ["view-new"] : []),
               ...(auth ? ["sign-out"] : []),

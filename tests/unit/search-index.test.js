@@ -68,6 +68,7 @@ test("areas, tabs, settings groups and subpages are indexed with their routes", 
     ["MCP-Verzeichnis", "/settings"],
     ["Aufgabenprofile", "/pipelines/profiles"],
     ["Eingang", "/inbox"],
+    ["Control Room", "/control-room"],
     ["Aktive Pipelines", "/pipelines"],
     ["Active pipelines", "/pipelines"],
   ];
@@ -110,7 +111,6 @@ test("the hub's tabs and Runtime's groups use the hub's names and open their pla
     assert.equal(pathOf(hit), path, query);
     assert.ok([hit.path.de, hit.path.en].includes(label), `${query}: ${hit.path.de}`);
   }
-  // Each hub tab and Runtime group is indexed once.
   const ids = index.map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   // Speicher in Laufzeit and in Betrieb are both found, each at its own place.

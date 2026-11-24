@@ -12,13 +12,13 @@ export default function InboxEntry({ active, onOpen }) {
   return (
     <button
       type="button"
-      className={`inbox-entry ${active ? "selected" : ""} ${count ? "waiting" : ""}`}
+      className={`inbox-entry sidebar-shortcut ${active ? "selected" : ""} ${count ? "waiting" : ""}`}
       aria-current={active ? "page" : undefined}
       aria-label={copy.entryLabel(count)}
       onClick={onOpen}
     >
       <Icon name="inbox" size={17} />
-      <span className="inbox-entry-label">{copy.title}</span>
+      <span className="sidebar-shortcut-label">{copy.title}</span>
       {count > 0 && (
         <span className="inbox-count" aria-hidden="true">
           {badge(count)}
