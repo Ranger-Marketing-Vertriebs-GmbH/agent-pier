@@ -388,6 +388,7 @@ function Application() {
                 <ControlRoom
                   route={route}
                   state={state}
+                  ready={ready}
                   refreshWorkspace={refresh}
                   navigate={navigate}
                   openNavigation={openNavigation}

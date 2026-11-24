@@ -5,6 +5,7 @@ import ListRow from "../../components/ListRow.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
+import { appCopy } from "../../lib/i18n/messages/app.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { autopilotActionsCopy } from "../../lib/i18n/messages/autopilot-actions.js";
 import { controlRoomCopy as copy } from "../../lib/i18n/messages/control-room.js";
@@ -73,6 +74,7 @@ function OrderList({ orders, navigate }) {
 export default function ControlRoom({
   route,
   state,
+  ready,
   refreshWorkspace,
   navigate,
   openNavigation,
@@ -106,6 +108,7 @@ export default function ControlRoom({
           <button
             type="button"
             className="button primary"
+            disabled={!ready}
             onClick={() => navigate({ ...overview, creating: true })}
           >
             {autopilotActionsCopy.newOrder}
@@ -145,7 +148,8 @@ export default function ControlRoom({
       {!detail && resource.data && (
         <OrderList orders={resource.data.orders} navigate={navigate} />
       )}
-      {route.creating && (
+      {route.creating && !ready && <p role="status">{appCopy.workspaceLoading}</p>}
+      {route.creating && ready && (
         <NewOrder
           state={state}
           onCancel={back}

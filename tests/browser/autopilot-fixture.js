@@ -10,6 +10,8 @@ export async function controlRoomFixture(page, cleanups) {
     { after: (cleanup) => cleanups.push(cleanup) },
     { listenPort: Number(process.env.AGENTPIER_FIXTURE_PORT || 0) },
   );
+  // Disconnect the real browser before the fixture drains its live sockets.
+  cleanups.push(() => page.close());
   const app = f.application;
   const repo = path.join(f.root, "Atlas");
   execFileSync("git", ["init", "-q", "-b", "main", repo]);
