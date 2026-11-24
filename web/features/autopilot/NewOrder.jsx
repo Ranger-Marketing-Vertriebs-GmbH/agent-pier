@@ -95,7 +95,7 @@ export default function NewOrder({ state, onCreated, onCancel, onOpenOrder }) {
               className="button primary"
               disabled={!ready || mutation.busy || !title.trim() || !brief.trim()}
             >
-              {mutation.busy ? commonCopy.pending : copy.openComposer}
+              {mutation.busy ? commonCopy.pending : copy.startOrder}
             </button>
           )}
         </>
