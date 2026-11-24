@@ -8,6 +8,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { writePrivate, privateDirectory, problem } from "../../lib/storage.js";
 import { mcpHttpRouter } from "./http-transport.js";
 import { MCP_SCOPES } from "./oauth-provider.js";
+import { orderGrantId, orderGrantPrefix } from "./start-requests.js";
 import { sessionMcpLaunch } from "./session-launch.js";
 import {
   capabilityDirectory,
@@ -134,8 +135,9 @@ export class SessionMcp {
     privateDirectory(folder);
     const generation = randomUUID(),
       token = randomBytes(32).toString("hex");
+    const order = this.services.autopilot?.sessionOrder(id);
     const grant = {
-      id: `session-${id}`,
+      id: order ? orderGrantId(order.id) : `session-${id}`,
       clientId: `session-${id}`,
       sessionId: id,
       scopes: choices.scopes,
@@ -198,7 +200,20 @@ export class SessionMcp {
   }
   /** Resolves a grant's resources as they are now. */
   current(grant) {
-    if (grant.allResources) {
+    const order = this.services.autopilot?.sessionOrder(grant.sessionId);
+    if (order || grant.id.startsWith(orderGrantPrefix)) {
+      if (
+        !order ||
+        order.cleanup ||
+        order.resources?.sessionId !== grant.sessionId ||
+        (grant.id.startsWith(orderGrantPrefix) && grant.id !== orderGrantId(order.id))
+      )
+        throw problem(serverMessages.mcp.sessionAccessRevoked, 403);
+      grant.id = orderGrantId(order.id);
+      grant.projectIds = grant.projectIds.filter((id) => id === order.projectId);
+      grant.allResources = false;
+      grant.ownedRunsOnly = true;
+    } else if (grant.allResources) {
       const resources = this.resources();
       for (const [field, group] of Object.entries(fields))
         grant[field] = resources[group].map((resource) => resource.id);
@@ -211,7 +226,12 @@ export class SessionMcp {
   /** A session's grant while its capability is live, for a queued start; else null. */
   grantFor(id) {
     const grant = activeSessionGrant(this.dataDir, id);
-    return grant && this.current(grant);
+    try {
+      return grant && this.current(grant);
+    } catch (error) {
+      if (error.status === 403) return null;
+      throw error;
+    }
   }
   async verify(token) {
     const auth = this.check(token);

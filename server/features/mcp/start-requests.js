@@ -2,6 +2,11 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem } from "../../lib/storage.js";
+// A replacement session receives fresh credentials; its managed order keeps this
+// private receipt namespace. OAuth grants and ordinary session IDs are unchanged.
+export const orderGrantPrefix = "autopilot-";
+export const orderGrantId = (orderId) => orderGrantPrefix + orderId;
+
 export class StartRequests {
   constructor(dataDir) {
     this.db = privateDatabase(path.join(dataDir, "mcp-requests"), "starts.sqlite");
@@ -34,6 +39,21 @@ export class StartRequests {
       .prepare("SELECT grant_id,project_id FROM starts WHERE run_id=?")
       .get(runId);
     return row && { grantId: row.grant_id, projectId: row.project_id };
+  }
+  orderReceipt(grant, runId) {
+    if (grant?.sessionId && grant.id.startsWith(orderGrantPrefix))
+      return this.db
+        .prepare(
+          "SELECT request_id AS requestId FROM starts WHERE grant_id=? AND run_id=?",
+        )
+        .get(grant.id, runId);
+  }
+  forOrder(orderId, projectId) {
+    return this.db
+      .prepare(
+        "SELECT request_id AS requestId, run_id AS runId FROM starts WHERE grant_id=? AND project_id=? ORDER BY rowid",
+      )
+      .all(orderGrantId(orderId), projectId);
   }
   close() {
     if (!this.closed) {

@@ -69,10 +69,13 @@ auch solche mit gleichem Titel, haben jeweils eine eigene Sitzung und Datei.
   und zuletzt geprüftem `status`, `findings` mit `title`, `severity`,
   `detail` und Beleg-`url`. Mehrere Läufe, Quellen und PRs sind möglich.
 - Speichere die Startabsicht mit einer stabilen `requestId` und unveränderten
-  Startparametern vor dem Start. Nutze `run_start` bei verfügbarem, für dieses
-  Projekt autorisiertem AgentPier-MCP-Zugriff. Eine Wiederholung desselben
-  Requests mit derselben ID und demselben Grant liefert denselben Lauf.
-  Der gewöhnliche HTTP-Start hat dieses Versprechen nicht. Bei unklarem Ausgang
+  Startparametern vor dem Start. Nutze für verwaltete Aufträge den Projektzugriff
+  dieser Sitzung und `run_start` bzw. `queue_add`. Bei fehlendem Zugriff halte
+  den Auftrag an und benenne die benötigte Einstellung. Eine Wiederholung
+  desselben Requests mit derselben ID gehört auch nach expliziter
+  Sitzungswiederherstellung zum selben Auftrag. Lies `runs_list` und bei
+  Warteschlangen `queue_list`; der Control Room führt auch akzeptierte
+  Startbelege, deren Run-ID noch im Checkpoint fehlt. Bei unklarem Ausgang
   gleiche die projektbezogenen Läufe und offenen Startabsichten ab und hole
   bei Mehrdeutigkeit die Entscheidung in dieser Sitzung ein. Einen neuen
   Versuch darf es erst nach geklärtem Ausgang geben.

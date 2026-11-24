@@ -1,3 +1,4 @@
+import { autopilotChanged } from "../autopilot/live-topics.js";
 import { storedTokenBudget } from "../pipelines/run-budget.js";
 import {
   artifactTools,
@@ -19,7 +20,7 @@ import {
   talkToolEntries,
   talkTools,
 } from "../session-talk/session-talk-mcp.js";
-import { StartRequests } from "./start-requests.js";
+import { StartRequests, orderGrantPrefix } from "./start-requests.js";
 import { queueTools } from "./queue-tools.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import {
@@ -140,12 +141,13 @@ export class McpTools {
     requireRun(grant, run, this.requests.owner(id));
     return run;
   }
-  summary(run) {
+  summary(run, grant) {
     const endpoint = this.services.mcpAccess?.status().mcpUrl;
-    return runSummary(
+    const summary = runSummary(
       run,
       endpoint ? new URL(endpoint).origin : this.services.config.remoteUrl,
     );
+    return { ...summary, ...this.requests.orderReceipt(grant, run.id) };
   }
   replayStart(grant, requestId, input) {
     const previous = this.requests.get(grant.id, requestId, input);
@@ -161,7 +163,7 @@ export class McpTools {
         );
       }
       requireRun(grant, run, previous);
-      return { run: this.summary(run), replayed: true };
+      return { run: this.summary(run, grant), replayed: true };
     }
   }
   /**
@@ -206,11 +208,19 @@ export class McpTools {
   /** The grant that queued an item as it is now, with no more scopes than then. */
   queuedGrant({ grantId, scopes } = {}) {
     if (typeof grantId !== "string") return null;
-    const grant = grantId.startsWith("session-")
-      ? this.services.sessionMcp?.grantFor(grantId.slice("session-".length))
-      : grantId.startsWith("assistant-")
-        ? null
-        : this.services.mcpAccess?.grant(grantId);
+    let grant;
+    if (grantId.startsWith(orderGrantPrefix)) {
+      const id = this.services.autopilot?.currentSessionId(
+        grantId.slice(orderGrantPrefix.length),
+      );
+      grant = id && this.services.sessionMcp?.grantFor(id);
+      if (grant?.id !== grantId) return null;
+    } else
+      grant = grantId.startsWith("session-")
+        ? this.services.sessionMcp?.grantFor(grantId.slice("session-".length))
+        : grantId.startsWith("assistant-")
+          ? null
+          : this.services.mcpAccess?.grant(grantId);
     if (!grant) return null;
     const allowed = Array.isArray(scopes) ? scopes : grant.scopes;
     return { ...grant, scopes: grant.scopes.filter((scope) => allowed.includes(scope)) };
@@ -228,6 +238,8 @@ export class McpTools {
       throw Object.assign(problem(queue.grantRevoked, 403), {
         failReason: "grant-revoked",
       });
+    if (grant.sessionId)
+      this.services.autopilot?.assertStart(grant.sessionId, item.projectId);
     let pipeline;
     try {
       requireScope(grant, "runs:start");
@@ -250,6 +262,14 @@ export class McpTools {
       return { tokenBudget: bound };
     return { tokenBudget: item.tokenBudget };
   }
+  reserveStart(grant, requestId, input) {
+    if (grant.sessionId)
+      this.services.autopilot?.assertStart(grant.sessionId, input.projectId);
+    const receipt = this.requests.reserve(grant.id, requestId, input);
+    if (grant.sessionId && grant.id.startsWith(orderGrantPrefix))
+      autopilotChanged(this.services.live, input.projectId);
+    return receipt;
+  }
   start(args, grant, resolveGrant) {
     return this.serialStart(grant.id, args.requestId, () =>
       this.startOnce(args, grant, resolveGrant),
@@ -269,7 +289,7 @@ export class McpTools {
     );
     if (checked.previous) return checked.previous;
     ({ grant } = checked);
-    const receipt = this.requests.reserve(grant.id, requestId, input);
+    const receipt = this.reserveStart(grant, requestId, input);
     const run = await this.services.pipelines.start(
       {
         pipelineId,
@@ -286,7 +306,7 @@ export class McpTools {
       tokenBudgetSource:
         tokenBudget !== undefined ? "start" : run.tokenBudget ? "pipeline" : null,
     });
-    return { run: this.summary(run), replayed: false };
+    return { run: this.summary(run, grant), replayed: false };
   }
   async perform(name, args, grant, resolveGrant) {
     const {
@@ -418,21 +438,21 @@ export class McpTools {
               visible(() => requireRun(grant, run, this.requests.owner(run.id))),
           );
         return pageItems(
-          runs.map((run) => this.summary(run)),
+          runs.map((run) => this.summary(run, grant)),
           args,
         );
       }
       case "run_start":
         return this.start(args, grant, resolveGrant);
       case "run_get":
-        return { run: this.summary(this.run(args.runId, grant)) };
+        return { run: this.summary(this.run(args.runId, grant), grant) };
       case "run_cancel": {
         this.run(args.runId, grant);
         if (!grant.allResources && this.requests.owner(args.runId)?.grantId !== grant.id)
           throw problem("This grant did not start that run.", 403);
         const run = await pipelines.cancel(args.runId);
         this.audit("pipeline.cancelled", "pipeline", run.id, grant, run.projectId);
-        return { run: this.summary(run) };
+        return { run: this.summary(run, grant) };
       }
       case "queue_add":
       case "queue_list":
