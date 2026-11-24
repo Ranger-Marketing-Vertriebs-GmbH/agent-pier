@@ -215,6 +215,23 @@ model request and no channel message follow. (The 2026.11.3 installation, the
 rollback target, carries the earlier patch of that version's main-session recovery,
 which settled such a turn with a local transcript notice instead.)
 
+A start that prepares agent databases in the background (the first start after an
+OpenClaw update that migrates them or rebuilds their indexes, or an inspection that
+takes longer than five seconds) may log, for every agent but the first one ready,
+`Deferred restart resume failed for agent <A>: Error: Session database target
+changed outside captured discovery custody: …/agents/<B>/agent/openclaw-agent.sqlite`,
+with `<B>` another agent. This is an OpenClaw 2026.11.6 defect, not a changed
+database: in that case `resumeMarkedSessions` runs the startup pass once per agent and
+captures only that agent's database, while the "configured" target inventory it
+reads covers every agent already admitted, so the first one outside the capture fails
+the pass (AGENTPIER-492). The pass for that agent is skipped for this start: its
+restart markers stay until the session's next turn or the next start, and the queued
+inputs the previous Gateway left behind (which no later Gateway sends) until the next
+start withdraws them. Nothing is lost that AgentPier would act on, since it resumes
+no turn. The `Session registry
+maintenance skipped` and `deferred` warnings of the same start are OpenClaw's
+maintenance waiting for that preparation; it retries on its own.
+
 ## Installation and update lifecycle
 
 Installation and updates are managed product capabilities. The transactional update
