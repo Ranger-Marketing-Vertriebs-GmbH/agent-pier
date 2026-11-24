@@ -8,9 +8,9 @@ Open **Control Room** directly below **Inbox** in the owner sidebar or the phone
 
 ![Control Room showing a waiting order and an active order in the same project](screenshots/control-room-overview.png)
 
-Choose **New order**, select the Git project, enter a title and brief, and choose the CLI, access and launch mode as for an ordinary session. **Open Composer** opens the interactive session for this brief. Discuss the plan there. **Allow implementation** and **Allow merges** start off and can be edited independently under **Order permissions**. Creating the order starts the conversation. Pipeline execution requires separate authorization.
+Choose **New order**, select the Git project, enter a title and brief, and choose the CLI, access and launch mode as for an ordinary session. **Start order** opens the interactive session for this brief. Discuss the plan there. **Allow implementation** and **Autopilot may merge pull requests** start off and can be edited independently under **Order permissions**. Creating the order starts the conversation. Pipeline execution requires separate authorization.
 
-Open an order to see its saved batch plan. Expand a batch to inspect its items, dependencies, ticket states and linked evidence. The last checkpoint and next step come from Composer. **Order brief** keeps the original commission available. **Open Composer** returns to the conversation. An entry under **Waiting on you** takes you to the session question, approval or pipeline gate that needs a decision. Each run, ticket and pull request with a source link opens independently. You can bookmark the order address or reopen it after refreshing the browser.
+Open an order to see its saved batch plan. Expand a batch to inspect its items, dependencies, ticket states and linked evidence. The last checkpoint and next step come from Composer. **Order brief** keeps the original commission available. **Open session** returns to the conversation. An entry under **Waiting on you** takes you to the session question, approval or pipeline gate that needs a decision. Each run, ticket and pull request with a source link opens independently. You can bookmark the order address or reopen it after refreshing the browser.
 
 See the [expanded batch plan on desktop](screenshots/control-room-wide.png) and the [same order on a phone](screenshots/control-room-compact.png).
 

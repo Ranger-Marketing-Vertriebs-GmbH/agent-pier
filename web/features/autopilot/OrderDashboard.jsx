@@ -113,7 +113,7 @@ export default function OrderDashboard({ order, navigate, controls }) {
               composer.onClick();
             }}
           >
-            <Icon name="chats" size={16} /> {copy.composer}
+            <Icon name="chats" size={16} /> {copy.openSession}
           </a>
         )}
       </div>

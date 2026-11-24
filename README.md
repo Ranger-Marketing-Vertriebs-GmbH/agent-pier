@@ -28,7 +28,7 @@ and agents that work as a team.
   [live updates](docs/native-chat-delivery.md#live-chat-updates),
   [reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md),
   [dictation](docs/assistant-gateway.md#live-dictation-in-the-chats)).
-- **Control Room** sits below Inbox and shows Composer orders across projects. Open a new order to discuss its brief in a regular coding session. Follow the live batch plan, answer questions in that session, and open linked pipeline runs. Each order has separate implementation and merge permissions, both off by default. See [Autopilot orders](docs/autopilot-orders.md).
+- **Control Room** sits below Inbox and shows Autopilot orders across projects. Open a new order to discuss its brief in a regular coding session. Follow the live batch plan, answer questions in that session, and open linked pipeline runs. Each order has separate implementation and merge permissions, both off by default. See [Autopilot orders](docs/autopilot-orders.md).
 - **Inbox:** every CLI question and approval, pipeline gate and agent request that
   waits on you, with live counts, answered in place or in one list; Claude Code
   approvals offer Always allow per account and show plans before you approve them

@@ -42,9 +42,9 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
     await form
       .getByLabel("Brief", { exact: true })
       .fill("Check archive checksums after export.");
-    const merge = form.getByRole("switch", { name: /allow merge/i });
+    const merge = form.getByRole("switch", { name: /autopilot may merge/i });
     await expect(merge).not.toBeChecked();
-    await form.getByRole("button", { name: /open composer|create order/i }).click();
+    await form.getByRole("button", { name: "Start order" }).click();
     await expect(page).toHaveURL(/\/sessions\/[^/]+\/chat$/);
     const { orders } = await f.application.autopilot.orders.list();
     const second = orders.find((o) => o.title === "Validate export archives");
@@ -58,7 +58,7 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
     const url = page.url();
     await expect(page.getByRole("heading", { name: original.title })).toBeVisible();
     await page.getByRole("button", { name: "Edit permissions" }).click();
-    const policy = page.getByRole("switch", { name: /allow merge/i });
+    const policy = page.getByRole("switch", { name: /autopilot may merge/i });
     await policy.click();
     await expect(policy).toBeChecked();
     await page
@@ -276,7 +276,7 @@ test("discovering a historical order does not give its claimed session or worktr
     await expect(page.getByText("Resource ownership is unverified.")).toBeVisible();
     for (const name of ["Remove order", "Pause order", "Resume order", "Recover session"])
       await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Open Composer" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Open session" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit permissions" })).toBeVisible();
   } finally {
     for (const cleanup of cleanups.reverse()) await cleanup();
