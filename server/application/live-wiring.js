@@ -5,6 +5,7 @@ import { stateTopic, watchStateWrites } from "../features/sessions/live-state-to
 import { sessionRequestsTopic } from "../features/requests/live-topics.js";
 import { sessionModelsTopic } from "../features/models/live-topics.js";
 import { sessionAgentAccessTopic } from "../features/session-talk/live-topics.js";
+import { autopilotOrdersTopic } from "../features/autopilot/live-topics.js";
 import { inboxTopic } from "../features/inbox/live-topics.js";
 import {
   pipelineActiveTopic,
@@ -105,6 +106,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(sessionModelsTopic(services));
   hub.define(sessionAgentAccessTopic(services));
   hub.define(inboxTopic(services));
+  hub.define(autopilotOrdersTopic());
   hub.define(pipelineRunTopic(services));
   hub.define(pipelineQueueTopic(services));
   hub.define(pipelineActiveTopic(services));
@@ -176,6 +178,7 @@ export const WRITE_SIGNALED_TOPICS = Object.freeze([
 // Frequent writes that touch none of them: session input and chat, agent chats, the
 // user's own routes, notifications, files, runs and memory.
 const QUIET_WRITE_AREAS = new Set([
+  "autopilot",
   "sessions",
   "assistant-conversations",
   "me",
