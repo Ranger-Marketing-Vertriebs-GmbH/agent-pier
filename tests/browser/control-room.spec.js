@@ -313,6 +313,6 @@ test.describe("new order deep link", () => {
     const form = page.getByRole("dialog");
     await form.getByLabel("Order title", { exact: true }).fill("Check exports");
     await form.getByLabel("Brief", { exact: true }).fill("Review the migration.");
-    await expect(form.getByRole("button", { name: "Open Composer" })).toBeEnabled();
+    await expect(form.getByRole("button", { name: "Start order" })).toBeEnabled();
   });
 });
