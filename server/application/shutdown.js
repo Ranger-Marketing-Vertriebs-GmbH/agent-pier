@@ -12,6 +12,7 @@ export function createShutdown({ services, wss, server }) {
       ws.once("close", () => clearTimeout(timeout));
     }
     services.live?.close();
+    services.autopilot?.close();
     // Craft Anything rebuilds stop their builds and children (bounded, about 3 s, in
     // parallel), before the inbox and notifications close, so their last changes land.
     const rebuildsClosed = services.craftRebuilds

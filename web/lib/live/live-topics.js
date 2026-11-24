@@ -62,6 +62,12 @@ export const liveTopics = Object.freeze({
   // The owner's ticket sources (server/features/tickets/live-topics.js): the Plane
   // connections, and one project's source links and start records. The remote ticket
   // list is no topic; the Tickets tab reads it on open and on Refresh.
+  "autopilot.orders.changed": Object.freeze({
+    mode: "signal",
+    path: null,
+    optionalParam: true,
+    interval: 30000,
+  }),
   "tickets.connections": Object.freeze({
     mode: "state",
     path: () => "/ticket-connections",

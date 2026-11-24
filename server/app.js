@@ -120,6 +120,8 @@ import { SessionChanges } from "./features/changes/session-changes.js";
 import { sessionChangesRoutes } from "./http/routes/session-changes.js";
 import { reviewChanged } from "./features/changes/live-topics.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
+import { createAutopilot } from "./application/autopilot.js";
+import { autopilotRoutes } from "./http/routes/autopilot.js";
 import { ticketRoutes } from "./http/routes/tickets.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
 import { SystemStatus } from "./features/system-status/system-status.js";
@@ -216,6 +218,7 @@ export async function createApplication(config) {
     onChange: (scope) => reviewChanged(services.live, scope),
   });
   services.sessionChanges = new SessionChanges({ sessions: services.sessions });
+  services.autopilot = createAutopilot(services);
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
   services.projectRebind.runQueue = services.pipelineQueue;
@@ -497,6 +500,7 @@ export async function createApplication(config) {
   mount(secretsRoutes(services));
   mount(mailRoutes(services));
   mount(repositoriesRoutes(services));
+  mount(autopilotRoutes(services));
   mount(ticketRoutes(services));
   mount(extensionsRoutes(services));
   mount(agencyRoutes(services));

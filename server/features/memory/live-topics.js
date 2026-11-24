@@ -46,6 +46,10 @@ export function watchProjectWrites(services, hub) {
   const { memory, repositories } = services;
   let rows = null;
   const watched = () => hub.named("projects.changed").length > 0;
+  const registerChanged = () => {
+    if (hub.named("autopilot.orders.changed").length)
+      hub.invalidate("autopilot.orders.changed");
+  };
   const rowsChanged = () => {
     if (!watched()) {
       rows = null;
@@ -68,10 +72,12 @@ export function watchProjectWrites(services, hub) {
   };
   for (const method of PROJECT_ROW_WRITES)
     after(memory, method, () => {
+      registerChanged();
       rowsChanged();
       queuesChanged();
     });
   after(repositories, "save", () => {
+    registerChanged();
     if (watched()) hub.invalidate("projects.changed");
   });
 }

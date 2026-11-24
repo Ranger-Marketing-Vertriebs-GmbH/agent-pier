@@ -47,6 +47,7 @@ export const refuseCliLogin = () => {
 export async function applicationFixture(t, overrides = {}) {
   const {
     authenticateFixture = true,
+    listenPort = 0,
     prepareDataDir,
     realCliOAuthStatus = false,
     ...configuration
@@ -77,7 +78,12 @@ export async function applicationFixture(t, overrides = {}) {
   const expectedSocket = tmuxSocketPath(dataDir);
 
   async function start() {
-    application = await createApplication({ ...configuration, dataDir, home, port: 0 });
+    application = await createApplication({
+      ...configuration,
+      dataDir,
+      home,
+      port: listenPort,
+    });
     listOwnedSessions = application.sessions.list.bind(application.sessions);
     if (application.sessions.socketPath !== expectedSocket) {
       await application.close();
@@ -85,7 +91,7 @@ export async function applicationFixture(t, overrides = {}) {
     }
     await new Promise((resolve, reject) => {
       application.server.once("error", reject);
-      application.server.listen(0, "127.0.0.1", () => {
+      application.server.listen(listenPort, "127.0.0.1", () => {
         application.server.removeListener("error", reject);
         resolve();
       });

@@ -55,6 +55,7 @@ import { runtimeUpdates } from "./de/runtime-updates.js";
 import { storageCleanup } from "./de/storage-cleanup.js";
 import { rea } from "./de/rea.js";
 import { craft } from "./de/craft.js";
+import { autopilot } from "./de/autopilot.js";
 import { tickets } from "./de/tickets.js";
 
 // Browser-visible German server messages; top-level names are the stable key prefix.
@@ -94,6 +95,7 @@ export const germanServerMessages = Object.freeze({
   rea,
   craft,
   tickets,
+  autopilot,
   accounts,
   agentbus,
   artifacts,
