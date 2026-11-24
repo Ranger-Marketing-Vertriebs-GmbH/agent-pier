@@ -19,7 +19,7 @@ passenden Werkzeugen; starte keine Composer-Orchestrierung.
 Ein ausdrücklich gestarteter Composer-Auftrag gilt für seine beauftragten Themen
 und Batches weiter. Er aktiviert Composer nicht für neue, unabhängige Aufgaben.
 
-Das jeweilige Ticketsystem hält die fachlichen Aufträge, AgentPier führt sie aus.
+Ein lokaler Composer-Auftrag kann selbst der fachliche Auftrag sein. Bei externen Tickets hält das jeweils bestätigte System den Ticketstand.
 Zerlege nur so weit, wie unabhängige Umsetzung und Prüfung davon profitieren. Nutze den bestehenden
 Auftrag und bereits erteilte Freigaben; Planung allein startet keine Umsetzung.
 
@@ -29,6 +29,70 @@ bis zum bestätigten Merge und starte danach selbstständig den nächsten freige
 Batch. Ein ausdrücklich auf Planung oder PR-Prüfung begrenzter Auftrag bleibt begrenzt.
 Die Freigabe für weitere Batches und die Befugnis, selbst zu mergen, sind getrennt;
 übernimm bereits erteilte Freigaben, ohne sie an jeder Batch-Grenze erneut anzufordern.
+
+## Verwalteter Autopilot-Auftrag
+
+Der Vertrag `agentpier-order-contract-v1` gilt, wenn AgentPier diese interaktive
+Sitzung ausdrücklich mit Auftrags-ID und Dateipfad eröffnet oder fortsetzt.
+Lies genau diese Datei unter `$(git rev-parse --path-format=absolute --git-common-dir)/agentpier-composer/`.
+Gleiche die ID mit dem Startauftrag und den Dateinamen mit `<id>.json` ab.
+Gleiche bei jeder Wiederaufnahme auch vorhandene Tickets, Läufe, PRs und offene
+menschliche Entscheidungen mit ihren Quellen ab. Andere Aufträge im Projekt,
+auch solche mit gleichem Titel, haben jeweils eine eigene Sitzung und Datei.
+
+- `brief` hält den Auftrag. Eröffnen startet die normale Composer-Sitzung.
+  Erarbeite bei einer Planungsanfrage den Entwurf im Gespräch. Ein vollständiger
+  lokaler Auftrag braucht kein externes Ticket. Für jede Umsetzung müssen der
+  Auftrag und `implementationAuthorized: true` sie decken. Bei einer neuen
+  ausdrücklichen Freigabe im Gespräch lasse die Freigabe für diese ID im Control
+  Room speichern oder verwende den autorisierten Owner-Zugriff für die Änderung.
+  Lies die gespeicherte Änderung zurück.
+- Lies direkt vor jeder externen Änderung und nach jeder Wartephase die aktuelle
+  Datei erneut. Bei `manualPaused: true` sichere nur `checkpoint` und
+  `nextAction`, beende deinen Loop und warte auf die Wiederaufnahme derselben
+  Sitzung. Lass bereits gestartete Pipelines und PRs bestehen. Beim Fortsetzen
+  prüfe den realen Stand vor der nächsten Änderung. Behandle eine verschwundene
+  oder widersprüchliche Auftragsdatei als Blocker.
+- Prüfe zusätzlich vor Merge, Auto-Merge und Einreihen in die Merge-Queue
+  `allowMerge: true` für genau diese ID. Ohne dieses gesetzte Flag bleibt die
+  Merge-Entscheidung beim Owner. Die Ausführungsfreigabe bleibt unabhängig.
+  Ändere die Merge-Befugnis nur auf eine ausdrückliche Owner-Entscheidung für
+  diesen Auftrag über die Auftragsverwaltung.
+- Schreibe den Entwurf in `draftBatches`, den vereinbarten Plan in `batches`
+  in Ausführungsreihenfolge. `planStatus` ist `draft` oder `approved`.
+  Vergib für jeden Batch und jedes Arbeitselement in `items` eine dauerhafte,
+  eindeutige String-`id`. Übernimm die IDs beim Freigeben und Umordnen.
+  `dependsOn` führt die IDs der Voraussetzungen auf. Speichere `title`,
+  `task`, den belegten `status` sowie Referenzen beim zugehörigen Element:
+  `tickets` mit `source`, `instance`, `project`, `key`, externer `id` und
+  kanonischer `url`, `runs` mit `id`, `pullRequests` mit `source`, `url`
+  und zuletzt geprüftem `status`, `findings` mit `title`, `severity`,
+  `detail` und Beleg-`url`. Mehrere Läufe, Quellen und PRs sind möglich.
+- Speichere die Startabsicht mit einer stabilen `requestId` und unveränderten
+  Startparametern vor dem Start. Nutze `run_start` bei verfügbarem, für dieses
+  Projekt autorisiertem AgentPier-MCP-Zugriff. Eine Wiederholung desselben
+  Requests mit derselben ID und demselben Grant liefert denselben Lauf.
+  Der gewöhnliche HTTP-Start hat dieses Versprechen nicht. Bei unklarem Ausgang
+  gleiche die projektbezogenen Läufe und offenen Startabsichten ab und hole
+  bei Mehrdeutigkeit die Entscheidung in dieser Sitzung ein. Einen neuen
+  Versuch darf es erst nach geklärtem Ausgang geben.
+- Halte `checkpoint` und `nextAction` als kurzen Text aktuell. Setze den
+  Auftrags-`status` beim Warten auf den Owner auf `waiting`, bei Ausführung
+  auf `active` und nach belegtem Abschluss aller beauftragten Batches auf
+  `completed`. Die Genehmigung eines Plans oder das Ende einer Pipeline allein
+  schließt den Auftrag nicht ab.
+- Nutze aus einem Checkout desselben Projekts den mit **dieser** Skill-Version
+  installierten Helfer. Übergib den Dateinamen aus dem Startauftrag und nur
+  die geänderten Fortschrittsfelder als JSON-Objekt auf der Standardeingabe,
+  z. B. `node "$skill_dir/scripts/order-progress.mjs" "$order_filename" < "$patch_file"`.
+  `skill_dir` ist der Ordner dieser SKILL.md. Array-Felder werden vollständig
+  ersetzt: erhalte vorhandene IDs, Referenzen und unabhängigen Fortschritt.
+  Der Helfer sperrt und liest den aktuellen Stand und schreibt ihn atomar mit
+  den Owner-Feldern zurück. Bei einem Schreibfehler lies erst den aktuellen
+  Stand und behandle eine Pause, bevor du die Änderung wiederholst. Nutze für
+  verwaltete Aufträge weder einen neuen Slug noch einen eigenen Schreiber.
+  Überlasse das Entfernen der Auftragsdatei, der Sitzung, des Branches und des
+  Worktrees nach Abschluss der Auftragsverwaltung.
 
 ## 1. Kontext und Auftrag
 
@@ -239,7 +303,7 @@ auf CI, Review, Merge-Queue oder externen Merge bleibt Teil des Loops.
 
 ## Wiederaufnahme
 
-Halte einen kleinen lokalen Themenstand im Git-Metadatenverzeichnis unter
+Für einen selbst geführten Composer-Auftrag ohne zugewiesene Autopilot-ID halte einen kleinen lokalen Themenstand im Git-Metadatenverzeichnis unter
 `agentpier-composer/<slug>.json` (`git rev-parse --git-common-dir`). Speichere
 Repo/Basisbranch, Auftragsumfang, Ausführungs- und Merge-Freigaben sowie die geordnete
 Themen-/Batch-Liste mit Zuordnung, Abhängigkeiten und Fortschritt. Speichere pro Ticket das Ticketsystem, die
