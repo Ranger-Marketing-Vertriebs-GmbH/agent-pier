@@ -416,7 +416,7 @@ The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).
 
 - **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)** on macOS or **Search (Ctrl+K)** elsewhere, **Menu**), brand
-  with the LOCAL, TAILNET or NETWORK badge (how AgentPier is reached), **Inbox**, **Active pipelines** while runs are running or awaiting a decision, the **Views** group (only wider than 1150 px), the
+  with the LOCAL, TAILNET or NETWORK badge (how AgentPier is reached), **Inbox**, **Control Room**, **Active pipelines** while runs are running or awaiting a decision, the **Views** group (only wider than 1150 px), the
   **Agents** group, the **Sessions** group and the host status. A pipeline awaiting a decision appears first and opens its run. The group header shows how many decisions are pending, including when collapsed. The Agents and Sessions heads carry two icon buttons each: Agents → **Manage all agents**
   (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs
   and extensions** (`/coding/clis`) and **New session**. These "+" buttons are the
@@ -465,7 +465,7 @@ The information architecture is recorded in
   figures in the semantic tones (`--success`, `--warning`, `--error-text`). A wide table
   scrolls inside the card on a phone. A moved card leaves an `assistant-note` button
   with the `down` icon that scrolls to it.
-- **Views group** (`web/features/views/ViewsSidebarGroup.jsx`): between **Inbox** and
+- **Views group** (`web/features/views/ViewsSidebarGroup.jsx`): below **Control Room** and any active pipeline runs, above
   **Agents**, shown only wider than 1150 px. Its head has one "+" (**New view**); each
   view row shows the name and pane count. Sessions and agent chats shown in the current
   view carry a marker ("Shown in this view"). Behavior: [Views](views.md);
@@ -482,8 +482,7 @@ The information architecture is recorded in
   **Agents** stays in the menu while agents are off and leads to the page that turns
   them on. Escape, an outside click and navigation close the popover and return focus
   to the **Menu** button.
-- **Phone**: the drawer keeps brand + Menu, New, Agents and Sessions; the Inbox is in the
-  mobile header. The menu popover opens inside the drawer at full width with a
+- **Phone**: the drawer includes **Inbox**, **Control Room**, active pipeline runs, Agents and Sessions. The mobile header also links to Inbox. The menu popover opens inside the drawer at full width with a
   **Search** row first.
 - **Search** (quick open; `web/app/SearchDialog.jsx` on the `CommandPalette` primitive;
   index in `web/app/search-entries.js`, `area-search-entries.js`,
@@ -508,7 +507,7 @@ The information architecture is recorded in
     what the owner's pages read under the owner's session: the workspace state, agent
     list and saved views the app already holds, the pushed run list and inbox, and the
     project, pipeline and task profile lists, read while the search is open
-    (`useQuickOpenSources.js`). Actions: "New session", "Start run", "Open inbox", "New
+    (`useQuickOpenSources.js`). The Control Room is indexed by “Autopilot”, “Composer” and “Aufträge”. Order-specific actions appear while their controls are available. Actions: "New order", "New session", "Start run", "Open inbox", "New
     agent", "Add SSH access", "Add email account" and the other connection actions,
     "Install skill", "Update CLI", "Chrome for Testing", "Upload" (Files, opens the
     upload panel), "Send test notification" and "Install app"; each agent's "Duplicate",

@@ -31,8 +31,7 @@ diagnostic evidence, code identifiers, URLs and anchors keep their original word
 
 ## Navigation and areas
 
-The sidebar holds views, agents and sessions; every other area is in the **Menü** popover
-([ADR 0005](adr/0005-navigation-information-architecture.md)).
+The owner sidebar places **Control Room** below **Inbox** (**Eingang** in German), above active pipelines, views, agents and sessions. The owner opens other areas through the **Menü** popover. See [ADR 0005](adr/0005-navigation-information-architecture.md).
 
 | Concept                           | German                                                                           | English                                                                        |
 | --------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |

@@ -123,7 +123,7 @@ The exact plan is frozen for each gate attempt when used; edits can affect a lat
 
 Artifact reads are bounded and confined to the run's worktree and declared evidence. Within `.pipeline/`, only declared files inside a report directory of the stage's own attempts can be read; verdicts and other turn files stay private. Credential directories, dotenv files (`.env` and `.env.*` at any depth), PEM/key files, traversal and symlink escapes are rejected. Private filename checks ignore case. Checkpoints also exclude these private files when they were already staged; removing them from the index preserves their working-tree contents. Every accepted or overridden completed stage records a Git checkpoint. A diff identifies that recorded boundary; later repair attempts do not erase previous attempt records.
 
-[Autopilot orders](autopilot-orders.md) can reference several normal pipeline runs. A Composer session starts a run only within the order’s execution authorization. Run history and PRs survive order cleanup.
+The owner’s **Control Room** links each [Autopilot order](autopilot-orders.md) to its pipeline runs. Select a run to see its detail or a waiting gate to make the decision at its source. A Composer session starts a run only within the order’s execution authorization. Run history and PRs survive order cleanup.
 
 ## Ports and browser sessions
 

@@ -44,6 +44,9 @@ Organise by object, not by technology. The owner decided:
    _Amended 2026-11-23:_ **Active pipelines** follows **Inbox** on desktop and
    phone whenever a run is active. Runs awaiting a decision appear first. The
    collapsed group keeps the decision count visible.
+   _Amended 2026-11-24:_ **Control Room** has a permanent owner entry directly below
+   **Inbox**, ahead of active pipelines on desktop and in the phone drawer. Its
+   cross-project orders have stable addresses for returning to work across sessions.
 3. **Menu content in two groups with status hints:** **Work** (Overview, Projects,
    Pipelines, Files, Artifacts) and **Set up** (Agents, CLIs and extensions,
    Connections, Settings). Hints come only from data the app already has or reads once
@@ -94,8 +97,7 @@ sanitized, so problems survive a restart.
 
 ## Consequences
 
-- The sidebar stays short however many areas exist; a new area is a menu entry, a
-  search entry and a route, never a sidebar row.
+- New areas normally use the menu, search and a route. The permanent Control Room entry gives owners direct access to their cross-project order register.
 - One agent's whole access is in one tab, and every credential shows who uses it, so
   revoking or deleting names what it affects.
 - The search index must know every page, tab and old name in both languages; a new page
