@@ -30,6 +30,9 @@ test("a valid historical order only permits edits to its policy", () => {
 
 test("manual pause and stored completion control lifecycle operations", () => {
   assert.equal(orderActions(active).pause, true);
+  assert.equal(orderActions(active).recover, false);
+  assert.equal(orderActions({ ...active, deliveryRejected: true }).recover, true);
+  assert.equal(orderActions({ ...active, session: null }).recover, true);
   assert.equal(orderActions({ ...active, manualPaused: true }).resume, true);
   // A completed-looking group is insufficient to pass the backend's cleanup rule.
   assert.equal(

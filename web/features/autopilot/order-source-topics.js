@@ -1,7 +1,10 @@
 // The register signals changes to the order file. Its view also joins live sources.
-// The overview follows the global inbox and run list once across all projects.
+// One project uses its scoped signal. A cross-project overview shares an aggregate
+// subscription so the number of open projects cannot exhaust the socket limit.
 export function orderSourceTopics(orders, detail) {
-  const project = detail && orders[0]?.projectId;
+  if (!orders.length) return [];
+  const projects = new Set(orders.map((order) => order.projectId));
+  const project = projects.size === 1 && orders[0].projectId;
   const topics = new Set([
     project ? `pipeline.runs.changed:${project}` : "pipeline.runs.changed",
   ]);

@@ -9,12 +9,18 @@ test("the register shares list subscriptions across parallel orders in a project
     startReceipts: [{ runId: "a", queueState: "queued" }],
     runs: [{ id: "a", resolution: "unavailable" }],
   };
+  assert.deepEqual(orderSourceTopics([], false), []);
   const second = { ...waiting, session: { id: "composer-2" } };
   assert.deepEqual(orderSourceTopics([waiting, second], false), [
     "inbox",
     "pipeline.queue:project-1",
-    "pipeline.runs.changed",
+    "pipeline.runs.changed:project-1",
   ]);
+  assert.ok(
+    orderSourceTopics([waiting, { ...second, projectId: "other" }], false).includes(
+      "pipeline.runs.changed",
+    ),
+  );
   assert.deepEqual(
     orderSourceTopics([{ ...second, runs: [{ id: "b", resolution: "live" }] }], true),
     [
