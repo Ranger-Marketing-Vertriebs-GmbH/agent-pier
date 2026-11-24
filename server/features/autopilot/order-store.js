@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { DirectoryWatchers } from "../../lib/directory-watchers.js";
-import { projectScope } from "../memory/project-scope.js";
+import { projectId, projectScope } from "../memory/project-scope.js";
 import {
   orderDirectory,
   orderFilename,
@@ -106,6 +106,59 @@ export class OrderStore {
   }
   #save(state) {
     writePrivate(this.file, state);
+  }
+
+  // The pipeline capability checks these synchronously at admission, including
+  // queue promotion. Repository files can never bind or retire a session.
+  byId(id) {
+    const { refs } = this.#state();
+    return Object.hasOwn(refs, id) ? refs[id] : null;
+  }
+
+  sessionOrder(sessionId) {
+    if (typeof sessionId !== "string" || !sessionId) return null;
+    return (
+      Object.values(this.#state().refs).find(
+        (ref) =>
+          ref.managed &&
+          (ref.resources?.sessionId === sessionId ||
+            ref.resources?.retiredSessionIds?.includes(sessionId)),
+      ) ?? null
+    );
+  }
+
+  assertStart(sessionId, grantProjectId) {
+    const ref = this.sessionOrder(sessionId);
+    if (!ref) return;
+    if (
+      !ref.cleanup &&
+      ref.resources.sessionId === sessionId &&
+      !ref.resources.retiredSessionIds?.includes(sessionId) &&
+      ref.projectId === grantProjectId
+    ) {
+      try {
+        const stat = fs.lstatSync(ref.commonDir, { bigint: true });
+        if (
+          stat.isDirectory() &&
+          projectId(["git", ref.commonDir, String(stat.dev), String(stat.ino)]) ===
+            ref.projectId
+        ) {
+          const doc = readOrderFile(orderDirectory(ref.commonDir), ref.filename);
+          if (
+            doc.id === ref.id &&
+            doc.projectId === ref.projectId &&
+            doc.implementationAuthorized === true &&
+            doc.manualPaused === false &&
+            typeof doc.status === "string" &&
+            doc.status !== "completed"
+          )
+            return;
+        }
+      } catch {
+        // Missing, replaced and unreadable orders all withhold execution.
+      }
+    }
+    throw orderError("executionUnavailable", 403);
   }
 
   async #project(id) {
