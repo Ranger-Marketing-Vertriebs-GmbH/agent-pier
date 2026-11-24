@@ -76,13 +76,21 @@ export class AutopilotOrders {
   }
 
   async present(record, options) {
-    const session =
+    let session = null;
+    const limitations = [...record.limitations];
+    if (
       record.ref.managed &&
       record.ref.resources?.sessionId &&
-      !record.limitations.includes("projectUnavailable")
-        ? await this.resources.inspectSession(this.context(record))
-        : null;
-    return this.view({ ...record, session }, options);
+      !limitations.includes("projectUnavailable")
+    ) {
+      try {
+        session = await this.resources.inspectSession(this.context(record));
+      } catch (error) {
+        if (error.code !== "AUTOPILOT_OWNERSHIP_MISMATCH") throw error;
+        limitations.push("sessionOwnershipMismatch");
+      }
+    }
+    return this.view({ ...record, limitations, session }, options);
   }
 
   async list() {
