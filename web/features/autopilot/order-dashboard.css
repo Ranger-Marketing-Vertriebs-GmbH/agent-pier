@@ -1,0 +1,164 @@
+.order-dashboard {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.order-dashboard :is(p, dl, dd, ol, h2) {
+  margin: 0;
+}
+.order-dashboard .group-label {
+  margin: 0 0 var(--space-2);
+}
+.order-overview,
+.order-state,
+.order-plan-heading,
+.order-item-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.order-overview,
+.order-plan-heading,
+.order-item-heading {
+  justify-content: space-between;
+}
+.order-state,
+.order-plan-heading > span,
+.order-item-heading > span,
+.order-item-counts,
+.order-dependencies,
+.order-empty-plan {
+  color: var(--text-meta);
+  font-size: var(--font-size-md);
+}
+.order-overview .button {
+  text-decoration: none;
+}
+.order-decisions .list-card {
+  border-color: var(--accent-line);
+}
+.order-decisions .list-row-icon {
+  color: var(--accent-text);
+}
+.order-plan {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.order-plan-heading h2 {
+  font-size: var(--font-size-2xl);
+  color: var(--text);
+}
+.order-plan-totals,
+.order-progress-notes {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+}
+.order-plan-totals {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  gap: 1px;
+  overflow: hidden;
+}
+.order-plan-totals > div {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-raised);
+}
+.order-dashboard dt {
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+}
+.order-plan-totals dd {
+  display: grid;
+  gap: var(--space-1);
+}
+.order-plan-totals strong {
+  font-size: var(--font-size-3xl);
+  font-variant-numeric: tabular-nums;
+}
+.order-plan-totals small {
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+}
+.order-plan-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+}
+.order-plan-list .activity-row-label {
+  flex: 1 1 12rem;
+  max-width: none;
+  white-space: normal;
+}
+.order-plan-list .activity-row-head {
+  flex-wrap: wrap;
+}
+.order-plan-list .activity-row-detail {
+  flex: 0 1 auto;
+  font-family: inherit;
+}
+.order-plan-list .activity-row-status {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.order-work-item {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-inline-start: 2px solid var(--line);
+  background: var(--surface-input);
+}
+.order-item-heading strong {
+  color: var(--text-row);
+}
+.order-progress-notes {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  line-height: 1.5;
+}
+.order-progress-notes > div {
+  min-width: 0;
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--accent-line);
+}
+.order-progress-notes dd,
+.order-text {
+  white-space: pre-wrap;
+}
+.order-limitations {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  font-size: var(--font-size-md);
+  color: var(--text-meta);
+}
+.order-brief {
+  border-block: 1px solid var(--line);
+}
+.order-brief summary {
+  align-content: center;
+  min-height: var(--touch-target);
+  color: var(--text-row);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+}
+.order-brief .order-text {
+  margin: var(--space-2) 0 var(--space-4);
+  line-height: 1.6;
+}
+.order-brief-facts {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+}
+.order-brief-facts > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 24%) 1fr;
+  gap: var(--space-2);
+}
