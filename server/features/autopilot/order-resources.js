@@ -258,6 +258,7 @@ export class OrderResources {
       const message = [
         `Use the agentpier-composer skill at ${JSON.stringify(skill)} for this interactive Autopilot order.`,
         `Read and continue the existing order at ${JSON.stringify(file)} (id ${JSON.stringify(ctx.id)}).`,
+        `Run this skill's progress helper with the AgentPier Node executable at ${JSON.stringify(process.execPath)}.`,
         "Reconcile all recorded batches, tickets, pipeline runs and pull requests before starting any work.",
         "Check manualPaused before each action. Use the brief and recorded execution authorization; allowMerge is a separate per-order control.",
       ].join("\n");

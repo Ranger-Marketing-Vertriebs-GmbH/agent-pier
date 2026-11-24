@@ -48,7 +48,6 @@ async function fixture(t) {
       if (notify) notifications.push(ctx.resumeId);
     },
     inspectSession: async (ctx) => sessions.get(ctx.id) ?? null,
-    pause: async () => {},
     async cleanup(_ctx, { begin }) {
       if (refuseCleanup) throw new Error("busy");
       await begin();
@@ -64,14 +63,15 @@ async function fixture(t) {
     const orders = new AutopilotOrders({
       store,
       resources,
-      view: ({ ref, document, session }) => ({
+      view: ({ ref, document, session, limitations }) => ({
+        limitations,
         ...document,
         id: ref.id,
         cleanup: !!ref.cleanup,
         session,
       }),
     });
-    return { store, orders };
+    return { store, orders, resources };
   }
   return {
     open,
@@ -130,4 +130,24 @@ test("cleanup checks completion, journals after preflight and can finish on retr
   await restarted.remove(id);
   assert.deepEqual(await restarted.list(), { orders: [] });
   await assert.rejects(restarted.create(f.input), { status: 410 });
+});
+
+test("a mismatched session is reported on its own order and cannot hide other orders", async (t) => {
+  const f = await fixture(t);
+  const { orders, resources } = f.open();
+  const first = await orders.create(f.input);
+  const second = await orders.create({ ...f.input, requestId: "two" });
+  const inspect = resources.inspectSession;
+  resources.inspectSession = (ctx) => {
+    if (ctx.id === first.id)
+      throw Object.assign(new Error("different cwd"), {
+        code: "AUTOPILOT_OWNERSHIP_MISMATCH",
+      });
+    return inspect(ctx);
+  };
+  const { orders: listed } = await orders.list();
+  const mismatch = listed.find((o) => o.id === first.id);
+  assert.equal(mismatch.session, null);
+  assert.ok(mismatch.limitations.includes("sessionOwnershipMismatch"));
+  assert.equal(listed.find((o) => o.id === second.id).session.id, second.session.id);
 });
