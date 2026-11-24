@@ -237,7 +237,13 @@ test("completed order cleanup can be retried and stays removed after refresh", a
     await page.reload();
     await page.getByRole("button", { name: /remove order/i }).click();
     await dialog.getByLabel("Enter the order title to confirm").fill(order.title);
+    const removal = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url() === f.url + "/api/autopilot/orders/" + order.id,
+    );
     await dialog.getByRole("button", { name: /remove/i }).click();
+    expect((await removal).status()).toBe(204);
     await expect(page).toHaveURL(f.url + "/control-room");
     await page.reload();
     await expect(page.getByRole("link", { name: new RegExp(other.title) })).toBeVisible();
