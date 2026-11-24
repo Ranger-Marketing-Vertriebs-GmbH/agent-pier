@@ -23,18 +23,22 @@ export function gitEnvironment(home = process.env.HOME) {
 export async function git(
   cwd,
   args,
-  { env = gitEnvironment(), timeout = 30000, maxBuffer = 4 * 1024 * 1024 } = {},
+  { env = gitEnvironment(), timeout = 30000, maxBuffer = 4 * 1024 * 1024, input } = {},
 ) {
   try {
     const confined = await repositoryProgramOptions(cwd, args, env);
-    return (
-      await execute("git", safeGitArgs([...confined, ...args]), {
-        cwd,
-        env,
-        timeout,
-        maxBuffer,
-      })
-    ).stdout.trimEnd();
+    const task = execute("git", safeGitArgs([...confined, ...args]), {
+      cwd,
+      env,
+      timeout,
+      maxBuffer,
+    });
+    if (input !== undefined) {
+      // A child that rejected its arguments can close stdin before the write.
+      task.child.stdin.on("error", () => {});
+      task.child.stdin.end(input);
+    }
+    return (await task).stdout.trimEnd();
   } catch (error) {
     const failure = problem(serverMessages.pipelineWorkspaces.gitOperationFailed, 409);
     failure.code = error.code;

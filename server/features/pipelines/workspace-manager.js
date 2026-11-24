@@ -135,13 +135,35 @@ export class PipelineWorkspace {
     if (
       workspace.cwd !== expected ||
       workspace.branch !== `agentpier/${validId(workspace.runId)}` ||
-      (await fs.realpath(path.dirname(expected))) !== path.dirname(expected) ||
-      (await fs.realpath(expected)) !== expected
+      (await fs.realpath(path.dirname(expected))) !== path.dirname(expected)
     )
       throw problem(serverMessages.pipelineWorkspaces.preparationUnrecoverable, 409);
     const source = await fs.stat(workspace.projectRoot);
     if (source.dev !== workspace.projectDevice || source.ino !== workspace.projectInode)
       throw problem(serverMessages.pipelineWorkspaces.sourceIdentityChanged, 409);
+    // The intent is durable before "worktree add". If the process died in that
+    // gap, Git can still create that exact branch without resetting an existing
+    // one. A leftover path (including a dangling link) is never adopted this way.
+    const entry = await fs.lstat(expected).catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (!entry)
+      await git(
+        workspace.projectRoot,
+        [
+          "worktree",
+          "add",
+          "--no-track",
+          "-b",
+          workspace.branch,
+          expected,
+          workspace.baseSha,
+        ],
+        { timeout: 60000 },
+      );
+    if ((await fs.realpath(expected)) !== expected)
+      throw problem(serverMessages.pipelineWorkspaces.preparationUnrecoverable, 409);
     const [branch, head, common, sourceCommon, registered] = await Promise.all([
       git(expected, ["branch", "--show-current"]),
       exactCommit(expected, "HEAD"),
