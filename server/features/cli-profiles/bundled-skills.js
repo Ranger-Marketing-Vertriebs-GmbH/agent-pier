@@ -6,8 +6,34 @@ import { atomicText, safePath, textFile } from "../extensions/mcp-config.js";
 
 const skills = ["agentpier-composer"];
 
+// Helpers shipped earlier whose unchanged copy must not stay in a profile. The one of
+// 2.21.0-rc.2 and rc.3 passes its request to a child through a pipe, which on macOS
+// can stall for good on an order above 64 KiB.
+const replacedOrderHelpers = new Set([
+  "e3f6d2a4a4a5151e6b693c6dc262ea8229e60c3f669d4830a8d6bb67d3ee1c0f",
+]);
+
+// Replaces such a helper with the shipped one. A helper the user edited, removed or
+// got from elsewhere has another content and stays as it is.
+function refreshOrderHelper(directory, boundary) {
+  const helper = path.join(directory, "scripts", "order-progress.mjs");
+  const before = textFile(helper, boundary);
+  if (!replacedOrderHelpers.has(createHash("sha256").update(before).digest("hex")))
+    return;
+  atomicText(
+    helper,
+    boundary,
+    before,
+    fs.readFileSync(
+      new URL("./skills/agentpier-composer/scripts/order-progress.mjs", import.meta.url),
+      "utf8",
+    ),
+  );
+}
+
 // Seed once per native profile. Existing packages and later deletions belong to
 // the user; a release or another account launch must not replace those choices.
+// The one exception is an unchanged earlier helper with a known defect.
 export function seedBundledSkills(dataDir, target) {
   const file = path.join(dataDir, "bundled-skills.json");
   const state = readJSON(file, {});
@@ -59,6 +85,14 @@ export function seedBundledSkills(dataDir, target) {
     }
     saved.push(name);
     writePrivate(file, state);
+  }
+  try {
+    refreshOrderHelper(
+      path.join(target.root, "skills", "agentpier-composer"),
+      target.boundary,
+    );
+  } catch {
+    // A helper that cannot be read or replaced safely stays; the session still starts.
   }
 }
 

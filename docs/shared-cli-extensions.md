@@ -162,7 +162,9 @@ planning or review tasks retain their requested endpoint.
 Existing packages with the same name are preserved, including skills imported from
 managed accounts. Installation is recorded per native profile in
 `bundled-skills.json` in the AgentPier data directory. Later launches and releases
-neither overwrite edits nor reinstall deleted packages. To adopt a newer bundled
+neither overwrite edits nor reinstall deleted packages. One exception: an unchanged
+`scripts/order-progress.mjs` of an earlier release with a known defect is replaced by
+the shipped one when a session of the profile starts. To adopt a newer bundled
 version, explicitly replace the native package from the checked-in source (or upload
 its `SKILL.md` through skill management after removing the old package). Back up native
 skill directories and the installation record to preserve these choices when moving
