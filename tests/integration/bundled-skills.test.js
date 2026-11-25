@@ -135,6 +135,48 @@ test("a failed policy copy leaves no partial skill and a subsequent launch retri
   );
 });
 
+test("an unchanged earlier order helper is replaced, an edited or removed one is kept", async (t) => {
+  const f = await applicationFixture(t);
+  const { accounts, sharedProfiles } = f.application;
+  const local = accounts.get("local-claude");
+  const helper = path.join(
+    profileLocation(accounts, local.id).root,
+    "skills",
+    name,
+    "scripts",
+    "order-progress.mjs",
+  );
+  const shipped = fs.readFileSync(
+    new URL(
+      `../../server/features/cli-profiles/skills/${name}/scripts/order-progress.mjs`,
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  // The helper 2.21.0-rc.2 and rc.3 seeded, which can stall on macOS above 64 KiB.
+  const earlier = fs.readFileSync(
+    new URL("../fixtures/composer/order-progress-2.21.0-rc.3.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.notEqual(earlier, shipped);
+  sharedProfiles.prepare(local, {});
+  assert.equal(fs.readFileSync(helper, "utf8"), shipped);
+
+  fs.writeFileSync(helper, earlier);
+  sharedProfiles.prepare(local, {});
+  assert.equal(fs.readFileSync(helper, "utf8"), shipped);
+  assert.equal(fs.statSync(helper).mode & 0o777, 0o600);
+
+  const edited = `${earlier}\n// mine\n`;
+  fs.writeFileSync(helper, edited);
+  sharedProfiles.prepare(local, {});
+  assert.equal(fs.readFileSync(helper, "utf8"), edited);
+
+  fs.rmSync(helper);
+  sharedProfiles.prepare(local, {});
+  assert.equal(fs.existsSync(helper), false);
+});
+
 test("the shipped Composer declares the managed-order protocol and its progress writer", () => {
   const skill = bundled.toString("utf8");
   for (const part of [
