@@ -39,6 +39,12 @@ export const profileExtensionsCopy = {
     `Den hier installierten Skill „${value1}“ mit seinen Dateien entfernen?`,
   removedNotice: (value1) => `${value1} wurde entfernt.`,
   skillsHeading: "Skills",
+  groupPackage: (name) => `MCP-Paket ${name}`,
+  packageVersion: (version) => `Version ${version}`,
+  whenUsed: "Wann das CLI ihn nutzt",
+  factScope: "Bereich",
+  readOnlyNote:
+    "Hier schreibgeschützt. Ändere oder entferne ihn dort, wo er installiert wurde.",
   extensionSectionPlaceholder: "Name, Beschreibung oder Bereich",
   noMatchingSkills: "Keine Skills passen zur Suche.",
   noSkills: "In den bekannten Profilordnern wurden keine Skills gefunden.",

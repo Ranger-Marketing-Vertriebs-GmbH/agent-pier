@@ -44,6 +44,14 @@ in the meantime. Without the live channel it reads the list every 2 s while visi
 
 ## Installing skills
 
+**Extensions › Skills** groups the skills of the selected CLI profile by their source:
+a GitHub repository with the ref and commit its skills share, an MCP package with its
+version, and otherwise the folder scope they were found in. A row shows the name, the
+first two lines of the description and **Installed here** or **Read-only**; the
+search and the filter chips narrow the list. A row opens the skill's detail view with
+the full description, its scope, its source, its path and, for a skill installed here,
+**Remove**.
+
 **Extensions › Skills › Install skill** installs one skill into the selected CLI
 profile's `skills` directory (shown as **Destination directory**), from an uploaded
 `SKILL.md` or ZIP, or from a public GitHub link. **Check skill** first reads and scans
@@ -116,8 +124,8 @@ package and plugin installs are not scanned yet; `scanSkill(files)` takes the un
 `[path, data, mode]` entries of any source for that.
 
 Skills bundled with an MCP server package are offered in the package's panel; see
-[Bundled skills of a package](mcp.md#bundled-skills-of-a-package). Their rows on
-**Extensions › Skills** say "From MCP package <name>@<version> · updated and removed
+[Bundled skills of a package](mcp.md#bundled-skills-of-a-package). On **Extensions › Skills** they form the group "MCP package <name>", and their detail
+view says "From MCP package <name>@<version> · updated and removed
 with it".
 
 ## Bundled skills

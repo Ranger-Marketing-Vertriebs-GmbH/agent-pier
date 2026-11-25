@@ -385,9 +385,10 @@ test.describe("in English", () => {
         { exact: true },
       ),
     ).toBeVisible();
-    await expect(extensionRow(page, "project-review")).toContainText(
-      "User · shared by Codex and compatible CLIs · Installed here",
-    );
+    await expect(
+      page.getByRole("heading", { name: "User · shared by Codex and compatible CLIs" }),
+    ).toBeVisible();
+    await expect(extensionRow(page, "project-review")).toContainText("Installed here");
     await expect(page.locator(".extension-tabpanel")).not.toContainText(
       /Benutzer|Angezeigt/,
     );

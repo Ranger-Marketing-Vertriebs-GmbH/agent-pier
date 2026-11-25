@@ -98,6 +98,11 @@ export default function useSkillCatalog() {
   }
   return {
     skills,
+    reload: load,
+    clearMessages: () => {
+      setError("");
+      setNotice("");
+    },
     loadError,
     error,
     setError,

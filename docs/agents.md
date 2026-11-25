@@ -153,6 +153,20 @@ position.
 all agents. Only the owner installs, updates and removes catalog skills and switches
 them on; restricted users never do ([users](users.md#what-stays-locked)).
 
+- **The list** groups skills by their source: a GitHub repository with the ref and
+  commit its skills share, **GitHub** for a link without a pinned commit, and
+  **Uploaded**. A row shows the name, the first two lines of the description and how
+  many agents use the skill ("2 agents", "Unused"); it marks a scan with warnings or a
+  block and a skill that cannot be used right now. Search by name or description, or
+  filter by **In use**, **Unused** and **With findings**. A row opens the skill's
+  detail view: the scan verdict, the full description, a switch per agent, the source,
+  revision, version and the programs it runs, and **Check for update**, **Upload new
+  version** and **Remove**.
+- **Switch on per agent.** In the detail view, **Switched on for** lists every agent
+  that can have skills. A switch saves at once and changes the same setting as
+  **Agent › Capabilities › Skills**, so the agent's own checks apply: a working agent
+  or one changed elsewhere in the meantime answers with its message, and a skill that
+  cannot be used right now cannot be switched on.
 - **Install skill** takes a `SKILL.md`, a ZIP or a public GitHub link. The check
   scans the source without writing anything, with the same offline scan as CLI skills
   ([skill import scan](shared-cli-extensions.md#skill-import-scan)), and previews the
@@ -175,8 +189,9 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   uploaded ZIP up to 10 MiB, one skill up to 20 MiB and 1,000 files, and one source up
   to 200 skills; the list stays valid for ten minutes. A `SKILL.md` inside another
   skill's folder belongs to that skill.
-- **Updates.** **Upload new version** on a catalog skill, or **Check for update** on a
-  GitHub skill (its panel is titled **Update skill**), installs a new version. Agents
+- **Updates.** In a skill's detail view, **Upload new version**, or **Check for
+  update** on a GitHub skill (its panel is titled **Update skill**), installs a new
+  version. Agents
   that use the skill get it at their next turn. If the new version brings warnings you
   have not accepted for the previous version, or is blocked, you confirm again; the
   preview shows "New since version N". An uploaded file or a repository that now names
@@ -195,14 +210,13 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
 - "Not available right now — AgentPier will check it again" appears, here and on the
   agent's **Skills** page, when the running agent service does not report the skill or
   its last integrity check could not run.
-- Each skill shows its version, its source (upload, or GitHub repository, ref and
-  commit), the programs it runs and on how many agents it is on. A skill that needs
-  settings installs but is never switched on ("Needs settings — not supported yet").
+- A skill that needs settings installs but is never switched on ("Needs settings —
+  not supported yet").
   "Damaged — install it again" appears when the live copy and its stored copy both
   fail the integrity check.
 
-Per agent, the owner switches catalog skills under **Agent › Capabilities › Skills**.
-An agent sees only the catalog skills switched on for it, and an agent of restricted
+The owner switches catalog skills on per agent, in the skill's detail view here or
+under **Agent › Capabilities › Skills**. An agent sees only the catalog skills switched on for it, and an agent of restricted
 users cannot read any other catalog skill, on OpenClaw or Hermes Agent.
 The runtime, the integrity checks and the shell caveat are described in
 [assistant gateway](assistant-gateway.md#skills).

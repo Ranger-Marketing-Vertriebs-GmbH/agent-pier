@@ -6,3 +6,4 @@ export const skillCollectionCopy = localizedCopy(
   de.skillCollectionCopy,
   en.skillCollectionCopy,
 );
+export const skillListCopy = localizedCopy(de.skillListCopy, en.skillListCopy);

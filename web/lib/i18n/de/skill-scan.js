@@ -114,3 +114,16 @@ export const skillCollectionCopy = {
         : ` ${skipped} Skills wurden übersprungen.`
       : ""),
 };
+
+// Die Skill-Listen (SkillGroups.jsx, SkillDetail.jsx): Agenten-Katalog und CLI-Skills.
+export const skillListCopy = {
+  filterLabel: "Skills filtern",
+  filterAll: "Alle",
+  noMatches: "Keine Skills passen zu Suche oder Filter.",
+  skillCount: (count) => (count === 1 ? "1 Skill" : `${count} Skills`),
+  revision: (ref, commit) => (ref ? `${ref} · ${commit}` : commit),
+  factsLabel: "Herkunft",
+  factSource: "Quelle",
+  factRevision: "Stand",
+  factVersion: "Version",
+};

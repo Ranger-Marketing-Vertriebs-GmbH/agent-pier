@@ -1,16 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
-import ListCard from "../../../components/ListCard.jsx";
-import ListRow from "../../../components/ListRow.jsx";
+import FilterChips from "../../../components/FilterChips.jsx";
 import StatusChip from "../../../components/StatusChip.jsx";
 import api from "../../../lib/api.js";
 import { agentSkillCatalogCopy as copy } from "../../../lib/i18n/messages/agent-skill-catalog.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
-import { skillScanCopy as scanCopy } from "../../../lib/i18n/messages/skill-scan.js";
-import RowLines from "../../extensions/RowLines.jsx";
-import { RowMenu, useRowMenu } from "../../extensions/RowMenu.jsx";
+import {
+  skillListCopy as listCopy,
+  skillScanCopy as scanCopy,
+} from "../../../lib/i18n/messages/skill-scan.js";
+import SkillGroups, { SkillRow } from "../../extensions/SkillGroups.jsx";
 import SkillInstallForm from "../../extensions/SkillInstallForm.jsx";
+import { groupSkills, searchSkills } from "../../extensions/skill-groups.js";
+import CatalogSkillDetail from "./CatalogSkillDetail.jsx";
+import {
+  catalogFilters,
+  catalogGroupMeta,
+  catalogSkillLimit,
+  catalogSkillUsage,
+  catalogSource,
+  matchesFilter,
+} from "./catalog-skill-view.js";
 import useSkillCatalog from "./useSkillCatalog.js";
 import "../../extensions/extensions.css";
 import "../../extensions/extensions-hub.css";
@@ -21,104 +32,27 @@ const paths = {
   // A checked source with several skills: its per-skill preview and its install.
   collection: (id) => `/agent-skill-catalog/collections/${encodeURIComponent(id)}`,
 };
-const verdictTones = { ok: "ok", warn: "waiting", block: "error" };
+const filterLabels = () => ({
+  all: listCopy.filterAll,
+  used: copy.filterUsed,
+  unused: copy.filterUnused,
+  findings: copy.filterFindings,
+});
 
-/** "Version N · from upload" or "… from GitHub <repo> @ <ref> (<short commit>)". */
-export function catalogSkillSource(skill) {
-  const origin = skill.origin;
-  if (skill.importKind !== "github") return copy.versionUpload(skill.version);
-  return origin?.repository && origin?.commit
-    ? copy.versionGithub(skill.version, origin.repository, origin.ref, origin.commit)
-    : copy.versionGithubPlain(skill.version);
-}
-
-/** The programs the running Gateway reports, or that they are unknown yet. */
-export function catalogSkillPrograms(skill) {
-  const needs = skill.requirements;
-  if (!needs) return copy.programsPending;
-  const programs = [
-    ...(needs.bins || []),
-    ...(needs.anyBins?.length ? [copy.oneOf(needs.anyBins.join(", "))] : []),
-  ];
-  return programs.length ? copy.runsPrograms(programs.join(", ")) : null;
-}
-
-// The limits the agent's Skills page shows as well (catalogView on the server).
-const stateLine = (skill) =>
-  skill.state === "damaged"
-    ? copy.damaged
-    : skill.state === "shadowed"
-      ? skill.shadowedBy === "source"
-        ? copy.shadowedSource
-        : copy.shadowed
-      : skill.state === "needsSettings" || skill.needsSettings
-        ? copy.needsSettings
-        : skill.state === "unavailable"
-          ? copy.unavailable
-          : null;
-
-function Verdict({ scan }) {
-  if (!scan?.verdict) return null;
+/** What a row says below the description: a scan with findings, or a limit. */
+function rowNote(skill) {
+  const verdict = skill.scan?.verdict;
+  const limit = catalogSkillLimit(skill);
+  if (!limit && (!verdict || verdict === "ok")) return null;
   return (
-    <StatusChip tone={verdictTones[scan.verdict] || "neutral"}>
-      {scan.overridden ? copy.overridden : scanCopy.verdicts[scan.verdict]}
-    </StatusChip>
-  );
-}
-
-function CatalogRow({ skill, catalog }) {
-  const menu = useRowMenu();
-  const label = copy.rowActions(skill.name);
-  const disabled = Boolean(catalog.busy);
-  const agents = skill.agents || [];
-  const items = [
-    ...(skill.repository
-      ? [
-          {
-            id: "check",
-            label: copy.checkUpdate,
-            disabled,
-            run: () => catalog.checkUpdate(skill),
-          },
-        ]
-      : []),
-    {
-      id: "upload",
-      label: copy.uploadVersion,
-      disabled,
-      restoreFocus: false,
-      run: () => catalog.openPanel(skill),
-    },
-    {
-      id: "remove",
-      label: commonCopy.remove,
-      ariaLabel: commonCopy.removeSkillLabel(skill.name),
-      danger: true,
-      disabled,
-      restoreFocus: false,
-      run: () => catalog.setRemoving(skill),
-    },
-  ];
-  return (
-    <div className="row-menu-anchor">
-      <ListRow
-        label={skill.name}
-        sub={
-          <RowLines
-            lines={[
-              skill.description,
-              catalogSkillSource(skill),
-              <Verdict key="verdict" scan={skill.scan} />,
-              catalogSkillPrograms(skill),
-              stateLine(skill),
-              agents.length ? copy.agentsOn(agents.length) : copy.agentsNone,
-            ]}
-          />
-        }
-        menu={{ label, expanded: menu.open, onClick: menu.toggle }}
-      />
-      <RowMenu label={label} state={menu} items={items} />
-    </div>
+    <>
+      {verdict && verdict !== "ok" && (
+        <StatusChip tone={verdict === "block" ? "error" : "waiting"}>
+          {skill.scan.overridden ? copy.overridden : scanCopy.verdicts[verdict]}
+        </StatusChip>
+      )}
+      {limit && <span className="skill-row-limit">{limit}</span>}
+    </>
   );
 }
 
@@ -141,19 +75,42 @@ function RemoveDialog({ catalog }) {
 
 /**
  * Agents › Skills: the owner's skill catalog. Skills installed here (scanned like CLI
- * skills) can be switched on per agent; each row says where it came from, what the
- * scan found, which programs it runs and how many agents use it.
+ * skills) are grouped by their source; a row says how many agents use the skill and
+ * opens its detail view, where it is switched on per agent, updated and removed.
  */
 export default function SkillCatalogTab() {
   const catalog = useSkillCatalog();
   const { skills, panel } = catalog;
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [openId, setOpenId] = useState(null);
   const updating = Boolean(panel?.skill);
   // Check for update opens with the found version; Upload new version starts empty.
   const updateTitle = panel?.preview ? copy.checkedUpdateTitle : copy.updateTitle;
+  const found = skills ? searchSkills(skills, query) : [];
+  const shown = found.filter((skill) => matchesFilter(skill, filter));
+  const groups = groupSkills(shown, catalogSource).map((group) => ({
+    ...group,
+    meta: catalogGroupMeta(group),
+  }));
+  const open = skills?.find((skill) => skill.id === openId) || null;
+  // The install panel and the remove dialog show their own messages.
+  const detail = open && !panel ? open : null;
   return (
     <div className="agents-hub-skills">
       <p className="field-description">{copy.lead}</p>
-      <div className="agents-hub-toolbar">
+      <div className="skill-list-toolbar">
+        <input
+          type="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-label={commonCopy.searchSkills}
+          placeholder={copy.searchPlaceholder}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <button
           type="button"
           className="button secondary"
@@ -163,19 +120,58 @@ export default function SkillCatalogTab() {
           {copy.install}
         </button>
       </div>
-      {catalog.notice && <p role="status">{catalog.notice}</p>}
-      {!panel && <ErrorMessage error={catalog.error} as="p" className="error" />}
+      {skills?.length > 0 && (
+        <FilterChips
+          label={listCopy.filterLabel}
+          value={filter}
+          onChange={setFilter}
+          options={catalogFilters.map((value) => ({
+            value,
+            label: filterLabels()[value],
+            count: found.filter((skill) => matchesFilter(skill, value)).length,
+          }))}
+        />
+      )}
+      {!detail && catalog.notice && (
+        <p role="status" className="skill-list-notice">
+          {catalog.notice}
+        </p>
+      )}
+      {!panel && !detail && (
+        <ErrorMessage error={catalog.error} as="p" className="error" />
+      )}
       <ErrorMessage error={catalog.loadError} as="p" className="error" />
       {skills === null ? (
         !catalog.loadError && <p role="status">{copy.loading}</p>
-      ) : skills.length ? (
-        <ListCard label={copy.listLabel} className="extension-list">
-          {skills.map((skill) => (
-            <CatalogRow key={skill.id} skill={skill} catalog={catalog} />
-          ))}
-        </ListCard>
-      ) : (
+      ) : !skills.length ? (
         <p className="extension-empty">{copy.empty}</p>
+      ) : groups.length ? (
+        <SkillGroups
+          label={copy.listLabel}
+          groups={groups}
+          row={(skill) => (
+            <SkillRow
+              key={skill.id}
+              name={skill.name}
+              description={skill.description}
+              note={rowNote(skill)}
+              value={catalogSkillUsage(skill)}
+              onClick={() => setOpenId(skill.id)}
+            />
+          )}
+        />
+      ) : (
+        <p className="extension-empty">{listCopy.noMatches}</p>
+      )}
+      {detail && (
+        <CatalogSkillDetail
+          skill={detail}
+          catalog={catalog}
+          close={() => {
+            catalog.clearMessages();
+            setOpenId(null);
+          }}
+        />
       )}
       {panel && (
         <SkillInstallForm

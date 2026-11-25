@@ -191,12 +191,24 @@ const catalogRow = (page, name) =>
     .getByRole("group", { name: "Catalog skills" })
     .locator(".list-row", { hasText: name });
 const notice = (page) => page.locator("#agents-hub-tabpanel-skills").getByRole("status");
-const rowAction = async (page, name, action) => {
-  await page.getByRole("button", { name: `Actions for ${name}` }).click();
-  await page
-    .getByRole("menu", { name: `Actions for ${name}` })
-    .getByRole("menuitem", { name: action })
-    .click();
+// A row opens the skill's detail view, which holds its facts and its actions.
+const openDetail = async (page, name) => {
+  const detail = page.getByRole("dialog", { name, exact: true });
+  if (!(await detail.isVisible()))
+    await catalogRow(page, name).getByRole("button").click();
+  await expect(detail).toBeVisible();
+  return detail;
+};
+const closeDetail = async (detail) => {
+  await detail.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(detail).toHaveCount(0);
+};
+const fact = (detail, term) =>
+  detail.locator(".skill-facts div", { hasText: term }).locator("dd");
+const detailAction = async (page, name, action) => {
+  const detail = await openDetail(page, name);
+  await detail.getByRole("button", { name: action, exact: true }).click();
+  return detail;
 };
 const skillFile = {
   name: "SKILL.md",
@@ -214,12 +226,21 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
     "true",
   );
   const github = catalogRow(page, "gh-notes");
-  await expect(github).toContainText(
-    "Version 3 · from GitHub acme/skills @ main (0123456)",
-  );
-  await expect(github).toContainText("No findings");
-  await expect(github).toContainText("Runs programs: gh, one of jq, yq");
-  await expect(github).toContainText("Not switched on for any agent");
+  // The row is short: description and use. The source stands once above its group.
+  await expect(github).toContainText("Notes from GitHub issues.");
+  await expect(github).toContainText("Unused");
+  await expect(github).not.toContainText("acme/skills");
+  const list = page.getByRole("group", { name: "Catalog skills" });
+  await expect(list.getByRole("heading", { name: "acme/skills" })).toBeVisible();
+  await expect(list).toContainText("main · 0123456 · 1 skill");
+  let detail = await openDetail(page, "gh-notes");
+  await expect(detail).toContainText("No findings");
+  await expect(detail).toContainText("Not switched on for any agent");
+  await expect(fact(detail, "Source")).toHaveText("acme/skills");
+  await expect(fact(detail, "Revision")).toHaveText("main · 0123456");
+  await expect(fact(detail, "Version")).toHaveText("3");
+  await expect(fact(detail, "Programs")).toHaveText("gh, one of jq, yq");
+  await closeDetail(detail);
 
   // Install: the form names the catalog, not a host path; nothing is written before
   // the confirmed preview.
@@ -232,10 +253,11 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
   await panel.getByRole("button", { name: "Add to catalog", exact: true }).click();
   await expect(panel).toHaveCount(0);
   await expect(notice(page)).toContainText("Skill added to the catalog.");
-  await expect(catalogRow(page, "probe")).toContainText("Version 1 · from upload");
-  await expect(catalogRow(page, "probe")).toContainText(
-    "Programs: shown once the agent service runs",
-  );
+  await expect(list.getByRole("heading", { name: "Uploaded" })).toBeVisible();
+  detail = await openDetail(page, "probe");
+  await expect(fact(detail, "Source")).toHaveText("Upload");
+  await expect(fact(detail, "Version")).toHaveText("1");
+  await expect(fact(detail, "Programs")).toHaveText("Shown once the agent service runs");
   expect(state.writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
     "POST /api/agent-skill-catalog/skills/preview",
     "POST /api/agent-skill-catalog/skills",
@@ -246,7 +268,7 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
   });
 
   // A new version of the same name says what it replaces; a new warning needs the box.
-  await rowAction(page, "probe", "Upload new version");
+  await detailAction(page, "probe", "Upload new version");
   panel = page.getByRole("dialog", { name: "Upload new version" });
   await panel.getByLabel("Skill file").setInputFiles(skillFile);
   await panel.getByRole("button", { name: "Check skill", exact: true }).click();
@@ -266,7 +288,14 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
     .check();
   await update.click();
   await expect(panel).toHaveCount(0);
-  await expect(catalogRow(page, "probe")).toContainText("Version 2 · from upload");
+  // The detail view returns with the new version and marks the warning in the row.
+  detail = page.getByRole("dialog", { name: "probe", exact: true });
+  await expect(fact(detail, "Version")).toHaveText("2");
+  await expect(detail).toContainText("Skill updated.");
+  // An upload offers no update check.
+  await expect(detail.getByRole("button", { name: "Check for update" })).toHaveCount(0);
+  await closeDetail(detail);
+  await expect(catalogRow(page, "probe")).toContainText("Warnings");
   await expect(
     page.getByRole("button", { name: "Install skill", exact: true }),
   ).toBeEnabled();
@@ -276,21 +305,16 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
     acceptWarnings: true,
   });
 
-  // An unchanged GitHub source is up to date; an upload offers no update check.
-  await rowAction(page, "gh-notes", "Check for update");
-  await expect(notice(page)).toContainText(
+  // An unchanged GitHub source is up to date; the detail view says so.
+  detail = await detailAction(page, "gh-notes", "Check for update");
+  await expect(detail.getByRole("status")).toContainText(
     "Up to date: there is no newer version of gh-notes.",
   );
   expect(state.writes.at(-1).path).toBe("/api/agent-skill-catalog/skills/gh-1/check");
-  await page.getByRole("button", { name: "Actions for probe" }).click();
-  await expect(
-    page.getByRole("menu", { name: "Actions for probe" }).getByRole("menuitem"),
-  ).toHaveText(["Upload new version", "Remove"]);
-  await page.keyboard.press("Escape");
 
   // A newer GitHub version opens its preview under its own title.
   state.newer = true;
-  await rowAction(page, "gh-notes", "Check for update");
+  await detailAction(page, "gh-notes", "Check for update");
   panel = page.getByRole("dialog", { name: "Update skill" });
   await expect(panel).toContainText("Replaces version 3");
   await expect(page.getByRole("dialog", { name: "Upload new version" })).toHaveCount(0);
@@ -308,8 +332,8 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
 
   // Removing names the agents it is switched off for before anything is deleted.
   await page.goto(`${baseURL}/agents?tab=skills`);
-  await expect(catalogRow(page, "probe")).toContainText("On for 1 agent");
-  await rowAction(page, "probe", "Remove");
+  await expect(catalogRow(page, "probe")).toContainText("1 agent");
+  await detailAction(page, "probe", "Remove skill probe");
   const confirm = page.getByRole("dialog", { name: "Remove skill “probe”?" });
   await expect(confirm).toContainText("Removing it switches it off for: Home.");
   expect(state.writes.some((write) => write.method === "DELETE")).toBe(false);
@@ -354,8 +378,82 @@ test("the catalog page fits a phone", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
   await page.goto(`${baseURL}/agents?tab=skills`);
-  await expect(catalogRow(page, "gh-notes")).toContainText("Runs programs: gh");
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-  ).toBe(true);
+  await expect(catalogRow(page, "gh-notes")).toContainText("Notes from GitHub issues.");
+  const fits = () =>
+    page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(await fits()).toBe(true);
+  // The detail view and its switches stay inside the screen.
+  const detail = await openDetail(page, "gh-notes");
+  const toggle = detail.getByRole("switch", { name: "Home" });
+  await expect(toggle).toBeVisible();
+  const box = await toggle.boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(await fits()).toBe(true);
+});
+
+test("the owner searches, filters and switches a skill on for an agent", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  const long = "Use when the user asks to plan a trip. ".repeat(20).trim();
+  state.catalog = [
+    githubSkill,
+    { ...githubSkill, id: "gh-2", name: "gh-trips", description: long },
+    {
+      ...githubSkill,
+      id: "up-1",
+      name: "blocked-twin",
+      importKind: "skill-md",
+      origin: undefined,
+      repository: false,
+      state: "unavailable",
+    },
+  ];
+  await page.goto(`${baseURL}/agents?tab=skills`);
+  const list = page.getByRole("group", { name: "Catalog skills" });
+  await expect(list.locator(".list-row")).toHaveCount(3);
+  await expect(list).toContainText("main · 0123456 · 2 skills");
+  // A long description takes two lines in the list.
+  const clamped = catalogRow(page, "gh-trips").locator(".skill-row-description");
+  const height = await clamped.evaluate((node) => node.getBoundingClientRect().height);
+  expect(height).toBeLessThan(45);
+
+  const chips = page.getByRole("group", { name: "Filter skills" });
+  await expect(chips.getByRole("button")).toHaveText([
+    /All\s*3/,
+    /In use\s*0/,
+    /Unused\s*3/,
+    /With findings\s*1/,
+  ]);
+  await chips.getByRole("button", { name: /With findings/ }).click();
+  await expect(list.locator(".list-row")).toHaveText([/blocked-twin/]);
+  await chips.getByRole("button", { name: /^All/ }).click();
+  await page.getByRole("searchbox", { name: "Search skills" }).fill("trip");
+  await expect(list.locator(".list-row")).toHaveText([/gh-trips/]);
+  await expect(chips.getByRole("button", { name: /^All/ })).toContainText("1");
+  await page.getByRole("searchbox", { name: "Search skills" }).fill("nothing here");
+  await expect(page.getByText("No skills match your search or filter.")).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search skills" }).fill("");
+
+  // The switch saves at once through the agent's own update.
+  let detail = await openDetail(page, "gh-trips");
+  await expect(detail).toContainText(long);
+  // The switch shows the saved state, so it turns once the agent is saved.
+  await detail.getByRole("switch", { name: "Home" }).click();
+  await expect(detail.getByRole("switch", { name: "Home" })).toBeChecked();
+  await expect.poll(() => state.patches).toEqual([{ skills: ["gh-trips"], revision: 1 }]);
+  await expect(detail).toContainText("On for 1 agent");
+  await detail.getByRole("switch", { name: "Home" }).click();
+  await expect(detail.getByRole("switch", { name: "Home" })).not.toBeChecked();
+  await expect.poll(() => state.patches.at(-1)).toEqual({ skills: [], revision: 2 });
+  await expect(detail).toContainText("Not switched on for any agent");
+  await closeDetail(detail);
+  await expect(catalogRow(page, "gh-trips")).toContainText("Unused");
+
+  // A skill that cannot be used right now is not offered.
+  detail = await openDetail(page, "blocked-twin");
+  await expect(detail.getByRole("switch", { name: "Home" })).toBeDisabled();
+  await expect(fact(detail, "State")).toHaveText(
+    "Not available right now \u2014 AgentPier will check it again",
+  );
 });
