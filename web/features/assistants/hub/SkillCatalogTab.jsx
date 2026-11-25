@@ -18,6 +18,8 @@ import "../../extensions/extensions-hub.css";
 const paths = {
   preview: "/agent-skill-catalog/skills/preview",
   install: "/agent-skill-catalog/skills",
+  // A checked source with several skills: its per-skill preview and its install.
+  collection: (id) => `/agent-skill-catalog/collections/${encodeURIComponent(id)}`,
 };
 const verdictTones = { ok: "ok", warn: "waiting", block: "error" };
 
@@ -194,6 +196,7 @@ export default function SkillCatalogTab() {
           successNotice={updating ? copy.updatedNotice : copy.installedNotice}
           initialPreview={panel.preview || null}
           previewFields={updating ? { skillId: panel.skill.id } : null}
+          limitsDescription={updating ? undefined : copy.sourceLimits}
         />
       )}
       {catalog.removing && <RemoveDialog catalog={catalog} />}

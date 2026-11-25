@@ -104,3 +104,23 @@ export async function resolveGithubRef(owner, name, ref, fetchImpl, signal) {
     commit: await commitOf(found.object, repo, fetchImpl, signal),
   };
 }
+
+/**
+ * The default branch of a repository and the commit it pins, as resolveGithubRef
+ * returns it. A branch name with a slash cannot be written into a folder link, so its
+ * commit stands in as the ref.
+ */
+export async function resolveGithubHead(owner, name, fetchImpl, signal) {
+  const repo = await readApi(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
+    fetchImpl,
+    signal,
+  );
+  const branch = repo?.default_branch;
+  if (typeof branch !== "string" || !branch || /[\\\s\x00-\x1f\x7f]/.test(branch))
+    throw problem(serverMessages.extensions.skillRefNotFound);
+  const pinned = await resolveGithubRef(owner, name, branch, fetchImpl, signal);
+  return branch.includes("/")
+    ? { ref: pinned.commit, refKind: "commit", commit: pinned.commit }
+    : pinned;
+}

@@ -159,6 +159,22 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   files, the findings and the programs the skill runs. **Add to catalog** installs
   exactly what was checked. Warnings need your confirmation; a blocked skill can be
   installed only as an explicit override.
+- **Several skills from one source.** A repository link
+  (`https://github.com/<owner>/<repo>`), a folder link or a ZIP that holds more than
+  one skill lists every skill it found, one row per skill with its folder and scan
+  verdict. Skills without findings are picked; **Add N skills** installs the picked
+  ones together. A skill with warnings or a block is not picked: **Review** opens its
+  own preview with the usual confirmation or override. A row also says when a skill is
+  already in the catalog, is an update of a catalog skill, cannot be read, or carries a
+  name that is taken. Only the files of each skill's own folder are installed; other
+  files of the source, such as shared scripts at the repository root, are not. The
+  source is downloaded once and pinned to one commit (a repository link to the commit
+  of its default branch); each skill records its own folder link, so **Check for
+  update** works per skill. Skills from a ZIP or an archive link record no source and
+  update through **Upload new version**. A GitHub archive may be up to 50 MiB, an
+  uploaded ZIP up to 10 MiB, one skill up to 20 MiB and 1,000 files, and one source up
+  to 200 skills; the list stays valid for ten minutes. A `SKILL.md` inside another
+  skill's folder belongs to that skill.
 - **Updates.** **Upload new version** on a catalog skill, or **Check for update** on a
   GitHub skill (its panel is titled **Update skill**), installs a new version. Agents
   that use the skill get it at their next turn. If the new version brings warnings you

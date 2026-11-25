@@ -76,3 +76,38 @@ export const skillScanCopy = {
     "Only install it if you trust the source and have reviewed every finding. The override is recorded in the audit log.",
   overrideConfirm: "Accept the risk and install",
 };
+
+// A checked source with several skills (SkillCollection.jsx).
+export const skillCollectionCopy = {
+  heading: (count) => `${count} skills found`,
+  lead: "Choose the skills to add. Skills without findings are added together; a skill with findings is reviewed on its own.",
+  listLabel: "Skills of this source",
+  selectAll: "Select all",
+  selectNone: "Select none",
+  location: (folder, files) =>
+    files === 1 ? `${folder} · 1 file` : `${folder} · ${files} files`,
+  updateOf: (version) => `Update of version ${version}`,
+  needsReview: "Has findings: review it before adding.",
+  states: {
+    current: "Already in the catalog",
+    taken: "Not available: another installed skill has this name",
+    bundled: "Not available: a bundled skill has this name",
+    duplicate: "Not available: another skill of this source has this name",
+    invalid: "Cannot be installed",
+  },
+  added: "Added to the catalog",
+  reviewAction: "Review",
+  reviewLabel: (name) => `Review ${name}`,
+  reviewing: "Checking …",
+  installAction: (count) => (count === 1 ? "Add 1 skill" : `Add ${count} skills`),
+  installing: "Adding skills …",
+  installedNotice: (added, skipped) =>
+    (added === 1
+      ? "1 skill added to the catalog."
+      : `${added} skills added to the catalog.`) +
+    (skipped
+      ? skipped === 1
+        ? " 1 skill was skipped."
+        : ` ${skipped} skills were skipped.`
+      : ""),
+};

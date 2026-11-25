@@ -63,6 +63,11 @@ commit SHA needs no lookup. GitHub serves a commit SHA from the whole fork netwo
 a repository, so a `tree/<sha>` link can name a commit that only exists in a fork;
 take SHAs from the repository's own history or releases.
 
+A CLI profile takes one skill per source: a repository or ZIP with several `SKILL.md`
+files is refused, so name the folder of one skill. The agent skill catalog accepts
+such a source and lets the owner pick from it
+([skill catalog](agents.md#skill-catalog)).
+
 ### Skill import scan
 
 Every ZIP, `SKILL.md` and GitHub import is scanned offline before anything is written.

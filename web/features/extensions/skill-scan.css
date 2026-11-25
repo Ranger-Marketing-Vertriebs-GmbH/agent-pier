@@ -145,3 +145,38 @@
     margin-bottom: 8px;
   }
 }
+
+.skill-collection {
+  display: grid;
+  gap: 12px;
+  padding: 22px 0;
+  min-width: 0;
+}
+.skill-collection-head {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.skill-collection-head h3 {
+  font-size: 14px;
+}
+.skill-collection-list {
+  display: grid;
+  gap: 8px;
+}
+.skill-collection-item {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.skill-collection-item > .check-row {
+  justify-self: stretch;
+}
+.skill-collection-line {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.skill-collection-refused {
+  color: var(--error-text);
+}
