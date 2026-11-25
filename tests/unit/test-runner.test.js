@@ -18,6 +18,7 @@ function runnerRoot(t, tests) {
     "test-runner.mjs",
     "test-retry.mjs",
     "test-failures-reporter.mjs",
+    "test-stall-watch.mjs",
     "test-process-sweep.mjs",
   ])
     fs.copyFileSync(
@@ -30,7 +31,7 @@ function runnerRoot(t, tests) {
   return root;
 }
 
-function runFiles(root, args) {
+function runFiles(root, args, extra = {}) {
   const { NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY, ...env } = process.env;
   (void NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY);
   // spawnSync blocks this test's event loop, so its own timeout cannot fire:
@@ -40,7 +41,7 @@ function runFiles(root, args) {
     encoding: "utf8",
     timeout: 120000,
     killSignal: "SIGKILL",
-    env: { ...env, GITHUB_STEP_SUMMARY: path.join(root, "summary.md") },
+    env: { ...env, GITHUB_STEP_SUMMARY: path.join(root, "summary.md"), ...extra },
   });
 }
 
@@ -141,6 +142,67 @@ test("a hung test fails its file at the per-test timeout", (t) => {
   assert.equal(result.status, 1);
   assert.match(result.stdout, /FAILED twice: hang\.test\.js/);
   assert.ok(Date.now() - started < 30000);
+});
+
+// The runner never calls less than a minute of silence a stall; these tests do.
+const quickStall = { AGENTPIER_TEST_STALL_MIN_MS: "4000" };
+
+test("a file the per-test timeout cannot end is stopped and fails by name", (t) => {
+  // Regression (AGENTPIER-496): a synchronous call that never returns blocks the
+  // timeout's own timer, and a blocked exit handler runs after it; the runner
+  // waited for such a file until the CI job's timeout, without naming it.
+  const block = "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);";
+  const files = {
+    "blocked.test.js":
+      'import { setTimeout as pause } from "node:timers/promises";\n' +
+      `test("never returns", async () => { await pause(200); ${block} });\n`,
+    "exit.test.js": `test("ends", () => {});\nprocess.on("exit", () => { ${block} });\n`,
+    "ok.test.js": 'test("ok", () => {});\n',
+  };
+  const root = runnerRoot(t, files);
+  const started = Date.now();
+  const result = runFiles(
+    root,
+    ["--concurrency", "3", "--test-timeout", "2000", ...Object.keys(files)],
+    quickStall,
+  );
+  assert.equal(result.signal, null, "the runner must end on its own");
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /STUCK TEST FILE: blocked\.test\.js showed no activity/);
+  assert.match(result.stderr, /Unfinished: "never returns"/);
+  assert.match(result.stderr, /STUCK TEST FILE: exit\.test\.js showed no activity/);
+  assert.match(result.stderr, /No unfinished test is known/);
+  assert.match(
+    result.stderr,
+    /Stopping its processes.*\n +\d+ \S+ .*blocked\.test\.js\n/,
+  );
+  assert.doesNotMatch(result.stderr, /STUCK TEST FILE: ok\.test\.js/);
+  assert.match(result.stdout, /✖ blocked\.test\.js/);
+  assert.match(result.stdout, /✔ ok/);
+  assert.ok(Date.now() - started < 60000);
+});
+
+test("output a finished file's process still holds open ends the run by name", (t) => {
+  const root = runnerRoot(t, {
+    // The file ends, but its detached child inherited the output the runner reads.
+    "held.test.js":
+      'import { spawn } from "node:child_process";\n' +
+      'test("leaves a reader", () => {\n' +
+      '  spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio: ["ignore", "inherit", "inherit"] }).unref();\n' +
+      "});\n",
+  });
+  const result = runFiles(
+    root,
+    ["--retry", "--test-timeout", "2000", "held.test.js"],
+    quickStall,
+  );
+  assert.equal(result.signal, null, "the runner must end on its own");
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /STUCK TEST FILE: held\.test\.js showed no activity/);
+  assert.match(result.stderr, /a process it started still holds its output open/);
+  // The run's sweep finds and stops the reader.
+  assert.match(result.stdout, /LEAKED PROCESS \(stopped\): \d+ .* -e setInterval/);
+  assert.match(result.stdout, /Failed without a retry pass: the test runner/);
 });
 
 test("the files runner does not retry files under a --never-retry prefix", (t) => {

@@ -43,6 +43,25 @@ export const refuseCliLogin = () => {
   throw new Error("Fixtures do not start coding CLI logins.");
 };
 
+/**
+ * Awaits one fixture step. A step still pending after `slowStepMs` is named on stderr,
+ * so a test that times out in its fixture says what the fixture was waiting on.
+ */
+export const slowStepMs = 30000;
+export async function fixtureStep(label, action, { after = slowStepMs } = {}) {
+  const started = Date.now();
+  const timer = setInterval(() => {
+    const seconds = Math.round((Date.now() - started) / 1000);
+    console.error(`applicationFixture: still waiting on ${label} after ${seconds} s`);
+  }, after);
+  timer.unref();
+  try {
+    return await action();
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 /** Owns one temporary app, its private tmux socket and every fixture it launches. */
 export async function applicationFixture(t, overrides = {}) {
   const {
@@ -78,24 +97,25 @@ export async function applicationFixture(t, overrides = {}) {
   const expectedSocket = tmuxSocketPath(dataDir);
 
   async function start() {
-    application = await createApplication({
-      ...configuration,
-      dataDir,
-      home,
-      port: listenPort,
-    });
+    application = await fixtureStep("createApplication", () =>
+      createApplication({ ...configuration, dataDir, home, port: listenPort }),
+    );
     listOwnedSessions = application.sessions.list.bind(application.sessions);
     if (application.sessions.socketPath !== expectedSocket) {
       await application.close();
       throw new Error("Fixture refuses a tmux socket outside its unique data directory.");
     }
-    await new Promise((resolve, reject) => {
-      application.server.once("error", reject);
-      application.server.listen(listenPort, "127.0.0.1", () => {
-        application.server.removeListener("error", reject);
-        resolve();
-      });
-    });
+    await fixtureStep(
+      "the HTTP server to listen",
+      () =>
+        new Promise((resolve, reject) => {
+          application.server.once("error", reject);
+          application.server.listen(listenPort, "127.0.0.1", () => {
+            application.server.removeListener("error", reject);
+            resolve();
+          });
+        }),
+    );
     url = `http://127.0.0.1:${application.server.address().port}`;
     if (authenticateFixture) {
       if (!application.login.configured) {
@@ -129,32 +149,46 @@ export async function applicationFixture(t, overrides = {}) {
     try {
       if (application) {
         try {
-          for (const session of await listOwnedSessions()) {
-            if (session.status === "running") await application.sessions.stop(session.id);
+          const sessions = await fixtureStep("the session list", listOwnedSessions);
+          for (const session of sessions) {
+            if (session.status === "running")
+              await fixtureStep(`session ${session.id} to stop`, () =>
+                application.sessions.stop(session.id),
+              );
           }
         } finally {
-          await application.close();
+          await fixtureStep("application.close()", () => application.close());
         }
       }
     } finally {
       // Never use the default tmux server or a socket discovered outside this fixture.
       if (application?.sessions.socketPath === expectedSocket) {
-        await execute(
-          application.sessions.tmuxPath,
-          ["-S", expectedSocket, "kill-server"],
-          {
+        await fixtureStep("tmux kill-server", () =>
+          execute(application.sessions.tmuxPath, ["-S", expectedSocket, "kill-server"], {
             timeout: 3000,
-          },
-        ).catch(() => {});
+          }).catch(() => {}),
+        );
         await fs.rm(path.dirname(expectedSocket), {
           recursive: true,
           force: true,
         });
       }
-      for (const folder of socketFolders)
-        await fs.rm(folder, { recursive: true, force: true }).catch(() => {});
-      await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      await fs.rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      await fixtureStep("the removal of the fixture folders", async () => {
+        for (const folder of socketFolders)
+          await fs.rm(folder, { recursive: true, force: true }).catch(() => {});
+        await fs.rm(root, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+        await fs.rm(home, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+      });
     }
   }
 

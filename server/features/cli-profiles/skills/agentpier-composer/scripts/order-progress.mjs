@@ -57,10 +57,8 @@ function readDocument(folder, name) {
   }
 }
 
-// Only a lock, containing no data. BEGIN IMMEDIATE obtains an OS-managed
-// exclusive writer reservation on both platforms; process exit releases it.
-// Use the same per-user location in GUI launches and CLI-specific TMPDIRs.
-export function withOrderLock(work) {
+// The same private per-user location in GUI launches and CLI-specific TMPDIRs.
+function writesDirectory() {
   const uid = process.getuid();
   const dir = path.join(fs.realpathSync("/tmp"), `agentpier-composer-writes-${uid}`);
   try {
@@ -70,7 +68,13 @@ export function withOrderLock(work) {
   }
   const stat = fs.lstatSync(dir);
   if (!stat.isDirectory() || stat.uid !== uid || stat.mode & 0o077) unsafe();
-  const db = new DatabaseSync(path.join(dir, "writer.sqlite"));
+  return dir;
+}
+
+// Only a lock, containing no data. BEGIN IMMEDIATE obtains an OS-managed
+// exclusive writer reservation on both platforms; process exit releases it.
+export function withOrderLock(work) {
+  const db = new DatabaseSync(path.join(writesDirectory(), "writer.sqlite"));
   try {
     db.exec("PRAGMA busy_timeout=3000; BEGIN IMMEDIATE");
     return work();
@@ -108,22 +112,39 @@ function perform(folder, operation, args) {
   }
   unsafe();
 }
+// The child reads its request from a file that is already unlinked, never from a
+// pipe: on macOS a synchronous spawn now and then never finishes writing an `input`
+// above 64 KiB, the child then waits for the end of its stdin and the caller for the
+// child. An order with a long brief did that to the server, which holds the order
+// lock meanwhile. The time limit bounds whatever else may keep the child.
+function requestFile(request) {
+  const file = path.join(writesDirectory(), `.request-${randomUUID()}.json`);
+  try {
+    fs.writeFileSync(file, JSON.stringify(request), { flag: "wx", mode: 0o600 });
+    return fs.openSync(file, O_RDONLY | O_NOFOLLOW);
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
 function pinned(folder, operation, args) {
   if (fs.realpathSync(folder) !== folder) unsafe();
   const fd = fs.openSync(folder, O_RDONLY | O_NOFOLLOW | fs.constants.O_DIRECTORY);
+  let request;
   try {
     if (fs.fstatSync(fd).uid !== process.getuid()) unsafe();
     if (process.platform === "linux")
       return perform(`/proc/self/fd/${fd}`, operation, args);
+    request = requestFile({ operation, args });
     const output = execFileSync(
       process.execPath,
       [fileURLToPath(import.meta.url), "--pinned"],
       {
         cwd: folder,
-        input: JSON.stringify({ operation, args }),
         encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe", fd],
+        stdio: [request, "pipe", "pipe", fd],
         maxBuffer: limit * 2,
+        timeout: 30000,
+        killSignal: "SIGKILL",
       },
     );
     const result = JSON.parse(output);
@@ -134,6 +155,7 @@ function pinned(folder, operation, args) {
     return result.value;
   } finally {
     fs.closeSync(fd);
+    if (request !== undefined) fs.closeSync(request);
   }
 }
 

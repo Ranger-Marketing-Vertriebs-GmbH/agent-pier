@@ -185,8 +185,10 @@ jobs:
           files=$(node scripts/assistant-contract-shards.mjs \
             --shard "${{ matrix.shard }}" --total 4)
           echo "$files"
+          # --test-force-exit: since Node 24 a file whose timed-out test left a handle
+          # open never exits, and the step then hangs until the job's timeout.
           # shellcheck disable=SC2086
-          node --test --test-concurrency=1 \
+          node --test --test-concurrency=1 --test-force-exit \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/native-contracts.tap" \
             $files
@@ -286,7 +288,7 @@ jobs:
           echo "$files"
           if [ -z "$files" ]; then echo "No native Hermes contracts."; exit 0; fi
           # shellcheck disable=SC2086
-          node --test --test-concurrency=1 \
+          node --test --test-concurrency=1 --test-force-exit \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/hermes-contracts.tap" \
             $files
@@ -364,7 +366,7 @@ jobs:
       # of agents on an AgentPier-held ChatGPT login after the update.
       - name: Run the cross-version update tests
         run: >-
-          node --test --test-concurrency=1
+          node --test --test-concurrency=1 --test-force-exit
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/cross-version.tap"
           tests/integration/assistant-runtime-cross-version.test.js
