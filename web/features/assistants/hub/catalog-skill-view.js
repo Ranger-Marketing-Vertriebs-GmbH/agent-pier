@@ -51,6 +51,19 @@ export function catalogSource(skill) {
     : { key: "github", rank: 1, title: copy.groupGithub };
 }
 
+/**
+ * What an update check of the whole group asks for: its repository and the ref its
+ * skills share. Null for a group that is no repository, has no skill with an update
+ * check, or mixes refs (those skills are checked one by one).
+ */
+export function catalogSourceCheck(group) {
+  if (group.rank !== 0 || !group.skills.some((skill) => skill.repository)) return null;
+  const ref = group.skills[0].origin?.ref;
+  return ref && group.skills.every((skill) => skill.origin?.ref === ref)
+    ? { repository: group.title, ref }
+    : null;
+}
+
 /** "main · 0123456 · 4 skills": the revision only when every skill shares it. */
 export function catalogGroupMeta(group) {
   const shared = group.rank === 0 ? sharedRevision(group.skills) : null;

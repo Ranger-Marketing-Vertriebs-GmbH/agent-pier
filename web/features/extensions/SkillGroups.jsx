@@ -2,6 +2,7 @@ import React, { useId } from "react";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
+import RowSummary from "./RowSummary.jsx";
 import "./skill-list.css";
 
 /**
@@ -13,12 +14,7 @@ export function SkillRow({ name, description, note, value, onClick, disabled }) 
   return (
     <ListRow
       label={name}
-      sub={
-        <>
-          {description && <span className="skill-row-description">{description}</span>}
-          {note && <span className="skill-row-note">{note}</span>}
-        </>
-      }
+      sub={<RowSummary description={description} note={note} />}
       value={value}
       onClick={onClick}
       disabled={disabled}
@@ -30,8 +26,13 @@ function SkillGroup({ group, row }) {
   const id = useId();
   return (
     <section className="skill-group">
-      <GroupLabel id={id}>{group.title}</GroupLabel>
-      {group.meta && <p className="skill-group-meta">{group.meta}</p>}
+      <div className="skill-group-head">
+        <div className="skill-group-title">
+          <GroupLabel id={id}>{group.title}</GroupLabel>
+          {group.meta && <p className="skill-group-meta">{group.meta}</p>}
+        </div>
+        {group.action}
+      </div>
       <ListCard labelledBy={id} className="extension-list skill-list">
         {group.skills.map(row)}
       </ListCard>
@@ -41,7 +42,8 @@ function SkillGroup({ group, row }) {
 
 /**
  * Skills grouped by their source (see `groupSkills`): each group is a label, a line
- * with what its skills share (`meta`) and a card of rows rendered by `row(skill)`.
+ * with what its skills share (`meta`), an optional `action` for the whole group (a
+ * button) and a card of rows rendered by `row(skill)`.
  */
 export default function SkillGroups({ label, groups, row }) {
   return (

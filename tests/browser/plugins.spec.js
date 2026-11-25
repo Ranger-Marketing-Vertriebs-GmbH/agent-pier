@@ -220,6 +220,10 @@ test("marketplace removal reveals its confirmation and resets a removed catalog 
   data.installed = Array.from({ length: 12 }, (_, i) => ({
     id: "installed-" + i,
     name: "Installed " + i,
+    // A long description is cut after two lines; the detail view has all of it.
+    description: i === 0 ? "Describes when the plugin applies. ".repeat(30) : undefined,
+    marketplace: "market",
+    version: "1.0.0",
     removable: true,
   }));
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
@@ -271,10 +275,23 @@ test("installed plugin pagination searches every page and clamps after a smaller
   data.installed = Array.from({ length: 41 }, (_, i) => ({
     id: "installed-" + i,
     name: "Installed " + i,
+    // A long description is cut after two lines; the detail view has all of it.
+    description: i === 0 ? "Describes when the plugin applies. ".repeat(30) : undefined,
+    marketplace: "market",
+    version: "1.0.0",
     removable: true,
   }));
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
   await expect(page.locator(".extension-list .plugin-row")).toHaveCount(20);
+  const long = extensionRow(page, "Installed 0");
+  const clamp = await long.locator(".skill-row-description").evaluate((node) => ({
+    lines: Math.round(
+      node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight),
+    ),
+    cut: node.scrollHeight > node.clientHeight,
+  }));
+  expect(clamp).toEqual({ lines: 2, cut: true });
+  await expect(long).toContainText("market · 1.0.0");
   await page.getByRole("button", { name: "Installierte Plugins: Nächste Seite" }).click();
   await expect(extensionRow(page, "Installed 20")).toBeVisible();
   await page.getByLabel("Installierte Plugins suchen").fill("Installed 40");

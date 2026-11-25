@@ -106,11 +106,14 @@ async function setup(page) {
     if (path === "/api/agent-skill-catalog/collections/pack-1/skills") {
       const added = body.skills.map(({ folder }) => {
         const name = folder.split("/").pop();
-        state.catalog.push(installed(name));
-        return { folder, skill: installed(name), replaced: false };
+        const replaced = state.catalog.some((skill) => skill.name === name);
+        if (!replaced) state.catalog.push(installed(name));
+        return { folder, skill: installed(name), replaced };
       });
       return route.fulfill({ json: { installed: added, skipped: [] } });
     }
+    if (path === "/api/agent-skill-catalog/sources/check")
+      return route.fulfill({ json: state.check });
     if (path === "/api/agent-skill-catalog/collections/pack-1/preview")
       return route.fulfill({ json: warnedPreview });
     if (path === "/api/agent-skill-catalog/skills") {
@@ -204,4 +207,82 @@ test("the owner picks several skills of one repository and reviews one with find
   await expect(page.getByRole("group", { name: "Catalog skills" })).toContainText(
     "warned",
   );
+});
+
+test("the owner checks a repository for updates and installs them together", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.catalog = [installed("captions"), installed("countdown")];
+  state.check = { upToDate: true, checked: 2, more: 1 };
+  await page.goto(`${baseURL}/agents?tab=skills`);
+  const group = page.locator(".skill-group", { hasText: "acme/pack" });
+  await expect(group).toContainText("main · 0123456 · 2 skills");
+  const check = group.getByRole("button", { name: "Check acme/pack for updates" });
+  await expect(check).toHaveText("Check for updates");
+  // On a phone the button stays inside the screen, beside or below the group label.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const box = await check.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await page.screenshot({
+    path: "/tmp/agentpier-skill-source-check-mobile.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.screenshot({
+    path: "/tmp/agentpier-skill-source-check-desktop.png",
+    animations: "disabled",
+  });
+  await check.click();
+  const status = page.locator("#agents-hub-tabpanel-skills").getByRole("status").first();
+  await expect(status).toHaveText(
+    "Up to date: no skill from acme/pack has a newer version. The repository has 1 more skill; add it with Install skill.",
+  );
+  expect(state.writes.at(-1)).toEqual({
+    method: "POST",
+    path: "/api/agent-skill-catalog/sources/check",
+    body: { repository: "acme/pack", ref: "main" },
+  });
+
+  // One skill changed: the panel opens with it picked, the new skill is left alone.
+  state.check = {
+    upToDate: false,
+    checked: 2,
+    more: 1,
+    updates: ["captions-1"],
+    collection: {
+      ...collection,
+      skills: [
+        row("skills/captions", "captions", {
+          state: "update",
+          replaces: { id: "captions-1", version: 1 },
+        }),
+        row("skills/countdown", "countdown", {
+          state: "current",
+          replaces: { id: "countdown-1", version: 1 },
+        }),
+        row("skills/extra", "extra"),
+      ],
+    },
+  };
+  await check.click();
+  const panel = page.getByRole("dialog", { name: "Update skills" });
+  await expect(panel).toContainText("acme/pack");
+  const list = panel.getByRole("group", { name: "Skills of this source" });
+  await expect(list.getByRole("checkbox", { name: "captions" })).toBeChecked();
+  await expect(list).toContainText("Update of version 1");
+  await expect(list.getByRole("checkbox", { name: "countdown" })).toBeDisabled();
+  await expect(list).toContainText("Already in the catalog");
+  await expect(list.getByRole("checkbox", { name: "extra" })).not.toBeChecked();
+  await expect(panel.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Install 1 skill", exact: true }).click();
+  // No update is left, so the panel closes although the source offers a new skill.
+  await expect(panel).toHaveCount(0);
+  await expect(status).toHaveText(
+    "1 skill installed. Agents that use them get the new version.",
+  );
+  expect(state.writes.at(-1).body).toEqual({
+    skills: [{ folder: "skills/captions", contentHash: "captions-hash" }],
+  });
 });

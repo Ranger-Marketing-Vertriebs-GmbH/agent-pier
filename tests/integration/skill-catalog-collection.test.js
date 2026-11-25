@@ -314,6 +314,66 @@ test("a collection expires, and an update never takes a pack", async (t) => {
   assert.equal(late.skipped[0].problem.message, messages.skillPreviewExpired);
 });
 
+test("a source is checked once for all of its catalog skills", async (t) => {
+  const { catalog: c, store, repo, calls } = setup(t);
+  const source = { repository: "example/pack", ref: "main" };
+  await assert.rejects(c.checkSource(source), { message: messages.catalogSkillNotFound });
+  const { collection } = await c.preview(pack);
+  await c.installFromCollection(collection.collectionId, {
+    skills: pick(collection, "alpha", "beta"),
+  });
+  calls.length = 0;
+  // Nothing changed: no collection is kept, and the two skills left are counted.
+  assert.deepEqual(await c.checkSource(source), { upToDate: true, checked: 2, more: 2 });
+  assert.equal(calls.filter((href) => href.includes("codeload")).length, 1);
+  assert.equal(c.collections.size, 1);
+
+  repo.head = "89abcdef0123456789abcdef0123456789abcdef";
+  repo.files["skills/alpha/SKILL.md"] = doc("alpha", "More.\n");
+  const found = await c.checkSource(source);
+  assert.equal(found.upToDate, false);
+  assert.deepEqual(found.updates, [store.byName("alpha").id]);
+  assert.deepEqual(
+    found.collection.skills.map((skill) => [skill.name, skill.state]),
+    [
+      ["alpha", "update"],
+      ["beta", "current"],
+      ["blocked", "new"],
+      ["warned", "new"],
+    ],
+  );
+  const done = await c.installFromCollection(found.collection.collectionId, {
+    skills: pick(found.collection, "alpha"),
+  });
+  assert.equal(done.installed[0].replaced, true);
+  assert.equal(store.byName("alpha").origin.commit, repo.head);
+  assert.equal((await c.checkSource(source)).upToDate, true);
+  // Another ref or repository of the catalog is not this source.
+  for (const other of [{ ...source, ref: "next" }, { repository: "example/other" }, {}])
+    await assert.rejects(c.checkSource(other), {
+      message: messages.catalogSkillNotFound,
+    });
+});
+
+test("a source that holds one skill by now still updates that skill", async (t) => {
+  const { catalog: c, store, repo } = setup(t);
+  const { collection } = await c.preview(pack);
+  await c.installFromCollection(collection.collectionId, {
+    skills: pick(collection, "alpha", "beta"),
+  });
+  repo.files = { "skills/alpha/SKILL.md": doc("alpha", "Alone.\n") };
+  const found = await c.checkSource({ repository: "example/pack", ref: "main" });
+  assert.deepEqual(found.updates, [store.byName("alpha").id]);
+  assert.deepEqual(
+    found.collection.skills.map((skill) => [skill.name, skill.state]),
+    [["alpha", "update"]],
+  );
+  await c.installFromCollection(found.collection.collectionId, {
+    skills: pick(found.collection, "alpha"),
+  });
+  assert.equal(store.byName("alpha").version, 2);
+});
+
 test("a source without a skill is refused; the CLI import keeps one skill per source", async (t) => {
   const { catalog: c, repo } = setup(t);
   const files = repo.files;

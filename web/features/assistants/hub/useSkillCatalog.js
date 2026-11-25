@@ -6,7 +6,8 @@ import { assistantApi } from "../assistant-api.js";
  * The owner's skill catalog (Agents › Skills): the list, one action at a time
  * (`busy`), its notice or error, and the install panel. `panel` is null, `{ skill }`
  * for a new skill (`skill` null) or a new version, plus `preview` when an update
- * check already returned one. `mutate` matches SkillInstallForm's contract: it runs
+ * check already returned one, or `source`, `collection` and `updates` when the check
+ * of a whole repository found updates. `mutate` matches SkillInstallForm's contract: it runs
  * the action, reloads the list and shows `success` (a text, or a function called
  * after the action for a text that depends on its result).
  */
@@ -85,6 +86,41 @@ export default function useSkillCatalog() {
         if (alive.current) setBusy("");
       });
   }
+  /**
+   * Downloads a repository once for all of its catalog skills: a notice when none
+   * changed, else the install panel with the source's skills and the updates picked.
+   */
+  function checkSource({ repository, ref }) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy("check");
+    setError("");
+    setNotice(copy.checkingSource(repository));
+    assistantApi
+      .checkCatalogSource(repository, ref)
+      .then((result) => {
+        if (!alive.current) return;
+        if (result?.upToDate) setNotice(copy.sourceUpToDate(repository, result.more));
+        else {
+          setNotice("");
+          setPanel({
+            skill: null,
+            source: repository,
+            collection: result.collection,
+            updates: result.updates,
+          });
+        }
+      })
+      .catch((failure) => {
+        if (!alive.current) return;
+        setNotice("");
+        setError(failure.message);
+      })
+      .finally(() => {
+        lock.current = false;
+        if (alive.current) setBusy("");
+      });
+  }
   /** Removes `removing` after the confirmation; the dialog shows a failure itself. */
   async function remove() {
     const skill = removing;
@@ -121,6 +157,7 @@ export default function useSkillCatalog() {
       setPanel(null);
     },
     checkUpdate,
+    checkSource,
     removing,
     setRemoving,
     remove,

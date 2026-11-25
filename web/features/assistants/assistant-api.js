@@ -333,6 +333,8 @@ export const assistantApi = {
   skillCatalog: (signal) => api("/agent-skill-catalog", "GET", undefined, signal),
   checkCatalogSkill: (id) =>
     api(`/agent-skill-catalog/skills/${encodeURIComponent(id)}/check`, "POST", {}),
+  checkCatalogSource: (repository, ref) =>
+    api("/agent-skill-catalog/sources/check", "POST", { repository, ref }),
   removeCatalogSkill: (id) =>
     api(`/agent-skill-catalog/skills/${encodeURIComponent(id)}`, "DELETE"),
   removeShellAllowlistEntry: (id, entry) =>

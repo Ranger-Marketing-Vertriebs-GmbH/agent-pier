@@ -23,7 +23,10 @@ import React from "react";
  * `previewFields` sent with every check (the catalog skill an upload updates). With
  * `paths.collection` (the catalog) a source that holds several skills answers a
  * collection: the owner picks skills there (SkillCollection), the ones without
- * findings install together and one with findings opens its own preview.
+ * findings install together and one with findings opens its own preview. An update
+ * check of a whole source opens with its result: `initialCollection`, the folders
+ * picked at first (`initialPicked`) and `collectionLabels` (`installAction`,
+ * `installedNotice`); the panel then closes once no update of the source is left.
  */
 export default function SkillInstallForm({
   mutate,
@@ -47,6 +50,9 @@ export default function SkillInstallForm({
   successNotice = copy.installedNotice,
   initialPreview = null,
   previewFields = null,
+  initialCollection = null,
+  initialPicked,
+  collectionLabels = collectionCopy,
   limitsDescription = copy.archiveLimitsDescription,
 }) {
   const formId = useId();
@@ -61,8 +67,8 @@ export default function SkillInstallForm({
   const [checking, setChecking] = useState(false);
   // A checked source with several skills: the picked folders, the ones added so far,
   // the refusals of the last install and the folder whose preview is open.
-  const [collection, setCollection] = useState(null);
-  const [picked, setPicked] = useState(() => new Set());
+  const [collection, setCollection] = useState(initialCollection);
+  const [picked, setPicked] = useState(() => new Set(initialPicked));
   const [added, setAdded] = useState(() => new Set());
   const [skipped, setSkipped] = useState(() => new Map());
   const [reviewing, setReviewing] = useState(null);
@@ -115,7 +121,10 @@ export default function SkillInstallForm({
   /** Keeps the panel open while the source still offers a skill that is not added. */
   function afterAdded(folders) {
     const next = new Set([...added, ...folders]);
-    if (collection.skills.some((skill) => offered(skill) && !next.has(skill.folder))) {
+    // An update check is done with its updates; an install offers every skill left.
+    const open = (skill) =>
+      collection === initialCollection ? skill.state === "update" : offered(skill);
+    if (collection.skills.some((skill) => open(skill) && !next.has(skill.folder))) {
       setAdded(next);
       return true;
     }
@@ -155,7 +164,10 @@ export default function SkillInstallForm({
         afterAdded(outcome.installed.map((result) => result.folder));
       },
       () =>
-        collectionCopy.installedNotice(outcome.installed.length, outcome.skipped.length),
+        collectionLabels.installedNotice(
+          outcome.installed.length,
+          outcome.skipped.length,
+        ),
     );
   }
   function install(decision = {}) {
@@ -204,17 +216,19 @@ export default function SkillInstallForm({
     </>
   ) : collection ? (
     <>
-      <button
-        type="button"
-        className="button secondary"
-        disabled={working}
-        onClick={() => {
-          setCollection(null);
-          setError("");
-        }}
-      >
-        {scanCopy.backAction}
-      </button>
+      {collection !== initialCollection && (
+        <button
+          type="button"
+          className="button secondary"
+          disabled={working}
+          onClick={() => {
+            setCollection(null);
+            setError("");
+          }}
+        >
+          {scanCopy.backAction}
+        </button>
+      )}
       <button
         type="button"
         className="button primary"
@@ -223,7 +237,7 @@ export default function SkillInstallForm({
       >
         {busy === "skill"
           ? collectionCopy.installing
-          : collectionCopy.installAction(picked.size)}
+          : collectionLabels.installAction(picked.size)}
       </button>
     </>
   ) : (

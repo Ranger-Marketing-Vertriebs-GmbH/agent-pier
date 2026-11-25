@@ -5,7 +5,7 @@ import { Pagination } from "../../components/Pagination.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { pluginCatalogCopy as copy } from "../../lib/i18n/messages/plugins.js";
-import RowLines from "../extensions/RowLines.jsx";
+import RowSummary from "../extensions/RowSummary.jsx";
 import { marketplaceLabel } from "./marketplace-label.js";
 
 export default function PluginCatalog({
@@ -26,17 +26,15 @@ export default function PluginCatalog({
               key={plugin.id}
               label={plugin.name}
               sub={
-                <RowLines
-                  lines={[
-                    plugin.description,
-                    marketplaceLabel(
-                      data.marketplaces.find(
-                        (item) => item.name === plugin.marketplace,
-                      ) || {
-                        name: plugin.marketplace,
-                      },
-                    ),
-                  ]}
+                <RowSummary
+                  description={plugin.description}
+                  note={marketplaceLabel(
+                    data.marketplaces.find(
+                      (item) => item.name === plugin.marketplace,
+                    ) || {
+                      name: plugin.marketplace,
+                    },
+                  )}
                 />
               }
               status={

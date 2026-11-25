@@ -2,7 +2,7 @@ import React from "react";
 import ListRow from "../../components/ListRow.jsx";
 import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { installedPluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
-import RowLines from "../extensions/RowLines.jsx";
+import RowSummary from "../extensions/RowSummary.jsx";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { pluginActions } from "./plugin-actions.js";
 import { pluginKey, pluginStatus } from "./plugin-state.js";
@@ -13,7 +13,8 @@ export const pluginMeta = (plugin) =>
     .join(" · ");
 
 // Phones: the row opens the detail view (chevron). Desktop: the ⋯ menu carries
-// Details and the actions; a row click opens the details as well.
+// Details and the actions; a row click opens the details as well. The row cuts the
+// description after two lines; the detail view has all of it.
 export default function PluginRow({
   plugin,
   capabilities,
@@ -42,7 +43,7 @@ export default function PluginRow({
     <div className="row-menu-anchor plugin-row" data-plugin-key={pluginKey(plugin)}>
       <ListRow
         label={plugin.name}
-        sub={<RowLines lines={[plugin.description, pluginMeta(plugin)]} />}
+        sub={<RowSummary description={plugin.description} note={pluginMeta(plugin)} />}
         status={status === "enabled" ? { tone: "ok", text: hub.pluginActive } : undefined}
         value={status === "disabled" ? hub.pluginDisabled : undefined}
         onClick={() => onDetails(pluginKey(plugin))}

@@ -171,6 +171,12 @@ export function agentSkillCatalogRoutes(services) {
   router.post("/agent-skill-catalog/skills/:skillId/check", async (req, res) =>
     res.json(await catalog.checkUpdate(req.params.skillId)),
   );
+  // Downloads a repository once and compares every catalog skill installed from it:
+  // up to date, or the source as a collection whose updates install together.
+  router.post("/agent-skill-catalog/sources/check", async (req, res) => {
+    const { repository, ref } = req.body || {};
+    res.json(await catalog.checkSource({ repository, ref }));
+  });
   router.delete("/agent-skill-catalog/skills/:skillId", async (req, res) => {
     // Switched off on every agent first, so no apply compiles a name being removed, and
     // again once it is gone (SkillCatalog.remove).

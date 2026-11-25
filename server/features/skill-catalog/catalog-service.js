@@ -336,6 +336,49 @@ export class SkillCatalog {
     return this.previewPack(pack, "github");
   }
   /**
+   * Downloads GitHub repository `repository` at `ref` once and compares every catalog
+   * skill installed from it. `{ upToDate: true }` when none changed; otherwise the
+   * source as a collection (see keepCollection) with `updates`, the ids of the catalog
+   * skills it would replace, so their updates install together. `checked` counts the
+   * catalog skills compared, `more` the skills of the source the catalog does not have.
+   */
+  async checkSource({ repository, ref } = {}) {
+    this.assertOpen();
+    const records = this.store
+      .list()
+      .filter(
+        (record) =>
+          record.source?.url &&
+          record.origin?.kind === "github" &&
+          record.origin.repository === repository &&
+          record.origin.ref === ref,
+      );
+    if (!records.length)
+      throw problem(serverMessages.extensions.catalogSkillNotFound, 404);
+    const read = await this.read({
+      url: `https://github.com/${repository}/tree/${encodeURIComponent(ref)}`,
+    });
+    this.assertOpen();
+    // The repository holds one skill by now: it is the update of the skill of that name.
+    const collection = read.collection
+      ? read
+      : { collection: [{ folder: read.name, pack: read }], origin: read.origin };
+    const listed = await this.keepCollection(collection, "github");
+    const ids = new Set(records.map((record) => record.id));
+    const updates = listed.skills
+      .filter((skill) => skill.state === "update" && ids.has(skill.replaces?.id))
+      .map((skill) => skill.replaces.id);
+    const counts = {
+      checked: records.length,
+      more: listed.skills.filter((skill) => skill.state === "new").length,
+    };
+    if (!updates.length) {
+      this.collections.delete(listed.collectionId);
+      return { upToDate: true, ...counts };
+    }
+    return { upToDate: false, ...counts, updates, collection: listed };
+  }
+  /**
    * Removes catalog skill `id` after every earlier write; 404 when it is unknown.
    * `switchOff(name)` (async, returns the changed agent ids) runs in the same turn of
    * the write queue before and again after the record goes, so a switch-on saved while

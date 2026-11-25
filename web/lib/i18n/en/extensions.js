@@ -29,7 +29,7 @@ export const extensionsHubCopy = {
   available: "Available",
   builtin: "Built-in",
   customMarketplace: "Custom source",
-  pluginCount: (value1) => `${value1} plugins`,
+  pluginCount: (value1) => (value1 === 1 ? "1 plugin" : `${value1} plugins`),
 };
 export const profileExtensionsCopy = {
   extensionsLoading: "Loading skills …",
