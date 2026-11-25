@@ -132,9 +132,35 @@ export function agentSkillCatalogRoutes(services) {
       ),
     });
   });
-  // Reads and scans an upload or GitHub link; nothing is written until confirmed.
+  // Reads and scans an upload or GitHub link; nothing is written until confirmed. A
+  // source with several skills answers `{ collection }`: one row per skill.
   router.post("/agent-skill-catalog/skills/preview", async (req, res) =>
     res.json(await catalog.preview(req.body)),
+  );
+  // One skill of a checked collection as a full preview, for its findings.
+  router.post(
+    "/agent-skill-catalog/collections/:collectionId/preview",
+    async (req, res) =>
+      res.json(await catalog.previewFromCollection(req.params.collectionId, req.body)),
+  );
+  // Installs the chosen skills of a collection that need no decision of their own.
+  router.post(
+    "/agent-skill-catalog/collections/:collectionId/skills",
+    async (req, res) => {
+      const { installed, skipped } = await catalog.installFromCollection(
+        req.params.collectionId,
+        req.body,
+      );
+      for (const result of installed) auditInstall(audit, result);
+      res.json({
+        installed: installed.map((result) => ({
+          folder: result.folder,
+          skill: catalogView(result.skill),
+          replaced: result.replaced,
+        })),
+        skipped,
+      });
+    },
   );
   router.post("/agent-skill-catalog/skills", async (req, res) => {
     const result = await catalog.install(req.body);

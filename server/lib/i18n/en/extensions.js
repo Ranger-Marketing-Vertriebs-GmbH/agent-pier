@@ -46,6 +46,12 @@ export const extensions = Object.freeze({
   invalidSkillFrontmatter: "The skill frontmatter is invalid.",
   unsafeZipPath: "The ZIP contains an unsafe file path.",
   skillZipTooLarge: "The ZIP can be at most 10 MiB.",
+  skillArchiveTooLarge: "The archive of the source can be at most 50 MiB.",
+  skillSourceEmpty: "The source contains no skill with a SKILL.md.",
+  skillCollectionTooLarge:
+    "The source contains too many skills or skills that are too large. Please enter the link to a subfolder.",
+  skillCollectionSingleRequired:
+    "The source contains several skills. For an update, please name exactly this skill.",
   skillZipUnreadable: "The ZIP could not be read.",
   skillZipCorrupt: "The ZIP is invalid or corrupted.",
   skillFileCountExceeded: "A skill package can contain at most 1,000 files.",

@@ -1,13 +1,25 @@
+import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../lib/i18n/de.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
 import { readSkillPackTracked, skillRequirements } from "../extensions/skill-packages.js";
-import { SkillPreviews } from "../extensions/skill-previews.js";
-import { contentHash } from "../extensions/skill-scan.js";
+import { PREVIEW_TTL, SkillPreviews } from "../extensions/skill-previews.js";
+import { contentHash, scanSkill } from "../extensions/skill-scan.js";
 
 // Catalog previews belong to the owner; one fixed account id keeps them apart from
 // the CLI profile previews of the same SkillPreviews code.
 const ACCOUNT = "catalog";
 
+// A checked source with several skills keeps their files until the owner chose; the
+// newest two are kept (each holds at most 64 MiB, see unpackSkills).
+const COLLECTION_LIMIT = 2;
+const SELECTION_LIMIT = 200;
+
+/** A refusal as a row shows it: the German text and its stable message key. */
+const shown = (error) => ({
+  message: error.message,
+  ...messageIdentity(error.message),
+});
 const importKindOf = (input) =>
   input.url !== undefined ? "github" : input.fileName === "SKILL.md" ? "skill-md" : "zip";
 
@@ -19,7 +31,10 @@ const importKindOf = (input) =>
  * does. Names that the runtime bundles (`bundledNames`), that another skill folder
  * already loads (`globalNames`) or that a running Gateway reports from a source other
  * than the catalog (`reportNames`, null without a Gateway) are refused at preview.
- * Writes run one after another.
+ * A source with several skills is kept as a collection: the owner sees one row per
+ * skill, installs the ones without open findings together (installFromCollection)
+ * and reviews the others one by one (previewFromCollection). Writes run one after
+ * another.
  */
 export class SkillCatalog {
   constructor({
@@ -28,6 +43,7 @@ export class SkillCatalog {
     globalNames = () => new Set(),
     reportNames = async () => null,
     fetchImpl = globalThis.fetch,
+    now = Date.now,
   }) {
     this.store = store;
     this.bundledNames = bundledNames;
@@ -35,6 +51,8 @@ export class SkillCatalog {
     this.reportNames = reportNames;
     this.fetchImpl = fetchImpl;
     this.previews = new SkillPreviews();
+    this.collections = new Map();
+    this.now = now;
     this.active = new Map();
     this.queue = Promise.resolve();
     this.closed = false;
@@ -62,7 +80,172 @@ export class SkillCatalog {
     return run;
   }
   read(input) {
-    return readSkillPackTracked(this.active, input, this.fetchImpl);
+    return readSkillPackTracked(this.active, input, this.fetchImpl, { several: true });
+  }
+  /**
+   * What installing a scanned pack would do now: `state` "new", "update", "current"
+   * (the catalog already has exactly this content), "bundled" or "taken" (the name
+   * belongs to another source); `review` when its findings need the owner's decision.
+   */
+  rowOf(pack, scan, hash, reported) {
+    const refused = this.bundledNames().has(pack.name)
+      ? "bundled"
+      : this.globalNames().has(pack.name) || reported?.has(pack.name)
+        ? "taken"
+        : null;
+    const previous = this.store.byName(pack.name);
+    const accepted = new Set(previous?.scan?.rules || []);
+    const newRules = scan.rules.filter((rule) => !accepted.has(rule));
+    return {
+      state:
+        refused ||
+        (!previous ? "new" : previous.contentHash === hash ? "current" : "update"),
+      ...(previous ? { replaces: { id: previous.id, version: previous.version } } : {}),
+      newRules,
+      review:
+        scan.verdict === "block" ||
+        (scan.verdict === "warn" && (!previous || newRules.length > 0)),
+    };
+  }
+  /** Scans every skill of a source and keeps the installable ones for the choice. */
+  async keepCollection(read, importKind) {
+    const reported = await this.reportNames();
+    this.assertOpen();
+    const names = new Set();
+    const items = new Map();
+    const skills = read.collection.map(({ folder, pack, error }) => {
+      if (error) return { folder, state: "invalid", problem: shown(error) };
+      const scan = scanSkill(pack.files);
+      const hash = contentHash(pack.files);
+      // Two folders naming one skill: the first is offered, the others are not.
+      const duplicate = names.has(pack.name);
+      names.add(pack.name);
+      if (!duplicate) items.set(folder, { pack, scan, hash });
+      return {
+        folder,
+        name: pack.name,
+        description: pack.description,
+        contentHash: hash,
+        size: pack.files.reduce((sum, [, data]) => sum + data.length, 0),
+        files: pack.files.length,
+        verdict: scan.verdict,
+        rules: scan.rules,
+        findings: scan.findings.length,
+        ...this.rowOf(pack, scan, hash, reported),
+        ...(duplicate ? { state: "duplicate" } : {}),
+      };
+    });
+    const now = this.now();
+    for (const [id, entry] of this.collections)
+      if (entry.expires < now) this.collections.delete(id);
+    while (this.collections.size >= COLLECTION_LIMIT)
+      this.collections.delete(this.collections.keys().next().value);
+    const collectionId = randomUUID();
+    const expires = now + PREVIEW_TTL;
+    this.collections.set(collectionId, { items, importKind, expires });
+    return {
+      collectionId,
+      expiresAt: new Date(expires).toISOString(),
+      importKind,
+      ...(read.origin ? { origin: read.origin } : {}),
+      skills,
+    };
+  }
+  /** The kept skill `folder` of a live collection and the collection's import kind. */
+  collected(collectionId, folder) {
+    const entry =
+      typeof collectionId === "string" ? this.collections.get(collectionId) : undefined;
+    if (!entry || entry.expires < this.now()) {
+      this.collections.delete(collectionId);
+      throw problem(serverMessages.extensions.skillPreviewExpired, 409);
+    }
+    const item = typeof folder === "string" ? entry.items.get(folder) : undefined;
+    if (!item) throw problem(serverMessages.extensions.skillPreviewChanged, 409);
+    return { ...item, importKind: entry.importKind };
+  }
+  /** The full preview of one skill of a collection, confirmed through install. */
+  async previewFromCollection(collectionId, input = {}) {
+    this.assertOpen();
+    const { pack, importKind } = this.collected(collectionId, input.folder);
+    return this.previewPack(pack, importKind);
+  }
+  /**
+   * Installs the chosen skills of a collection (`input.skills`: `{ folder,
+   * contentHash }`) exactly as scanned. Only skills without an open decision install
+   * here; one with new warnings or a block is skipped and goes through its own
+   * preview. Returns `installed` (as install() returns, with `folder`) and `skipped`
+   * (`{ folder, problem }`); one refused skill never stops the others.
+   */
+  installFromCollection(collectionId, input = {}) {
+    return this.serialized(async () => {
+      this.assertOpen();
+      const wanted = Array.isArray(input.skills)
+        ? input.skills.slice(0, SELECTION_LIMIT)
+        : [];
+      const installed = [];
+      const skipped = [];
+      const reported = wanted.length ? await this.reportNames() : null;
+      this.assertOpen();
+      for (const want of wanted) {
+        const folder = want?.folder;
+        try {
+          const item = this.collected(collectionId, folder);
+          if (want.contentHash !== item.hash)
+            throw problem(serverMessages.extensions.skillPreviewChanged, 409);
+          // The name is checked again, as the listing checked it.
+          const row = this.rowOf(item.pack, item.scan, item.hash, reported);
+          if (row.state === "bundled")
+            throw problem(serverMessages.extensions.catalogNameBundled, 409);
+          if (row.state === "taken")
+            throw problem(serverMessages.extensions.catalogNameTaken, 409);
+          if (row.state === "current") continue;
+          if (item.scan.verdict === "block")
+            throw problem(serverMessages.extensions.skillScanBlocked, 409);
+          if (row.review)
+            throw problem(serverMessages.extensions.skillWarningsNotAccepted, 409);
+          installed.push({
+            folder,
+            ...this.writeScanned(item.pack, item.scan, item.importKind, {
+              replaced: Boolean(row.replaces),
+            }),
+          });
+        } catch (error) {
+          if (!error.status)
+            console.error(
+              `AgentPier could not install a catalog skill (${error?.code || error?.message || "no code"}).`,
+            );
+          skipped.push({
+            folder: typeof folder === "string" ? folder : "",
+            problem: shown(
+              error.status ? error : problem(serverMessages.extensions.skillSaveFailed),
+            ),
+          });
+        }
+      }
+      return { installed, skipped };
+    });
+  }
+  /** Writes a scanned pack into the catalog: what install() returns for it. */
+  writeScanned(pack, scan, importKind, { overridden = false, replaced = false } = {}) {
+    const skillFile = pack.files.find(([name]) => name === "SKILL.md")[1];
+    const skill = this.store.write(pack, {
+      importKind,
+      source: pack.source,
+      origin: pack.origin,
+      scan: { verdict: scan.verdict, rules: scan.rules, overridden },
+      needsSettings: skillRequirements(skillFile).needsSettings,
+    });
+    return {
+      skill,
+      scan: {
+        verdict: scan.verdict,
+        rules: scan.rules,
+        findings: scan.findings.length,
+        importKind,
+        overridden,
+      },
+      replaced,
+    };
   }
   /** Scans `pack` and keeps it as a preview, as an update when its name is taken. */
   async previewPack(pack, importKind) {
@@ -87,6 +270,11 @@ export class SkillCatalog {
       throw problem(serverMessages.extensions.catalogSkillNotFound, 404);
     const pack = await this.read(input);
     this.assertOpen();
+    if (pack.collection) {
+      if (expected)
+        throw problem(serverMessages.extensions.skillCollectionSingleRequired, 409);
+      return { collection: await this.keepCollection(pack, importKindOf(input)) };
+    }
     if (expected && pack.name !== expected.name)
       throw problem(
         serverMessages.extensions.catalogUploadOtherSkill(pack.name, expected.name),
@@ -117,29 +305,10 @@ export class SkillCatalog {
       });
       const { pack, scan } = preview;
       try {
-        const skillFile = pack.files.find(([name]) => name === "SKILL.md")[1];
-        const skill = this.store.write(pack, {
-          importKind: preview.importKind,
-          source: pack.source,
-          origin: pack.origin,
-          scan: {
-            verdict: scan.verdict,
-            rules: scan.rules,
-            overridden: preview.overridden,
-          },
-          needsSettings: skillRequirements(skillFile).needsSettings,
-        });
-        return {
-          skill,
-          scan: {
-            verdict: scan.verdict,
-            rules: scan.rules,
-            findings: scan.findings.length,
-            importKind: preview.importKind,
-            overridden: preview.overridden,
-          },
+        return this.writeScanned(pack, scan, preview.importKind, {
+          overridden: preview.overridden,
           replaced: Boolean(current),
-        };
+        });
       } catch (error) {
         this.previews.restore(preview);
         throw error;
@@ -158,6 +327,8 @@ export class SkillCatalog {
       throw problem(serverMessages.extensions.catalogUpdateNeedsRepository, 400);
     const pack = await this.read({ url: record.source.url });
     this.assertOpen();
+    if (pack.collection)
+      throw problem(serverMessages.extensions.skillCollectionSingleRequired, 409);
     // The same source now names another skill: an update never becomes a second skill.
     if (pack.name !== record.name)
       throw problem(serverMessages.extensions.catalogUpdateRenamed(pack.name), 409);
@@ -185,6 +356,7 @@ export class SkillCatalog {
   async close() {
     this.closed = true;
     this.previews.clear();
+    this.collections.clear();
     for (const controller of this.active.values()) controller.abort();
     await Promise.allSettled([...this.active.keys(), this.queue]);
   }

@@ -11,6 +11,8 @@ export const agentSkillCatalogCopy = {
   destination: "Skill catalog for all agents",
   installTitle: "Install skill for all agents",
   installAction: "Add to catalog",
+  sourceLimits:
+    "One skill, or a repository, folder or ZIP with several skills to choose from · ZIP upload up to 10 MiB, GitHub archive up to 50 MiB, 20 MiB per skill. Only the skill folders are installed. Installation scripts are not executed. Before installing, AgentPier checks the files offline and shows the result.",
   updateTitle: "Upload new version",
   checkedUpdateTitle: "Update skill",
   updateAction: "Install update",

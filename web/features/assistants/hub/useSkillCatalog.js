@@ -7,7 +7,8 @@ import { assistantApi } from "../assistant-api.js";
  * (`busy`), its notice or error, and the install panel. `panel` is null, `{ skill }`
  * for a new skill (`skill` null) or a new version, plus `preview` when an update
  * check already returned one. `mutate` matches SkillInstallForm's contract: it runs
- * the action, reloads the list and shows `success`.
+ * the action, reloads the list and shows `success` (a text, or a function called
+ * after the action for a text that depends on its result).
  */
 export default function useSkillCatalog() {
   const [skills, setSkills] = useState(null);
@@ -49,7 +50,7 @@ export default function useSkillCatalog() {
       await action();
       if (!alive.current) return;
       await load();
-      if (alive.current) setNotice(success);
+      if (alive.current) setNotice(typeof success === "function" ? success() : success);
     } catch (failure) {
       if (alive.current) setError(failure.message);
     } finally {

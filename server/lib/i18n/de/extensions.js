@@ -49,6 +49,12 @@ export const extensions = Object.freeze({
   invalidSkillFrontmatter: "Das Skill-Frontmatter ist ungültig.",
   unsafeZipPath: "Das ZIP enthält einen unsicheren Dateipfad.",
   skillZipTooLarge: "Das ZIP darf höchstens 10 MiB groß sein.",
+  skillArchiveTooLarge: "Das Archiv der Quelle darf höchstens 50 MiB groß sein.",
+  skillSourceEmpty: "Die Quelle enthält keinen Skill mit SKILL.md.",
+  skillCollectionTooLarge:
+    "Die Quelle enthält zu viele oder zu große Skills. Bitte den Link zu einem Unterordner angeben.",
+  skillCollectionSingleRequired:
+    "Die Quelle enthält mehrere Skills. Für ein Update bitte genau diesen Skill angeben.",
   skillZipUnreadable: "Das ZIP konnte nicht gelesen werden.",
   skillZipCorrupt: "Das ZIP ist ungültig oder beschädigt.",
   skillFileCountExceeded: "Ein Skill-Paket darf höchstens 1.000 Dateien enthalten.",

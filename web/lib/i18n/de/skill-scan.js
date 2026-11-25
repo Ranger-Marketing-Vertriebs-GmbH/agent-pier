@@ -78,3 +78,39 @@ export const skillScanCopy = {
     "Installiere ihn nur, wenn du der Quelle vertraust und jeden Fund geprüft hast. Die Ausnahme wird im Audit-Protokoll vermerkt.",
   overrideConfirm: "Risiko akzeptieren und installieren",
 };
+
+// Eine geprüfte Quelle mit mehreren Skills (SkillCollection.jsx).
+export const skillCollectionCopy = {
+  heading: (count) => `${count} Skills gefunden`,
+  lead: "Wähle die Skills aus, die du hinzufügen möchtest. Skills ohne Befunde werden gemeinsam hinzugefügt; ein Skill mit Befunden wird einzeln geprüft.",
+  listLabel: "Skills dieser Quelle",
+  selectAll: "Alle auswählen",
+  selectNone: "Keine auswählen",
+  location: (folder, files) =>
+    files === 1 ? `${folder} · 1 Datei` : `${folder} · ${files} Dateien`,
+  updateOf: (version) => `Update von Version ${version}`,
+  needsReview: "Hat Befunde: vor dem Hinzufügen prüfen.",
+  states: {
+    current: "Schon im Katalog",
+    taken: "Nicht verfügbar: Ein anderer installierter Skill trägt diesen Namen",
+    bundled: "Nicht verfügbar: Ein mitgelieferter Skill trägt diesen Namen",
+    duplicate: "Nicht verfügbar: Ein anderer Skill dieser Quelle trägt diesen Namen",
+    invalid: "Kann nicht installiert werden",
+  },
+  added: "Zum Katalog hinzugefügt",
+  reviewAction: "Prüfen",
+  reviewLabel: (name) => `${name} prüfen`,
+  reviewing: "Wird geprüft …",
+  installAction: (count) =>
+    count === 1 ? "1 Skill hinzufügen" : `${count} Skills hinzufügen`,
+  installing: "Skills werden hinzugefügt …",
+  installedNotice: (added, skipped) =>
+    (added === 1
+      ? "1 Skill zum Katalog hinzugefügt."
+      : `${added} Skills zum Katalog hinzugefügt.`) +
+    (skipped
+      ? skipped === 1
+        ? " 1 Skill wurde übersprungen."
+        : ` ${skipped} Skills wurden übersprungen.`
+      : ""),
+};
