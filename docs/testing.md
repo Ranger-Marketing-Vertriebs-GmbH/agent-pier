@@ -45,6 +45,23 @@ class with the longer ceiling. Load-sensitive checks assert outcomes, not wall-c
 ratios: a step that must not wait is given a poll too long for any test, and race
 tests interleave the competing step deterministically through a test seam.
 
+node:test enforces that ceiling on the test file's own event loop, and its runner waits
+for a file's process and output without a limit. Three stalls therefore never time out:
+a synchronous call that does not return (`execFileSync` without `timeout`), an exit
+handler that blocks, and a process the file started that keeps the file's output open
+after the file ended. With the ceiling set, the runner's reporter also watches every
+running file (`scripts/test-stall-watch.mjs`): one without any test starting or ending
+for twice the ceiling (at least a minute) is reported on stderr as
+`STUCK TEST FILE: <file>` with its unfinished test and its process tree (the child a
+synchronous call waits on is in it), and those processes are killed. The file then
+fails by name and takes part in the retry; when no process is left to kill, the runner
+ends the run instead. A synchronous child process in a test still gets its own
+`timeout`, which fails faster and with the command's output.
+
+The contract steps of `assistant-runtime.yml` call `node --test` directly, with
+`--test-force-exit`: since Node 24 a file whose timed-out test left a handle open (a
+Gateway socket, a timer) otherwise never exits and holds the job until its timeout.
+
 Telling a project folder's Git work tree apart from a plain folder runs
 `git rev-parse` with a 3 s limit, after which the request fails with 409. Under the
 parallel files of a full run that limit can pass, so `scripts/test-runner.mjs` sets
@@ -74,7 +91,7 @@ Generated tests assert observable invariants rather than reproducing parser regu
 
 `tests/helpers/application.js` exports `applicationFixture(t)`. It starts the real application on a loopback ephemeral port with separate temporary `home` and `data` directories. Its request helper sends the correct same-origin header by default and supports deliberate foreign or absent origins. `restart()` closes the entire application and creates a new instance over the same fixture data.
 
-Cleanup stops only sessions from this application's private store, closes application resources, kills only the tmux server whose socket is derived from the fixture's unique data directory, and removes that socket directory, the `/tmp/agentpier-*` socket folders of its local brokers (requests, session MCP, SSH, memory, AgentBus) and the fixture files. It never targets the default tmux server. Cleanup is registered before startup completes and is idempotent. Explicit fixture disposal is available for cleanup assertions.
+Cleanup stops only sessions from this application's private store, closes application resources, kills only the tmux server whose socket is derived from the fixture's unique data directory, and removes that socket directory, the `/tmp/agentpier-*` socket folders of its local brokers (requests, session MCP, SSH, memory, AgentBus) and the fixture files. It never targets the default tmux server. Cleanup is registered before startup completes and is idempotent. Explicit fixture disposal is available for cleanup assertions. A startup or cleanup step still pending after 30 s is named on stderr (`applicationFixture: still waiting on application.close() after 30 s`), so a test that times out inside its fixture says what the fixture was waiting on.
 
 `npm test` and the other strategy scripts give every run a private temp folder (`/tmp/ap-XXXXXX`, set as `TMPDIR` for the test files) and remove it afterwards, so a leaked fixture cannot fill the shared temp folder; a test that lists a huge temp folder slows down for everyone. The folder stays short because Unix socket paths built inside it must fit the 104-byte limit on macOS. Caches meant to outlive a run, such as the downloaded MCP Python toolchains, use `AGENTPIER_TEST_SHARED_TMPDIR`, the original temp folder. Test files still remove what they create, so direct `node --test` runs stay clean too.
 

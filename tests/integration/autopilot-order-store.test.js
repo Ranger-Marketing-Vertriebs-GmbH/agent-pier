@@ -175,6 +175,35 @@ test("the shipped progress helper preserves controls and rejects edits to paused
   assert.equal(fs.statSync(path.join(directory, ref.filename)).mode & 0o777, 0o600);
 });
 
+test("an order above 64 KiB is written and read without a pipe to the pinned child", async (t) => {
+  // Regression (AGENTPIER-496): on macOS a synchronous spawn now and then never
+  // finishes writing an `input` above 64 KiB. The child waited for the end of its
+  // stdin and the server for the child, without a time limit and holding the order
+  // lock; about one write in a few hundred did that.
+  const { open, project, input, directory } = await fixture(t);
+  const store = open();
+  const brief = "Plan the change".padEnd(65536, ".");
+  const { ref } = await store.create(project.id, { ...input, brief });
+  for (let round = 0; round < 20; round++) {
+    await store.update(ref.id, (doc) => ({ ...doc, privateExtension: round }));
+    const { document } = await store.get(ref.id);
+    assert.equal(document.brief, brief);
+    assert.equal(document.privateExtension, round);
+  }
+  assert.ok(fs.statSync(path.join(directory, ref.filename)).size > 65536);
+  const helper = fs.readFileSync(
+    "server/features/cli-profiles/skills/agentpier-composer/scripts/order-progress.mjs",
+    "utf8",
+  );
+  assert.doesNotMatch(helper, /\binput:/, "the request goes to the child as a file");
+  assert.match(helper, /timeout: \d+/, "the synchronous child has a time limit");
+  // The request file is unlinked before the child starts.
+  const requests = fs
+    .readdirSync(`/tmp/agentpier-composer-writes-${process.getuid()}`)
+    .filter((name) => name.startsWith(".request-"));
+  assert.deepEqual(requests, []);
+});
+
 test("an interrupted creation publishes the same reserved file on retry", async (t) => {
   const { open, project, input, directory, temp } = await fixture(t);
   const store = open();

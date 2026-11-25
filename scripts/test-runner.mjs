@@ -48,6 +48,8 @@ export function runTestFiles({
   testTimeout,
 }) {
   const recording = retry || noSkips;
+  // A loaded host may take a while to start a file: never call that a stall.
+  const minStall = Number(process.env.AGENTPIER_TEST_STALL_MIN_MS ?? 60000);
   const events = path.join(
     os.tmpdir(),
     `agentpier-test-events-${process.pid}-${Date.now()}.jsonl`,
@@ -84,7 +86,7 @@ export function runTestFiles({
           "--import",
           path.join(root, "tests/helpers/tmux-reaper.js"),
           "--test",
-          ...(recording
+          ...(recording || timeout
             ? [
                 "--test-reporter=spec",
                 "--test-reporter-destination=stdout",
@@ -105,6 +107,12 @@ export function runTestFiles({
           env: {
             ...process.env,
             AGENTPIER_TEST_RUN: runId,
+            // That timeout cannot end a file whose event loop is blocked or whose
+            // output stays open; the reporter stops one silent for twice as long (a
+            // hook and a test may each use the timeout) and names it.
+            AGENTPIER_TEST_STALL_MS: timeout
+              ? String(Math.max(2 * timeout, minStall))
+              : "",
             // Parallel files load the host; Git discovery must not time out on that.
             AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS:
               process.env.AGENTPIER_GIT_DISCOVERY_TIMEOUT_MS || "20000",
