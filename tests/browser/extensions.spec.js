@@ -180,9 +180,16 @@ test("skill file upload and GitHub download show native shared scope and protect
       { exact: true },
     ),
   ).toBeVisible();
+  // A read-only skill opens its detail view without a remove action.
+  await extensionRow(page, "shared-skill").getByRole("button").click();
+  const shared = page.getByRole("dialog", { name: "shared-skill", exact: true });
+  await expect(shared).toContainText("Hier schreibgeschützt.");
   await expect(
-    page.getByRole("button", { name: "Skill shared-skill entfernen" }),
+    shared.getByRole("button", { name: "Skill shared-skill entfernen" }),
   ).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await shared.getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(shared).toHaveCount(0);
   await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Skill installieren" });
   await expect(panel).toContainText("/fixture/.agents/skills");
@@ -208,7 +215,11 @@ test("skill file upload and GitHub download show native shared scope and protect
     "name: demo-skill",
   );
   await expect(extensionRow(page, "demo-skill")).toBeVisible();
-  await page.getByRole("button", { name: "Skill demo-skill entfernen" }).click();
+  await extensionRow(page, "demo-skill").getByRole("button").click();
+  await page
+    .getByRole("dialog", { name: "demo-skill", exact: true })
+    .getByRole("button", { name: "Skill demo-skill entfernen" })
+    .click();
   await page.getByRole("button", { name: "Jetzt entfernen", exact: true }).click();
   await expect(extensionRow(page, "demo-skill")).toHaveCount(0);
   await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
@@ -293,7 +304,7 @@ for (const mobile of [false, true])
     expect(writes).toEqual([]);
     await expectNoHorizontalOverflow(page);
   });
-test("skill rows name the MCP package or the pinned GitHub commit they came from", async ({
+test("skills are grouped by the MCP package or the pinned GitHub commit they came from", async ({
   page,
 }) => {
   const { data } = await fixture(page);
@@ -325,10 +336,32 @@ test("skill rows name the MCP package or the pinned GitHub commit they came from
   );
   await open(page);
   await openTab(page, "Skills");
-  await expect(extensionRow(page, "reverse-it")).toContainText(
+  const list = page.getByRole("group", { name: "Skills", exact: true });
+  await expect(list.getByRole("heading")).toContainText([
+    "example/skills",
+    "MCP-Paket rea-agents",
+  ]);
+  await expect(list).toContainText("v1.2.0 · 0123456 · 1 Skill");
+  await expect(list).toContainText("Version 1.2.0 · 1 Skill");
+  await expect(extensionRow(page, "pinned")).toContainText("Hier installiert");
+  await expect(extensionRow(page, "pinned")).not.toContainText("/fixture/");
+  const filters = page.getByRole("group", { name: "Skills filtern" });
+  await filters.getByRole("button", { name: /Schreibgeschützt/ }).click();
+  await expect(extensionRow(page, "pinned")).toHaveCount(0);
+  await filters.getByRole("button", { name: /^Alle/ }).click();
+  // The detail view holds the full origin and the path.
+  const source = (dialog) =>
+    dialog.locator(".skill-facts div", { hasText: "Quelle" }).locator("dd");
+  await extensionRow(page, "reverse-it").getByRole("button").click();
+  let detail = page.getByRole("dialog", { name: "reverse-it", exact: true });
+  await expect(source(detail)).toHaveText(
     "Aus dem MCP-Paket rea-agents@1.2.0 · wird mit ihm aktualisiert und entfernt",
   );
-  await expect(extensionRow(page, "pinned")).toContainText(
+  await detail.getByRole("button", { name: "Schließen", exact: true }).click();
+  await extensionRow(page, "pinned").getByRole("button").click();
+  detail = page.getByRole("dialog", { name: "pinned", exact: true });
+  await expect(source(detail)).toHaveText(
     "GitHub example/skills · Tag v1.2.0 · Commit 0123456789ab",
   );
+  await expect(detail).toContainText("/fixture/.agents/skills/pinned");
 });

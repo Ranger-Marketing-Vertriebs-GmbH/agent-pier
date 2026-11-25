@@ -111,3 +111,16 @@ export const skillCollectionCopy = {
         : ` ${skipped} skills were skipped.`
       : ""),
 };
+
+// The skill lists (SkillGroups.jsx, SkillDetail.jsx): agent catalog and CLI skills.
+export const skillListCopy = {
+  filterLabel: "Filter skills",
+  filterAll: "All",
+  noMatches: "No skills match your search or filter.",
+  skillCount: (count) => (count === 1 ? "1 skill" : `${count} skills`),
+  revision: (ref, commit) => (ref ? `${ref} · ${commit}` : commit),
+  factsLabel: "Origin",
+  factSource: "Source",
+  factRevision: "Revision",
+  factVersion: "Version",
+};

@@ -17,12 +17,18 @@ export default function useProfileExtensions({ account, request, setParentBusy }
   const [reload, setReload] = useState(0);
   const [skillQuery, setSkillQuery] = useState("");
   const skillSearch = normalizeSearch(skillQuery.trim());
-  const skills = (data?.skills.items || []).filter((skill) =>
+  // "here": installed here and removable; "readOnly": everything else.
+  const [skillFilter, setSkillFilter] = useState("all");
+  const skillMatches = (data?.skills.items || []).filter((skill) =>
     [skill.name, skill.description, skillScopeLabel(skill)].some((value) =>
       normalizeSearch(value).includes(skillSearch),
     ),
   );
-  const skillPaging = usePagination(skills, skillQuery);
+  const skills = skillMatches.filter(
+    (skill) =>
+      skillFilter === "all" || (skillFilter === "here") === Boolean(skill.removable),
+  );
+  const skillPaging = usePagination(skills, skillQuery + "\n" + skillFilter);
   const lock = useRef(false);
   const alive = useRef(true);
   const endpoint = `/accounts/${encodeURIComponent(account.id)}/extensions`;
@@ -88,6 +94,9 @@ export default function useProfileExtensions({ account, request, setParentBusy }
     alive,
     skillQuery,
     setSkillQuery,
+    skillFilter,
+    setSkillFilter,
+    skillMatches,
     skillPaging,
     skillSearch,
     setError,

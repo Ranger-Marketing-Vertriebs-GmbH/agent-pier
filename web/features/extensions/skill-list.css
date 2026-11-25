@@ -1,0 +1,112 @@
+/* The skill lists (agent skill catalog, coding CLI skills): groups by source, compact
+   rows and the detail view. */
+.skill-groups {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.skill-group {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.skill-group .group-label,
+.skill-detail-section .group-label {
+  margin: 0;
+}
+.skill-group-meta {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* A description is a trigger text of several hundred characters: two lines in the
+   list, the whole text in the detail view. */
+.skill-row-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.45;
+}
+.skill-row-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+  color: var(--text-row);
+}
+.skill-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.skill-list-toolbar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.skill-list-notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--success-line);
+  border-radius: var(--radius-md);
+  background: var(--success-faint);
+  font-size: var(--font-size-md);
+  color: var(--success-muted);
+}
+.skill-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.skill-detail-section {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.skill-detail-description {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  color: var(--text-row);
+  overflow-wrap: anywhere;
+}
+.skill-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-md);
+}
+.skill-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 8em) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.skill-facts dt {
+  color: var(--muted);
+}
+.skill-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.skill-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.skill-detail-note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}

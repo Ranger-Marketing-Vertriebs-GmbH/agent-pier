@@ -1,8 +1,24 @@
 // Agents › Skills: the owner's skill catalog for all agents (SkillCatalogTab.jsx).
-const short = (commit) => String(commit).slice(0, 7);
-
 export const agentSkillCatalogCopy = {
-  lead: "Skills aus dem Katalog kannst du für jeden Agenten unter Agent › Fähigkeiten › Skills einschalten. AgentPier prüft jeden Skill, bevor er installiert wird.",
+  lead: "Schalte einen Skill hier oder unter Agent › Fähigkeiten › Skills für Agenten ein. AgentPier prüft jeden Skill, bevor er installiert wird.",
+  searchPlaceholder: "Name oder Beschreibung",
+  filterUsed: "In Nutzung",
+  filterUnused: "Ungenutzt",
+  filterFindings: "Mit Befunden",
+  usage: (count) => (count === 1 ? "1 Agent" : `${count} Agenten`),
+  unused: "Ungenutzt",
+  groupUploaded: "Hochgeladen",
+  groupGithub: "GitHub",
+  whenUsed: "Wann der Agent ihn nutzt",
+  switchesLabel: "Eingeschaltet für",
+  noAgents: "Noch kann kein Agent Skills nutzen.",
+  switchLabel: (skill, agent) => `${skill} für ${agent}`,
+  factsLabel: "Herkunft und Prüfung",
+  factPrograms: "Programme",
+  factState: "Zustand",
+  sourceUpload: "Upload",
+  programsNone: "Keine",
+  programsPending: "Werden angezeigt, sobald der Agentendienst läuft",
   listLabel: "Katalog-Skills",
   loading: "Skill-Katalog wird geladen …",
   empty:
@@ -20,14 +36,8 @@ export const agentSkillCatalogCopy = {
   installedNotice: "Skill in den Katalog aufgenommen.",
   updatedNotice:
     "Skill aktualisiert. Agenten, die ihn nutzen, bekommen die neue Version.",
-  versionUpload: (version) => `Version ${version} · aus einem Upload`,
-  versionGithub: (version, repository, ref, commit) =>
-    `Version ${version} · von GitHub ${repository} @ ${ref} (${short(commit)})`,
-  versionGithubPlain: (version) => `Version ${version} · von GitHub`,
   overridden: "Blockiert, trotzdem installiert",
-  runsPrograms: (programs) => `Führt Programme aus: ${programs}`,
   oneOf: (programs) => `eines von ${programs}`,
-  programsPending: "Programme: werden angezeigt, sobald der Agentendienst läuft",
   needsSettings: "Braucht Einstellungen — noch nicht unterstützt",
   shadowed: "Von einem mitgelieferten Skill verdeckt",
   shadowedSource: "Von einem anderen installierten Skill gleichen Namens verdeckt",
@@ -36,7 +46,6 @@ export const agentSkillCatalogCopy = {
   agentsOn: (count) =>
     count === 1 ? "Für 1 Agenten eingeschaltet" : `Für ${count} Agenten eingeschaltet`,
   agentsNone: "Für keinen Agenten eingeschaltet",
-  rowActions: (name) => `Aktionen für ${name}`,
   checkUpdate: "Nach Update suchen",
   checking: (name) => `Suche nach einem Update für ${name} …`,
   upToDate: (name) => `Auf dem neuesten Stand: Für ${name} gibt es keine neuere Version.`,
