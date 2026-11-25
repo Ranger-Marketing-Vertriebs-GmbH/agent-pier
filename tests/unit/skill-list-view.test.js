@@ -9,6 +9,7 @@ import {
   catalogGroupMeta,
   catalogSkillUsage,
   catalogSource,
+  catalogSourceCheck,
   hasFindings,
   matchesFilter,
 } from "../../web/features/assistants/hub/catalog-skill-view.js";
@@ -103,6 +104,29 @@ test("a group names a revision only when all of its skills share it", () => {
     catalogSource,
   );
   assert.equal(catalogGroupMeta(mixed[0]), "2 skills");
+});
+
+test("a repository group is checked as a whole when its skills share a ref", () => {
+  const group = (skills) => groupSkills(skills, catalogSource)[0];
+  const checked = (name, extra) => skill(name, { repository: true, ...extra });
+  assert.deepEqual(
+    catalogSourceCheck(
+      group([checked("a"), checked("b", { origin: origin("9999999abc") })]),
+    ),
+    { repository: "acme/skills", ref: "main" },
+  );
+  // Mixed refs, no skill with an update check, or no repository: one by one.
+  assert.equal(
+    catalogSourceCheck(
+      group([checked("a"), checked("b", { origin: origin("0123456789abcdef", "v2") })]),
+    ),
+    null,
+  );
+  assert.equal(catalogSourceCheck(group([skill("a")])), null);
+  assert.equal(
+    catalogSourceCheck(group([checked("a", { importKind: "zip", origin: undefined })])),
+    null,
+  );
 });
 
 test("rows count agents, and the filters follow use, findings and limits", () => {

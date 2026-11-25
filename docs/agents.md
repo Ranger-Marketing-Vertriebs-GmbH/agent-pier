@@ -197,6 +197,15 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   preview shows "New since version N". An uploaded file or a repository that now names
   a different skill is refused, so an update never becomes a second skill. There are no
   automatic update checks.
+- **Check for updates** beside a repository in the list checks all of its skills in
+  one step. AgentPier downloads the repository once, at the branch or tag its skills
+  were installed from, and compares every catalog skill from it. Without a change it
+  says so, and how many skills of the repository are not in the catalog. Otherwise
+  the panel **Update skills** lists the repository's skills with the changed ones
+  picked: **Install N skills** installs them together, a skill whose new version
+  brings findings is reviewed on its own, and a new skill of the repository can be
+  picked as well. The button is missing when the skills of a repository were installed
+  from different branches or tags; check those one by one.
 - **Remove** names the agents that use the skill, switches it off for all of them and
   deletes its files.
 - **Name clashes.** A skill whose name a bundled skill, a plugin skill, one of

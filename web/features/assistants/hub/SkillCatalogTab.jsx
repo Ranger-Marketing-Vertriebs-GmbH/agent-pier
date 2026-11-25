@@ -20,6 +20,7 @@ import {
   catalogSkillLimit,
   catalogSkillUsage,
   catalogSource,
+  catalogSourceCheck,
   matchesFilter,
 } from "./catalog-skill-view.js";
 import useSkillCatalog from "./useSkillCatalog.js";
@@ -89,10 +90,42 @@ export default function SkillCatalogTab() {
   const updateTitle = panel?.preview ? copy.checkedUpdateTitle : copy.updateTitle;
   const found = skills ? searchSkills(skills, query) : [];
   const shown = found.filter((skill) => matchesFilter(skill, filter));
-  const groups = groupSkills(shown, catalogSource).map((group) => ({
-    ...group,
-    meta: catalogGroupMeta(group),
-  }));
+  const groups = groupSkills(shown, catalogSource).map((group) => {
+    const source = catalogSourceCheck(group);
+    return {
+      ...group,
+      meta: catalogGroupMeta(group),
+      action: source && (
+        <button
+          type="button"
+          className="button secondary compact"
+          aria-label={copy.checkUpdatesLabel(source.repository)}
+          disabled={Boolean(catalog.busy)}
+          onClick={() => catalog.checkSource(source)}
+        >
+          {copy.checkUpdates}
+        </button>
+      ),
+    };
+  });
+  // An update check of a repository opens with its skills and the updates picked.
+  const sourceUpdate = panel?.collection
+    ? {
+        initialCollection: panel.collection,
+        initialPicked: panel.collection.skills
+          .filter(
+            (skill) =>
+              skill.state === "update" &&
+              !skill.review &&
+              panel.updates.includes(skill.replaces?.id),
+          )
+          .map((skill) => skill.folder),
+        collectionLabels: {
+          installAction: copy.sourceInstallAction,
+          installedNotice: copy.sourceInstalledNotice,
+        },
+      }
+    : null;
   const open = skills?.find((skill) => skill.id === openId) || null;
   // The install panel and the remove dialog show their own messages.
   const detail = open && !panel ? open : null;
@@ -175,7 +208,8 @@ export default function SkillCatalogTab() {
       )}
       {panel && (
         <SkillInstallForm
-          key={`${panel.skill?.id || "new"}-${panel.preview?.previewId || ""}`}
+          key={`${panel.skill?.id || "new"}-${panel.preview?.previewId || panel.collection?.collectionId || ""}`}
+          {...sourceUpdate}
           mutate={catalog.mutate}
           request={api}
           alive={catalog.alive}
@@ -186,8 +220,14 @@ export default function SkillCatalogTab() {
           paths={paths}
           destination={copy.destination}
           destinationLabel={copy.destinationLabel}
-          title={updating ? updateTitle : copy.installTitle}
-          subtitle={panel.skill?.name}
+          title={
+            updating
+              ? updateTitle
+              : sourceUpdate
+                ? copy.sourceUpdateTitle
+                : copy.installTitle
+          }
+          subtitle={panel.skill?.name || panel.source}
           installLabel={updating ? copy.updateAction : copy.installAction}
           successNotice={updating ? copy.updatedNotice : copy.installedNotice}
           initialPreview={panel.preview || null}

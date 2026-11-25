@@ -147,6 +147,12 @@ test("an uploaded catalog skill has no repository to check, an unknown one is 40
   );
   response = await f.request("/api/agent-skill-catalog/skills/unknown/check", post({}));
   assert.equal(response.status, 404);
+  // An upload belongs to no repository, so no source check finds it.
+  for (const body of [{ repository: "example/pack", ref: "main" }, {}]) {
+    response = await f.request("/api/agent-skill-catalog/sources/check", post(body));
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).messageKey, "extensions.catalogSkillNotFound");
+  }
   response = await f.request("/api/agent-skill-catalog/skills/unknown", {
     method: "DELETE",
   });
@@ -165,6 +171,11 @@ test("a restricted user never reaches the catalog", async (t) => {
     ["/api/agent-skill-catalog/skills/preview", "POST", skillMd("probe")],
     ["/api/agent-skill-catalog/skills", "POST", { previewId: "x", contentHash: "y" }],
     ["/api/agent-skill-catalog/skills/probe/check", "POST", {}],
+    [
+      "/api/agent-skill-catalog/sources/check",
+      "POST",
+      { repository: "a/b", ref: "main" },
+    ],
     ["/api/agent-skill-catalog/skills/probe", "DELETE"],
   ]) {
     const response = await as(endpoint, method, body);

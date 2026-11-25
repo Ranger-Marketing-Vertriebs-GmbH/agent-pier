@@ -147,7 +147,7 @@ test("desktop keeps the primary action and config path in the detail header", as
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^CLI-Profil wechseln/ })).toBeHidden();
   const market = extensionRow(page, "official");
-  await expect(market).toContainText("Eigene Quelle · 1 Plugins");
+  await expect(market).toContainText("Eigene Quelle · 1 Plugin");
   await market.getByRole("button", { name: "Aktionen für official" }).click();
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem")).toHaveText(["Aktualisieren", "Entfernen"]);

@@ -49,6 +49,27 @@ export const agentSkillCatalogCopy = {
   checkUpdate: "Nach Update suchen",
   checking: (name) => `Suche nach einem Update für ${name} …`,
   upToDate: (name) => `Auf dem neuesten Stand: Für ${name} gibt es keine neuere Version.`,
+  checkUpdates: "Nach Updates suchen",
+  checkUpdatesLabel: (source) => `In ${source} nach Updates suchen`,
+  checkingSource: (source) => `Suche nach Updates in ${source} …`,
+  sourceUpToDate: (source, more) =>
+    `Auf dem neuesten Stand: Für keinen Skill aus ${source} gibt es eine neuere Version.` +
+    (more
+      ? more === 1
+        ? " Das Repository enthält 1 weiteren Skill; du nimmst ihn über „Skill installieren“ auf."
+        : ` Das Repository enthält ${more} weitere Skills; du nimmst sie über „Skill installieren“ auf.`
+      : ""),
+  sourceUpdateTitle: "Skills aktualisieren",
+  sourceInstallAction: (count) =>
+    count === 1 ? "1 Skill installieren" : `${count} Skills installieren`,
+  sourceInstalledNotice: (done, skipped) =>
+    (done === 1 ? "1 Skill installiert." : `${done} Skills installiert.`) +
+    " Agenten, die sie nutzen, bekommen die neue Version." +
+    (skipped
+      ? skipped === 1
+        ? " 1 Skill wurde übersprungen."
+        : ` ${skipped} Skills wurden übersprungen.`
+      : ""),
   uploadVersion: "Neue Version hochladen",
   removeTitle: (name) => `Skill „${name}“ entfernen?`,
   removeBody: "Der Skill verlässt den Katalog, seine Dateien werden gelöscht.",
