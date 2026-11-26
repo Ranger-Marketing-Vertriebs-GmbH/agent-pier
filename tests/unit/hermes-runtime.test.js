@@ -103,3 +103,20 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
   await runtime.host.start();
   assert.equal(runtime.host.ready(), true);
 });
+
+test("a stop of the set returns only once its browser is gone (AGENTPIER-501)", async (t) => {
+  const fake = hermesFakeRuntime(t);
+  const { runtime, browser } = hermes(t, fake);
+  await runtime.host.start();
+  // A browser that takes a while to exit, as Chrome on Linux after SIGTERM.
+  let gone = false;
+  browser.stop = () =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        gone = true;
+        resolve();
+      }, 50),
+    );
+  await runtime.host.stop();
+  assert.equal(gone, true);
+});
