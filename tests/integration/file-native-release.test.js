@@ -45,6 +45,7 @@ async function fixture(t) {
     "file-native.js",
     "file-native-worker.js",
     "file-native-write.js",
+    "file-native-errno.js",
     "file-native-directory.js",
     "file-native-names.js",
     "file-native-metadata.js",
