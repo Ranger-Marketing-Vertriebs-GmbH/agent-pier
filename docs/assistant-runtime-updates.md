@@ -444,7 +444,9 @@ node --test tests/unit/assistant-runtime-install.test.js \
 The opt-in native test reuses only an installed runtime's immutable executables.
 It creates and removes its own temporary mutable state, needs no model credentials,
 and verifies staging, same-version activation, authenticated roster access, restart,
-and an overdue cron job remaining unexecuted until commit:
+and an overdue cron job remaining unexecuted until commit. The cron test activates a
+patch-only change (same OpenClaw version, so no Doctor migration); the other one runs
+Doctor. A test that runs out of time names the update phase and step it stalled in:
 
 ```sh
 AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/installed-runtime \
