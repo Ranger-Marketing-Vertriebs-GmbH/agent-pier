@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import CommandPalette from "../../components/CommandPalette.jsx";
 import { getLanguage } from "../../lib/i18n/index.js";
 import { searchCopy as copy } from "../../lib/i18n/messages/search.js";
-import { SearchDialogContext, openSearchEvent } from "../../app/search-dialog.js";
+import {
+  SearchDialogContext,
+  openSearchEvent,
+  searchOpener,
+} from "../../app/search-dialog.js";
 import { searchEntries } from "../../app/search-index.js";
 import { isMacPlatform, opensSearch } from "../../app/search-shortcut.js";
 import { paletteGroups, resultCount } from "../quick-open/palette-groups.jsx";
@@ -10,7 +14,7 @@ import { readRecent, rememberRecent } from "../quick-open/recent-items.js";
 import { buildUserSearchIndex } from "./user-search-entries.js";
 import { userApi } from "./user-api.js";
 
-function UserSearchDialog({ agents, recent, close, choose, failure }) {
+function UserSearchDialog({ agents, recent, close, choose, failure, opener }) {
   const [query, setQuery] = useState("");
   const index = useMemo(() => buildUserSearchIndex({ agents }), [agents]);
   const found = useMemo(
@@ -24,6 +28,7 @@ function UserSearchDialog({ agents, recent, close, choose, failure }) {
     <CommandPalette
       title={copy.title}
       close={close}
+      opener={opener}
       query={query}
       onQueryChange={setQuery}
       groups={groups}
@@ -50,8 +55,11 @@ export default function UserSearch({ agents, navigate, scope, children }) {
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState(() => readRecent(scope));
   const [failure, setFailure] = useState("");
-  const show = useCallback(() => {
+  const [opener, setOpener] = useState(null);
+  // The clicked opener gets the focus back on close (Safari does not focus it).
+  const show = useCallback((from) => {
     setFailure("");
+    setOpener(searchOpener(from));
     setOpen(true);
   }, []);
   const context = useMemo(() => ({ open: show }), [show]);
@@ -96,6 +104,7 @@ export default function UserSearch({ agents, navigate, scope, children }) {
           close={() => setOpen(false)}
           choose={choose}
           failure={failure}
+          opener={opener}
         />
       )}
     </SearchDialogContext.Provider>

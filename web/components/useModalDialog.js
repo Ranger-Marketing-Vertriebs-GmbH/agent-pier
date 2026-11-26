@@ -36,13 +36,14 @@ function returnTarget(opener) {
  * lands on the close button: with a fine pointer it goes to a `[data-autofocus]`
  * element, else the first visible text entry field; on touch screens, or without
  * either, it stays on the dialog itself (which has no visible focus ring). Closing
- * returns focus to the element that opened the dialog.
+ * returns focus to the element that opened the dialog: `opener` when given (Safari
+ * on macOS does not focus a clicked button), else the element focused at open.
  */
-export default function useModalDialog() {
+export default function useModalDialog(opener = null) {
   const ref = useRef(null);
   useEffect(() => {
     const dialog = ref.current;
-    const opener = document.activeElement;
+    const back = opener || document.activeElement;
     // An `autofocus` dialog focuses itself in showModal(), so no control flashes a ring.
     dialog.setAttribute("autofocus", "");
     dialog.showModal();
@@ -61,8 +62,10 @@ export default function useModalDialog() {
       // body; an element the closing action focused itself keeps it.
       const active = document.activeElement;
       if (active && active !== document.body && !dialog.contains(active)) return;
-      returnTarget(opener)?.focus({ preventScroll: true });
+      returnTarget(back)?.focus({ preventScroll: true });
     };
+    // Opened once; the opener is read when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return ref;
 }

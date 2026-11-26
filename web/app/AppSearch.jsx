@@ -16,7 +16,7 @@ import { projectsRoute } from "../features/projects/routes.js";
 import { projectOnScreen } from "./project-search-entries.js";
 import { orderActionIds } from "../features/autopilot/search.js";
 import { pageActionOffered, requestPageAction } from "./page-action.js";
-import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
+import { SearchDialogContext, openSearchEvent, searchOpener } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
 import { isMacPlatform, opensSearch } from "./search-shortcut.js";
 import { readRecent, rememberRecent } from "../features/quick-open/recent-items.js";
@@ -49,6 +49,7 @@ export default function AppSearch({
   children,
 }) {
   const [open, setOpen] = useState(false);
+  const [opener, setOpener] = useState(null);
   const [connections, setConnections] = useState(null);
   const [loading, setLoading] = useState(false);
   const loadedAt = useRef(0);
@@ -57,14 +58,18 @@ export default function AppSearch({
   const [recent, setRecent] = useState(() => readRecent("owner"));
   const auth = useContext(LoginContext);
   const views = useViews()?.views;
-  const show = useCallback(() => setOpen(true), []);
+  // The clicked opener gets the focus back on close (Safari does not focus it).
+  const show = useCallback((from) => {
+    setOpener(searchOpener(from));
+    setOpen(true);
+  }, []);
   const context = useMemo(() => ({ open: show }), [show]);
   useEffect(() => {
     const mac = isMacPlatform();
     const keydown = (event) => {
       if (!opensSearch(event, mac)) return;
       event.preventDefault();
-      setOpen(true);
+      show();
     };
     window.addEventListener("keydown", keydown);
     window.addEventListener(openSearchEvent, show);
@@ -155,6 +160,7 @@ export default function AppSearch({
           <SearchDialog
             close={close}
             choose={choose}
+            opener={opener}
             agents={assistants}
             conversations={conversations}
             agentsEnabled={Boolean(agentsEnabled)}

@@ -18,6 +18,7 @@ import { paletteGroups, resultCount } from "../features/quick-open/palette-group
 export default function SearchDialog({
   close,
   choose,
+  opener = null,
   agents,
   conversations,
   agentsEnabled,
@@ -87,6 +88,7 @@ export default function SearchDialog({
     <CommandPalette
       title={copy.title}
       close={close}
+      opener={opener}
       query={query}
       onQueryChange={setQuery}
       groups={groups}

@@ -139,7 +139,7 @@ export default function Sidebar({
           className="icon-button sidebar-search"
           aria-label={copy.search[isMacPlatform() ? "mac" : "other"]}
           title={copy.search[isMacPlatform() ? "mac" : "other"]}
-          onClick={() => search.open()}
+          onClick={(event) => search.open(event.currentTarget)}
         >
           <Icon name="search" size={16} />
         </button>

@@ -35,7 +35,7 @@ export default function MobileHeader({
           className="icon-button"
           aria-label={sidebarCopy.searchRow}
           title={sidebarCopy.searchRow}
-          onClick={() => search.open()}
+          onClick={(event) => search.open(event.currentTarget)}
         >
           <Icon name="search" />
         </button>

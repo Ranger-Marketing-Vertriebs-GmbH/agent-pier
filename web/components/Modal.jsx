@@ -9,7 +9,9 @@ import useSheetDrag from "./useSheetDrag.js";
  * dialog that passes `footer` gets a padded, scrollable `.dialog-body` and a sticky
  * `.dialog-actions` footer, so its actions stay visible however long the body is.
  * On phones it becomes a bottom sheet with a grab handle; dragging it down closes the
- * dialog as Escape does.
+ * dialog as Escape does. `opener` names the element focus returns to on close (Safari
+ * does not focus a clicked button); without it focus returns to the element focused
+ * when the dialog opened.
  */
 export default function Modal({
   title,
@@ -22,8 +24,9 @@ export default function Modal({
   closeDisabled = false,
   dismissOnBackdrop = false,
   closeIcon,
+  opener = null,
 }) {
-  const ref = useModalDialog();
+  const ref = useModalDialog(opener);
   useSheetDrag(ref, { dismiss: close, disabled: closeDisabled });
   const titleId = useId();
   return (
