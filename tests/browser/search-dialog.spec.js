@@ -235,8 +235,13 @@ test("Escape closes the search and returns the focus; the sidebar button opens i
   page,
 }) => {
   await page.goto(baseURL + "/projects");
+  // WebKit ignores focus() while a stylesheet is still loading, and the page's lazy
+  // chunk adds its own: focus the menu once the page has rendered, so the search opens
+  // from the menu button and not from the body.
+  await expect(page.getByRole("heading", { name: "Projekte", level: 1 })).toBeVisible();
   const menu = page.locator(".sidebar .sidebar-menu-button");
   await menu.focus();
+  await expect(menu).toBeFocused();
   await openWithShortcut(page);
   await page.keyboard.press("Escape");
   await expect(dialog(page)).toHaveCount(0);
