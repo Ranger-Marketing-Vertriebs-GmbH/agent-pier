@@ -11,6 +11,11 @@ import { runtimeManifest } from "../../server/features/assistants/runtimes/openc
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { AssistantMaintenance } from "../../server/features/assistants/assistant-maintenance.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { updateTrail, withinTrail } from "../helpers/update-trail.js";
+
+// Each test fails with the step it stalled in this long before its own timeout, so
+// its cleanup still stops the Gateway.
+const cleanupMs = 15000;
 
 const installed = process.env.AGENTPIER_ASSISTANT_UPDATE_RUNTIME;
 test(
@@ -57,21 +62,26 @@ test(
         },
       },
     });
+    const trail = updateTrail(updates);
     try {
-      await runtime.start();
-      assert.equal(runtime.client.ready, true);
-      const previousPid = runtime.child.pid;
-      await updates.stage();
-      assert.equal(runtime.child.pid, previousPid);
-      await updates.activate();
-      assert.equal(updates.status().phase, "complete");
-      assert.equal(maintenance, false);
-      assert.notEqual(runtime.child.pid, previousPid);
-      assert.equal(runtime.client.ready, true);
-      await runtime.restart();
-      assert.equal(runtime.client.ready, true);
-      assert.deepEqual(readJSON(selection), descriptor);
-      assert.ok(Array.isArray((await runtime.client.call("agents.list", {})).agents));
+      await withinTrail(contractTimeout(180000 - cleanupMs), trail, async () => {
+        trail.mark("start");
+        await runtime.start();
+        assert.equal(runtime.client.ready, true);
+        const previousPid = runtime.child.pid;
+        await updates.stage();
+        assert.equal(runtime.child.pid, previousPid);
+        await updates.activate();
+        assert.equal(updates.status().phase, "complete");
+        assert.equal(maintenance, false);
+        assert.notEqual(runtime.child.pid, previousPid);
+        assert.equal(runtime.client.ready, true);
+        trail.mark("restart");
+        await runtime.restart();
+        assert.equal(runtime.client.ready, true);
+        assert.deepEqual(readJSON(selection), descriptor);
+        assert.ok(Array.isArray((await runtime.client.call("agents.list", {})).agents));
+      });
     } finally {
       await runtime.close();
       fs.rmSync(dataDir, { recursive: true, force: true });
@@ -98,8 +108,13 @@ test(
       entryPath: path.resolve(installed, "app/node_modules/openclaw/openclaw.mjs"),
     };
     // Same executables, but a distinct descriptor: re-staging an identical runtime
-    // records no candidate, so the activation path needs a different selection.
-    writePrivate(selection, { ...descriptor, version: "pre-update" });
+    // records no candidate, so the activation path needs a different selection. Here
+    // only the package patches differ (an installation made before a patch existed):
+    // the version stays, so the activation runs no Doctor migration. With the team
+    // plugin that migration took about three quarters of this test and three times
+    // as long as in the test above, and pushed it past its timeout on a slow macOS
+    // runner. The test above still migrates.
+    writePrivate(selection, { ...descriptor, bundlePatch: "pre-update" });
     const runtime = new RuntimeSupervisor({
       dataDir,
       install: async () => readJSON(selection),
@@ -132,9 +147,11 @@ test(
     };
     const maintenance = new AssistantMaintenance(services);
     let jobId,
-      validated = false;
+      validated = false,
+      trail;
     const validate = maintenance.validate.bind(maintenance);
     maintenance.validate = async () => {
+      trail.mark("validate");
       await validate();
       assert.equal((await runtime.client.call("cron.status", {})).enabled, false);
       assert.deepEqual(
@@ -145,6 +162,7 @@ test(
     };
     const enter = maintenance.enter.bind(maintenance);
     maintenance.enter = async () => {
+      trail.mark("enter");
       const pid = runtime.child.pid;
       await enter();
       assert.equal(runtime.child.pid, pid);
@@ -163,6 +181,7 @@ test(
     };
     const leave = maintenance.leave.bind(maintenance);
     maintenance.leave = async () => {
+      trail.mark("leave");
       assert.equal(readJSON(path.join(paths.root, "update.json")).phase, "committed");
       const pid = runtime.child.pid;
       await leave();
@@ -176,18 +195,23 @@ test(
       maintenance,
       stage: async () => descriptor,
     });
+    trail = updateTrail(updates);
     try {
-      await runtime.start();
-      assert.equal((await runtime.client.call("cron.status", {})).enabled, true);
-      await updates.stage();
-      await updates.activate();
-      assert.equal(validated, true);
-      assert.equal(updates.status().phase, "complete");
-      assert.equal(assistants.maintenance, false);
-      assert.equal(
-        (await runtime.client.call("agents.list", {})).agents.length > 0,
-        true,
-      );
+      await withinTrail(contractTimeout(180000 - cleanupMs), trail, async () => {
+        trail.mark("start");
+        await runtime.start();
+        assert.equal((await runtime.client.call("cron.status", {})).enabled, true);
+        await updates.stage();
+        await updates.activate();
+        assert.doesNotMatch(trail.describe(), /phase:migrating/);
+        assert.equal(validated, true);
+        assert.equal(updates.status().phase, "complete");
+        assert.equal(assistants.maintenance, false);
+        assert.equal(
+          (await runtime.client.call("agents.list", {})).agents.length > 0,
+          true,
+        );
+      });
     } finally {
       await runtime.close();
       fs.rmSync(dataDir, { recursive: true, force: true });
