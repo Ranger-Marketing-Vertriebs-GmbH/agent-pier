@@ -21,6 +21,7 @@ import { runReply } from "./history-text.js";
 import { answerFields } from "./team-texts.js";
 import { deliverRequest, goalResult } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
+import { sharedWith } from "./lead-share-views.js";
 import { followUpChat } from "./chat-successor.js";
 import { anyHostReady } from "./runtimes/runtime-for.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
@@ -113,6 +114,7 @@ export class LeadRequests {
         phase: m.phase,
         busy: this.teams.activeMember(m),
         canDelegate: m.lifetime === "permanent",
+        ...sharedWith(this.assistants, m, lead.id),
         requests: requests
           .filter((r) => r.memberId === m.id)
           .slice(-5)

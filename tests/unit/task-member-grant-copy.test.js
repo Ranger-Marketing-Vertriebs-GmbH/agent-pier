@@ -64,3 +64,17 @@ test("a lead's shared Read images reads as a standing share that counts now", ()
   assert.equal(shareName(share), "Bilder lesen");
   assert.equal(shareDetail({ ...share, live: { on: true } }), "Dauerhaft");
 });
+
+test("a shared skill reads by its name and counts while the lead has it on", () => {
+  const share = { kind: "skill", skill: "github", requestId: null };
+  setLanguage("en", { persist: false });
+  assert.equal(shareName(share), "Skill github");
+  assert.equal(shareDetail({ ...share, live: { on: true } }), "Standing");
+  assert.equal(
+    shareDetail({ ...share, live: { on: false } }),
+    "Not in effect: the lead agent does not hold it right now · Standing",
+  );
+  setLanguage("de", { persist: false });
+  assert.equal(shareName(share), "Skill github");
+  assert.equal(shareDetail({ ...share, live: { on: true } }), "Dauerhaft");
+});

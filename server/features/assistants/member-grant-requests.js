@@ -75,7 +75,11 @@ export class MemberGrants {
     // A permanent member gets shares of the lead's own access (lead-shares.js).
     const permanent = this.permanentMember(inv, input.memberId);
     if (permanent) {
-      const result = leadShare(this.workflows || {}, { ...permanent, inv, input });
+      const result = await leadShare(this.workflows || {}, {
+        ...permanent,
+        inv,
+        input,
+      });
       this.assistants.changed?.();
       return result;
     }

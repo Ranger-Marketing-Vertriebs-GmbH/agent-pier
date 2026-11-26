@@ -38,8 +38,8 @@ export function teamAuditDetails(details, event, auditId) {
       event.details.edited = details.edited.filter((key) => edited.includes(key));
   }
   // A lead's share with its permanent member (lead-shares.js): what changed, who
-  // changed it, why it ended, the member, task, project levels, server ids and
-  // shared capabilities; never names.
+  // changed it, why it ended, the member, task, project levels, server ids, shared
+  // capabilities and the number of shared skills; never names.
   if (details.kind === "lead-share") {
     if (["grant", "revoke"].includes(details.change))
       event.details.change = details.change;
@@ -50,6 +50,8 @@ export function teamAuditDetails(details, event, auditId) {
       event.details.capabilities = details.capabilities.filter(
         (key) => key === "documents",
       );
+    if (Number.isSafeInteger(details.skills) && details.skills > 0)
+      event.details.skills = Math.min(details.skills, 1000);
     for (const key of ["memberId", "requestId"])
       if (id(details[key])) event.details[key] = details[key];
     // Project ids with their coding and folder levels; never a project's name.

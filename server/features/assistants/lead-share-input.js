@@ -1,8 +1,9 @@
-import { assistantProblem } from "./assistant-validation.js";
+import { assistantProblem, validateSkills } from "./assistant-validation.js";
 import { projectFileLevels } from "./member-grants.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { shareableCapabilities } from "./lead-capability-shares.js";
+import { heldSkills, memberSkills } from "./lead-skill-shares.js";
 
 const maxProjects = 20;
 const projectId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
@@ -11,19 +12,28 @@ const record = (value) => !!value && typeof value === "object" && !Array.isArray
 
 /**
  * What a lead shares with a permanent member (lead-shares.js), normalized; shape
- * only. `grants` may carry only `projects` ({ projectId: "read" | "write" }) and
- * `documents` (Read images, `true`): a permanent member's other settings are the
- * owner's. `coding` names projects for coding requests, `mcpServers` servers by name.
+ * only. `grants` may carry only `projects` ({ projectId: "read" | "write" }),
+ * `documents` (Read images, `true`) and `skills` (names, or `true` for all the lead
+ * has on, lead-skill-shares.js): a permanent member's other settings are the owner's.
+ * `coding` names projects for coding requests, `mcpServers` servers by name.
  */
 export function shareInput({ grants, coding, mcpServers } = {}) {
   if (grants !== undefined && !record(grants)) throw assistantProblem("invalid");
   if (
     grants &&
     Object.keys(grants).some(
-      (key) => key !== "projects" && !shareableCapabilities.includes(key),
+      (key) =>
+        key !== "projects" && key !== "skills" && !shareableCapabilities.includes(key),
     )
   )
     throw assistantProblem("teamShareAccessOnly", 409);
+  // `true` stands for every skill the lead has on; `false` and no names for none.
+  const skills =
+    grants?.skills === true
+      ? "all"
+      : grants?.skills === undefined || grants.skills === false
+        ? []
+        : validateSkills(grants.skills);
   for (const key of shareableCapabilities)
     if (grants && key in grants && typeof grants[key] !== "boolean")
       throw assistantProblem("invalid");
@@ -49,12 +59,14 @@ export function shareInput({ grants, coding, mcpServers } = {}) {
     coding: [...(coding || [])].sort(),
     names,
     capabilities: shareableCapabilities.filter((key) => grants?.[key] === true),
+    skills,
   };
   if (
     !entries.length &&
     !change.coding.length &&
     !names.length &&
-    !change.capabilities.length
+    !change.capabilities.length &&
+    !skills.length
   )
     throw assistantProblem("invalid");
   return change;
@@ -64,7 +76,9 @@ export function shareInput({ grants, coding, mcpServers } = {}) {
  * Checks a share against what the lead holds now and resolves the server names:
  * a folder at most at the lead's level, coding only on the lead's own projects,
  * servers bound to the lead (never a stdio one for a member with its own Telegram
- * bot for other people). A revocation names servers by name only.
+ * bot for other people), skills the lead has switched on itself (`"all"` becomes
+ * their names). A revocation names servers by name only, and `"all"` skills become
+ * the ones this lead shares with the member.
  */
 export function leadHolds(w, lead, member, change, { revoke = false } = {}) {
   const servers = w.a.mcp?.servers || null;
@@ -73,6 +87,7 @@ export function leadHolds(w, lead, member, change, { revoke = false } = {}) {
     return {
       ...change,
       serverIds: change.names.map((name) => byName.get(name)).filter(Boolean),
+      skills: heldSkills(w, lead, member, change.skills, { revoke: true }),
     };
   }
   const refuse = () => {
@@ -96,7 +111,7 @@ export function leadHolds(w, lead, member, change, { revoke = false } = {}) {
     serverIds.some((id) => servers.get(id)?.transport === "stdio")
   )
     refuse();
-  return { ...change, serverIds };
+  return { ...change, serverIds, skills: heldSkills(w, lead, member, change.skills) };
 }
 
 /**
@@ -131,6 +146,7 @@ const keysOf = (rows) => [
   ...shareableCapabilities.filter((key) =>
     rows.some((r) => r.kind === "capability" && r.capability === key),
   ),
+  ...(rows.some((r) => r.kind === "skill") ? ["skills"] : []),
 ];
 
 /**
@@ -179,14 +195,15 @@ export function shareNote(
 
 /**
  * A lead shares (or takes back) access with its own permanent member through
- * agentpier_team_grant: standing, applies at once, no owner approval. Returns the
- * tool result.
+ * agentpier_team_grant: standing, applies at once, no owner approval. Shared skills
+ * are checked like the owner's own switch for the member first (memberSkills).
+ * Returns the tool result.
  */
-export function leadShare(w, { lead, member, conversation, inv, input }) {
+export async function leadShare(w, { lead, member, conversation, inv, input }) {
   const shares = w.shares;
   if (!shares) throw assistantProblem("unavailable", 503);
   shareMember(w, lead, member);
-  const change = leadHolds(
+  const held = leadHolds(
     w,
     lead,
     member,
@@ -197,6 +214,11 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
     }),
     { revoke: input.revoke === true },
   );
+  const all = input.grants?.skills === true;
+  const checked = input.revoke
+    ? { skills: held.skills, skipped: [] }
+    : await memberSkills(w, member, held.skills, { all });
+  const change = { ...held, skills: checked.skills };
   const rows = shares.apply({ lead, member, change, revoke: input.revoke === true, inv });
   if (input.revoke) return leadRevoked(w, { lead, member, conversation, inv, rows });
   shareNote(w, {
@@ -215,6 +237,9 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
     coding: change.coding,
     mcpServers: change.serverIds.length,
     ...(change.capabilities.length ? { capabilities: change.capabilities } : {}),
+    ...(change.skills.length ? { skills: change.skills } : {}),
+    // Skills of "all" that cannot be on for this member right now.
+    ...(checked.skipped.length ? { skippedSkills: checked.skipped } : {}),
   };
 }
 
@@ -226,7 +251,9 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
 function leadRevoked(w, { lead, member, conversation, inv, rows }) {
   const took = (key) => rows.filter((r) => r.revoked?.includes(key));
   const servers = rows.filter((r) => r.kind === "mcp").length;
-  const keys = ["projects", "coding", "documents"].filter((key) => took(key).length);
+  const keys = ["projects", "coding", "documents", "skills"].filter(
+    (key) => took(key).length,
+  );
   if (!keys.length && !servers)
     return { status: "nothing_to_revoke", memberId: member.id };
   shareNote(w, {
@@ -240,6 +267,7 @@ function leadRevoked(w, { lead, member, conversation, inv, rows }) {
     inv,
   });
   const capabilities = took("documents").map((r) => r.capability);
+  const skills = took("skills").map((r) => r.skill);
   return {
     status: "revoked",
     memberId: member.id,
@@ -247,6 +275,7 @@ function leadRevoked(w, { lead, member, conversation, inv, rows }) {
     coding: took("coding").map((r) => r.projectId),
     mcpServers: servers,
     ...(capabilities.length ? { capabilities } : {}),
+    ...(skills.length ? { skills } : {}),
   };
 }
 

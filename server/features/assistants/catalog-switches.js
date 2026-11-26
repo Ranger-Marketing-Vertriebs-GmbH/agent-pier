@@ -1,18 +1,19 @@
-import { personalEligible, personalSkills } from "./native-capabilities.js";
+import { ownSkills, personalEligible } from "./native-capabilities.js";
 import { hostReady } from "./runtimes/runtime-for.js";
 
 // Removing a skill from the agent skill catalog switches it off on every agent first
 // (agent-skill-catalog.js). Only the stored lists of eligible agents change: a
 // temporary member follows its lead, and an archived agent's list is left as it is
-// (the compile drops a name that is neither bundled nor in the catalog).
+// (the compile drops a name that is neither bundled nor in the catalog). A skill a
+// lead shares with its permanent member (lead-skill-shares.js) is no stored list: it
+// ends with the lead's own switch, and the member is re-applied with its lead.
 
 /** The eligible agents whose stored list switches `name` on, for the confirmation. */
 export function catalogUsers(assistants, name) {
   return assistants.store
     .listAssistants()
     .filter(
-      (assistant) =>
-        personalEligible(assistant) && personalSkills(assistant).includes(name),
+      (assistant) => personalEligible(assistant) && ownSkills(assistant).includes(name),
     )
     .map((assistant) => ({ id: assistant.id, name: assistant.name }));
 }
@@ -21,7 +22,7 @@ export function catalogUsers(assistants, name) {
 function strip(store, id, name) {
   for (let attempt = 0; ; attempt++) {
     const current = store.getAssistant(id);
-    const skills = personalSkills(current);
+    const skills = ownSkills(current);
     if (!personalEligible(current) || !skills.includes(name)) return false;
     try {
       store.updateAssistant(

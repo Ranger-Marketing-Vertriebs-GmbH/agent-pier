@@ -10,7 +10,7 @@ import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
 import { personalEligible } from "./native-capabilities.js";
 import { memberInheritance } from "./member-grants.js";
-import { sharedCapabilities } from "./lead-capability-shares.js";
+import { sharedByLead } from "./lead-capability-shares.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { DEFAULT_RUNTIME } from "./runtimes/agent-runtime.js";
@@ -40,11 +40,12 @@ export function cachedWindow(messages) {
 // when one was set for it, and otherwise runs on its lead's (ADR 0006).
 const leadRuntime = Symbol("leadRuntime");
 // A read resolves `inherited` (memberInheritance), a permanent member's
-// `leadCapabilities` (lead-capability-shares.js) and a member's lead runtime; writes
-// never persist them.
+// `leadCapabilities` and `leadSkills` (lead-capability-shares.js) and a member's lead
+// runtime; writes never persist them.
 export const persisted = ({
   inherited: _inherited,
   leadCapabilities: _leadCapabilities,
+  leadSkills: _leadSkills,
   [leadRuntime]: fromLead,
   ...record
 }) => {
@@ -163,8 +164,14 @@ export class AssistantStore {
       }),
     };
     if (record.lifetime === "permanent") {
-      const shared = sharedCapabilities(this.db, record, lead);
-      return Object.keys(shared).length ? { ...next, leadCapabilities: shared } : next;
+      const shared = sharedByLead(this.db, record, lead);
+      return {
+        ...next,
+        ...(Object.keys(shared.capabilities).length && {
+          leadCapabilities: shared.capabilities,
+        }),
+        ...(shared.skills.length && { leadSkills: shared.skills }),
+      };
     }
     if (!temporaryMember(record) || record.archivedAt) return next;
     let granted = { grants: {}, shellSsh: false };

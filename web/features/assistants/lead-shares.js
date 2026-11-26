@@ -12,18 +12,21 @@ export const leadSharesPath = (filter = {}) => {
 export const revokeLeadShare = (id) =>
   api(`/assistant-lead-shares/${encodeURIComponent(id)}`, "DELETE");
 
-/** The share's name: the project, the MCP server or the capability (Read images). */
+/** The share's name: the project, the MCP server, the capability (Read images) or skill. */
 export const shareName = (share) =>
   share.kind === "capability"
     ? copy.capability[share.capability] || share.capability
-    : share.kind === "mcp"
-      ? copy.mcpServer(share.serverName || copy.unknownServer)
-      : share.projectName || copy.unknownProject;
+    : share.kind === "skill"
+      ? copy.skill(share.skill)
+      : share.kind === "mcp"
+        ? copy.mcpServer(share.serverName || copy.unknownServer)
+        : share.projectName || copy.unknownProject;
 
 /** What a project share gives as it counts now: "Folder: read · Coding". */
 export function shareDetail(share) {
+  const switched = share.kind === "capability" || share.kind === "skill";
   const parts =
-    share.kind === "mcp" || share.kind === "capability"
+    share.kind === "mcp" || switched
       ? []
       : [
           share.live?.folder && share.live.folder !== "none"
@@ -34,7 +37,7 @@ export function shareDetail(share) {
   const active =
     share.kind === "mcp"
       ? share.live?.bound
-      : share.kind === "capability"
+      : switched
         ? share.live?.on === true
         : parts.length > 0;
   return [

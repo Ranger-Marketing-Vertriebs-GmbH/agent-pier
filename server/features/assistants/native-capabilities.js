@@ -189,16 +189,40 @@ export function personalShell(assistant) {
     ? assistant.shell
     : "off";
 }
+const names = (list) =>
+  Array.isArray(list)
+    ? [...new Set(list.filter((name) => typeof name === "string"))].sort()
+    : [];
 /**
- * The bundled skills compiled for an agent (agent-skills.js): sorted, without
- * duplicates; a temporary member's are its lead's, an archived agent has none.
+ * The agent's own skill list (agent-skills.js): what the owner switched on for it,
+ * sorted, without duplicates; a temporary member's is its lead's grant, an archived
+ * agent has none. Owner edits, the catalog's switches and its "N agents" count read
+ * this one, so a skill a lead shares is never stored as the member's own.
  */
-export function personalSkills(assistant) {
+export function ownSkills(assistant) {
   const source = inheritsFromLead(assistant)
     ? assistant.inherited
     : personalEligible(assistant) && assistant;
-  if (!source || !Array.isArray(source.skills)) return [];
-  return [...new Set(source.skills.filter((name) => typeof name === "string"))].sort();
+  return source ? names(source.skills) : [];
+}
+/**
+ * The skills a permanent member holds through its lead right now (`leadSkills`,
+ * resolved on every read, lead-capability-shares.js), never its own setting. None for
+ * an agent of users: only the owner's own switch widens what such an agent reads.
+ */
+export const leadSharedSkills = (assistant) =>
+  personalEligible(assistant) && !inheritsFromLead(assistant) && !isUserAgent(assistant)
+    ? names(assistant.leadSkills)
+    : [];
+/**
+ * The skills compiled for an agent: its own list (ownSkills) and, for a permanent
+ * member, what its lead shares with it now. Every compile check (shadowed, damaged,
+ * needs settings, not reported) applies to a shared name as to an own one.
+ */
+export function personalSkills(assistant) {
+  const own = ownSkills(assistant);
+  const shared = leadSharedSkills(assistant);
+  return shared.length ? [...new Set([...own, ...shared])].sort() : own;
 }
 const ownCapabilities = (assistant, eligible = false) =>
   Object.fromEntries(

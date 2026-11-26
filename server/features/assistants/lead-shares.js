@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { personalCapabilities, personalEligible } from "./native-capabilities.js";
+import {
+  ownSkills,
+  personalCapabilities,
+  personalEligible,
+} from "./native-capabilities.js";
+import { auditShares, listShares, standingShares } from "./lead-share-views.js";
 import { projectFileLevels } from "./member-grants.js";
 import { requestTerminal } from "./lead-request-store.js";
 import { shareNote } from "./lead-share-input.js";
@@ -16,8 +21,9 @@ const openCoding = new Set(["awaiting_approval", "approved", "executing", "runni
  * What a lead shares of its own access with one of its permanent members
  * (AGENTPIER-153): project folders (read or write), coding projects (coding
  * requests on the lead's project and pipelines, each approved by the owner), the
- * MCP servers bound to the lead and, standing only, Read images (`capability`,
- * lead-capability-shares.js, resolved into the member's capabilities on every read). Kept apart from the member's own access
+ * MCP servers bound to the lead and, standing only, Read images (`capability`) and
+ * skills the lead has switched on (`skill`, AGENTPIER-499), both resolved into the
+ * member's record on every read (lead-capability-shares.js). Kept apart from the member's own access
  * (assistant_access), one row per member, lead, resource and scope: standing
  * (`requestId` null) or for one delegated task (`requestId`). A share is only an
  * upper bound: it counts while lead and member stay what they are (the lead active,
@@ -143,11 +149,17 @@ export class LeadShares {
    */
   live(row) {
     const ended = this.ended(row);
-    if (row.kind === "capability") {
+    if (row.kind === "capability" || row.kind === "skill") {
       if (ended) return { ended, on: false, unknown: false };
       try {
         const lead = this.w.a.store.getAssistant(row.leadId);
-        return { ended, on: personalCapabilities(lead)[row.capability] === true };
+        return {
+          ended,
+          on:
+            row.kind === "skill"
+              ? ownSkills(lead).includes(row.skill)
+              : personalCapabilities(lead)[row.capability] === true,
+        };
       } catch {
         return { ended, on: false, unknown: true };
       }
@@ -281,7 +293,7 @@ export class LeadShares {
         (r) =>
           r.leadId === lead.id &&
           r.kind === kind &&
-          (r.projectId || r.serverId || r.capability) === resource &&
+          (r.projectId || r.serverId || r.capability || r.skill) === resource &&
           (r.requestId || null) === requestId,
       );
     const projects = new Set([...Object.keys(change.projects), ...change.coding]);
@@ -385,6 +397,33 @@ export class LeadShares {
         }),
       );
     }
+    // Skills too: one row per name, so each is revoked alone.
+    for (const skill of requestId ? [] : change.skills || []) {
+      const old = key("skill", skill);
+      if (revoke) {
+        if (old) {
+          this.delete(old.id);
+          changed.push({ ...old, removed: true, revoked: ["skills"] });
+        }
+        continue;
+      }
+      changed.push(
+        this.write({
+          ...(old || {
+            id: randomUUID(),
+            kind: "skill",
+            leadId: lead.id,
+            memberId: member.id,
+            memberAssistantId: member.assistantId,
+            skill,
+            requestId: null,
+          }),
+          grantedAt: now,
+          grantedBy: "lead",
+          ...(inv?.attemptId ? { attemptId: inv.attemptId } : {}),
+        }),
+      );
+    }
     if (changed.length) {
       this.audit(changed, { change: revoke ? "revoke" : "grant", by: "lead", requestId });
       this.changed(member.assistantId, changed);
@@ -423,7 +462,7 @@ export class LeadShares {
         live.ended ||
         (row.kind === "mcp"
           ? !live.bound && "lead-lost"
-          : row.kind === "capability"
+          : row.kind === "capability" || row.kind === "skill"
             ? !live.on && "lead-lost"
             : !live.coding && !live.folder && "lead-lost");
       if (!reason) continue;
@@ -443,10 +482,10 @@ export class LeadShares {
           rows.filter((r) => r.reason === reason),
           { change: "revoke", by: "system", reason },
         );
-      // A capability share that went changes what the member compiles (Read images),
+      // A capability or skill share that went changes what the member compiles,
       // whoever pruned it: the member is re-applied now (lead-capability-shares.js).
       this.changed(memberAssistantId, rows, {
-        quiet: !rows.some((r) => r.kind === "capability"),
+        quiet: !rows.some((r) => ["capability", "skill"].includes(r.kind)),
       });
     }
     return mcp;
@@ -462,7 +501,7 @@ export class LeadShares {
     );
   }
   // A change reaches the member: MCP servers with the next apply, its instructions
-  // (project folders) with its next profile apply.
+  // (project folders), Read images and skills with its profile apply, started here.
   changed(memberAssistantId, rows, { quiet = false } = {}) {
     const a = this.w.a;
     if (rows.some((r) => r.kind === "mcp") && a.mcp) a.mcp.pending = true;
@@ -472,43 +511,9 @@ export class LeadShares {
         .catch(() => {});
     a.changed?.();
   }
-  /** One record per change: ids, kinds and levels, never names or content. */
-  audit(rows, { change, by, requestId = null, reason = null }) {
-    const first = rows[0];
-    try {
-      this.w.s.audit?.append({
-        action: "assistant.updated",
-        resourceType: "assistant",
-        resourceId: first.memberAssistantId,
-        source: by === "owner" ? "user" : "system",
-        outcome: "success",
-        details: {
-          kind: "lead-share",
-          change,
-          by,
-          leadAssistantId: first.leadId,
-          memberId: first.memberId,
-          ...((requestId || first.requestId) && {
-            requestId: requestId || first.requestId,
-          }),
-          ...(reason && { reason }),
-          projects: rows
-            .filter((r) => r.kind === "project")
-            .map((r) => ({
-              projectId: r.projectId,
-              coding: !!r.coding,
-              folder: r.folder || "none",
-              ...(r.removed && { removed: true }),
-            })),
-          mcpServerIds: rows.filter((r) => r.kind === "mcp").map((r) => r.serverId),
-          capabilities: rows
-            .filter((r) => r.kind === "capability")
-            .map((r) => r.capability),
-        },
-      });
-    } catch (error) {
-      console.error("Lead share audit failed:", error?.message);
-    }
+  /** One record per change (lead-share-views.js auditShares). */
+  audit(rows, options) {
+    auditShares(this, rows, options);
   }
   // The owner's removal, noted in the member's chat like a lead's grant change.
   note(row, change, by) {
@@ -520,69 +525,14 @@ export class LeadShares {
       /* A note is a courtesy; the audit holds the record. */
     }
   }
-  // --- owner views --------------------------------------------------------------
-  /**
-   * Shares as the owner sees them, with names and what applies now; `filter` keeps
-   * a member's, a project's or a server's. Ended ones are pruned first.
-   */
-  list(filter = () => true) {
-    try {
-      if (this.prune() && this.w.a.mcp) this.w.a.mcp.pending = true;
-    } catch {
-      /* Listed as they are. */
-    }
-    const store = this.w.a.store;
-    const name = (id) => {
-      try {
-        return store.getAssistant(id).name;
-      } catch {
-        return null;
-      }
-    };
-    const projectName = (id) => {
-      try {
-        return this.w.s.memory.project(id).name;
-      } catch {
-        return null;
-      }
-    };
-    const serverName = (id) => {
-      try {
-        return this.servers?.get(id)?.name ?? null;
-      } catch {
-        return null;
-      }
-    };
-    return this.rows()
-      .filter(filter)
-      .map((row) => {
-        const live = this.live(row);
-        return {
-          id: row.id,
-          kind: row.kind,
-          leadId: row.leadId,
-          leadName: name(row.leadId),
-          memberAssistantId: row.memberAssistantId,
-          memberName: name(row.memberAssistantId),
-          requestId: row.requestId || null,
-          grantedAt: row.grantedAt,
-          ...(row.kind === "capability"
-            ? { capability: row.capability, live: { on: live.on === true } }
-            : row.kind === "project"
-              ? {
-                  projectId: row.projectId,
-                  projectName: projectName(row.projectId),
-                  coding: !!row.coding,
-                  folder: row.folder || "none",
-                  live: { coding: live.coding, folder: live.folder || "none" },
-                }
-              : {
-                  serverId: row.serverId,
-                  serverName: serverName(row.serverId),
-                  live: { bound: live.bound },
-                }),
-        };
-      });
+  // --- views (lead-share-views.js) ------------------------------------------------
+  /** Shares as the owner sees them; `filter` keeps a member's, a project's, a server's. */
+  list(filter) {
+    return listShares(this, filter);
+  }
+  /** What `leadId` shares with a member for good, as the lead reads it; or null. */
+  standing(memberAssistantId, leadId) {
+    return standingShares(this, memberAssistantId, leadId);
   }
 }
 

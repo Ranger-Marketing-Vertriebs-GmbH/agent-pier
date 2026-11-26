@@ -80,6 +80,7 @@ test("GET skills lists bundled skills without host paths; PATCH assigns them", a
   assert.equal(listed.status, 200);
   assert.deepEqual(listed.body, {
     assigned: [],
+    shared: [],
     shell: "off",
     skills: [
       {

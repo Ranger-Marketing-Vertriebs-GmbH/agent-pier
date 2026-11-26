@@ -12,6 +12,7 @@ export const agentSkillCatalogCopy = {
   whenUsed: "Wann der Agent ihn nutzt",
   switchesLabel: "Eingeschaltet für",
   noAgents: "Noch kann kein Agent Skills nutzen.",
+  viaLead: "An über seinen leitenden Agenten, nur solange er bei diesem an ist",
   switchLabel: (skill, agent) => `${skill} für ${agent}`,
   factsLabel: "Herkunft und Prüfung",
   factPrograms: "Programme",
