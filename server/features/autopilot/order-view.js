@@ -200,8 +200,8 @@ export async function orderView(
     requests,
     selection:
       ref.managed && ref.selection
-        ? Object.fromEntries(
-            [
+        ? Object.fromEntries([
+            ...[
               "tool",
               "accountId",
               "providerConnectionId",
@@ -211,7 +211,10 @@ export async function orderView(
             ]
               .filter((key) => typeof ref.selection[key] === "string")
               .map((key) => [key, ref.selection[key]]),
-          )
+            ...["sshAccessIds", "secretIds"]
+              .filter((key) => Array.isArray(ref.selection[key]))
+              .map((key) => [key, [...ref.selection[key]]]),
+          ])
         : null,
     allowMerge: doc.allowMerge === true,
     implementationAuthorized: doc.implementationAuthorized === true,

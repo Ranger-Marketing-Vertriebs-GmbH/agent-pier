@@ -54,7 +54,8 @@ the site data for that port in the browser.
 
 ## Using previews
 
-Sessions with AgentPier tools and full access get three tools on the `agentpier_session`
+Sessions with AgentPier tools and full access, and the session of an
+[Autopilot order](autopilot-orders.md), get three tools on the `agentpier_session`
 MCP server: `preview_open({ port, label?, path? })`, `preview_close({ id | port })` and
 `preview_list()`. Opening the same port again returns the same preview and updates its
 label and path. Agents use `agentpier_preview` with the actions `open`, `close` and

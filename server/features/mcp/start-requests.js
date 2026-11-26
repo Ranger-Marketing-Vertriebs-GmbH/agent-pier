@@ -6,6 +6,11 @@ import { problem } from "../../lib/storage.js";
 // private receipt namespace. OAuth grants and ordinary session IDs are unchanged.
 export const orderGrantPrefix = "autopilot-";
 export const orderGrantId = (orderId) => orderGrantPrefix + orderId;
+// The tools a session uses on its own behalf (its previews and artifacts) go to a full
+// session grant and to an Autopilot order's session, whose pipeline grant stays limited
+// to the order's project.
+export const sessionToolsGrant = (grant) =>
+  Boolean(grant?.allResources || grant?.id?.startsWith(orderGrantPrefix));
 
 export class StartRequests {
   constructor(dataDir) {

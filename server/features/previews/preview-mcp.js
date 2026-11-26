@@ -2,6 +2,7 @@ import { z } from "zod";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { previewError } from "./preview-errors.js";
+import { sessionToolsGrant } from "../mcp/start-requests.js";
 
 export const previewInstruction =
   "When you start a server for the user to look at or test, call `preview_open` with its port and give the user the returned link instead of a localhost URL. Bind the server to 127.0.0.1 or localhost. Close it with `preview_close` when it is no longer needed.";
@@ -32,7 +33,9 @@ export const previewTools = {
 };
 
 export function previewToolEntries(grant, context) {
-  return grant.allResources && context?.sessionId ? Object.entries(previewTools) : [];
+  return sessionToolsGrant(grant) && context?.sessionId
+    ? Object.entries(previewTools)
+    : [];
 }
 
 const unavailable = () => problem(serverMessages.previews.accessRevoked, 403);
@@ -40,16 +43,19 @@ const view = ({ id, url, port, label }) => ({ id, url, port, label });
 
 export async function callPreviewTool(services, name, input, context) {
   // The grant is checked on every call: a revoked session opens nothing more.
-  if (!context?.sessionId || !services.sessionMcp?.grantFor(context.sessionId))
-    throw unavailable();
+  const allowed = () =>
+    Boolean(context?.sessionId) &&
+    sessionToolsGrant(services.sessionMcp?.grantFor(context.sessionId));
+  if (!allowed()) throw unavailable();
   const parsed = previewTools[name].schema.safeParse(input);
   if (!parsed.success) throw previewError("PREVIEW_INVALID_INPUT", 400);
   const revalidate = () => {
     try {
-      context.revalidate?.();
+      context.revalidateSession?.();
     } catch {
       throw unavailable();
     }
+    if (!allowed()) throw unavailable();
   };
   revalidate();
   const { previews } = services;

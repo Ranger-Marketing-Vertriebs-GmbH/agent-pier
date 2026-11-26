@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { projectScope } from "../memory/project-scope.js";
 import { artifactError } from "./artifact-errors.js";
+import { sessionToolsGrant } from "../mcp/start-requests.js";
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/);
 export const artifactTools = {
   artifact_publish: {
@@ -23,7 +24,9 @@ export const artifactTools = {
   },
 };
 export function artifactToolEntries(grant, context) {
-  return grant.allResources && context?.sessionId ? Object.entries(artifactTools) : [];
+  return sessionToolsGrant(grant) && context?.sessionId
+    ? Object.entries(artifactTools)
+    : [];
 }
 const denials = new Set(["ARTIFACT_ACCESS_DENIED", "ARTIFACT_PROJECT_CHANGED"]);
 export async function callArtifactTool(services, name, input, grant, context) {
@@ -43,6 +46,9 @@ export async function callArtifactTool(services, name, input, grant, context) {
   }
 }
 const validId = (value) => id.safeParse(value).success;
+// The transport's recheck that also holds for an order's session; `revalidate` alone
+// asks for a full grant.
+const revalidator = (context) => context?.revalidateTools ?? context?.revalidate;
 /** The session's current project, after a safe rebind of a folder that became Git. */
 async function currentProject(services, session, grant, context) {
   const project = await projectScope(session.cwd);
@@ -56,19 +62,19 @@ async function currentProject(services, session, grant, context) {
   }
   const rebound = await ensure();
   if (rebound?.id !== project.id) throw artifactError("ARTIFACT_PROJECT_CHANGED", 409);
-  context.revalidate();
+  revalidator(context)();
   return rebound;
 }
 async function performArtifactTool(services, name, input, grant, context) {
   if (
-    !grant.allResources ||
+    !sessionToolsGrant(grant) ||
     !context?.sessionId ||
-    typeof context.revalidate !== "function"
+    typeof revalidator(context) !== "function"
   )
     throw artifactError("ARTIFACT_ACCESS_DENIED", 403);
   const parsed = artifactTools[name].schema.safeParse(input);
   if (!parsed.success) throw artifactError("ARTIFACT_INVALID_INPUT");
-  context.revalidate();
+  revalidator(context)();
   const session = await services.sessions.get(context.sessionId);
   const config = services.effectiveConfig?.() || services.config;
   const origin = config.remoteUrl || `http://127.0.0.1:${config.port}`;
@@ -81,14 +87,14 @@ async function performArtifactTool(services, name, input, grant, context) {
       sessionId: session.id,
       page: parsed.data.page,
     });
-    context.revalidate();
+    revalidator(context)();
     return { ...result, items: result.items.map(withUrl) };
   }
   const project = await currentProject(services, session, grant, context);
   const result = await services.artifacts.publish(
     { sessionId: session.id, projectId: project.id, cwd: session.cwd },
     parsed.data,
-    context.revalidate,
+    revalidator(context),
   );
   services.audit.append({
     action: "artifact.updated",

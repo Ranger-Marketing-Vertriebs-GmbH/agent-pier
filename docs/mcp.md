@@ -194,7 +194,8 @@ them in AgentPier ([Craft Anything](craft.md)).
 
 ### Publishing private artifacts
 
-Hosted sessions with AgentPier tools enabled also receive `artifact_publish` and
+Hosted sessions with AgentPier tools enabled, and the session of an
+[Autopilot order](autopilot-orders.md), also receive `artifact_publish` and
 `artifacts_list`. Publish HTML, images or static bundles from the session working
 directory and return the private viewer URL to the owner. Updates use the existing
 artifact ID with a new request ID. Artifact ownership uses the authenticated
@@ -204,7 +205,8 @@ backup limits.
 
 ### Previews of local servers
 
-Sessions with full access also receive `preview_open`, `preview_close` and
+Sessions with full access, and the session of an
+[Autopilot order](autopilot-orders.md), also receive `preview_open`, `preview_close` and
 `preview_list`. They hand the owner a link to a web server the session runs on a local
 port (a dev server or the local end of an SSH tunnel), opened through AgentPier. The
 tools are off while previews are disabled (`PREVIEW_DISABLED`), exist only for the

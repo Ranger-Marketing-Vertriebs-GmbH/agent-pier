@@ -6,6 +6,8 @@ import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { launchDialogCopy } from "../../lib/i18n/messages/sessions.js";
 import { autopilotActionsCopy as copy } from "../../lib/i18n/messages/autopilot-actions.js";
 import { names } from "../../lib/providers.js";
+import LaunchSecretChoices from "../secrets/LaunchSecretChoices.jsx";
+import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import LaunchAccessFields from "../sessions/LaunchAccessFields.jsx";
 import useLaunchAccess from "../sessions/useLaunchAccess.js";
 import { launchModeCopy } from "../sessions/launch-mode-copy.js";
@@ -26,15 +28,28 @@ export function useOrderSession(state, initial) {
   };
   const access = useLaunchAccess(coding, initial?.tool, null, initial?.accountId);
   const [mode, setMode] = useState(() => preferredMode(access.tool));
+  // The session's SSH hosts and extra secrets, as in the new-session dialog; its
+  // project's own hosts and secrets reach it without being picked.
+  const [sshAccessIds, setSshAccessIds] = useState(() => initial?.sshAccessIds || []);
+  const [secretIds, setSecretIds] = useState(() => initial?.secretIds || []);
   return {
     access,
     mode,
     setMode,
+    sshAccessIds,
+    setSshAccessIds,
+    secretIds,
+    setSecretIds,
     chooseTool(value) {
       access.chooseTool(value);
       setMode(preferredMode(value));
     },
-    body: { ...access.body, launchMode: mode },
+    body: {
+      ...access.body,
+      launchMode: mode,
+      ...(sshAccessIds.length ? { sshAccessIds } : {}),
+      ...(secretIds.length ? { secretIds } : {}),
+    },
   };
 }
 
@@ -90,6 +105,11 @@ export default function OrderSessionFields({ session }) {
             : launchModeCopy(access.tool, mode)[1]}
         </small>
       </label>
+      <LaunchSshChoices
+        selected={session.sshAccessIds}
+        change={session.setSshAccessIds}
+      />
+      <LaunchSecretChoices selected={session.secretIds} change={session.setSecretIds} />
     </>
   );
 }
