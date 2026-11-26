@@ -7,6 +7,7 @@ import { problem } from "../../lib/storage.js";
 import { viaFunnel } from "../../http/tailscale-request.js";
 import { boundedToolResult } from "./tool-policy.js";
 import { previewInstruction } from "../previews/preview-mcp.js";
+import { sessionToolsGrant } from "./start-requests.js";
 import { craftInstruction } from "../craft/craft-mcp-tools.js";
 import { talkInstruction } from "../session-talk/session-talk-mcp.js";
 
@@ -125,6 +126,10 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
             if (!sessionAccess().extra.grant.allResources)
               throw problem("Artifact session access is unavailable.", 403);
           },
+          revalidateTools: () => {
+            if (!sessionToolsGrant(sessionAccess().extra.grant))
+              throw problem("Artifact session access is unavailable.", 403);
+          },
         }
       : undefined;
     const offered = mcpTools.list(auth.extra.grant, context);
@@ -134,7 +139,9 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
         instructions: context
           ? [
               serverInstructions,
-              previewInstruction,
+              ...(offered.some(([name]) => name === "preview_open")
+                ? [previewInstruction]
+                : []),
               ...(offered.some(([name]) => name === "craft_rebuild_start")
                 ? [craftInstruction]
                 : []),

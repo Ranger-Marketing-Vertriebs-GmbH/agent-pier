@@ -26,6 +26,10 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
       "Move the nightly imports to the new storage engine.",
       "migration",
     );
+    const secret = f.application.secrets.create({
+      name: "ARCHIVE_TOKEN",
+      value: "fixture",
+    });
     const overview = f.url + "/control-room";
     await page.goto(f.url + "/inbox");
     const room = page.getByRole("link", { name: "Control Room", exact: true });
@@ -44,6 +48,12 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
       .fill("Check archive checksums after export.");
     const merge = form.getByRole("switch", { name: /autopilot may merge/i });
     await expect(merge).not.toBeChecked();
+    // The session's SSH hosts and secrets are chosen as in the new-session dialog.
+    await expect(form.getByText("No SSH accesses yet.")).toBeVisible();
+    const secrets = form.getByRole("group", { name: "Secrets" });
+    await secrets.getByRole("combobox", { name: "Add secret" }).fill("ARCHIVE");
+    await secrets.getByRole("option", { name: /ARCHIVE_TOKEN/ }).click();
+    await secrets.getByRole("button", { name: "Add 1" }).click();
     await form.getByRole("button", { name: "Start order" }).click();
     await expect(page).toHaveURL(/\/sessions\/[^/]+\/chat$/);
     const { orders } = await f.application.autopilot.orders.list();
@@ -51,6 +61,10 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
     expect(page.url()).toBe(f.url + second.session.link);
     expect(second.session.id).not.toBe(original.session.id);
     expect(second.projectId).toBe(original.projectId);
+    expect(second.selection.secretIds).toEqual([secret.id]);
+    expect(
+      (await f.application.sessions.get(second.session.id)).secrets.assignedIds,
+    ).toEqual([secret.id]);
     expect(f.application.pipelines.store.all()).toHaveLength(0);
 
     await page.goto(overview);

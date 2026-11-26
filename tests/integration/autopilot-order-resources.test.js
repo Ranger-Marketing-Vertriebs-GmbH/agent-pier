@@ -151,6 +151,52 @@ test("owner selections exclude session identity, paths and non-coding sessions",
   });
 });
 
+test("an order's SSH hosts and secrets are a stable, bounded part of its selection", () => {
+  for (const value of [
+    { tool: "codex", sshAccessIds: "host" },
+    { tool: "codex", sshAccessIds: ["a", "a"] },
+    { tool: "codex", sshAccessIds: Array.from({ length: 31 }, (_, i) => "h" + i) },
+    { tool: "codex", secretIds: [""] },
+    { tool: "codex", secretIds: [5] },
+    { tool: "codex", secretIds: ["a\nb"] },
+    { tool: "codex", secretIds: Array.from({ length: 51 }, (_, i) => "s" + i) },
+  ])
+    assert.throws(() => checkSelection(value), JSON.stringify(value));
+  assert.deepEqual(
+    checkSelection({
+      secretIds: ["s2", "s1"],
+      sshAccessIds: ["h2", "h1"],
+      tool: "codex",
+    }),
+    { tool: "codex", sshAccessIds: ["h1", "h2"], secretIds: ["s1", "s2"] },
+  );
+  // No list and an empty one are the same request, as before the lists existed.
+  assert.deepEqual(checkSelection({ tool: "codex", sshAccessIds: [], secretIds: [] }), {
+    tool: "codex",
+  });
+});
+
+test("the order session launches with its chosen hosts and secrets that still exist", async (t) => {
+  const { api, ctx, services } = fixture(t);
+  services.sshAccesses = { list: () => [{ id: "host-1" }, { id: "other" }] };
+  services.secrets = { names: () => [{ id: "secret-1", name: "TOKEN" }] };
+  const launch = services.launch;
+  let body;
+  services.launch = (input, ...rest) => {
+    body = input;
+    return launch(input, ...rest);
+  };
+  ctx.selection = {
+    tool: "codex",
+    sshAccessIds: ["host-1", "deleted-host"],
+    secretIds: ["deleted-secret", "secret-1"],
+  };
+  await api.start(ctx);
+  assert.deepEqual(body.sshAccessIds, ["host-1"]);
+  assert.deepEqual(body.secretIds, ["secret-1"]);
+  assert.equal(body.tool, "codex");
+});
+
 test("a removed or outdated Composer package requires repair before provisioning", async (t) => {
   const { api, ctx, skill } = fixture(t);
   fs.writeFileSync(path.join(skill, "SKILL.md"), "Old local skill");

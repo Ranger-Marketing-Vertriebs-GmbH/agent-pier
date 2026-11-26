@@ -65,12 +65,13 @@ test("the owner opens a normal Composer chat, sees legacy orders, and can pause 
     prompts.push(msg.text);
     return { status: "accepted" };
   };
+  const secret = app.secrets.create({ name: "DEPLOY_TOKEN", value: "fixture" });
   const body = {
     projectId,
     requestId: "request-1",
     title: "Migration",
     brief: "Plan the change".padEnd(65536, "."),
-    session: { tool: "codex", accountId: "local-codex" },
+    session: { tool: "codex", accountId: "local-codex", secretIds: [secret.id] },
   };
   const created = await f.request(base, { method: "POST", body });
   const order = await created.json();
@@ -83,6 +84,46 @@ test("the owner opens a normal Composer chat, sees legacy orders, and can pause 
   assert.equal(session.agentpierTools.enabled, true);
   assert.deepEqual(session.agentpierTools.selection.projectIds, []);
   assert.equal(session.agentpierTools.selection.currentProject, true);
+  // Like an ordinary session: the secrets picked for it, the SSH tools, its own
+  // previews and artifacts, while the pipeline grant stays on the order's project.
+  assert.deepEqual(order.selection.secretIds, [secret.id]);
+  assert.deepEqual(session.secrets.assignedIds, [secret.id]);
+  assert.equal(session.sshTools.enabled, true);
+  const grant = app.sessionMcp.grantFor(session.id);
+  assert.equal(grant.allResources, false);
+  const offered = app.mcpTools
+    .list(grant, { sessionId: session.id })
+    .map(([name]) => name);
+  for (const name of [
+    "preview_open",
+    "preview_close",
+    "preview_list",
+    "artifact_publish",
+    "artifacts_list",
+  ])
+    assert.ok(offered.includes(name), name);
+  assert.ok(!offered.includes("craft_rebuild_start"));
+  // The transport's recheck for a full grant refuses an order's; its own one holds.
+  const context = {
+    sessionId: session.id,
+    revalidate() {
+      throw Error("full grant only");
+    },
+    revalidateTools() {},
+  };
+  await fs.writeFile(path.join(order.worktree, "report.html"), "<p>Report</p>");
+  const published = await app.mcpTools.call(
+    "artifact_publish",
+    { requestId: "report-1", title: "Report", sourcePath: "report.html" },
+    grant,
+    undefined,
+    context,
+  );
+  const listed = await app.mcpTools.call("artifacts_list", {}, grant, undefined, context);
+  assert.deepEqual(
+    listed.items.map((item) => item.id),
+    [published.id],
+  );
   assert.equal(app.pipelines.store.all().length, 0);
   assert.equal(prompts.length, 1);
   const pause = await (
@@ -92,7 +133,10 @@ test("the owner opens a normal Composer chat, sees legacy orders, and can pause 
   const replay = await (
     await f.request(base, {
       method: "POST",
-      body: { ...body, session: { accountId: "local-codex", tool: "codex" } },
+      body: {
+        ...body,
+        session: { secretIds: [secret.id], accountId: "local-codex", tool: "codex" },
+      },
     })
   ).json();
   assert.equal(replay.session.id, order.session.id);

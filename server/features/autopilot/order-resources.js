@@ -14,6 +14,7 @@ import { safePath } from "../extensions/mcp-config.js";
 import { skillMetadata } from "../extensions/skill-packages.js";
 import { sessionScope } from "../chat/chat-delivery.js";
 import { confirmedDelivery } from "../chat/chat-delivery-blocked.js";
+import { MAX_SESSION_SECRETS } from "../secrets/session-secrets.js";
 import { orderError } from "./order-error.js";
 import {
   orderBaseRef,
@@ -32,6 +33,9 @@ const selectionKeys = new Set([
 ]);
 const skillName = "agentpier-composer";
 
+// The hosts and secrets the owner picks for the session, as in the launch dialog.
+const listKeys = { sshAccessIds: 30, secretIds: MAX_SESSION_SECRETS };
+
 export function checkSelection(value) {
   if (
     !value ||
@@ -41,6 +45,22 @@ export function checkSelection(value) {
   )
     throw orderError("selectionRequired", 400);
   for (const [key, entry] of Object.entries(value)) {
+    if (Object.hasOwn(listKeys, key)) {
+      if (
+        !Array.isArray(entry) ||
+        entry.length > listKeys[key] ||
+        new Set(entry).size !== entry.length ||
+        entry.some(
+          (id) =>
+            typeof id !== "string" ||
+            !id ||
+            id.length > 100 ||
+            /[\x00-\x1f\x7f]/.test(id),
+        )
+      )
+        throw orderError("selectionRequired", 400);
+      continue;
+    }
     if (
       !selectionKeys.has(key) ||
       typeof entry !== "string" ||
@@ -51,12 +71,32 @@ export function checkSelection(value) {
       throw orderError("selectionRequired", 400);
   }
   if (value.tool && !isCodingCli(value.tool)) throw orderError("selectionRequired", 400);
-  // Stable request receipts are independent of JSON field order.
-  return Object.fromEntries(
-    [...selectionKeys]
+  // Stable request receipts are independent of JSON field and list order; an empty
+  // list is the same request as none.
+  return Object.fromEntries([
+    ...[...selectionKeys]
       .filter((key) => Object.hasOwn(value, key))
       .map((key) => [key, value[key]]),
-  );
+    ...Object.keys(listKeys)
+      .filter((key) => value[key]?.length)
+      .map((key) => [key, [...value[key]].sort()]),
+  ]);
+}
+
+// What a launch takes of the order's hosts and secrets: the ones that still exist. A
+// recovery long after the order was commissioned is not refused over a deleted one.
+function sessionAccess(s, selection) {
+  const kept = (ids, known) => (ids || []).filter((id) => known.has(id));
+  return {
+    sshAccessIds: kept(
+      selection.sshAccessIds,
+      new Set((s.sshAccesses?.list() || []).map((access) => access.id)),
+    ),
+    secretIds: kept(
+      selection.secretIds,
+      new Set((s.secrets?.names() || []).map((secret) => secret.id)),
+    ),
+  };
 }
 
 function composerSkill(services, account) {
@@ -161,7 +201,7 @@ export class OrderResources {
     if (!current && r.sessionConfirmed && !recover)
       throw orderError("sessionRecoveryRequired");
 
-    const selection = checkSelection(ctx.selection);
+    const { sshAccessIds, secretIds, ...selection } = checkSelection(ctx.selection);
     // A resumed conversation may have switched accounts through the regular reload UI.
     const account = current
       ? s.accounts.get(current.accountId)
@@ -239,7 +279,13 @@ export class OrderResources {
         typeof ctx.title === "string" && ctx.title.trim() ? ctx.title : ctx.id
       ).slice(0, 100);
       current = await s.launch(
-        { ...selection, cwd: r.workspace.cwd, name, agentpierTools: pipelineTools(s) },
+        {
+          ...selection,
+          ...sessionAccess(s, { sshAccessIds, secretIds }),
+          cwd: r.workspace.cwd,
+          name,
+          agentpierTools: pipelineTools(s),
+        },
         false,
         {
           id: r.sessionId,
