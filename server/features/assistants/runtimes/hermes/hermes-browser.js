@@ -19,6 +19,8 @@ const ticketMs = 30000;
 const commandTimeoutMs = 5000;
 
 const problem = (code) => Object.assign(Error(code), { code });
+const delay = (ms, value) => new Promise((resolve) => setTimeout(resolve, ms, value));
+const ended = (child) => child.exitCode !== null || (child.signalCode ?? null) !== null;
 
 /** A free loopback TCP port, as the system hands one out. */
 export function freePort() {
@@ -81,6 +83,9 @@ export class HermesBrowser {
     // Further Chromium flags before the start page (contract tests map test names).
     args = [],
     platform = process.platform,
+    // How a stop signals the browser and how long each step waits (tests).
+    kill = (pid, signal) => process.kill(pid, signal),
+    graceMs = stopGraceMs,
   }) {
     // `directory`: the folder, or a function answering it (read when first needed).
     Object.assign(this, {
@@ -92,9 +97,13 @@ export class HermesBrowser {
       lookup,
       args,
       platform,
+      kill,
+      graceMs,
     });
     this.child = null;
     this.starting = null;
+    this.endings = new Set();
+    this.stops = 0;
     this.tickets = new Map();
   }
   get directory() {
@@ -147,9 +156,12 @@ export class HermesBrowser {
     privateFolder(this.directory);
     privateFolder(this.userData);
     await this.stop();
+    const stops = this.stops;
     // A browser of an earlier AgentPier run (one that crashed) still holds the port
     // and the profile: it is asked to close over CDP before the new one starts.
     await this.closeStray(port);
+    // A stop meanwhile (the set stopping) ends this launch before it has a browser.
+    if (this.stops !== stops) throw problem("BROWSER_START_FAILED");
     const { platform } = this;
     const child = this.spawn(
       settings.executablePath,
@@ -215,42 +227,94 @@ export class HermesBrowser {
     return true;
   }
   async closeStray(port) {
-    const socket = loopbackSocket((await this.version())?.webSocketDebuggerUrl, port);
-    if (!socket) return;
+    if (!(await this.closeOverCdp(port, commandTimeoutMs))) return;
+    const deadline = Date.now() + stopGraceMs;
+    while (Date.now() < deadline && (await this.version())) await delay(250);
+  }
+  /**
+   * Asks the browser on `port` to quit over CDP (`Browser.close`), as its own menu
+   * would: it saves the profile and ends its helper processes itself. Resolves within
+   * `timeoutMs`, true when a browser was asked.
+   */
+  async closeOverCdp(port, timeoutMs) {
+    let version = null;
+    try {
+      const response = await this.fetch(`http://127.0.0.1:${port}/json/version`, {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      version = response.ok ? await response.json() : null;
+    } catch {
+      /* No browser answers. */
+    }
+    const socket = loopbackSocket(version?.webSocketDebuggerUrl, port);
+    if (!socket) return false;
     await new Promise((resolve) => {
-      const ws = new this.WebSocketImpl(socket);
-      const done = setTimeout(resolve, commandTimeoutMs);
-      ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: "Browser.close" }));
-      ws.onerror = ws.onclose = () => {
+      const done = setTimeout(resolve, timeoutMs);
+      const finish = () => {
         clearTimeout(done);
         resolve();
       };
+      try {
+        const ws = new this.WebSocketImpl(socket);
+        ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: "Browser.close" }));
+        // The answer, or the socket closing as the browser goes.
+        ws.onmessage = ws.onerror = ws.onclose = finish;
+      } catch {
+        finish();
+      }
     });
-    const deadline = Date.now() + stopGraceMs;
-    while (Date.now() < deadline && (await this.version()))
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    return true;
   }
-  /** Ends the browser this AgentPier started; its profile stays. */
+  /**
+   * Ends the browser this AgentPier started and resolves once it is gone; its profile
+   * stays. A stop already under way is waited for.
+   */
   async stop() {
+    this.stops += 1;
     const child = this.child;
     this.child = null;
     this.navigationGuard?.close();
     this.navigationGuard = null;
     for (const ticket of this.tickets.values()) ticket.stream?.close();
     this.tickets.clear();
-    if (!child?.pid || child.exitCode !== null) return;
-    const exited = new Promise((resolve) => child.once?.("exit", resolve));
-    const signal = (name) => {
+    if (child?.pid && !ended(child)) {
+      const ending = this.end(child).finally(() => this.endings.delete(ending));
+      this.endings.add(ending);
+    }
+    await Promise.all(this.endings);
+  }
+  /**
+   * Browser.close over CDP first; then SIGTERM to the browser process alone, since a
+   * SIGTERM to its whole process group ends the helpers under it and Chrome 158 on
+   * Linux then waits about five seconds for them before it exits; SIGKILL to the
+   * group after the grace period; and SIGKILL to the group once the browser is gone,
+   * for a helper that outlived it.
+   */
+  async end(child) {
+    const exited = new Promise((resolve) => {
+      if (ended(child)) resolve(true);
+      child.once?.("exit", () => resolve(true));
+    });
+    const within = (ms) => Promise.race([exited, delay(ms, false)]);
+    const send = (pid, signal) => {
       try {
-        process.kill(-child.pid, name);
+        this.kill(pid, signal);
       } catch {
         /* Gone already. */
       }
     };
-    signal("SIGTERM");
-    const timer = setTimeout(() => signal("SIGKILL"), stopGraceMs);
-    await Promise.race([exited, new Promise((r) => setTimeout(r, stopGraceMs * 2))]);
-    clearTimeout(timer);
+    const port = this.knownPort();
+    const graceMs = this.graceMs;
+    // Bounded by its own timer; the grace period runs from the request on.
+    if (port) this.closeOverCdp(port, graceMs).catch(() => {});
+    if (!(await within(graceMs))) {
+      send(child.pid, "SIGTERM");
+      if (!(await within(graceMs))) {
+        send(-child.pid, "SIGKILL");
+        await within(graceMs);
+      }
+    }
+    send(-child.pid, "SIGKILL");
   }
   async tabs() {
     const port = this.knownPort();

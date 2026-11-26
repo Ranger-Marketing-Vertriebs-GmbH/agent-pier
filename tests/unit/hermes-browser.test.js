@@ -23,16 +23,34 @@ function fakeChromium(t) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   // `sockets`: page sockets; `guards`: the navigation guard's browser sockets, which
   // answer Fetch.enable unless `refuseGuard`.
-  const chromium = { up: false, launches: [], sockets: [], guards: [] };
+  // `signals`: what a stop sent, as [pid, signal]; the browser quits on Browser.close
+  // unless `ignoreClose`, on a SIGTERM to its own pid unless `ignoreTerm`, on SIGKILL.
+  const chromium = { up: false, launches: [], sockets: [], guards: [], signals: [] };
+  const quit = (child, signal = null) =>
+    setImmediate(() => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      chromium.up = false;
+      Object.assign(child, signal ? { signalCode: signal } : { exitCode: 0 });
+      child.emit("exit", child.exitCode, child.signalCode);
+    });
+  const kill = (pid, signal) => {
+    chromium.signals.push([pid, signal]);
+    const child = chromium.child;
+    if (Math.abs(pid) !== child?.pid)
+      throw Object.assign(Error("ESRCH"), { code: "ESRCH" });
+    if (signal === "SIGKILL" || (signal === "SIGTERM" && !chromium.ignoreTerm))
+      quit(child, signal === "SIGKILL" ? signal : null);
+  };
   const spawn = (file, args, options) => {
     const child = new EventEmitter();
-    Object.assign(child, { pid: 999999, exitCode: null, unref() {} });
+    Object.assign(child, { pid: 999999, exitCode: null, signalCode: null, unref() {} });
     chromium.launches.push({ file, args, options });
     chromium.up = true;
     chromium.child = child;
     return child;
   };
   const fetch = async (url) => {
+    chromium.onFetch?.();
     if (!chromium.up) throw Error("refused");
     const port = new URL(url).port;
     const body = url.endsWith("/json/version")
@@ -67,6 +85,8 @@ function fakeChromium(t) {
     send(text) {
       const message = JSON.parse(text);
       this.sent.push(message);
+      if (message.method === "Browser.close" && !chromium.ignoreClose)
+        quit(chromium.child);
       if (this.browser && !chromium.refuseGuard)
         setImmediate(() =>
           this.onmessage?.({ data: JSON.stringify({ id: message.id, result: {} }) }),
@@ -84,6 +104,8 @@ function fakeChromium(t) {
     lookup: async () => [{ address: "93.184.216.34", family: 4 }],
     fetch,
     WebSocketImpl: FakeSocket,
+    kill,
+    graceMs: 30,
   });
   return { browser, chromium, directory };
 }
@@ -432,5 +454,62 @@ test("a browser whose navigation guard cannot start is stopped", async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 10));
   chromium.guards[0].close();
   await assert.rejects(closed, { code: "BROWSER_START_FAILED" });
+  assert.equal(browser.child, null);
+});
+
+// AGENTPIER-501: Chrome 158 on Linux takes about five seconds to exit when its whole
+// process group gets SIGTERM, so a stop that returned at once left it running after
+// AgentPier's stop had finished.
+const browserCloses = (chromium) =>
+  chromium.guards
+    .flatMap((socket) => socket.sent)
+    .filter((m) => m.method === "Browser.close");
+
+test("a stop asks the browser to quit over CDP and returns once it is gone", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  await browser.start();
+  const child = chromium.child;
+  await browser.stop();
+  assert.equal(browserCloses(chromium).length, 1);
+  assert.equal(child.exitCode, 0);
+  // No signal but the sweep of helpers left in its process group.
+  assert.deepEqual(chromium.signals, [[-child.pid, "SIGKILL"]]);
+  assert.equal(browser.child, null);
+});
+
+test("a browser that ignores Browser.close gets SIGTERM alone, then SIGKILL", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  chromium.ignoreClose = true;
+  await browser.start();
+  const child = chromium.child;
+  await browser.stop();
+  // SIGTERM to the browser process only, never to its helpers' group.
+  assert.deepEqual(chromium.signals[0], [child.pid, "SIGTERM"]);
+  assert.equal(child.exitCode, 0);
+
+  chromium.ignoreTerm = true;
+  chromium.signals = [];
+  await browser.start();
+  const stubborn = chromium.child;
+  // Two stops at once (the set's status and its awaited stop) both wait for the end.
+  const first = browser.stop();
+  const second = browser.stop();
+  await Promise.all([first, second]);
+  assert.equal(stubborn.signalCode, "SIGKILL");
+  assert.deepEqual(chromium.signals.slice(0, 2), [
+    [stubborn.pid, "SIGTERM"],
+    [-stubborn.pid, "SIGKILL"],
+  ]);
+});
+
+test("a stop while a launch prepares leaves no browser behind", async (t) => {
+  const { browser, chromium } = fakeChromium(t);
+  // The set stops while the launch asks a stray browser on its port to close.
+  chromium.onFetch = () => {
+    chromium.onFetch = null;
+    browser.stop();
+  };
+  await assert.rejects(browser.start(), { code: "BROWSER_START_FAILED" });
+  assert.equal(chromium.launches.length, 0);
   assert.equal(browser.child, null);
 });

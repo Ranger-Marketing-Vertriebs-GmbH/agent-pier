@@ -205,6 +205,16 @@ export function createHermesRuntime({
     if (["disabled", "failed", "stopping"].includes(availability))
       browser.stop().catch(() => {});
   });
+  // A stop of the set returns once its browser is gone too: AgentPier's shutdown, an
+  // update's snapshot of the agent's home and a deletion never meet it still running.
+  const stopSet = host.stop;
+  host.stop = async (options) => {
+    try {
+      return await stopSet(options);
+    } finally {
+      await browser.stop().catch(() => {});
+    }
+  };
   const agentId = supervisor.agentId;
   const zoneNow = () => zone;
   // The chats moved from a frozen session to a following one (hermes-sessions.js),
@@ -227,7 +237,7 @@ export function createHermesRuntime({
     create: async () => ({ agentId }),
     update: async () => ({ agentId }),
     async delete({ deleteFiles = false } = {}) {
-      await supervisor.stop();
+      await host.stop();
       if (deleteFiles) await remove();
       return { ok: true, agentId };
     },
@@ -333,5 +343,5 @@ export function createHermesRuntime({
     // One runtime agent per set: every connection serves the same one.
     agents: { ...agents, on: () => agents },
   });
-  return { supervisor, runtime, written: () => [...written] };
+  return { supervisor, runtime, browser, written: () => [...written] };
 }

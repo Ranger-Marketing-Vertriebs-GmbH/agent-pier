@@ -932,7 +932,13 @@ for the takeover's browser toolbar `POST /navigate`, `POST /tabs/focus` and
 CDP's `Page.startScreencast` frames in OpenClaw's frame format. An address the owner
 opens there passes AgentPier's private-network check first; cloud metadata addresses
 stay blocked even with private networks allowed.
-The browser stops with the agent's process set.
+The browser stops with the agent's process set, and a stop of the set returns only once
+the browser is gone: AgentPier asks it to quit over CDP (`Browser.close`), sends
+`SIGTERM` to the browser process alone if it is still running after five seconds, and
+`SIGKILL` to its whole process group five seconds later; the group also gets `SIGKILL`
+once the browser has exited, for a helper process that outlived it. A `SIGTERM` to the
+whole group ends Chromium's helpers first, and Chrome 158 on Linux then waits about five
+seconds before it exits.
 
 Navigation policy: Hermes refuses the private, loopback and link-local addresses it finds
 written in a `browser_exec` call before running it unless **Allow private networks for
