@@ -19,7 +19,7 @@ export function UserSearchButton() {
       aria-label={searchCopy.title}
       title={searchCopy.title}
       aria-haspopup="dialog"
-      onClick={() => search.open()}
+      onClick={(event) => search.open(event.currentTarget)}
     >
       <Icon name="search" />
     </button>

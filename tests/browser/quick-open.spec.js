@@ -318,6 +318,10 @@ test.describe("phone", () => {
     expect(sheet.width).toBe(390);
     await page.keyboard.press("Escape");
     await expect(dialog(page)).toHaveCount(0);
+    // The tapped button gets the focus back, also in Safari, which never focused it.
+    await expect(
+      header.getByRole("button", { name: "Search", exact: true }),
+    ).toBeFocused();
     // In the drawer the search button sits beside the menu, a full tap target.
     await header.getByRole("button", { name: "Open navigation" }).click();
     const button = page
@@ -342,7 +346,14 @@ test.describe("phone", () => {
       ],
     });
     await page.goto(baseURL + "/agents");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    const searchButton = page.getByRole("button", { name: "Search", exact: true });
+    await searchButton.click();
+    await expect(dialog(page)).toBeVisible();
+    // Escape returns the focus to the tapped button, also in Safari.
+    await page.keyboard.press("Escape");
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(searchButton).toBeFocused();
+    await searchButton.click();
     await expect(dialog(page)).toBeVisible();
     await expect(field(page)).toHaveAttribute(
       "aria-label",

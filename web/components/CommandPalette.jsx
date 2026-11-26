@@ -10,7 +10,7 @@ import "./command-palette.css";
  * `query` and `onQueryChange` hold the field, `groups` (`[{ id, label, items }]`,
  * each item `{ id, label, detail, icon }`, `icon` a node) are the results to show.
  * Arrows move (wrapping), Home and End jump, Enter calls `onChoose(item)`, Escape
- * closes and the opener gets the focus back. `empty` (`{ title, hint, resetLabel }`)
+ * closes and the opener gets the focus back (`opener`, as for `Modal`). `empty` (`{ title, hint, resetLabel }`)
  * words the state without results and offers to clear the field; `status` is the
  * live count, `loading` a status line, `error` an alert when a chosen result failed,
  * `keys` the key hints of the footer (hidden on phones, where the palette is a bottom
@@ -32,6 +32,7 @@ export default function CommandPalette({
   empty = null,
   keys = [],
   className = "",
+  opener = null,
 }) {
   const [active, setActive] = useState(0);
   const input = useRef(null);
@@ -79,6 +80,7 @@ export default function CommandPalette({
       close={close}
       className={["command-palette", className].filter(Boolean).join(" ")}
       dismissOnBackdrop
+      opener={opener}
     >
       <div className="command-palette-field">
         <Icon name="search" size={18} />
