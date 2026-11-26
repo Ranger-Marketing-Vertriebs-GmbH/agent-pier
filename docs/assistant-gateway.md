@@ -3435,12 +3435,14 @@ it, and prefer `approval` modes for its shell level and SSH hosts.
 ## Lead shares with permanent members (2026-10-19, AGENTPIER-153)
 
 A lead shares its own project folders (`read` or `write`, at most its level), coding
-projects (requests on its project and pipelines), MCP servers bound to it and **Read
-images** (`documents`) with its own permanent members, without the owner
-(`lead-shares.js`, `lead-share-input.js`, `lead-capability-shares.js`):
+projects (requests on its project and pipelines), MCP servers bound to it, **Read
+images** (`documents`) and skills it has switched on itself (AGENTPIER-499) with its
+own permanent members, without the owner
+(`lead-shares.js`, `lead-share-input.js`, `lead-capability-shares.js`,
+`lead-skill-shares.js`, `lead-share-views.js`):
 
 - **Tools.** `agentpier_team_grant` with a permanent member's `memberId` takes only
-  `grants.projects`, `grants.documents`, `coding` (project ids) and `mcpServers` and
+  `grants.projects`, `grants.documents`, `grants.skills`, `coding` (project ids) and `mcpServers` and
   stores a standing share; anything else is `PERMANENT_ACCESS_ONLY`, and
   `revoke: true` takes a share back: its notes and result name only what it removed,
   and a revocation that removes nothing leaves no note (`nothing_to_revoke`).
@@ -3470,6 +3472,37 @@ images** (`documents`) with its own permanent members, without the owner
   removes such a share (the owner's list, the scheduler's tick) re-applies the member
   as well. Switching the lead's **Read images** on again does not bring it back. The member's own switch in its
   settings stays as the owner set it.
+- **Skills.** `grants.skills` is a list of names or `true` for every skill the lead
+  has on at that moment, expanded to one `skill` row per name (`skill: "<name>"`,
+  standing only; `access` of a delegated task never carries skills), so each is
+  revoked alone (`revoke: true` with names, or `true` for all this lead shares with
+  the member). A name the lead does not have on is `TEAM_GRANT_NOT_HELD`, as is
+  `true` for a lead without skills; AgentPier's built-in skills are never shared.
+  The rows are resolved like Read images, into `leadSkills` on the member's record
+  (never persisted, refused as a field of a save), while the lead has the skill on.
+  Two readings are kept apart (`native-capabilities.js`): `ownSkills` is the stored
+  list, the owner's, read by the skills page (`assigned`), the owner's save check
+  (`AgentSkills.check`: a shared name counts as new for the own list), the catalog's
+  switches and its agent count (`catalog-switches.js`); `personalSkills` adds
+  `leadSharedSkills` and is what compiles (`desiredAgent` `skills.assigned` and
+  `compiled`, the Hermes catalog copies, `AgentSkills.reapply`). A shared name
+  therefore passes every compile check of an own one: a shadowed, damaged or
+  settings-needing skill, or one `skills.status` does not report as the bundled or
+  catalog skill, is dropped at every apply. Before a share is stored the member's
+  skills page is read as for the owner's switch (`lead-skill-shares.js`
+  `memberSkills`): a named skill in a refused state, or missing from the page, is
+  409 `SKILL_UNAVAILABLE`; of `true` such skills are left out and returned as
+  `skippedSkills`. While that page cannot be read (the member's agent service is not
+  running) the share is stored and the compile alone decides. No skill share counts
+  for an agent of users (`leadSharedSkills`, `sharedByLead`; a share to one is
+  `SKILL_UNAVAILABLE`), so `agents.entries.<id>.skills`, the list that limits what
+  such an agent reads on OpenClaw, and the catalog copies in a Hermes home hold only
+  what the owner switched on. `GET /api/assistants/:id/skills` marks a shared row
+  `shared: true` and returns `shared` (names) and `sharedBy` (the lead's id and
+  name) beside `assigned`; `active` counts a shared skill like an assigned one.
+  `followLead` prunes and re-applies the members of a lead whose profile was
+  re-applied, as for Read images; `agentpier_team_members` lists a permanent member's
+  standing shares that count now under `shares` (`lead-share-views.js`).
 - **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
   its task runs in exactly that turn (`workspace-calls.js`): file actions use the
   member's own `projectFiles`, capped at `read` unless `taskWritable`
@@ -3522,13 +3555,15 @@ images** (`documents`) with its own permanent members, without the owner
 - **Owner.** `GET /api/assistant-lead-shares` (filters `memberId`, `leadId`,
   `projectId`, `serverId`) and `DELETE /api/assistant-lead-shares/:id`; the project's
   Agents view carries `shared`, the MCP server list `shared` per server. A shared
-  **Read images** is listed as `kind: "capability"` with `live.on` and shown in the
-  member's **Access › Shared by the lead agent**.
+  **Read images** is listed as `kind: "capability"` with `live.on`, a shared skill
+  as `kind: "skill"` with `skill` and `live.on`, both shown in the member's
+  **Access › Shared by the lead agent**.
 - **Audit.** `assistant.updated` with `kind: "lead-share"`, `change` (`grant` or
   `revoke`), `by` (`lead`, `owner` or `system`), `reason`, the lead
   (`leadAssistantId`), member (`memberId`), task (`requestId`), `projects` (ids with
-  coding and folder levels), `mcpServerIds` and shared `capabilities`
-  (`["documents"]`), all kept by the audit schema (`audit-team-details.js`); a folder change through a share adds
+  coding and folder levels), `mcpServerIds`, shared `capabilities`
+  (`["documents"]`) and `skills` (the number of shared skills, never their names,
+  like a task member's skill grant), all kept by the audit schema (`audit-team-details.js`); a folder change through a share adds
   `leadAssistantId` and `leadRequestId` (or `sharedBy`) to its `project-file` record.
   Both chats get the grant note.
 
@@ -4789,7 +4824,9 @@ mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilit
 [skill catalog](#the-skill-catalog) on per agent. Only personal agents and
 promoted permanent members have a selection of their own; temporary members use
 their lead's current selection, archived agents have none, and a new agent starts
-without any.
+without any. A permanent member also compiles the skills its lead shares with it
+([lead shares](#lead-shares-with-permanent-members-2026-10-19-agentpier-153)), kept
+apart from its own selection.
 
 - **Compilation.** The selection is stored on the agent profile (`skills`, sorted
   names) and compiled into `agents.entries.<id>.skills`, which OpenClaw reads as the

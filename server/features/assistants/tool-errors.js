@@ -133,7 +133,9 @@ const reasons = {
   ROUTINE_READ_ONLY:
     "This routine may only read project folders because 'May write' is off for it, so AgentPier refused the change. This is not a failure of the run: do not retry, do not start your reply with AUTOMATION_FAILED for this, and carry on with the read-only part of the task. In the routine's result, say that 'May write' is off for this routine and which change you would have made, so the owner can switch on 'May write' for it (agent settings, Automation, Routines) or make the change.",
   PERMANENT_ACCESS_ONLY:
-    "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), Read images (grants.documents), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
+    "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), Read images (grants.documents), skills you have switched on yourself (grants.skills), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
+  SKILL_UNAVAILABLE:
+    "This skill cannot be on for this agent right now: its runtime does not offer it, a skill of the same name there replaces it, it needs settings, its files are damaged, or the agent belongs to users, whose skills only the owner sets. Share the other skills without it; the owner sees each skill's state on the agent's Skills page.",
   PROJECT_WRITE_UNAVAILABLE:
     "Project folder changes are unavailable until AgentPier has verified the agent runtime's tool guard. Try again in a minute; tell the owner if it persists.",
   PROJECT_PATH_REFUSED:
@@ -344,6 +346,7 @@ const byKey = {
   projectRoutineReadOnly: "ROUTINE_READ_ONLY",
   routineWritesOwnerOnly: "ROUTINE_WRITES_OWNER_ONLY",
   teamShareAccessOnly: "PERMANENT_ACCESS_ONLY",
+  skillUnavailable: "SKILL_UNAVAILABLE",
   projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
   projectPathRefused: "PROJECT_PATH_REFUSED",
   projectToolConfigLocked: "PROJECT_TOOL_CONFIG_LOCKED",

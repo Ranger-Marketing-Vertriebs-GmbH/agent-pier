@@ -16,6 +16,10 @@ import { learningSwitch } from "./skill-learning-switch.js";
 export default function SkillsGroup({ assistant, draft, go }) {
   const id = useId();
   const on = draft.values.skills.length;
+  // Skills a permanent member holds only through its lead (server leadSkills).
+  const viaLead = (assistant.leadSkills || []).filter(
+    (name) => !draft.values.skills.includes(name),
+  ).length;
   const learning = learningSwitch(assistant);
   const learningSub = learning.locked
     ? copy.learning[learning.locked](runtimeName(assistant))
@@ -32,7 +36,11 @@ export default function SkillsGroup({ assistant, draft, go }) {
       <ListCard labelledBy={id}>
         <ListRow
           label={copy.row}
-          value={copy.count(on)}
+          value={
+            viaLead
+              ? `${copy.count(on)} \u00b7 ${copy.viaLeadCount(viaLead)}`
+              : copy.count(on)
+          }
           href={routePath(agentRoute(assistant.id, "capabilities", "skills"))}
           onClick={() => go("capabilities", "skills")}
         />
@@ -47,7 +55,7 @@ export default function SkillsGroup({ assistant, draft, go }) {
         )}
       </ListCard>
       {/* The shell group above already says what does not work without it. */}
-      {on > 0 && draft.values.shell === "off" && (
+      {on + viaLead > 0 && draft.values.shell === "off" && (
         <p className="assistant-note">{copy.shellOff}</p>
       )}
     </section>

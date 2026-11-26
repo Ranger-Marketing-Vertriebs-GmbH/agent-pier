@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  leadShareText,
+  onViaLead,
   skillLocked,
   statusText,
   visibleSkills,
@@ -160,4 +162,38 @@ test("needs-settings and damaged skills have their own status text", () => {
     /^Off: a bundled/,
   );
   assert.match(statusText({ state: "shadowed" }, copy), /^Off for this agent/);
+});
+
+test("a skill shared by the lead is on through it unless something keeps it off", () => {
+  const row = (state, shared = true) => ({
+    name: "github",
+    state,
+    missing: none,
+    shared,
+  });
+  assert.equal(onViaLead(row("ready")), true);
+  // Missing programs keep no skill from being on.
+  assert.equal(onViaLead(row("missing")), true);
+  for (const state of ["shadowed", "unavailable", "needsSettings", "damaged"])
+    assert.equal(onViaLead(row(state)), false, state);
+  // A skill the runtime offers by itself is on there, not through the lead.
+  assert.equal(onViaLead(row("selfWritten")), false);
+  assert.equal(onViaLead(row("ready", false)), false);
+  assert.match(
+    leadShareText(row("ready"), false, "Home", copy),
+    /^On through the lead agent Home,/,
+  );
+  assert.match(
+    leadShareText(row("ready"), true, "Home", copy),
+    /^The lead agent Home also shares/,
+  );
+  assert.match(leadShareText(row("shadowed"), false, "Home", copy), /not in effect/);
+  // Without a readable lead name the sentence still reads.
+  assert.match(
+    leadShareText(row("ready"), false, null, copy),
+    /^On through the lead agent, only/,
+  );
+  assert.equal(leadShareText(row("ready", false), true, "Home", copy), "");
+  assert.equal(leadShareText(row("selfWritten"), false, "Home", copy), "");
+  assert.equal(copy.viaLeadCount(2), "2 through the lead agent");
 });

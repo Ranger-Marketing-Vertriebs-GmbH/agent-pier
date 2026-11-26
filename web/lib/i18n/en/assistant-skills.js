@@ -66,6 +66,13 @@ export const assistantSkillsCopy = {
   worksWithLimits:
     "Works with limits: it runs programs and this agent has no shell access.",
   pending: "Applies at the agent's next turn",
+  viaLead: (lead) =>
+    `On through the lead agent${lead ? ` ${lead}` : ""}, only while it has this skill on itself. Revoke it under Access \u203a Shared by the lead agent.`,
+  viaLeadToo: (lead) =>
+    `The lead agent${lead ? ` ${lead}` : ""} also shares this skill: switched off here, it stays on through the lead.`,
+  viaLeadBlocked: (lead) =>
+    `The lead agent${lead ? ` ${lead}` : ""} shares this skill, but it is not in effect for this agent.`,
+  viaLeadCount: (count) => `${count} through the lead agent`,
   risks: {
     installsCode:
       "Warning: this skill can install code from outside, or write new skills.",

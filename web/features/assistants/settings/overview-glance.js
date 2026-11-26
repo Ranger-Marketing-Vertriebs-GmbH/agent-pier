@@ -33,7 +33,11 @@ export function capabilitySummary(assistant) {
   const levels = offersEveryCommand(assistant.runtimeInfo)
     ? assistantShellCopy.everyCommand.levels
     : assistantShellCopy.levels;
-  const skills = ((granted || assistant).skills || []).length;
+  // A permanent member's skills its lead shares count as well (server leadSkills).
+  const skills = new Set([
+    ...((granted || assistant).skills || []),
+    ...(granted ? [] : assistant.leadSkills || []),
+  ]).size;
   const parts = [
     on.memory ? copy().memory : "",
     on.webSearch || on.webFetch ? copy().web : "",

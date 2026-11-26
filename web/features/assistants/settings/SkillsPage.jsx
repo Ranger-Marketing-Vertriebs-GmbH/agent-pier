@@ -8,6 +8,8 @@ import { assistantApi } from "../assistant-api.js";
 import { toggleId } from "./agent-settings-fields.js";
 import {
   alwaysOn,
+  leadShareText,
+  onViaLead,
   skillFilters,
   skillLocked,
   statusText,
@@ -17,7 +19,8 @@ import { runtimeName } from "../runtime-capabilities.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 import "../agent-skills.css";
 
-function SkillDetails({ skill, shellOff, on, runtime }) {
+function SkillDetails({ skill, shellOff, on, own, lead, runtime }) {
+  const viaLead = leadShareText(skill, own, lead, copy);
   const tone = ["ready", "selfWritten", "essential"].includes(skill.state)
     ? "ok"
     : "warn";
@@ -31,6 +34,7 @@ function SkillDetails({ skill, shellOff, on, runtime }) {
       <span className={`agent-skill-line agent-skill-state ${tone}`}>
         {statusText(skill, copy, runtime)}
       </span>
+      {viaLead && <span className="agent-skill-line">{viaLead}</span>}
       {skill.source === "catalog" && (
         <span className="agent-skill-line">
           {skill.version ? copy.fromCatalog(skill.version) : copy.fromCatalogPlain}
@@ -41,9 +45,10 @@ function SkillDetails({ skill, shellOff, on, runtime }) {
           {skill.source === "catalog" ? copy.worksWithLimits : copy.needsShell}
         </span>
       )}
-      {on && skill.assigned && skill.state === "ready" && !skill.active && (
-        <span className="agent-skill-line">{copy.pending}</span>
-      )}
+      {on &&
+        (skill.assigned || skill.shared) &&
+        skill.state === "ready" &&
+        !skill.active && <span className="agent-skill-line">{copy.pending}</span>}
       {skill.risk && (
         <span className="agent-skill-line agent-skill-risk" role="note">
           {copy.risks[skill.risk]}
@@ -75,11 +80,14 @@ export default function SkillsPage({ assistant, draft, onBack }) {
     };
   }, [assistantId, assistant.revision]);
   const on = draft.values.skills;
+  // Skills this permanent member has on through its lead, apart from its own list.
+  const shared = (catalog?.skills || []).filter(onViaLead).map((skill) => skill.name);
+  const lead = catalog?.sharedBy?.name;
   const shellOff = draft.values.shell === "off";
   // Without the agent service the switched-on skills can still be switched off.
   const offline = Boolean(error) && !catalog;
   const skills = catalog
-    ? visibleSkills(catalog.skills || [], { filter, term, on })
+    ? visibleSkills(catalog.skills || [], { filter, term, on: [...on, ...shared] })
     : offline
       ? visibleSkills(
           // The saved ones, so a switch stays in place once it is turned off.
@@ -139,8 +147,11 @@ export default function SkillsPage({ assistant, draft, onBack }) {
         <ListCard label={copy.title} className="agent-skills-list">
           {skills.map((skill) => {
             // A skill the agent wrote itself, or one its runtime needs, is on there
-            // without a switch.
-            const checked = alwaysOn(skill) || on.includes(skill.name);
+            // without a switch; so is one its lead shares, while the owner's own
+            // switch for it is off.
+            const own = on.includes(skill.name);
+            const viaLead = !own && onViaLead(skill);
+            const checked = alwaysOn(skill) || own || viaLead;
             return (
               <ToggleRow
                 key={skill.name}
@@ -160,13 +171,18 @@ export default function SkillsPage({ assistant, draft, onBack }) {
                       skill={skill}
                       shellOff={shellOff}
                       on={checked}
+                      own={own}
+                      lead={lead}
                       runtime={runtimeName(assistant)}
                     />
                   )
                 }
                 checked={checked}
                 disabled={
-                  draft.saving || skillLocked(skill, checked) || (offline && !checked)
+                  draft.saving ||
+                  viaLead ||
+                  skillLocked(skill, checked) ||
+                  (offline && !checked)
                 }
                 onChange={(next) => draft.set("skills", toggleId(on, skill.name, next))}
               />

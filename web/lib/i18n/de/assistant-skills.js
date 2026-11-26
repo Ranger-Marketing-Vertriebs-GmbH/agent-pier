@@ -67,6 +67,13 @@ export const assistantSkillsCopy = {
   worksWithLimits:
     "Funktioniert eingeschränkt: Er führt Programme aus, und dieser Agent hat keinen Shell-Zugriff.",
   pending: "Gilt ab der nächsten Antwort des Agenten",
+  viaLead: (lead) =>
+    `An über den leitenden Agenten${lead ? ` ${lead}` : ""}, nur solange der Skill bei ihm selbst eingeschaltet ist. Zurücknehmen unter Zugriffe \u203a Vom leitenden Agenten geteilt.`,
+  viaLeadToo: (lead) =>
+    `Der leitende Agent${lead ? ` ${lead}` : ""} teilt diesen Skill ebenfalls: Hier abgeschaltet, bleibt er über den leitenden Agenten an.`,
+  viaLeadBlocked: (lead) =>
+    `Der leitende Agent${lead ? ` ${lead}` : ""} teilt diesen Skill, er wirkt bei diesem Agenten aber nicht.`,
+  viaLeadCount: (count) => `${count} über den leitenden Agenten`,
   risks: {
     installsCode:
       "Achtung: Dieser Skill kann fremden Code installieren oder neue Skills schreiben.",

@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
+  leadSharedSkills,
+  ownSkills,
   personalEligible,
   personalShell,
   personalSkills,
@@ -224,7 +226,9 @@ function catalogRow(input) {
  * "catalog"` and their version (catalogRow). A `fallback` report was read for another
  * agent (this one does not exist in the Gateway yet): its bundled and catalog
  * entries hold for every agent; its other sources and agent filter say nothing about
- * this one.
+ * this one. `assigned` is the agent's own list, the owner's; a skill a permanent
+ * member's lead shares with it now is `shared` (lead-skill-shares.js) and compiles
+ * beside it, in whatever state the row shows.
  */
 export function skillCatalog({
   report,
@@ -260,11 +264,13 @@ export function skillCatalog({
       )
       .map((record) => [record.name, record]),
   );
-  const assigned = personalSkills(assistant);
+  const assigned = ownSkills(assistant);
+  const shared = leadSharedSkills(assistant);
   const names = new Set([
     ...bundled,
     ...records.keys(),
     ...assigned,
+    ...shared,
     ...[...entries.values()]
       .filter((entry) => ["bundled", "local"].includes(originOf(entry)))
       .map((entry) => entry.name),
@@ -272,6 +278,7 @@ export function skillCatalog({
   const skills = [...names].sort().map((name) => {
     const entry = entries.get(name);
     const on = assigned.includes(name);
+    const viaLead = shared.includes(name);
     const record = records.get(name);
     const base = record
       ? catalogRow({
@@ -296,19 +303,20 @@ export function skillCatalog({
     return {
       ...base,
       assigned: on,
+      ...(viaLead ? { shared: true } : {}),
       // The runtime confirms it offers the skill to this agent's next turn; one the
       // agent wrote itself, or one the runtime needs, is always offered.
       active:
         base.state === "selfWritten" ||
         base.state === "essential" ||
-        (on &&
+        ((on || viaLead) &&
           !fallback &&
           base.state === "ready" &&
           entry?.blockedByAgentFilter === false),
       ...(Object.hasOwn(skillRisks, name) ? { risk: skillRisks[name] } : {}),
     };
   });
-  return { skills, assigned, shell: personalShell(assistant) };
+  return { skills, assigned, shared, shell: personalShell(assistant) };
 }
 
 // The bundled names a report that names every entry's origin lists (Hermes); null for
@@ -324,7 +332,7 @@ function reportedBundled(report) {
 
 // States a skill cannot be switched on in (catalogRow and skillCatalog); a skill the
 // agent wrote itself is on without AgentPier.
-const refusedStates = [
+export const refusedStates = [
   "shadowed",
   "unavailable",
   "needsSettings",
@@ -370,7 +378,7 @@ export class AgentSkills {
     // Longest first, so a nested directory is cut before its parent.
     roots.sort((a, b) => b.length - a.length);
     const root = this.runtime.paths?.root;
-    return skillCatalog({
+    const page = skillCatalog({
       report,
       bundled: reportedBundled(report) ?? bundledSkillNames(entryPath),
       assistant,
@@ -381,6 +389,15 @@ export class AgentSkills {
       catalog: this.catalogRecords(),
       liveRoot: this.catalog?.liveRoot,
     });
+    // The lead whose shares the page marks, by name for the owner.
+    if (!page.shared.length) return page;
+    let leadName = null;
+    try {
+      leadName = this.store.getAssistant(assistant.parentAssistantId).name;
+    } catch {
+      /* Shown without a name. */
+    }
+    return { ...page, sharedBy: { id: assistant.parentAssistantId, name: leadName } };
   }
   /**
    * The catalog's records, a skill whose last check failed marked `failed`. A catalog
@@ -433,14 +450,15 @@ export class AgentSkills {
    * Refuses a list with a skill that is neither bundled nor a catalog skill, that
    * another skill of the same name shadows, or a catalog skill that needs settings
    * or is damaged, before anything is stored. Names already assigned may stay,
-   * so a runtime that dropped one never blocks other changes.
+   * so a runtime that dropped one never blocks other changes. "Assigned" is the
+   * agent's own list: a name its lead shares is checked like any new one.
    */
   async check(current, names) {
     if (!personalEligible(current)) {
       if (names.length) throw assistantProblem("invalid");
       return;
     }
-    const added = names.filter((name) => !personalSkills(current).includes(name));
+    const added = names.filter((name) => !ownSkills(current).includes(name));
     if (!added.length) return;
     const { skills } = await this.list(current.id);
     for (const name of added) {

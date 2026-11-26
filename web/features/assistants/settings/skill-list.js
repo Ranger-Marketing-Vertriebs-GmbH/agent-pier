@@ -59,6 +59,24 @@ export const alwaysOn = (skill) => ["selfWritten", "essential"].includes(skill.s
  * A switched-off skill that cannot be used is not offered; one that is on can go. A
  * skill that is always on in its runtime has no switch here.
  */
+const refused = ["shadowed", "unavailable", "needsSettings", "damaged"];
 export const skillLocked = (skill, on) =>
-  alwaysOn(skill) ||
-  (!on && ["shadowed", "unavailable", "needsSettings", "damaged"].includes(skill.state));
+  alwaysOn(skill) || (!on && refused.includes(skill.state));
+
+/**
+ * Whether a permanent member has the skill on through its lead (`shared` on the
+ * server's row, lead-skill-shares.js): the lead shares it and nothing keeps it from
+ * this agent. Such a skill is on without the owner's switch.
+ */
+export const onViaLead = (skill) =>
+  skill.shared === true && !alwaysOn(skill) && !refused.includes(skill.state);
+
+/**
+ * The line about the lead's share of a row: on through the lead, shared as well as
+ * the agent's own (`own`: its switch is on), or shared without effect; "" for none.
+ */
+export function leadShareText(skill, own, lead, copy) {
+  if (skill.shared !== true || alwaysOn(skill)) return "";
+  if (!onViaLead(skill)) return copy.viaLeadBlocked(lead || "");
+  return own ? copy.viaLeadToo(lead || "") : copy.viaLead(lead || "");
+}

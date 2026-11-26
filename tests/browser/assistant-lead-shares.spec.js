@@ -22,6 +22,11 @@ const words = {
     serverSub: "via Home · Standing",
     server: "MCP server docs",
     images: "Read images",
+    skill: "Skill github",
+    skillOn: /On through the lead agent Home, only while it has this skill on itself/,
+    skillToo: /The lead agent Home also shares this skill/,
+    skillBlocked: /The lead agent Home shares this skill, but it is not in effect/,
+    skillCount: "2 on · 2 through the lead agent",
     revoke: "Revoke",
     revokeNow: "Revoke now",
     projectSection: "Shared by lead agents",
@@ -36,6 +41,11 @@ const words = {
     serverSub: "über Home · Dauerhaft",
     server: "MCP-Server docs",
     images: "Bilder lesen",
+    skill: "Skill github",
+    skillOn: /An über den leitenden Agenten Home, nur solange der Skill bei ihm selbst/,
+    skillToo: /Der leitende Agent Home teilt diesen Skill ebenfalls/,
+    skillBlocked: /Der leitende Agent Home teilt diesen Skill, er wirkt .* nicht/,
+    skillCount: "2 an · 2 über den leitenden Agenten",
     revoke: "Widerrufen",
     revokeNow: "Jetzt widerrufen",
     projectSection: "Von leitenden Agenten geteilt",
@@ -89,6 +99,42 @@ const imageShare = {
   capability: "documents",
   live: { on: true },
 };
+// A skill the lead has on, switched on for the member (lead-skill-shares.js).
+const skillShare = {
+  id: "share-k",
+  kind: "skill",
+  leadId: "home",
+  leadName: "Home",
+  memberAssistantId: "scout",
+  memberName: "Scout",
+  requestId: null,
+  skill: "github",
+  live: { on: true },
+};
+const none = { bins: [], anyBins: [], env: [], config: [], os: [] };
+// Scout's skills page (agent-skills.js): "weather" is its own, "github" comes
+// through its lead, "tmux" is both, and the shared "notes" is shadowed for it.
+const skillsPage = {
+  assigned: ["tmux", "weather"],
+  shared: ["github", "notes", "tmux"],
+  sharedBy: { id: "home", name: "Home" },
+  shell: "off",
+  skills: [
+    ["github", "ready", false, true],
+    ["notes", "shadowed", false, true],
+    ["tmux", "ready", true, true],
+    ["weather", "ready", true, false],
+  ].map(([name, state, assigned, shared]) => ({
+    name,
+    description: "",
+    state,
+    missing: none,
+    usesShell: false,
+    assigned,
+    ...(shared ? { shared: true } : {}),
+    active: state === "ready",
+  })),
+};
 
 // The lead-share routes as the server answers them (assistant-lead-shares.js).
 function shareRoutes(shares) {
@@ -139,7 +185,7 @@ for (const [language, label, viewport] of cases) {
         (value) => localStorage.setItem("agentpier-language", value),
         language,
       );
-      const shares = shareRoutes([projectShare, serverShare, imageShare]);
+      const shares = shareRoutes([projectShare, serverShare, imageShare, skillShare]);
       await page.route(/\/api\/assistant/, async (route) => {
         if (await fulfillEnabledAssistantFeature(route)) return;
         const url = new URL(route.request().url());
@@ -187,6 +233,7 @@ for (const [language, label, viewport] of cases) {
       await expect(group.getByText(w.projectSub, { exact: true })).toBeVisible();
       await expect(row(w.server).getByText(w.serverSub, { exact: true })).toBeVisible();
       await expect(row(w.images).getByText(w.serverSub, { exact: true })).toBeVisible();
+      await expect(row(w.skill).getByText(w.serverSub, { exact: true })).toBeVisible();
       expect(await fits(page)).toBe(true);
       await revoke(page, group.locator(".lead-share-row").first(), language);
       expect(shares.deleted).toEqual(["share-p"]);
@@ -196,6 +243,81 @@ for (const [language, label, viewport] of cases) {
       await revoke(page, row(w.images), language);
       expect(shares.deleted).toEqual(["share-p", "share-i"]);
       await expect(row(w.images)).toHaveCount(0);
+      // And a skill the lead switched on for the member.
+      await revoke(page, row(w.skill), language);
+      expect(shares.deleted).toEqual(["share-p", "share-i", "share-k"]);
+      await expect(row(w.skill)).toHaveCount(0);
+    });
+
+    test("the member's Skills page shows a skill it has on through its lead", async ({
+      page,
+    }) => {
+      await fixture(page);
+      await page.addInitScript(
+        (value) => localStorage.setItem("agentpier-language", value),
+        language,
+      );
+      const scout = {
+        ...chatAssistant({
+          id: "scout",
+          name: "Scout",
+          teamMemberId: "scout",
+          teamId: "t1",
+          parentAssistantId: "home",
+          lifetime: "permanent",
+        }),
+        skills: ["tmux", "weather"],
+        leadSkills: ["github", "notes", "tmux"],
+      };
+      await page.route(/\/api\/assistant/, async (route) => {
+        if (await fulfillEnabledAssistantFeature(route)) return;
+        const url = new URL(route.request().url());
+        let body = {};
+        if (url.pathname === "/api/assistants/scout/skills") body = skillsPage;
+        else if (url.pathname === "/api/assistants")
+          body = {
+            assistants: [chatAssistant({ id: "home", name: "Home" }), scout],
+            conversations: [],
+            models: [{ id: "router", name: "Router", available: true }],
+          };
+        else if (url.pathname === "/api/assistant-runtime")
+          body = { availability: "ready", sync: "current" };
+        else if (url.pathname === "/api/assistant-lead-shares") body = { shares: [] };
+        else if (url.pathname.endsWith("/actions")) body = { actions: [] };
+        else if (url.pathname.endsWith("/shell-allowlist")) body = { entries: [] };
+        else if (url.pathname === "/api/assistant-web-search")
+          body = { revision: 0, provider: "duckduckgo", ready: true };
+        else if (url.pathname === "/api/assistant-channels") body = { channels: [] };
+        await route.fulfill({ json: body });
+      });
+      // The Capabilities tab counts the skills it holds only through its lead apart.
+      await page.goto(baseURL + settingsPath("capabilities", undefined, "scout"));
+      await expect(
+        page.locator("#agent-skills").getByText(w.skillCount, { exact: true }),
+      ).toBeVisible();
+      await page.goto(baseURL + settingsPath("capabilities", "skills", "scout"));
+      const list = page.locator("#agent-skills-page");
+      const item = (name) => list.locator(".list-row", { hasText: name });
+      const toggle = (name) => item(name).getByRole("switch");
+      // On through the lead, without a switch of the owner's.
+      await expect(item("github").getByText(w.skillOn)).toBeVisible();
+      await expect(toggle("github")).toBeChecked();
+      await expect(toggle("github")).toBeDisabled();
+      // Shared, but shadowed for this agent: not on, and not offered.
+      await expect(item("notes").getByText(w.skillBlocked)).toBeVisible();
+      await expect(toggle("notes")).not.toBeChecked();
+      await expect(toggle("notes")).toBeDisabled();
+      // Its own skill keeps the owner's switch; one that is both says so.
+      await expect(toggle("weather")).toBeChecked();
+      await expect(toggle("weather")).toBeEnabled();
+      await expect(item("tmux").getByText(w.skillToo)).toBeVisible();
+      await expect(toggle("tmux")).toBeEnabled();
+      expect(await fits(page)).toBe(true);
+      // Switched off as its own, it stays on through the lead.
+      await toggle("tmux").click();
+      await expect(item("tmux").getByText(w.skillOn)).toBeVisible();
+      await expect(toggle("tmux")).toBeChecked();
+      await expect(toggle("tmux")).toBeDisabled();
     });
 
     test("a project's Agents section shows shares via the lead and revokes one", async ({

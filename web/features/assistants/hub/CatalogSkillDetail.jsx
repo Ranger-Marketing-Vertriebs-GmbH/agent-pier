@@ -69,10 +69,13 @@ function AgentSwitches({ skill, reload }) {
         <ListCard labelledBy="catalog-skill-agents">
           {agents.map((agent) => {
             const on = (agent.skills || []).includes(skill.name);
+            // A permanent member whose lead shares the skill has it without this switch.
+            const viaLead = !on && (agent.leadSkills || []).includes(skill.name);
             return (
               <AgentCapability key={agent.id} assistant={agent} surface="skills">
                 <ToggleRow
                   label={agent.name}
+                  sub={viaLead ? copy.viaLead : undefined}
                   checked={on}
                   disabled={Boolean(saving) || (!on && refused.includes(skill.state))}
                   onChange={(next) => toggle(agent, next)}

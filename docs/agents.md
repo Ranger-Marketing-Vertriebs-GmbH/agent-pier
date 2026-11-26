@@ -166,7 +166,11 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   that can have skills. A switch saves at once and changes the same setting as
   **Agent › Capabilities › Skills**, so the agent's own checks apply: a working agent
   or one changed elsewhere in the meantime answers with its message, and a skill that
-  cannot be used right now cannot be switched on.
+  cannot be used right now cannot be switched on. A permanent team member that has the
+  skill through its lead ([Sharing a lead's
+  access](#sharing-a-leads-access-with-permanent-members)) shows "On through its lead
+  agent" under its name; its switch stays your own setting for it, and the count of
+  agents that use the skill names only agents you switched it on for.
 - **Install skill** takes a `SKILL.md`, a ZIP or a public GitHub link. The check
   scans the source without writing anything, with the same offline scan as CLI skills
   ([skill import scan](shared-cli-extensions.md#skill-import-scan)), and previews the
@@ -225,8 +229,10 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   fail the integrity check.
 
 The owner switches catalog skills on per agent, in the skill's detail view here or
-under **Agent › Capabilities › Skills**. An agent sees only the catalog skills switched on for it, and an agent of restricted
-users cannot read any other catalog skill, on OpenClaw or Hermes Agent.
+under **Agent › Capabilities › Skills**; a lead agent can also switch on, for its
+permanent team members, skills that are on for the lead itself ([Sharing a lead's
+access](#sharing-a-leads-access-with-permanent-members)). An agent sees only the catalog skills switched on for it, and an agent of restricted
+users cannot read any other catalog skill, on OpenClaw or Hermes Agent; a lead's share never reaches an agent of users.
 The runtime, the integrity checks and the shell caveat are described in
 [assistant gateway](assistant-gateway.md#skills).
 
@@ -732,7 +738,15 @@ A switch with fresh chats also has the new model review the agent's memory; see
   keys or configuration) shows "Needs settings — not supported yet" and cannot be
   switched on. A catalog skill whose files are damaged or cannot be checked shows
   that state instead. Skills reach only agents that can read files (**Remember
-  information** on); the agent reads the skill's instructions itself. These agent
+  information** on); the agent reads the skill's instructions itself. On a permanent
+  team member, a skill its lead agent shares with it reads "On through the lead agent
+  <lead>" and is on without a switch: it is not part of the member's own list, your
+  saves never store it there, and you take it back under **Access › Shared by the
+  lead agent**. A skill that is both your own switch and shared says so and stays on
+  when either ends; a shared skill that cannot be on for this agent (shadowed, damaged,
+  needing settings or not offered by its runtime) reads "shares this skill, but it is
+  not in effect". The **Skills** row counts them apart ("1 on · 2 through the lead
+  agent"). These agent
   skills are separate from the CLI skills under **CLIs and extensions › Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
 - **Learns its own skills** (in the same group): the agent reviews finished work in
@@ -1462,7 +1476,19 @@ access, the lead can share it, without asking you:
 - **Read images**, so the member can look at the images in the folders it works in,
   only while the lead has **Read images** on itself and only for good (never with
   one task). The member's own **Read images** switch stays as you set it; the shared
-  one shows apart from it and ends for good when the lead loses it.
+  one shows apart from it and ends for good when the lead loses it,
+- **Skills** that are switched on for the lead itself: the lead names them, or shares
+  all it has on at that moment, and takes each back on its own. The member has a
+  shared skill only while the lead has it on, and only for good (never with one task).
+  It stays apart from the member's own skills under **Capabilities › Skills**: saving
+  that page or a catalog switch neither stores a shared skill as the member's own nor
+  is held up by it, and a skill that is both your own switch and shared stays on when
+  either ends. A shared skill passes the same checks as your own switch: one that is
+  shadowed, damaged, needs settings or is not offered by the member's runtime is
+  refused when the lead names it and left out when the lead shares all, and it is never
+  compiled for the member while that holds. A lead's share never reaches an agent of
+  users. AgentPier's own built-in skills are not shared; each agent gets them by its
+  own switches.
 
 The lead shares either for good (a standing share, through its grant tool) or with
 one delegated task, ending with that task. A share counts only while the lead holds
@@ -1470,7 +1496,7 @@ the same access: if the lead's level drops, the member's drops with it at its ne
 call; if the lead loses the project or server, or the lead or member is archived or
 the member is no longer the lead's permanent member, the share ends and is removed.
 Shares never lower or replace the access you gave the member yourself and are listed
-apart from it: in the member's **Access › Shared by the lead agent**, in **Projects › <project> › Agents › Shared by lead agents** and with the MCP server under **Connections › MCP servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
+apart from it: in the member's **Access › Shared by the lead agent** (a skill as "Skill <name>"), in **Projects › <project> › Agents › Shared by lead agents** and with the MCP server under **Connections › MCP servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
 coding requests that still wait on it. Every share, revocation and change of a
 project file through a share is recorded in the activity log with the lead and the
 task.
@@ -1492,6 +1518,9 @@ write** did). In a routine, shared folders change only when that routine is mark
 **May write**. Coding requests on a shared project, and every coding request in a
 lead's task (also on the member's own project), always wait for your approval.
 Shell and SSH are never shared this way: a permanent member uses only its own.
+A shared skill or Read images reaches the running member at once: its profile is
+applied again when the lead shares or revokes, when you revoke, and when the lead
+loses the skill or switch itself.
 
 The same overviews list what leads granted their temporary members, marked
 **Task-bound member**: in the member's **Access › Shared by the lead agent**, in **Projects › <project> › Agents › Shared by
