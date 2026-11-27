@@ -121,7 +121,8 @@ export default function CraftAnythingDialog({ request, refresh, close }) {
     if (previous.current === "running" && status !== "running") void refresh?.();
     previous.current = status;
   }, [status, refresh]);
-  const running = status === "running";
+  // Also while a started change waits for its answer, which brings "running".
+  const running = status === "running" || craft.pending;
   const fresh = !!state && !state.serverId;
   const ready = !!state && !!draft && state.available;
   const apply = () =>

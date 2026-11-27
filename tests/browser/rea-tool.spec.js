@@ -138,6 +138,39 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
   );
 });
 
+test("the dialog's actions stay off until a started change is answered", async ({
+  page,
+}) => {
+  const installed = reaState({
+    installed: true,
+    serverId: "srv-rea",
+    serverName: "rea",
+    updateAvailable: true,
+    components: { core: { installed: true, version: "6.7.0", outdated: true } },
+  });
+  const controls = await fixture(page, installed);
+  // The update's answer is held back: the job's state has not reached the page yet.
+  let answer;
+  const held = new Promise((resolve) => (answer = resolve));
+  await page.route("**/api/rea/update", async (route) => {
+    await held;
+    await route.fallback();
+  });
+  const dialog = await openDialog(page, "Manage");
+  const update = dialog.getByRole("button", { name: "Update", exact: true });
+  await update.click();
+  // No second change and no uninstall beside the one on its way.
+  await expect(update).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Uninstall REA" })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Working …" })).toBeDisabled();
+  expect(controls.updates).toBe(0);
+  answer();
+  await expect.poll(() => controls.updates).toBe(1);
+  // The job ended (the fixture's next read): everything is offered again.
+  await expect(dialog.getByRole("button", { name: "Uninstall REA" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Apply changes" })).toBeEnabled();
+});
+
 test("the start page row shows REA's update and opens its dialog, never the installer", async ({
   page,
 }) => {
