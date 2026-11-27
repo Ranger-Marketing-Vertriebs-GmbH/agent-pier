@@ -270,6 +270,10 @@ export const assistants = {
   telegramReplyUnavailable: "The answer has no text. Open AgentPier to view it.",
   telegramReplyIncomplete: "Reply shortened – the rest could not be sent.",
   telegramInputNeedsReview: "A message needs your attention in AgentPier.",
+  telegramPaired: (name) =>
+    `✅ Connected! From now on your messages here go to ${name}, and the replies come back to this chat.`,
+  telegramPairedPlain:
+    "✅ Connected! From now on your messages here go to the agent, and the replies come back to this chat.",
   telegramPrivateBot:
     "This bot is private and only answers the person it is paired with.",
   telegramMediaPartly: (parts) =>

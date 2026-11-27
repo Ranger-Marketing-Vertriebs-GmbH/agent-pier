@@ -1319,6 +1319,8 @@ The Team tab is hidden for team members and agents of users.
 
 - **Connection:** create a dedicated bot with BotFather, paste its token under
   **Telegram bot token**, choose **Connect Telegram**, then **Pair my private chat**.
+  Once the bot accepts the pairing code it confirms in that chat that it is connected
+  and names the agent; a wrong or expired code gets no answer.
   Messages from that chat reach the agent's conversation and are marked "via
   Telegram"; replies go back to Telegram, a long one in full as several messages
   split between paragraphs or lines (beyond about 64,000 characters or 40 messages

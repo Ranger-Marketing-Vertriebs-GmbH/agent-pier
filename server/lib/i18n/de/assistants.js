@@ -275,6 +275,10 @@ export const assistants = {
     "Die Antwort enthält keinen Text. Öffne AgentPier, um sie anzusehen.",
   telegramReplyIncomplete: "Antwort gekürzt – der Rest konnte nicht gesendet werden.",
   telegramInputNeedsReview: "Eine Nachricht braucht deine Aufmerksamkeit in AgentPier.",
+  telegramPaired: (name) =>
+    `✅ Verbunden! Ab jetzt landen deine Nachrichten hier bei ${name}, und die Antworten kommen in diesen Chat.`,
+  telegramPairedPlain:
+    "✅ Verbunden! Ab jetzt landen deine Nachrichten hier beim Agenten, und die Antworten kommen in diesen Chat.",
   telegramPrivateBot:
     "Dieser Bot ist privat und antwortet nur der Person, mit der er verbunden ist.",
   telegramMediaPartly: (parts) =>

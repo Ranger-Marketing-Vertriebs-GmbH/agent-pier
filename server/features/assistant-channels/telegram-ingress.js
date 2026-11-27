@@ -105,6 +105,7 @@ export class TelegramIngress {
       if (store.acceptPair(id, message)) {
         store.advance(id, update.update_id + 1);
         this.service.channelChanged?.(id);
+        await this.paired(store.get(id), signal);
         continue;
       }
       const allowed =
@@ -164,6 +165,28 @@ export class TelegramIngress {
         {
           chat_id: String(message.chat.id),
           text: telegramMessages(channel).telegramPrivateBot,
+        },
+        signal,
+      );
+    } catch {}
+  }
+  // A redeemed pairing code is confirmed in the new chat. Like the stranger notice
+  // it is sent directly, best effort and never retried, so it never holds up a
+  // disconnect or a new pairing the way a pending outbox entry would. A code is
+  // redeemed only once; only a code that pairs is answered, every other /start stays
+  // unanswered.
+  async paired(channel, signal) {
+    let name = "";
+    try {
+      name = this.service.assistants.store.getAssistant(channel.assistantId).name;
+    } catch {}
+    const messages = telegramMessages(channel);
+    try {
+      await this.service.clientFactory(this.service.store.secret(channel.id)).call(
+        "sendMessage",
+        {
+          chat_id: channel.chatId,
+          text: name ? messages.telegramPaired(name) : messages.telegramPairedPlain,
         },
         signal,
       );
