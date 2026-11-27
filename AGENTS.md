@@ -27,7 +27,7 @@ If a change requires additional runtime tools, provision them through the instal
 
 Use JavaScript ES modules and JSX for React. Prettier enforces two-space indentation, double quotes, semicolons, trailing commas, and a 90-column target. Run `npm run format` and `npm run lint`.
 
-Follow existing names: `AccountsPage.jsx`, `useAccountAuthStatus.js`, and `account-store.js`. Keep feature logic together. Source and test files checked by `check:structure` must not exceed 600 lines; language catalogs (`web/lib/i18n/de/`, `web/lib/i18n/en/`, `server/lib/i18n/de/`, `server/lib/i18n/en/`) are exempt.
+Follow existing names: `AccountsPage.jsx`, `useAccountAuthStatus.js`, and `account-store.js`. Keep feature logic together. Source and style files checked by `check:structure` must not exceed 600 lines; language catalogs (`web/lib/i18n/de/`, `web/lib/i18n/en/`, `server/lib/i18n/de/`, `server/lib/i18n/en/`) and test files (`tests/`) are exempt. Do not split a file only to satisfy the limit.
 
 UI: new or changed UI uses the components and tokens of `docs/ui-guide.md`. Add no new hex colours outside `web/styles/base.css`, no font sizes below 11px, no breakpoints other than those in `web/lib/breakpoints.js`, and no bespoke dialogs, menus or switches. When a screen needs a primitive that does not exist, add it to `web/components/`, the guide and the component gallery in the same change. `tests/unit/ui-guide-rules.test.js` enforces this with an allowlist that may only shrink.
 
