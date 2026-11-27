@@ -167,7 +167,8 @@ function advisorStep(payload, fanout = 1) {
  * think, and `tool.start`/`tool.progress`/`tool.complete` are its tool calls by
  * `tool_call_id` (`tool_id` on progress), failed when the completion reports
  * `is_error`. Hermes's `context` of a call is a preview of its arguments (a command,
- * a URL), so a tool step carries no title. `tool.generating` names no call yet.
+ * a URL), not a title or a named target, so a tool step carries neither.
+ * `tool.generating` names no call yet.
  * `moa.reference` is one advisor's answer of a Mixture of Agents turn (advisorStep,
  * `fanout` the run's advisor round).
  */

@@ -64,6 +64,35 @@ export function openClawReply(payload) {
 // Tools whose `meta` is the model's title or OpenClaw's summary of a command. Other
 // tools describe themselves with their raw arguments (a URL, a path, a prompt).
 const titled = new Set(["exec", "process"]);
+// Tools whose `meta` names the one thing the call works on, and how to read it out of
+// OpenClaw's phrasing (tool-display of 2026.11.6, detail mode "explain"; the forms are
+// pinned by tests/integration/assistant-run-steps-contract.test.js): `for "a", "b"
+// (top 5)`, `from <url> (mode markdown, max 5000 chars)`, `lines 3-9 from <path>`,
+// `to <path> (120 chars)`, `in <path>`, a memory query as it is. The browser names a
+// page only for the actions that open one; its other details (typed text, element
+// references) are left out. Deliberately absent: `pdf`, `view_image` and
+// `image_generate` (their meta carries the prompt), `apply_patch` (OpenClaw gives it
+// none), MCP tools and AgentPier's own tools (free arguments).
+const targets = new Map([
+  ["web_search", ["query", /^for (.+?)(?: \(top \d+\))?$/]],
+  ["web_fetch", ["url", /^from (\S+)/]],
+  ["browser", ["url", /(https?:\/\/[^\s,]+)/]],
+  [
+    "read",
+    ["path", /^(?:lines? \d+-\d+ from|from line \d+ in|first \d+ lines? of|from) (.+)$/],
+  ],
+  ["write", ["path", /^to (.+?)(?: \(\d+ chars\))?$/]],
+  ["edit", ["path", /^in (.+?)(?: \(\d+ chars\))?$/]],
+  ["memory_search", ["query", /^([\s\S]+)$/]],
+]);
+
+// What a tool item's `meta` says the call works on (agent-runtime.js `target`), or
+// null. run-steps.js decides what of it is shown.
+function targetOf(name, meta) {
+  const [kind, pattern] = targets.get(name) ?? [];
+  const value = typeof meta === "string" && kind ? meta.match(pattern)?.[1] : null;
+  return value ? { kind, value } : null;
+}
 const failedStatuses = new Set(["failed", "error", "blocked", "denied", "cancelled"]);
 
 /**
@@ -83,6 +112,7 @@ export function openClawStep(payload) {
         id: data.itemId,
         name: typeof data.name === "string" ? data.name : "",
         title: titled.has(data.name) && typeof data.meta === "string" ? data.meta : null,
+        target: targetOf(data.name, data.meta),
         phase: data.phase === "end" ? "end" : data.phase === "start" ? "start" : "update",
         failed: failedStatuses.has(data.status) || data.isError === true,
       };

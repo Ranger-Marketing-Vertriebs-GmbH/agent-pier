@@ -78,11 +78,73 @@ test("OpenClaw agent frames carry their step as run-steps.js reads it", () => {
     id: "tool:1",
     name: "exec",
     title: "Build the site",
+    target: null,
     phase: "start",
     failed: false,
   });
   // Only exec and process describe a call by a title; others carry raw arguments.
   assert.equal(tool({ name: "web_fetch", meta: "https://x.test" }).title, null);
+  // What a read-only or file tool works on, read out of OpenClaw's phrasing.
+  const target = (name, meta) => tool({ name, meta }).target;
+  assert.deepEqual(target("web_search", 'for "agent pier", "tmux" (top 5)'), {
+    kind: "query",
+    value: '"agent pier", "tmux"',
+  });
+  assert.deepEqual(target("web_search", 'for "one"'), { kind: "query", value: '"one"' });
+  assert.deepEqual(
+    target("web_fetch", "from https://x.test/a?b=1 (mode markdown, max 5000 chars)"),
+    { kind: "url", value: "https://x.test/a?b=1" },
+  );
+  assert.deepEqual(target("web_fetch", "from https://x.test/a"), {
+    kind: "url",
+    value: "https://x.test/a",
+  });
+  for (const meta of [
+    "from notes/my plan.md",
+    "lines 3-9 from notes/my plan.md",
+    "line 3-3 from notes/my plan.md",
+    "from line 3 in notes/my plan.md",
+    "first 20 lines of notes/my plan.md",
+    "first 1 line of notes/my plan.md",
+  ])
+    assert.deepEqual(target("read", meta), { kind: "path", value: "notes/my plan.md" });
+  assert.deepEqual(target("write", "to a/b.md (120 chars)"), {
+    kind: "path",
+    value: "a/b.md",
+  });
+  assert.deepEqual(target("write", "to a/b.md"), { kind: "path", value: "a/b.md" });
+  assert.deepEqual(target("edit", "in a/b (1).md (7 chars)"), {
+    kind: "path",
+    value: "a/b (1).md",
+  });
+  assert.deepEqual(target("memory_search", "holiday plans"), {
+    kind: "query",
+    value: "holiday plans",
+  });
+  // The browser names a page, never what it types or clicks.
+  assert.deepEqual(target("browser", "https://x.test/shop"), {
+    kind: "url",
+    value: "https://x.test/shop",
+  });
+  assert.deepEqual(target("browser", "target url https://x.test/shop, target id T1"), {
+    kind: "url",
+    value: "https://x.test/shop",
+  });
+  assert.equal(target("browser", "kind type, ref e3, text hunter2"), null);
+  // Phrasing this adapter does not know, and every other tool, names nothing.
+  assert.equal(target("read", "something else"), null);
+  assert.equal(target("web_fetch", undefined), null);
+  for (const name of [
+    "exec",
+    "pdf",
+    "view_image",
+    "image_generate",
+    "apply_patch",
+    "agentpier_mail",
+    "github__read",
+    "toString",
+  ])
+    assert.equal(target(name, "from https://x.test/a"), null, name);
   assert.equal(tool({ name: "exec", phase: "update" }).phase, "update");
   assert.equal(tool({ name: "exec", phase: "end", status: "denied" }).failed, true);
   assert.equal(tool({ name: "exec", phase: "end", isError: true }).failed, true);

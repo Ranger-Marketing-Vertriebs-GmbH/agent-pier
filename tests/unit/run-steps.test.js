@@ -92,7 +92,7 @@ test("command output, thinking text and assistant text never reach a step", () =
 
 test("tool arguments the label could carry are never shown", () => {
   const steps = new RunSteps();
-  // Tools other than exec label themselves from raw arguments (a URL, a path, a query).
+  // A tool's meta in a form the adapter does not know as a target is never shown.
   steps.observe(
     agent("item", {
       itemId: "tool:w",
@@ -129,6 +129,94 @@ test("tool arguments the label could carry are never shown", () => {
     ],
   );
   assert.doesNotMatch(JSON.stringify(view), /token=abc|sk-1234/);
+});
+
+test("a read-only or file tool shows what it works on, reduced and never a secret", () => {
+  const steps = new RunSteps();
+  const key20 = ["sk", "1234567890abcdefghij1234"].join("");
+  const calls = [
+    ["web_search", 'for "agentpier release notes" (top 5)', '"agentpier release notes"'],
+    // Host and path only: no sign-in, query string or fragment.
+    [
+      "web_fetch",
+      `from https://user:pw@example.com/docs/page?token=${key20}#frag (mode markdown)`,
+      "example.com/docs/page",
+    ],
+    ["web_fetch", "from https://example.com/", "example.com"],
+    ["web_fetch", "from file:///etc/passwd", ""],
+    ["web_fetch", "from not-an-address", ""],
+    // A random-looking path segment (a reset link) drops the label whole.
+    ["web_fetch", `from https://example.com/reset/${key20}`, ""],
+    ["browser", "https://shop.example/cart?session=1", "shop.example/cart"],
+    ["browser", "kind type, ref e3, text hunter2", ""],
+    // Folder and file name; the directories above are left out.
+    [
+      "read",
+      "lines 1-20 from /data/workspaces/ap-0347dc8b/notes/plan.md",
+      "…/notes/plan.md",
+    ],
+    ["write", "to notes/plan.md (120 chars)", "notes/plan.md"],
+    ["edit", "in plan.md", "plan.md"],
+    ["memory_search", "holiday\u0007 plans\u202e\n2027", "holiday plans 2027"],
+    ["memory_search", "password: hunter2", ""],
+    ["memory_search", "how do I reset my password", "how do I reset my password"],
+    ["web_search", `for "API_KEY=${key20}"`, ""],
+    [
+      "web_search",
+      `for "${"long ".repeat(40)}"`,
+      `"${"long ".repeat(40)}`.slice(0, 79) + "…",
+    ],
+    // Prompts, patches, MCP tools and AgentPier's own tools stay unlabelled.
+    ["pdf", "path report.pdf, prompt Summarise the contract", ""],
+    ["view_image", "photo.png", ""],
+    ["image_generate", "A red fox", ""],
+    ["apply_patch", "from notes/plan.md", ""],
+    ["agentpier_mail", "from notes/plan.md", ""],
+    ["github__read", "from notes/plan.md", ""],
+  ];
+  calls.forEach(([name, meta], i) =>
+    steps.observe(
+      agent("item", { itemId: `tool:${i}`, name, kind: "tool", phase: "start", meta }),
+    ),
+  );
+  const view = steps.view("r1");
+  assert.deepEqual(
+    view.steps.map((s) => [s.tool, s.label]),
+    calls.map(([name, , shown]) => [name, shown]),
+  );
+  assert.doesNotMatch(JSON.stringify(view), /hunter2|user:pw|frag|sk1234|Summarise/);
+  for (const step of view.steps) assert.ok(step.label.length <= 80, step.label);
+});
+
+test("a tool's title wins over its target, and a later frame may still name it", () => {
+  const steps = new RunSteps();
+  const item = (data) =>
+    steps.observe(
+      agent("item", { itemId: "tool:r", kind: "tool", name: "read", ...data }),
+    );
+  item({ phase: "start" });
+  assert.equal(steps.view("r1").steps[0].label, "");
+  item({ phase: "update", meta: "from notes/plan.md" });
+  assert.equal(steps.view("r1").steps[0].label, "notes/plan.md");
+  // A runtime-neutral step: an unknown target kind or a non-string value shows nothing.
+  const plain = new Steps();
+  const event = (id, extra) => ({
+    kind: "tool",
+    runId: "r2",
+    sessionKey: key,
+    step: { type: "tool", id, name: "read", phase: "start", ...extra },
+  });
+  plain.observe(
+    event("a", { title: "Read the plan", target: { kind: "path", value: "x" } }),
+  );
+  plain.observe(event("b", { target: { kind: "prompt", value: "x" } }));
+  plain.observe(event("c", { target: { kind: "path", value: 7 } }));
+  plain.observe(event("d", { target: { kind: "toString", value: "x" } }));
+  plain.observe(event("e", {}));
+  assert.deepEqual(
+    plain.view("r2").steps.map((s) => s.label),
+    ["Read the plan", "", "", "", ""],
+  );
 });
 
 test("a failed tool, a retry and the model's answer", () => {
