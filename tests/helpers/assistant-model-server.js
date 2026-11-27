@@ -74,10 +74,13 @@ const discoveredIn = (messages, searches) => [
 // may also be a function of the request returning such a call, or null for a plain
 // reply. With `discover` (a query), a session's model first calls tool_search with it,
 // as a model looks for MCP tools that the directory does not list, and may then call a
-// tool the search returned.
+// tool the search returned. `reply` (a function of the request) answers a request
+// itself: a string is the reply text, `{ status }` an HTTP error and `{ hang: true }`
+// no answer at all; undefined leaves the request to the rules above.
 export async function assistantModelServer({
   tool = { name: "session_status", arguments: {} },
   discover,
+  reply,
 } = {}) {
   const requests = [];
   const server = http.createServer(async (req, res) => {
@@ -89,6 +92,9 @@ export async function assistantModelServer({
     requests.push(input);
     if (input.messages?.some((m) => JSON.stringify(m.content).includes("HOLD_FOR_CRASH")))
       return;
+    const own = reply?.(input);
+    if (own?.hang) return;
+    if (own?.status) return res.writeHead(own.status).end("{}");
     const offered = offeredToolNames(input);
     const results = input.messages.filter((m) => m.role === "tool").length;
     const searching = !!discover && offered.includes("tool_search");
@@ -98,6 +104,7 @@ export async function assistantModelServer({
         ? { name: "tool_search", arguments: { query: discover, limit: 20 } }
         : wanted;
     const useTool =
+      typeof own !== "string" &&
       !!call &&
       (offered.includes(call.name) ||
         (searching && discoveredToolNames([input]).includes(call.name))) &&
@@ -115,7 +122,7 @@ export async function assistantModelServer({
             },
           ],
         }
-      : { content: "A useful assistant reply." };
+      : { content: typeof own === "string" ? own : "A useful assistant reply." };
     res.write(
       `data: ${JSON.stringify({ id: "fixture-chat", object: "chat.completion.chunk", model: "fixture-model", choices: [{ index: 0, delta, finish_reason: null }] })}\n\n`,
     );

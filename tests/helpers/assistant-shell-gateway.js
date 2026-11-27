@@ -16,11 +16,15 @@ import { createGatewaySession } from "../../server/features/assistants/runtimes/
 // reshapes the Gateway's process environment before the spawn. The exec shell
 // wrapper RuntimeSupervisor writes points to a simulated owner account in the test
 // directory (`gateway.owner`), never to the developer's own HOME.
-export async function shellGateway(t, installed, { prefix, environment, setup } = {}) {
+export async function shellGateway(
+  t,
+  installed,
+  { prefix, environment, setup, reply } = {},
+) {
   assert.ok(path.isAbsolute(installed));
   const dataDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   const tool = { name: "exec", arguments: { command: "true" } };
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, reply });
   const owner = ownerAccount(dataDir);
   const runtime = new RuntimeSupervisor({
     dataDir,
