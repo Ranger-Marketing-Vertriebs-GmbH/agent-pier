@@ -23,7 +23,6 @@ import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
 import useRuntimes from "../useRuntimes.js";
 import { draftRuntimeInfo, otherRuntime, readyRuntimes } from "../runtime-list.js";
-import { offersEveryCommand } from "../shell-level.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
 import StepCapabilities from "./StepCapabilities.jsx";
@@ -259,7 +258,6 @@ export default function AgentWizard({ route, navigate }) {
       runtime={runtime}
       runtimeInfo={runtimeInfo}
       models={models}
-      everyCommand={offersEveryCommand(runtimeInfo)}
     />
   ) : step === "access" ? (
     <StepAccess d={d} set={set} navigate={navigate} />

@@ -49,7 +49,7 @@ const openClawInfo = {
   capabilities: {
     approvals: {
       available: true,
-      shellLevels: ["off", "approval", "full"],
+      shellLevels: ["off", "approval", "review", "full"],
       allowlist: "patterns",
     },
     models: { available: true, chatgptLogin: "any" },

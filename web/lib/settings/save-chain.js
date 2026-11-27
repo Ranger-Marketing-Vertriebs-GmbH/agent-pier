@@ -6,7 +6,8 @@ const confirmations = {
     const flag = error.required?.[0];
     return flag
       ? {
-          kind: flag === "confirmFull" ? "fullShell" : "shell",
+          kind:
+            { confirmFull: "fullShell", confirmReview: "reviewShell" }[flag] ?? "shell",
           flags: { [flag]: true },
           data: { required: error.required },
         }

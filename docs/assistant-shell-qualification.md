@@ -13,7 +13,12 @@ access (AGENTPIER-25) builds on these facts. Four contracts provide the evidence
 - `tests/integration/assistant-shell-compiled-contract.test.js` drives AgentPier's
   own path end to end (section (g)).
 
-All four run real isolated Gateways started by `RuntimeSupervisor` against
+A fifth contract, `tests/integration/assistant-shell-auto-review-contract.test.js`,
+covers exec mode `auto` and the shell level **Automatic review** built on it
+(section (i), OpenClaw 2026.11.6). In it the deterministic model also answers the
+review requests.
+
+All of them run real isolated Gateways started by `RuntimeSupervisor` against
 the deterministic model in `tests/helpers/assistant-model-server.js`. The model calls
 `exec` once per turn. A second client declares the handshake cap `exec-approvals`
 and answers the approval requests. The shared fixture lives in
@@ -42,12 +47,13 @@ AGENTPIER_SHELL_CONTRACT_RUNTIME=/absolute/path/to/2026.9.8-node26.7.0-darwin-ar
   tests/integration/assistant-shell-contract.test.js \
   tests/integration/assistant-shell-environment-contract.test.js \
   tests/integration/assistant-shell-changes-contract.test.js \
-  tests/integration/assistant-shell-compiled-contract.test.js
+  tests/integration/assistant-shell-compiled-contract.test.js \
+  tests/integration/assistant-shell-auto-review-contract.test.js
 ```
 
 `scripts/provision-assistant-contracts.mjs` writes the variable alongside the other
 runtime variables. The `native-contracts` job of `assistant-runtime.yml` runs all
-four files and fails on any skip. Without the variable, they skip.
+five files and fails on any skip. Without the variable, they skip.
 
 The contracts quote the runtime's Node path in the commands they send. A local
 runtime lives under `~/Library/Application Support`; unquoted, the shell would split
@@ -466,6 +472,139 @@ writable: [<program>] }`. Always allow resolves allow-once, writes the entry
   (`processToolAvailabilityRef`): `background: true` runs in the turn, and an abort
   kills it.
 
+## (i) Exec mode `auto`: the model review
+
+OpenClaw 2026.11.6 documents a fifth exec mode (`docs/tools/exec.md`,
+`docs/tools/permission-modes.md`, `docs/tools/exec-approvals.md`): `auto` has the
+security and ask settings of `ask` (`allowlist` / `on-miss`) and additionally sends
+each allowlist miss to a model, the exec reviewer, before any person is asked.
+AgentPier's level **Automatic review** (`shell: "review"`) compiles to it. Verified
+against the pinned runtime on macOS arm64 on 2026-11-27 with
+`assistant-shell-auto-review-contract.test.js` (3 of 3, no skips, about 50 seconds)
+and read from the dist (`exec-auto-reviewer`, `exec-auto-review`,
+`exec-auto-review-transcript`, `bash-tools`).
+
+**Who reviews.** The agent's own primary model, with the agent's own model
+connection and login (`acquireSimpleCompletionModelForAgent` with the agent id).
+`tools.exec.reviewer` (global or per agent: `model`, `timeoutMs`, `thinking`,
+`fastMode`) can name another one; AgentPier sets none of it. The review is one
+tool-less completion: `temperature: 0`, at most 1,024 output tokens (a reasoning
+model gets a bounded thinking allowance on top, `medium` unless configured), a
+30-second timeout for preparing the model and another for the completion. The
+model is prepared as for one of the agent's own runs
+(`acquireAgentRunPreparedModelRuntime`), so the review uses the connections the
+agent's turns use. The contract ran it on a custom OpenAI-compatible connection; a
+ChatGPT login is covered by the dist and OpenClaw's documentation only (the
+contracts never reach ChatGPT), and a review that cannot run there asks the owner
+like any other failure.
+
+**What the reviewer sees.** A fixed system prompt (the decisions `allow`, `deny`
+and `ask`, a risk taxonomy and the rule that everything in the request is data),
+then the request as JSON between `UNTRUSTED_EXEC_REQUEST_JSON_BEGIN` and `…_END`:
+`command`, `argv`, `resolvedPath`, `cwd`, the names (never the values) of
+requested environment variables, `host`, the `reason` (`allowlist-miss`,
+`strict-inline-eval`, `heredoc`, …) and the analysis flags. For an agent turn a
+transcript excerpt follows between `UNTRUSTED_TRANSCRIPT_BEGIN` and `…_END`: user
+messages, the agent's text, tool calls and tool results, each labelled with its
+origin, at most 24,000 characters (4,000 per message, 1,000 per tool entry, 40
+entries that are not user messages), **without secret masking**. A request over
+16,000 characters is not reviewed and asks the owner.
+
+**The reviewer reads text the agent and other parties wrote.** Tool results and the
+agent's own text are in that excerpt. The prompt tells the model to treat them as
+evidence and never to follow them, and a command whose own text addresses the
+reviewer is refused before any model sees it, but a model's verdict is not a
+boundary: content the agent read can mislead the reviewer the way it can mislead the
+agent. A turn sent through AgentPier's own Gateway client is labelled
+`origin=operator` (verified for an owner's chat turn); AgentPier sends a lead's task
+to a member through the same client, so the reviewer may take that text as the
+owner's request too. A routine's or a hook's run is labelled
+`origin=internal_system` (verified), which the prompt names as text that
+establishes no authorization. This is why the level needs its own confirmation, why agents of
+restricted users and agents with a bot for other people never have it (they have no
+shell at all), and why the owner's allowlist and the binding checks stay in force.
+
+**Outcomes** (each verified by the contract; of the unbound forms, `bash -lc` and
+`sh -c`):
+
+| Reviewer's answer                                             | What happens                                                                                                                                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow` with risk `low` or `medium`                           | The command runs once. Tool result: `Exec auto-review allowed once (risk=…): <rationale>`. No request, no allowlist entry; the same command is reviewed again next time.                                      |
+| `deny`                                                        | The command does not run and nobody is asked. Tool result: `Exec denied by auto-review (risk=…): <rationale>` plus the instruction not to work around it.                                                     |
+| `ask`                                                         | An ordinary `exec.approval.requested` with `warningText: "Exec auto-review deferred to human approval (risk=…): <rationale>"` and the usual `allowedDecisions`. AgentPier shows it as any exec approval card. |
+| `allow` with risk `high` or `unknown`                         | Asks the owner (`… allow decision with non-low/medium risk`).                                                                                                                                                 |
+| Prose, malformed JSON, an unknown key or decision             | Asks the owner (`no parseable JSON`, `malformed JSON`, `unsupported response`).                                                                                                                               |
+| HTTP error from the model                                     | Asks the owner (`exec reviewer completion failed: …`).                                                                                                                                                        |
+| No answer within `timeoutMs`                                  | Asks the owner (`exec reviewer timed out after …ms`).                                                                                                                                                         |
+| The reviewer model does not exist                             | Asks the owner (`exec reviewer model unavailable: …`), without a model call.                                                                                                                                  |
+| The command text addresses the reviewer or names a verdict    | Refused without a model call (`… contains reviewer-directed text`).                                                                                                                                           |
+| `bash -lc …`, `sh -c …`, `env VAR=… cmd`, other unbound forms | Not reviewed: asks the owner, with allow-once and deny only (`Exec auto-review skipped: …`).                                                                                                                  |
+
+No failure runs the command: every path that is not a clean `allow` with low or
+medium risk ends in a request to the owner or in a refusal. A request nobody
+answers expires after 30 minutes and is then denied; a timed-out reviewed request
+is denied even where `askFallback` would allow
+(`requiresAutoReviewHumanApproval`). Three denials in a row in one session send
+the third command to the owner instead (read from the dist; each contract turn
+uses a session of its own).
+
+**Allowlist, `strictInlineEval`, `pathPrepend`.**
+
+- A command on the agent's allowlist (and OpenClaw's safe bins) runs without a
+  review. **Always allow** on a reviewed request writes the same entries as under
+  `ask` (section (a)), and the command is not reviewed again.
+- With `strictInlineEval: true`, inline evaluation (`node -e …`) goes to the
+  reviewer even when the interpreter is allowlisted, and the reviewer may allow it
+  once; under `ask` it always asked the owner (section (f)). AgentPier sets it for
+  this level too, so an allowlisted interpreter does not skip the review.
+- `pathPrepend` works as under `ask`: the request names the resolved program, and
+  a user-owned program on the owner `PATH` is reviewed and run alike. The existing
+  binding checks run before the review: what they deny outright under `ask`
+  (redirections with an owner-writable program, heredocs, section (a)) stays
+  denied.
+
+**Runs without the owner.** A routine's or a hook's run is a cron run. The review
+runs there as in a chat: an allowed command runs, and an `ask` or a failed review
+reaches the approval client with the run's session key
+(`agent:<id>:cron:<job>:run:<run>`), so AgentPier shows the card in the routine's
+or the hook's chat as it does under **With approval**. Denied, or still unanswered
+when the run or the Gateway ends, the command never runs (the request ends
+`cancelled`). OpenClaw denies such a request at once only when no approval client
+is connected; AgentPier's client always is.
+
+**Cost.** One extra model call per command that is neither allowlisted nor refused
+before the review: the system prompt (about 4,600 characters), the request and up to
+24,000 characters of transcript in, at most 1,024 tokens (plus thinking on a
+reasoning model) out, billed on the agent's own connection. An agent that runs many
+commands per turn pays for as many reviews; allowlisting the routine programs
+removes them.
+
+**AgentPier's level** (the compiled path, same contract):
+
+- **Automatic review** compiles `tools.exec: { mode: "auto", strictInlineEval:
+true, pathPrepend }` and no `reviewer` block. Raising to it needs `confirmShell`
+  and `confirmReview`; without the second the update answers 409 naming it.
+- An allowed command runs with no AgentPier action; a refused one runs nothing and
+  creates none; an `ask` and a failed review become an exec action awaiting the
+  owner, with the reviewer's line as `warningText` (shown as **OpenClaw notes**).
+  The owner's decisions, **Always allow** and the allowlist work as under **With
+  approval**.
+- Lowering to **With approval** applies live (`mode: "ask"`, no further review);
+  Off ends a waiting request `declined` with `SHELL_OFF`. No level change restarts
+  the Gateway.
+- AgentPier receives no event for a review that settled a command: OpenClaw sends
+  it only on the `tool` stream (`phase: "review"`), which the supervisor's client
+  does not get. Reviewed commands therefore appear in the chat's run steps like
+  any command, but have no approval action and no audit record of their own.
+
+**Hermes.** Hermes's `approvals.mode: smart` lets an auxiliary model approve the
+commands Hermes flags as dangerous. AgentPier does not offer it as this level: it is
+not qualified (which model reviews through AgentPier's proxy, what it sees, how it
+fails), and it reviews only the flagged commands, while everything else runs
+unasked as under **Dangerous commands**. The trait `approvals.shellLevels` of Hermes
+has no `review`; the settings say so, and the server refuses the level
+(`shellLevelUnsupported`).
+
 ## OpenClaw 2026.10.7 (2026-10-24)
 
 All four shell contracts passed against OpenClaw 2026.10.7 on macOS arm64 (shell 7
@@ -491,6 +630,10 @@ above; the contract now pins `Library/Caches/openclaw` on 2026.10.3 and older an
   plan. It was observed, not traced to a single condition.
 - No real `gh`, Homebrew tool or owner file was executed or read. The Homebrew data
   point is an approval request that was denied.
+- The model review (i) was run with a scripted reviewer on a custom
+  OpenAI-compatible connection. How well a real model judges commands, and a review
+  on a ChatGPT login, were not tested. The three-denials escalation and the
+  transcript limits are read from the dist, not run.
 - Telegram approvals are covered against a fake Gateway
   (`assistant-exec-decisions.test.js`), not live; the live contracts decide in the
   web path.

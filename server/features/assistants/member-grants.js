@@ -8,6 +8,7 @@ import {
   shellLevels,
 } from "./native-capabilities.js";
 import { githubLevels, githubRank, memberGithub } from "./agent-github.js";
+import { traitOf } from "./runtimes/runtime-descriptors.js";
 
 /**
  * What a lead grants a task-bound member: capability switches (`true`), bundled
@@ -23,6 +24,18 @@ export const ownerApprovedGrants = ["shell", "ssh"];
 export const defaultGrants = { memory: true, webSearch: true, webFetch: true };
 const grantShell = shellLevels.filter((level) => level !== "off");
 const rank = (level) => shellLevels.indexOf(level);
+// The highest shell level up to `level` the lead's runtime offers; a member runs on
+// its lead's runtime, so a level that runtime lacks ("review" outside OpenClaw) falls
+// to the next lower one it has.
+const offeredUpTo = (lead, level) => {
+  const offered = traitOf(lead, "approvals", "shellLevels");
+  return (
+    shellLevels
+      .slice(0, rank(level) + 1)
+      .findLast((candidate) => candidate === "off" || offered.includes(candidate)) ||
+    "off"
+  );
+};
 // Folder access to a granted project (assistant-access.js projectFiles); a lead
 // passes on at most its own level of each project, resolved live (memberFolders).
 export const projectFileLevels = ["read", "write"];
@@ -168,7 +181,7 @@ export function memberInheritance(
   const own = eligible ? personalShell(lead) : "off";
   const shell =
     eligible && shellSsh && grantShell.includes(grants.shell)
-      ? shellLevels[Math.min(rank(grants.shell), rank(own))]
+      ? offeredUpTo(lead, shellLevels[Math.min(rank(grants.shell), rank(own))])
       : "off";
   return {
     capabilities: Object.fromEntries(

@@ -35,7 +35,12 @@ test("each group is found by its own name in both languages", () => {
     ],
     [
       "shell",
-      ["Ops shell access", "Ops Shell-Zugriff"],
+      [
+        "Ops shell access",
+        "Ops Shell-Zugriff",
+        "Ops automatic review",
+        "Ops automatische Prüfung",
+      ],
       "/agents/ops/settings?tab=capabilities",
     ],
     [

@@ -13,7 +13,8 @@ export const hermesDescriptor = defineRuntimeDescriptor({
   traits: {
     approvals: {
       // Hermes's "approval" asks only for dangerous commands; "every" is the
-      // stricter level AgentPier's guard adds (ADR 0006 decision 5).
+      // stricter level AgentPier's guard adds (ADR 0006 decision 5). No "review":
+      // Hermes's `smart` approvals are no equivalent (docs/hermes-runtime.md).
       shellLevels: ["off", "approval", "every", "full"],
       // Hermes keeps no allowlist AgentPier may write: "Always allow" is the exact
       // command AgentPier remembers (exec-remembered.js).

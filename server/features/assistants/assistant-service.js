@@ -269,15 +269,16 @@ export class AssistantService {
    * global web tool sections the running Gateway was not started with. `mcpServers`
    * (server ids) replaces the agent's MCP bindings; adding a stdio server needs
    * `confirmStdio: true`. `outcome.stdioAdded` reports whether the change bound a new
-   * stdio server. Raising the `shell` level needs `confirmShell: true`, to "full" also
-   * `confirmFull: true`; lowering needs neither and applies even while the agent works
+   * stdio server. Raising the `shell` level needs `confirmShell: true`, to "review" also
+   * `confirmReview: true`, to "full" also `confirmFull: true`; lowering needs none and
+   * applies even while the agent works
    * (shell-changes.js).
    */
   // `queue: false` (a user's own switch) refuses a change that needs a restart.
   async update(id, input, revision, { confirmed, outcome = {}, queue = true } = {}) {
     const { freshChats: _fresh, ...given } = input || {};
-    const { mcpServers, confirmStdio, confirmShell, confirmFull, followLead, ...body } =
-      given;
+    const { mcpServers, confirmStdio, followLead, ...rest } = given;
+    const { confirmShell, confirmReview, confirmFull, ...body } = rest;
     const binds = mcpServers !== undefined;
     let shell = null,
       patch = body;
@@ -313,7 +314,7 @@ export class AssistantService {
       if (changes.model && temporaryMember(current) && !current.ownModel)
         patch = { ...patch, model: changes.model };
       // Refuses an ineligible agent or a missing confirmation before any change.
-      shell = shellChange(current, patch, { confirmShell, confirmFull });
+      shell = shellChange(current, patch, { confirmShell, confirmReview, confirmFull });
       // People on the agent's own Telegram bot must never reach host commands.
       if (shell?.raised && this.telegramSenders?.connected(id))
         throw assistantProblem("telegramSendersShell", 409);

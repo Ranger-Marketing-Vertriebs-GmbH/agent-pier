@@ -8,6 +8,7 @@ import {
   readsBeyondGuard,
 } from "./agent-hook-rights.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { askingShellLevels } from "./native-capabilities.js";
 import { routineTimeoutSeconds } from "./native-routines.js";
 import { pairedChannel, telegramTarget } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
@@ -31,15 +32,15 @@ export const runMinutes = (event) =>
   Math.round((event?.runSeconds || routineTimeoutSeconds) / 60);
 // OpenClaw's silent-reply token; an empty reply is just as silent.
 const silent = (text) => !text?.trim() || text.trim() === "NO_REPLY";
-// A run times out after five minutes, or on OpenClaw after 30 when its shell asks
-// the owner (OpenClaw's exec approvals expire after 30 minutes as well), so the owner
+// A run times out after five minutes, or on OpenClaw after 30 when its shell may ask
+// the owner ("approval", and "review" for what its reviewer does not settle) (OpenClaw's exec approvals expire after 30 minutes as well), so the owner
 // has time to decide. Hermes enforces no run budget and its questions wait at most
 // five minutes (hermes-approval-queue.js), so its runs keep five. An event unsettled
 // for three times its run's budget lost its completion (AgentPier or the Gateway
 // restarted).
 export const approvalRunSeconds = 1800;
 export const hookRunSeconds = (effective, agent) =>
-  effective.shell === "approval" && !ownProcess(agent)
+  askingShellLevels.includes(effective.shell) && !ownProcess(agent)
     ? approvalRunSeconds
     : routineTimeoutSeconds;
 const staleMs = (event) => 3 * (event.runSeconds || routineTimeoutSeconds) * 1000;

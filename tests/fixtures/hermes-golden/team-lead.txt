@@ -1644,6 +1644,7 @@ description: AgentPier team tools and tool guard
                 "enum": [
                   "off",
                   "approval",
+                  "review",
                   "full"
                 ]
               },
@@ -2116,6 +2117,7 @@ description: AgentPier team tools and tool guard
                       "enum": [
                         "off",
                         "approval",
+                        "review",
                         "full"
                       ]
                     },

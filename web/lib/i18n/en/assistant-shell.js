@@ -4,11 +4,14 @@ export const assistantShellCopy = {
   levels: {
     off: "Off",
     approval: "With approval",
+    review: "Automatic review",
     full: "Full access",
   },
   levelHints: {
     off: "The agent cannot run new commands. Commands it already started in the background keep running until they end; on Linux, a restart of the agent service also ends them.",
     approval: "The agent asks you before every command that is not always allowed.",
+    review:
+      "A model reviews every command that is not always allowed. It runs routine commands right away, refuses some, and asks you about the ones it rates as risky or cannot judge.",
     full: "The agent runs every command without asking you.",
   },
   // A runtime that can ask before every command (Hermes) offers four levels.
@@ -30,17 +33,26 @@ export const assistantShellCopy = {
     "Without shell access, skills and tools that need command-line programs do not work, for example gh, git or mail programs.",
   warning:
     "With shell access the agent works as your user account: with your logins, your files and your keys, and it can read AgentPier's own data. The team write guard does not cover shell commands.",
+  reviewWarning:
+    "With automatic review a model, not you, decides which commands run without asking. It uses the agent's own model, and each review costs a model call. It can misjudge a command, and text the agent reads can mislead it. You are asked whenever the review fails or times out.",
+  reviewUnavailable: (runtime) =>
+    `Automatic review is not available on ${runtime}: AgentPier offers a model review only where it is proven to ask you whenever the review fails.`,
   temporary:
     "Task-bound team members get shell access only when their lead agent allows it under Team, and at most at the lead's level.",
   archived: "Archived agents have no shell access.",
   pending: "The new shell level applies as soon as the agent service is back.",
   badge: {
     approval: "Shell: approval",
+    review: "Shell: reviewed",
     full: "Shell: full",
   },
   badgeLabel: (level) => `Shell access: ${level}`,
   confirmTitle: "Turn on shell access?",
   confirm: "Turn on shell access",
+  reviewTitle: "Let a model decide which commands run?",
+  reviewBody:
+    "With automatic review you no longer see every command first. A model reviews each command that is not always allowed and runs the ones it rates as routine right away, including commands that change or delete files. You are asked only about commands it rates as risky or cannot judge, and whenever the review fails.",
+  confirmReview: "Allow automatic review",
   fullTitle: "Run every command without asking?",
   fullBody:
     "With full access there are no prompts at all: the agent runs every command right away, including commands that delete files or send data. You cannot stop a command before it runs.",

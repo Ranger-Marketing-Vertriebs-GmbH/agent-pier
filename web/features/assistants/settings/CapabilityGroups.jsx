@@ -16,12 +16,7 @@ import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/message
 import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
 import { assistantApi } from "../assistant-api.js";
 import useDreaming from "../useDreaming.js";
-import {
-  everyCommandLevels,
-  offersEveryCommand,
-  shellEligible,
-  shellLevels,
-} from "../shell-level.js";
+import { shellChoices, shellEligible } from "../shell-level.js";
 import { traitOf } from "../runtime-traits.js";
 import { agentRoute, isPersonal, webCapabilityKeys } from "./agent-settings-fields.js";
 import useCount from "./useCount.js";
@@ -181,15 +176,16 @@ export function WebGroup({
 
 /**
  * Shell level: selected hint and warning visible, the other levels' hints behind ⓘ.
- * A runtime that asks before every command (`everyCommand`, the agent's runtime by
- * default) offers "Every command" as a fourth level (shell-level.js).
+ * The levels are the ones the runtime view offers (`runtimeInfo`, the agent's by
+ * default; shell-level.js): one that asks before every command adds "Every command",
+ * and one without a qualified model review says why "Automatic review" is missing.
  */
-export function ShellGroup({ assistant, draft, go, creating = false, everyCommand }) {
+export function ShellGroup({ assistant, draft, go, creating = false, runtimeInfo }) {
   const id = useId();
   const eligible = shellEligible(assistant);
-  const every = everyCommand ?? offersEveryCommand(assistant?.runtimeInfo);
-  const levels = every ? everyCommandLevels : shellLevels;
-  const texts = every ? shellCopy.everyCommand : shellCopy;
+  const info = runtimeInfo ?? assistant?.runtimeInfo;
+  const levels = shellChoices(info);
+  const texts = levels.includes("every") ? shellCopy.everyCommand : shellCopy;
   const reason = eligible
     ? ""
     : assistant?.archivedAt
@@ -224,6 +220,11 @@ export function ShellGroup({ assistant, draft, go, creating = false, everyComman
           />
         ))}
         {reason && <p className="agent-row-note">{reason}</p>}
+        {eligible && !levels.includes("review") && (
+          <p className="agent-row-note">
+            {shellCopy.reviewUnavailable(info?.name || info?.id)}
+          </p>
+        )}
         {listed && (
           <ListRow
             label={shellCopy.allowlist}
@@ -239,6 +240,9 @@ export function ShellGroup({ assistant, draft, go, creating = false, everyComman
         ) : (
           <p className="assistant-shell-warning">{shellCopy.warning}</p>
         ))}
+      {eligible && level === "review" && (
+        <p className="assistant-shell-warning">{shellCopy.reviewWarning}</p>
+      )}
       {eligible && assistant?.shellPending && (
         <p role="status" className="assistant-notice">
           {shellCopy.pending}

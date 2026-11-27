@@ -106,9 +106,10 @@ const steps = [
   its request. The response's `revision` (or `revisions(result)`) is passed to later steps.
 - **Confirmations.** A step error with `ASSISTANT_SHELL_CONFIRMATION_REQUIRED`,
   `MCP_STDIO_CONFIRMATION_REQUIRED` or `ASSISTANT_RESTART_REQUIRED` becomes
-  `draft.confirmation = { kind: "shell" | "fullShell" | "stdio" | "restart", flags, data, confirm(), cancel() }`.
+  `draft.confirmation = { kind: "shell" | "reviewShell" | "fullShell" | "stdio" | "restart", flags, data, confirm(), cancel() }`.
   Render it in a `Sheet`; `confirm()` repeats the same step with the flags
-  (`confirmShell`, `confirmFull`, `confirmStdio`, `confirmRestart`), `cancel()` stops
+  (`confirmShell`, `confirmReview`, `confirmFull`, `confirmStdio`, `confirmRestart`),
+  `cancel()` stops
   without an error. A step may map its own errors with `confirmation(error)`: the
   dreaming step (`dreamingStep`) maps `ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED`
   to `kind: "dreamingMemory"` (flag `confirmMemory`, `data.agents` lists the permanent

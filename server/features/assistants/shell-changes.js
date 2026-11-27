@@ -20,12 +20,17 @@ const lastRetryMs = 60000;
 /**
  * The shell level change `patch` makes to `current`, or null when it makes none.
  * Raising the level needs the owner's confirmation of the warning
- * (`confirmShell`), raising it to "full" also `confirmFull`; lowering never does.
+ * (`confirmShell`), raising it to "review" also `confirmReview` (a model decides
+ * instead of the owner) and to "full" also `confirmFull`; lowering never does.
  * Refuses before anything is saved: an ineligible agent with 400 (unless it only
  * restates "off"), a missing
  * confirmation with 409 naming the confirmations still `required`.
  */
-export function shellChange(current, patch, { confirmShell, confirmFull } = {}) {
+export function shellChange(
+  current,
+  patch,
+  { confirmShell, confirmReview, confirmFull } = {},
+) {
   if (!patch || !("shell" in patch)) return null;
   if (!personalEligible(current)) {
     // Restating "off" changes nothing; any other level is refused.
@@ -39,14 +44,17 @@ export function shellChange(current, patch, { confirmShell, confirmFull } = {}) 
   if (raised) {
     const required = [
       ...(confirmShell === true ? [] : ["confirmShell"]),
+      ...(to === "review" && confirmReview !== true ? ["confirmReview"] : []),
       ...(to === "full" && confirmFull !== true ? ["confirmFull"] : []),
     ];
     if (required.length)
       throw Object.assign(
         assistantProblem(
-          required[0] === "confirmShell"
-            ? "shellConfirmationRequired"
-            : "shellFullConfirmationRequired",
+          {
+            confirmShell: "shellConfirmationRequired",
+            confirmReview: "shellReviewConfirmationRequired",
+            confirmFull: "shellFullConfirmationRequired",
+          }[required[0]],
           409,
         ),
         { code: SHELL_CONFIRMATION_REQUIRED, required },

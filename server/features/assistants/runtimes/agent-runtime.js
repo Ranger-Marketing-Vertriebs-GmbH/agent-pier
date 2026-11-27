@@ -202,7 +202,7 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     needs }` or `{ mcp: true, needs }` for its MCP servers' tools; `needs` of
  *     "teams", "native", "guard" and `available:<capability>`, resolved by
  *     native-capabilities.js grantedTools), `shell: { level, pathPrepend }` (level
- *     "off", "approval" or "full"; the folders its PATH starts with), `memory`,
+ *     "off", "approval", "review" or "full"; the folders its PATH starts with), `memory`,
  *     `skills: { assigned, compiled }` (switched on; compiled with the built-ins),
  *     `mcp: { eligible, servers }` (bound server ids), `web` (web capability on or
  *     released, by key), `browser: { wanted, visible, profile }`, `channels:

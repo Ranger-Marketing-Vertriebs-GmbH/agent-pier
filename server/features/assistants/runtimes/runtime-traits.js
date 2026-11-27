@@ -14,7 +14,7 @@ const flag = (value) => ({
   default: value,
   allows: (candidate) => typeof candidate === "boolean",
 });
-const SHELL_LEVELS = Object.freeze(["off", "approval", "every", "full"]);
+const SHELL_LEVELS = Object.freeze(["off", "approval", "every", "review", "full"]);
 const subsetOf = (all, value) => ({
   default: Object.freeze(value),
   allows: (candidate) =>
@@ -27,7 +27,10 @@ const subsetOf = (all, value) => ({
  * `{ [feature]: { [trait]: { default, allows(value) } } }`.
  *
  * - approvals.shellLevels: the shell levels an agent may choose. "every" asks before
- *   every command, beside an "approval" that asks only for dangerous ones.
+ *   every command, beside an "approval" that asks only for dangerous ones. "review"
+ *   lets a model review each command that is not always allowed and asks the owner
+ *   only for the ones it does not settle; only a runtime whose review fails closed
+ *   and is bound to the reviewed command offers it.
  * - approvals.allowlist: what "Always allow" keeps: `patterns` in the runtime's own
  *   allowlist, which AgentPier reads and writes through the approvals sub-port, or
  *   only the `exactCommands` AgentPier remembers (exec-remembered.js).
@@ -54,7 +57,7 @@ const subsetOf = (all, value) => ({
  */
 export const RUNTIME_TRAITS = Object.freeze({
   approvals: Object.freeze({
-    shellLevels: subsetOf(SHELL_LEVELS, ["off", "approval", "full"]),
+    shellLevels: subsetOf(SHELL_LEVELS, ["off", "approval", "review", "full"]),
     allowlist: oneOf("patterns", "exactCommands"),
   }),
   agentFiles: Object.freeze({

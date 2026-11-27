@@ -8,7 +8,10 @@ import {
 
 test("the defaults are OpenClaw's behaviour", () => {
   assert.deepEqual(DEFAULT_TRAITS, {
-    approvals: { shellLevels: ["off", "approval", "full"], allowlist: "patterns" },
+    approvals: {
+      shellLevels: ["off", "approval", "review", "full"],
+      allowlist: "patterns",
+    },
     agentFiles: { memoryFormat: "markdown", dreaming: "host" },
     models: { chatgptLogin: "any" },
     channelBots: { peopleApply: "live" },

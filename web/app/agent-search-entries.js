@@ -70,7 +70,14 @@ const agentGroups = [
   ["reminders", "automation", () => assistantCopy.personal.reminders, ownAgent],
   ["hooks", "automation", () => hookCopy.title, ownAgent],
   ["check-ins", "automation", () => assistantProactivityCopy.heartbeat, () => true],
-  ["shell", "capabilities", () => assistantShellCopy.title, ownAgent],
+  // Also found by the name of its model-reviewed level.
+  [
+    "shell",
+    "capabilities",
+    () => assistantShellCopy.title,
+    ownAgent,
+    [() => assistantShellCopy.levels.review],
+  ],
   // What the agent's sessions used, on its Overview (UsageGroup.jsx).
   [
     "usage",

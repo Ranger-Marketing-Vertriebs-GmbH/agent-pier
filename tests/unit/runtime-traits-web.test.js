@@ -18,7 +18,12 @@ test("traitOf reads the view and falls back to the default", () => {
   assert.equal(traitOf(undefined, "channelBots", "peopleApply"), "live");
   assert.equal(traitOf(null, "approvals", "allowlist"), "patterns");
   assert.equal(traitOf({ capabilities: {} }, "host", "process"), "shared");
-  assert.deepEqual(traitOf({}, "approvals", "shellLevels"), ["off", "approval", "full"]);
+  assert.deepEqual(traitOf({}, "approvals", "shellLevels"), [
+    "off",
+    "approval",
+    "review",
+    "full",
+  ]);
 });
 
 test("traitOf refuses a trait nobody defined", () => {

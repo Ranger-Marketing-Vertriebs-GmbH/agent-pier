@@ -107,7 +107,7 @@ const grantsSchema = {
     skills: {
       anyOf: [{ type: "boolean" }, { type: "array", maxItems: 64, items: text(64) }],
     },
-    shell: { type: "string", enum: ["off", "approval", "full"] },
+    shell: { type: "string", enum: ["off", "approval", "review", "full"] },
     ssh: { type: "boolean" },
     projects: {
       type: "object",

@@ -55,7 +55,12 @@ the instructions leaves the `model` section, the key in `.env` and `SOUL.md` as 
 | Full          | `approvals.mode: off`: Hermes runs every command without asking             |
 
 Hermes's own default, `smart`, lets an auxiliary model approve flagged commands; AgentPier
-always sets `manual` or `off`. The guard plugin's `pre_tool_call` hook returns
+always sets `manual` or `off`. It is not offered as OpenClaw's **Automatic review**
+level: `smart` is not qualified here (which model reviews through AgentPier's proxy,
+what it sees and how it fails), and it covers only the commands Hermes flags, so
+Hermes's `approvals.shellLevels` has no `review`, the agent's settings say that
+automatic review is not available, and the server refuses the level
+([shell qualification (i)](assistant-shell-qualification.md#i-exec-mode-auto-the-model-review)). The guard plugin's `pre_tool_call` hook returns
 `{"action": "approve"}` for every `terminal` command, `execute_code` and `browser_exec`
 run and input sent to a running process. Its message carries the command itself, and its rule key hashes
 the exact text, so "always" allows that one command again and never every command.
@@ -1175,21 +1180,21 @@ How Hermes behaves within them are the traits of its descriptor
 (`runtimes/hermes/descriptor.js`, [ADR 0007](adr/0007-runtime-descriptor.md)); every
 other value is OpenClaw's, the default:
 
-| Trait                     | Hermes                                | OpenClaw        |
-| ------------------------- | ------------------------------------- | --------------- |
-| `approvals.shellLevels`   | `off`, `approval`, `every`, `full`    | without `every` |
-| `approvals.allowlist`     | `exactCommands` (AgentPier remembers) | `patterns`      |
-| `agentFiles.memoryFormat` | `entries` with character limits       | `markdown`      |
-| `agentFiles.dreaming`     | `agent` (each agent's nightly dream)  | `host`          |
-| `models.chatgptLogin`     | `agentpierHeld`                       | `any`           |
-| `channelBots.peopleApply` | `restart`                             | `live`          |
-| `skills.learnsByDefault`  | `true`                                | `false`         |
-| `skills.userAgentsLearn`  | `true` (skills in its own home)       | `false`         |
-| `skills.writesWhenAsked`  | `true` (`skill_manage` stays)         | `false`         |
-| `skills.channelBotsLearn` | `true` (no `session_search` with one) | `false`         |
-| `sessions.chatFolders`    | `true`                                | `false`         |
-| `host.process`            | `perAgent`                            | `shared`        |
-| `host.install`            | `optional`                            | `builtin`       |
+| Trait                     | Hermes                                | OpenClaw                            |
+| ------------------------- | ------------------------------------- | ----------------------------------- |
+| `approvals.shellLevels`   | `off`, `approval`, `every`, `full`    | `off`, `approval`, `review`, `full` |
+| `approvals.allowlist`     | `exactCommands` (AgentPier remembers) | `patterns`                          |
+| `agentFiles.memoryFormat` | `entries` with character limits       | `markdown`                          |
+| `agentFiles.dreaming`     | `agent` (each agent's nightly dream)  | `host`                              |
+| `models.chatgptLogin`     | `agentpierHeld`                       | `any`                               |
+| `channelBots.peopleApply` | `restart`                             | `live`                              |
+| `skills.learnsByDefault`  | `true`                                | `false`                             |
+| `skills.userAgentsLearn`  | `true` (skills in its own home)       | `false`                             |
+| `skills.writesWhenAsked`  | `true` (`skill_manage` stays)         | `false`                             |
+| `skills.channelBotsLearn` | `true` (no `session_search` with one) | `false`                             |
+| `sessions.chatFolders`    | `true`                                | `false`                             |
+| `host.process`            | `perAgent`                            | `shared`                            |
+| `host.install`            | `optional`                            | `builtin`                           |
 
 Teams have no capability of their own: a Hermes agent offers them as OpenClaw does.
 

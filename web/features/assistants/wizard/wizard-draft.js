@@ -1,6 +1,6 @@
 // Pure rules of the new agent wizard (handoff 5.3): its draft, its steps, what a
 // duplicate copies (5.3.1) and what the summary names. No request is made here.
-import { offersEveryCommand, shellChoice } from "../shell-level.js";
+import { offersEveryCommand, offersReview, shellChoice } from "../shell-level.js";
 import { traitOf } from "../runtime-traits.js";
 import {
   sortedGrants,
@@ -150,6 +150,10 @@ export const withRuntime = (d, runtime, models = [], runtimeInfo) => ({
     : {}),
   // The default runtime's levels are the defaults, known without its view.
   ...((runtimeInfo || !runtime) && !offersEveryCommand(runtimeInfo) && d.shell === "every"
+    ? { shell: "approval" }
+    : {}),
+  // A level with a model review falls back to asking the owner where it is missing.
+  ...(runtimeInfo && !offersReview(runtimeInfo) && d.shell === "review"
     ? { shell: "approval" }
     : {}),
   // Such a runtime keeps a chosen ChatGPT login only when AgentPier holds it.

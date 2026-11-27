@@ -8,6 +8,7 @@ const lockedKeys = new Set([
   "browserVisible",
   "shopping",
   "confirmShell",
+  "confirmReview",
   "confirmFull",
   "confirmInstructions",
   "confirmStdio",
