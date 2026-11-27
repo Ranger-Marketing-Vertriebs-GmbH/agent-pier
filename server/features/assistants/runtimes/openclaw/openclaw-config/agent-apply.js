@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { shellTools } from "../../../native-capabilities.js";
 import {
   agentEntry,
+  fallbackRefs,
   loopProtection,
   modelDefaultKeys,
   modelDefaults,
@@ -25,21 +26,25 @@ export function shellAllow(allow = [], wanted) {
 }
 
 /**
- * The `config.patch` of the desired agent's model connection (`desired.model`): its
- * provider entry, written before the agent's own entry; null without a provider, or
- * when the configuration as written (`config`, config.get's sourceConfig) already
- * holds exactly that entry. OpenClaw reloads after every write, an unchanged one
+ * The `config.patch` of the desired agent's model connection (`desired.model`) and
+ * of its fallback models' connections (`desired.optionConnections`, those that
+ * resolved): their provider entries, written before the agent's own entry; null
+ * without a provider, or when the configuration as written (`config`, config.get's
+ * sourceConfig) already holds exactly these entries. OpenClaw reloads after every write, an unchanged one
  * too, and the next write (an
  * agents.create) must not race that reload (live-patch.js configWrite). A value
  * config.get redacts never equals, so such an entry is written again.
  */
-export function providerPatch({ model } = {}, config = {}) {
-  if (!model?.provider) return null;
-  // As the patch carries it: JSON leaves out the keys whose value is undefined.
-  const written = JSON.parse(JSON.stringify(model.provider));
-  if (isDeepStrictEqual(config?.models?.providers?.[model.providerId], written))
-    return null;
-  return { patch: { models: { providers: { [model.providerId]: model.provider } } } };
+export function providerPatch({ model, optionConnections = [] } = {}, config = {}) {
+  const providers = {};
+  for (const { providerId, provider } of [model || {}, ...optionConnections]) {
+    if (!provider || !providerId) continue;
+    // As the patch carries it: JSON leaves out the keys whose value is undefined.
+    const written = JSON.parse(JSON.stringify(provider));
+    if (!isDeepStrictEqual(config?.models?.providers?.[providerId], written))
+      providers[providerId] = provider;
+  }
+  return Object.keys(providers).length ? { patch: { models: { providers } } } : null;
 }
 
 /**
@@ -95,6 +100,7 @@ export function agentPatch(config, desired, state) {
     // Likewise loop protection that is off now (never written as `false`).
     if (managed && current?.tools?.loopDetection && !next.tools?.loopDetection)
       next.tools = { ...next.tools, loopDetection: null };
+    // A string model (agents.create, agents.update) is replaced whole by the object.
     // Likewise a thinking level or fast mode the agent no longer sets.
     for (const key of modelDefaultKeys)
       if (managed && current && key in current && !(key in next)) next[key] = null;
@@ -121,6 +127,9 @@ export function agentPatch(config, desired, state) {
     replacePaths.push(`agents.entries.${desired.runtimeAgentId}.skills`);
   if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.tools?.deny))
     replacePaths.push(`agents.entries.${desired.runtimeAgentId}.tools.deny`);
+  // A shorter or reordered fallback list drops array items too.
+  if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.model?.fallbacks))
+    replacePaths.push(`agents.entries.${desired.runtimeAgentId}.model.fallbacks`);
   const shellGlobalAllow = shellAllow(config.tools?.allow, shellGlobal);
   const learningGlobalAllow =
     learningAllow(shellGlobalAllow ?? config.tools?.allow, learningGlobal) ??
@@ -149,7 +158,8 @@ export function agentPatch(config, desired, state) {
  * learning tool and review mode while `learningGlobal` is, the wiki's global tools
  * while `wikiGlobal` is, its
  * memory search while `memory` is (a boolean), and the agent runtime and model of
- * its model connection, when it names one. True means the apply did not take.
+ * its model connection with its fallback models while `managed`, when it names one.
+ * True means the apply did not take.
  */
 export function agentDrift(config, desired, expected) {
   const { managed, tools: allowed, exec, skills, shellGlobal, memory } = expected;
@@ -191,5 +201,7 @@ export function agentDrift(config, desired, expected) {
     return true;
   if (!connection) return false;
   const model = own?.model;
-  return (typeof model === "string" ? model : model?.primary) !== connection.ref;
+  if ((typeof model === "string" ? model : model?.primary) !== connection.ref)
+    return true;
+  return managed && !isDeepStrictEqual(model?.fallbacks ?? [], fallbackRefs(desired));
 }

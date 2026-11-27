@@ -7,11 +7,12 @@ import { optionConnections } from "./runtimes/runtime-options.js";
  * provider, display }`, a ChatGPT login with its `chatgpt` too, or `{ connectionId,
  * modelId, unavailable }` (the refusal's key) for one that cannot serve now. The
  * runtime's compiler decides what it can use. Each lease is released at once: the
- * apply holds the provider it read. Never fails.
+ * apply holds the provider it read. `lead`: the record of the lead a temporary
+ * member follows, whose options it takes over (runtime-options.js). Never fails.
  */
-export async function resolveOptionConnections(models, agent) {
+export async function resolveOptionConnections(models, agent, lead = null) {
   const resolved = [];
-  for (const { connectionId, modelId } of optionConnections(agent)) {
+  for (const { connectionId, modelId } of optionConnections(agent, lead)) {
     let lease;
     try {
       lease = await models.resolve({ connectionId, modelId });

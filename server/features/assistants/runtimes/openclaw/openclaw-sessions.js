@@ -28,8 +28,11 @@ function deliveryKey(message) {
  * message: its `__openclaw` id and run id, the text of its string content or text
  * blocks (joined by line breaks), its delivery key, whether OpenClaw made the turn
  * itself (provenance `internal_system`: 2026.10.7 shows an exec completion's event
- * turn, 2026.10.3 hid its heartbeat), and a compaction marker's id and token counts
- * (a system message with `__openclaw.kind: "compaction"`).
+ * turn, 2026.10.3 hid its heartbeat), a compaction marker's id and token counts
+ * (a system message with `__openclaw.kind: "compaction"`), and whether it is
+ * OpenClaw's own status line: after a model fallback it mirrors "Model switched from
+ * <provider/model> to <provider/model> (reason)." into the transcript as an assistant
+ * message (`openclawDeliveryMirror.kind: "model-fallback"`, 2026.11.6).
  */
 export function openClawEntry(message) {
   const m = message && typeof message === "object" ? message : {};
@@ -49,6 +52,7 @@ export function openClawEntry(message) {
     runId: meta.runId || null,
     turnKey: deliveryKey(m),
     internal: m.role === "user" && m.provenance?.kind === "internal_system",
+    status: m.openclawDeliveryMirror?.kind === "model-fallback",
     compaction:
       m.role === "system" && meta.kind === "compaction" && typeof meta.id === "string"
         ? { id: meta.id, tokensBefore: meta.tokensBefore, tokensAfter: meta.tokensAfter }

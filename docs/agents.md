@@ -653,6 +653,52 @@ instead: it works with its lead's thinking level, fast mode and loop protection 
 Hermes agent has no such group and follows the thinking level for all agents. Search
 for it with ⌘K ("Thinking level", "Fast mode", "Loop protection", "Denkstufe").
 
+<a id="fallback-models"></a>
+
+**Fallback models** (the same group, OpenClaw agents only) lets you name up to two
+other models that answer when the agent's own model cannot. **Add a fallback
+model**, pick its connection (**Fallback 1: connection**) and its model (a list for
+an endpoint, a model ID for OpenRouter); **Remove fallback N** takes one out, and the
+order of the rows is the order they are tried in. Without any, the row says **None**
+and a turn fails when the model cannot answer, as before.
+
+- **When a fallback answers.** At once when the provider refuses the key or the
+  model no longer exists; after OpenClaw's own retries when the provider fails
+  (about a minute and a half of server errors) or limits the rate (up to 16 tries,
+  which can take several minutes). A turn you stop, a refusal of the content and a
+  turn that ran into its time limit never switch models.
+- **Only for that message.** The agent keeps its model: the next message tries it
+  first again, in the same chat. Two exceptions come from OpenClaw: after a rate
+  limit the chat stays on the fallback for up to 30 minutes, and a provider whose
+  key was refused rests for a few minutes, during which the fallback answers
+  directly.
+- **You see it.** The turn's steps show **Answered by a fallback model** with the
+  model's ID ([What the agent is doing](#what-the-agent-is-doing)); the reply itself
+  carries no extra line.
+- **Which models.** A model of an OpenRouter connection or of an endpoint
+  (**Connections › Model access**), and not the agent's own model. A ChatGPT account
+  cannot be a fallback: OpenClaw would decide itself which of your accounts answers.
+  The agent's own model may well be a ChatGPT account.
+- **Privacy and cost.** A fallback's provider receives the conversation of the turns
+  it answers, and bills them.
+- **Images, PDFs, thinking.** What the agent may do is decided by its own model, not
+  by a fallback: **Read images** and **Read PDFs** stay as they are, PDFs are still
+  read by the agent's own model (or the PDF fallback model), and images are created
+  through your ChatGPT account. A fallback that takes no images answers that turn
+  without them, and a thinking level it does not have is replaced by the closest one.
+  Choose fallbacks that can do what the agent needs.
+- **A fallback that cannot serve** (its connection was deleted or lost its key, its
+  endpoint no longer lists the model) is left out and shown as **Left out until it is
+  available again**; the agent starts and runs on its model and the fallbacks that
+  remain. A connection a fallback uses counts as used by the agent: changing it
+  restarts the agent service like any model connection.
+- **Routines and team members.** An agent's routines and check-ins use its
+  fallbacks too. A temporary team member works with its lead's; a permanent member
+  has its own.
+
+A Hermes agent has no fallback models. Search for the rows with ⌘K ("Fallback
+models", "Failover", "Ersatzmodelle").
+
 When you pick another model and save, the field **Start fresh chats** appears. Its
 hint reads "New main chats for everyone using this agent; the old ones stay readable.
 Nothing running stops." The switch is on by default when the new model comes from
@@ -2146,7 +2192,9 @@ page it fetches or opens in the browser (never the part after `?`), and the fold
 and name of a file it reads, writes or edits. They never show commands, what the
 browser types, image or PDF prompts, the arguments of MCP tools and AgentPier's own
 tools, output or what the agent thought, and a target that looks like a key or
-password is left out. A Hermes agent's steps show tool names only. Once the turn is done, its steps stay below the reply,
+password is left out. When the agent's own model could not answer and one of its
+[fallback models](#fallback-models) did, the steps hold **Answered by a fallback
+model** with that model's ID. A Hermes agent's steps show tool names only. Once the turn is done, its steps stay below the reply,
 collapsed, while the chat is open; a reload shows the reply alone.
 
 ### Questions from the agent

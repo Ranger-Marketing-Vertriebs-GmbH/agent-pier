@@ -86,7 +86,9 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     sessionInfo, hasMore, sessionId }`.
  *   Every message get and history answer carries, beside the runtime's own fields,
  *   its normalized `entry`: `{ id, role, text, timestamp, runId, turnKey, internal,
- *   compaction }`. `id` is the runtime's stable message id or null (callers then
+ *   status, compaction }` (`status` true for a status line the runtime wrote into
+ *   the transcript itself, such as a model fallback's route change: never shown as
+ *   the agent's reply; absent or false otherwise). `id` is the runtime's stable message id or null (callers then
  *   derive one); `role` the runtime's role ("user", "assistant", "system", …); `text`
  *   its text blocks joined; `timestamp` milliseconds, 0 when unknown; `runId` the run
  *   that wrote it or null; `turnKey` the run id AgentPier sent the turn with (the
@@ -131,6 +133,8 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     `{ type: "advisor", id, advisor, model, text, failed }` (one advisor model's
  *     answer of a Mixture of Agents turn: its number, model, text and whether it
  *     failed),
+ *     `{ type: "fallback", model, failed }` (the run moves on to a fallback model:
+ *     its model id without the provider; `failed` when no fallback was left),
  *     `{ type: "lifecycle", phase }` ("start", "model", "waiting-approval" while an
  *     approval of the run waits, "approval-resolved") and `{ type: "compaction",
  *     phase }` ("start", "end").

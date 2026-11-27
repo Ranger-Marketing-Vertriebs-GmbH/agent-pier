@@ -223,6 +223,7 @@ test("OpenClaw history messages carry their entry, which the chat reads", async 
         runId: null,
         turnKey: "attempt-1",
         internal: false,
+        status: false,
         compaction: null,
       },
       {
@@ -233,6 +234,7 @@ test("OpenClaw history messages carry their entry, which the chat reads", async 
         runId: null,
         turnKey: null,
         internal: true,
+        status: false,
         compaction: null,
       },
       {
@@ -243,6 +245,7 @@ test("OpenClaw history messages carry their entry, which the chat reads", async 
         runId: "attempt-1",
         turnKey: null,
         internal: false,
+        status: false,
         compaction: null,
       },
       {
@@ -253,6 +256,7 @@ test("OpenClaw history messages carry their entry, which the chat reads", async 
         runId: null,
         turnKey: null,
         internal: false,
+        status: false,
         compaction: { id: "c1", tokensBefore: 9, tokensAfter: 2 },
       },
     ],

@@ -23,8 +23,18 @@ const questionPayloads = {
   "question.resolved": openClawQuestionEnd,
 };
 
+// A `chat` frame that carries OpenClaw's own status line instead of the reply: after
+// a model fallback it sends "↪️ Model Fallback: <provider/model> (selected …)" as a
+// second `final` of the run (content blocks marked `openclawStatusNotice`). It names
+// internal provider ids and is no reply and no end of the run.
+const statusNotice = (payload) =>
+  Array.isArray(payload?.message?.content) &&
+  payload.message.content.length > 0 &&
+  payload.message.content.every((block) => block?.openclawStatusNotice === true);
+
 function kindOf(name, payload) {
-  if (name === "chat") return chatKinds[payload?.state] || "progress";
+  if (name === "chat")
+    return statusNotice(payload) ? "progress" : chatKinds[payload?.state] || "progress";
   if (name === "agent") {
     if (payload?.stream === "lifecycle" && payload.data?.phase === "start")
       return "started";
@@ -94,6 +104,12 @@ function targetOf(name, meta) {
   return value ? { kind, value } : null;
 }
 const failedStatuses = new Set(["failed", "error", "blocked", "denied", "cancelled"]);
+// A model ref as its model id alone: without the provider (AgentPier's are opaque
+// ids, `ap-<connection>-<uuid>`) and without an account pin (`@profile`).
+function modelIdOf(ref) {
+  if (typeof ref !== "string" || !ref.includes("/")) return "";
+  return ref.slice(ref.indexOf("/") + 1).split("@")[0];
+}
 
 /**
  * The activity of an `agent` frame (agent-runtime.js `step`), or null: `item` frames
@@ -101,6 +117,9 @@ const failedStatuses = new Set(["failed", "error", "blocked", "denied", "cancell
  * `thinking` and `assistant` deltas, `run_status` phases (`retrying` with its
  * attempt), `lifecycle` phases (an exec approval's `waiting-approval`) and
  * `compaction` (OpenClaw 2026.10.3; tests/integration/assistant-run-steps-contract).
+ * A lifecycle `fallback_step` (2026.11.6: the run moves on to a fallback model,
+ * tests/integration/assistant-model-fallback-contract) is the step "fallback" with
+ * the model id it moves to; `failed` once the whole chain is exhausted.
  */
 export function openClawStep(payload) {
   const data = isRecord(payload?.data) ? payload.data : {};
@@ -129,6 +148,12 @@ export function openClawStep(payload) {
         reason: data.reason,
       };
     case "lifecycle":
+      if (data.phase === "fallback_step")
+        return {
+          type: "fallback",
+          model: modelIdOf(data.fallbackStepToModel),
+          failed: data.fallbackStepFinalOutcome === "chain_exhausted",
+        };
       return { type: "lifecycle", phase: data.phase };
     case "compaction":
       return { type: "compaction", phase: data.phase };
@@ -153,7 +178,8 @@ export function openClawRunEvent(frame) {
     sessionKey: payload?.sessionKey ?? null,
     runId: payload?.runId ?? null,
     reason: kind === "failed" ? (payload?.errorKind ?? null) : null,
-    reply: frame?.event === "chat" ? openClawReply(payload) : null,
+    reply:
+      frame?.event === "chat" && !statusNotice(payload) ? openClawReply(payload) : null,
     step: frame?.event === "agent" ? openClawStep(payload) : null,
     event: frame?.event,
     payload,

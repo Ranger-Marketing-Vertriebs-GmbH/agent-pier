@@ -330,6 +330,32 @@ export const goldenScenarios = {
     };
     return base({ profiles }, { existing });
   },
+  // Fallback models (runtimeOptions.openclaw.fallbacks) are no part of a start's
+  // compile: it knows no model connection, so each entry keeps the model its last
+  // apply wrote, and the start's provider preparation then writes the model with its
+  // fallbacks and their providers (assistant-provider-synchronization.js).
+  "model-fallbacks": () => {
+    const fallbacks = [
+      { connectionId: "router", modelId: "vendor/small" },
+      { connectionId: "local", modelId: "llama" },
+    ];
+    const profiles = [
+      agent("lead", { runtimeOptions: { openclaw: { fallbacks } } }),
+      agent("temp", {
+        teamMemberId: "tm-1",
+        lifetime: "task",
+        parentAssistantId: "lead",
+        inherited: { capabilities: {}, skills: [], shell: "off", ssh: false },
+      }),
+      agent("a3"),
+    ];
+    const existing = roster(profiles);
+    existing.agents.entries["ap-lead"] = {
+      model: { primary: "ap-own-1/chat", fallbacks: ["ap-router-1/vendor/small"] },
+    };
+    existing.agents.entries["ap-a3"] = { model: "ap-own-1/chat" };
+    return base({ profiles }, { existing });
+  },
   // A restored file with legacy roster shapes, foreign keys and a TLS listener.
   "existing-legacy": () =>
     base(

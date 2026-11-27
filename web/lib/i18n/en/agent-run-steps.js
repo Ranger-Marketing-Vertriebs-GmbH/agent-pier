@@ -17,6 +17,8 @@ export const agentRunStepsCopy = {
       ? `The model did not answer, trying again (${attempt} of ${of})`
       : "The model did not answer, trying again",
   thinking: "Thought about it",
+  // The agent's own model could not answer; the step names the fallback model.
+  fallback: "Answered by a fallback model",
   tools: {
     exec: "Command",
     process: "Background command",

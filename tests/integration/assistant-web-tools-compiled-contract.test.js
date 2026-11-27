@@ -118,6 +118,10 @@ test(
       instructions: "Use the tool.",
       model: fixture,
       capabilities: everything,
+      // One fallback model (openclaw-options.js), which its member takes over.
+      runtimeOptions: {
+        openclaw: { fallbacks: [{ connectionId: "spare", modelId: "spare-model" }] },
+      },
     });
     // A temporary team member runs with what its lead granted within the lead's own
     // capabilities, never with its own: `member` has the default grants (memory, web
@@ -166,15 +170,21 @@ test(
         };
       },
     });
+    const spare = { ...fixtureModel(model.url), apiKey: "spare-key" };
+    spare.models = [{ ...spare.models[0], id: "spare-model" }];
+    // As a model of the owner's own endpoint: loop protection is on by default.
+    const lease = (providerId, modelId, provider) => ({
+      providerId,
+      kind: "endpoint",
+      modelRef: `${providerId}/${modelId}`,
+      provider,
+      release() {},
+    });
     const models = {
-      resolve: () => ({
-        providerId: "fixture",
-        // As a model of the owner's own endpoint: loop protection is on by default.
-        kind: "endpoint",
-        modelRef: "fixture/fixture-model",
-        provider: fixtureModel(model.url),
-        release() {},
-      }),
+      resolve: ({ connectionId }) =>
+        connectionId === "spare"
+          ? lease("ap-spare-1", "spare-model", spare)
+          : lease("fixture", "fixture-model", fixtureModel(model.url)),
     };
     // The owner chose the fixture model as PDF fallback; the real provider preparation
     // compiles it into agents.defaults.pdfModel before each spawn, as in the app.
@@ -336,6 +346,14 @@ test(
     // kept it for the agents not applied since (a start knows no model connection).
     for (const agent of [web, member, isolated])
       assert.deepEqual(entry(agent).tools.loopDetection, { enabled: true }, agent.name);
+    // Fallback models: applies and the start wrote the list and its provider, the
+    // readback accepted them. A temporary member runs with its lead's; none is `[]`.
+    const backed = ["ap-spare-1/spare-model"];
+    for (const agent of [web, member])
+      assert.deepEqual(entry(agent).model.fallbacks, backed, agent.name);
+    assert.equal(entry(web).model.primary, "fixture/fixture-model");
+    assert.deepEqual(entry(isolated).model.fallbacks, []);
+    assert.equal(running.models.providers["ap-spare-1"].models[0].id, "spare-model");
     const inherited = entry(member).tools.allow;
     t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
     for (const name of ["web_search", "web_fetch", "memory_search"])
