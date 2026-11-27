@@ -538,7 +538,7 @@ test("an agent's 'Learns its own skills' is found by its names in both languages
 });
 
 // ADR 0007, step 7a: a Hermes agent's Mixture of Agents (more in
-// search-index-runtimes.test.js).
+// the runtimes part below).
 test("a Hermes agent's Mixture of Agents is found by MoA", () => {
   const heron = {
     id: "her",
