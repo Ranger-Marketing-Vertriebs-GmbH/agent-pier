@@ -1,6 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import { shellTools } from "../../../native-capabilities.js";
-import { agentEntry, modelDefaultKeys, modelDefaults } from "./agent-entry.js";
+import {
+  agentEntry,
+  loopProtection,
+  modelDefaultKeys,
+  modelDefaults,
+} from "./agent-entry.js";
 import { learningAllow, learningApplied, learningModeChange } from "./skill-learning.js";
 import { wikiAllow, wikiApplied } from "./memory-wiki.js";
 
@@ -87,6 +92,9 @@ export function agentPatch(config, desired, state) {
     if (managed && Array.isArray(current?.skills) && !next.skills) next.skills = null;
     if (managed && Array.isArray(current?.tools?.deny) && !next.tools?.deny)
       next.tools = { ...next.tools, deny: null };
+    // Likewise loop protection that is off now (never written as `false`).
+    if (managed && current?.tools?.loopDetection && !next.tools?.loopDetection)
+      next.tools = { ...next.tools, loopDetection: null };
     // Likewise a thinking level or fast mode the agent no longer sets.
     for (const key of modelDefaultKeys)
       if (managed && current && key in current && !(key in next)) next[key] = null;
@@ -135,7 +143,8 @@ export function agentPatch(config, desired, state) {
 /**
  * Whether the running configuration `config` holds anything else for the desired
  * agent than its apply wrote (`expected`): its tools (`tools`), exec override and
- * skills and its thinking level and fast mode while `managed`, the global shell
+ * skills, its loop protection and its thinking level and fast mode while `managed`,
+ * the global shell
  * tools while `shellGlobal` is managed, the
  * learning tool and review mode while `learningGlobal` is, the wiki's global tools
  * while `wikiGlobal` is, its
@@ -158,6 +167,16 @@ export function agentDrift(config, desired, expected) {
   // OpenClaw's merge keeps existing keys first: compare regardless of key order.
   if (managed && !isDeepStrictEqual(own?.tools?.exec ?? null, exec ?? null)) return true;
   if (managed && !isDeepStrictEqual(own?.skills ?? [], skills)) return true;
+  // Loop protection: on as its entry compiles it, else no key at all.
+  const loop = own?.tools?.loopDetection;
+  if (
+    managed &&
+    !isDeepStrictEqual(
+      loop ?? null,
+      loopProtection(desired, own) ? { enabled: true } : null,
+    )
+  )
+    return true;
   // How its model works (agent-entry.js modelDefaults), absent when unset.
   const defaults = modelDefaults(desired);
   if (managed && modelDefaultKeys.some((key) => own?.[key] !== defaults[key]))

@@ -190,7 +190,7 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     released, by key), `browser: { wanted, visible, profile }`, `channels:
  *     { telegram: { eligible } }` (may own a bot for other people), `ssh` (holds an
  *     SSH grant) }`, and for a live apply `instructions` (its AGENTS.md, which
- *     agentFiles writes) and `model: { ref, providerId, provider, agentRuntime }`.
+ *     agentFiles writes) and `model: { ref, providerId, provider, agentRuntime, kind }`.
  *   - host: `{ team: { plugin: { directory, connection } | null, native,
  *     maxConcurrent }, dreaming, webTools, mcp` (the MCP store's servers, secrets,
  *     redirect URL and placeholder root; bindings are the agents'), `telegram` (the

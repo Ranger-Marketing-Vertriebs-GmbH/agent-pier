@@ -417,8 +417,8 @@ What works on Hermes today:
 - Advanced settings: **Thinking level** and **Time zone** of
   **Agents › Runtime › Advanced · for all agents** apply to Hermes agents too; the
   other four have no Hermes equivalent and stay OpenClaw's.
-- A thinking level and fast mode of its own
-  ([Thinking and speed](#thinking-and-speed)) are OpenClaw's: a Hermes agent thinks
+- A thinking level, fast mode and loop protection of its own
+  ([Model behaviour](#model-behaviour)) are OpenClaw's: a Hermes agent thinks
   at the level for all agents.
 
 The full comparison is in
@@ -582,9 +582,9 @@ tab then shows the lead's model. Switch it off to pick a model of its own; switc
 again to follow the lead. A permanent member, and a temporary member with a model of
 its own, also shows whether its model changed since it took it over from the lead.
 
-<a id="thinking-and-speed"></a>
+<a id="model-behaviour"></a>
 
-An OpenClaw agent shows **Thinking and speed** below the model, saved with the tab:
+An OpenClaw agent shows **Model behaviour** below the model, saved with the tab:
 
 - **Thinking level**: how thoroughly the agent's model thinks before it answers
   (**Off**, **Minimal**, **Low**, **Medium**, **High**, **Very high**, **Adaptive**,
@@ -595,14 +595,26 @@ An OpenClaw agent shows **Thinking and speed** below the model, saved with the t
   (priority processing at OpenAI and Anthropic, which can cost more), **Off** never
   does. Other models and custom endpoints ignore it.
 
-**Default** leaves a setting to the one for all agents (**Agents › Runtime ›
+- **Loop protection**: ends a turn in which the model keeps repeating the same tool
+  call without getting anywhere. The model is warned after 10 identical calls with
+  identical results and stopped after 20; the turn then ends with an error instead of
+  running on. The switch is on by default for a model of your own endpoint
+  (**Connections › Model access**, an OpenAI-compatible endpoint such as Ollama or
+  llama.cpp), which is often a small or local model, and off for every other model.
+  Flip it to decide yourself; a switch you set back to its default follows the
+  agent's model again when you change it. Off keeps OpenClaw's two narrower guards:
+  three identical failing calls in a row, and a repeated call right after the chat
+  was compacted.
+
+**Default** leaves the thinking level and fast mode to the one for all agents (**Agents › Runtime ›
 Advanced · for all agents › Thinking level**) and, without one, to the model's own
 default. A change applies from the agent's next message, without a restart, in chats
-that already run too. You set both for your own agents, shared agents and users' agents;
-users cannot change them. A temporary team member shows **Follows the lead** instead:
-it works with its lead's thinking level and fast mode, also on a model of its own. A
+that already run too. You set all three for your own agents, shared agents and users'
+agents; users cannot change them. A temporary team member shows **Follows the lead**
+instead: it works with its lead's thinking level, fast mode and loop protection choice
+(without one, the default for the member's own model), also on a model of its own. A
 Hermes agent has no such group and follows the thinking level for all agents. Search
-for it with ⌘K ("Thinking level", "Fast mode", "Denkstufe").
+for it with ⌘K ("Thinking level", "Fast mode", "Loop protection", "Denkstufe").
 
 When you pick another model and save, the field **Start fresh chats** appears. Its
 hint reads "New main chats for everyone using this agent; the old ones stay readable.

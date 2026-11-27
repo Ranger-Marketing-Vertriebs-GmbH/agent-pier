@@ -15,12 +15,14 @@ import {
 import { compilerFor } from "../../server/features/assistants/runtimes/runtime-for.js";
 import {
   agentEntry,
+  loopProtection,
   modelDefaults,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import {
   agentDrift,
   agentPatch,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-apply.js";
+import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { settingsPatch } from "../../server/features/users/user-agent-settings.js";
 import { goldenPaths, goldenScenarios } from "../helpers/openclaw-golden-scenarios.js";
 
@@ -342,4 +344,172 @@ test("the readback notices an entry that holds another level or mode", () => {
     agentDrift(loose, desired, { shellGlobal: undefined, managed: false }),
     false,
   );
+});
+
+// Loop protection (`runtimeOptions.openclaw.loopDetection`): OpenClaw's rolling loop
+// detectors for one agent. Unset is automatic, on for a model of an endpoint
+// connection; it reaches OpenClaw only as `enabled: true`, never as `false`.
+
+const live = (profile, kind, extra = {}) =>
+  desiredAgent(profile, {
+    model: { ref: "ap-c/m", providerId: "ap-c", kind },
+    ...extra,
+  });
+const loopOf = (entry) => entry.tools?.loopDetection;
+
+test("loop protection is the owner's choice, stored in both directions", () => {
+  const own = agent("a1");
+  for (const value of [true, false])
+    assert.deepEqual(validateRuntimeOptions(own, options({ loopDetection: value })), {
+      openclaw: { loopDetection: value },
+    });
+  for (const value of ["on", "auto", null, 1])
+    refused(
+      () => validateRuntimeOptions(own, options({ loopDetection: value })),
+      "optionsInvalid",
+      400,
+    );
+  assert.deepEqual(runtimeOptionsOf(withOptions("a1", { loopDetection: false })), {
+    loopDetection: false,
+  });
+  assert.deepEqual(runtimeOptionsOf(withOptions("a1", { loopDetection: "yes" })), {});
+  // A temporary member stores none and takes over its lead's choice, not its rule.
+  refused(
+    () => validateRuntimeOptions(member("m1"), options({ loopDetection: true })),
+    "modelOptionsTaskMember",
+    409,
+  );
+  assert.deepEqual(
+    memberOptionsOf(member("m1"), withOptions("lead", { loopDetection: false })),
+    { loopDetection: false },
+  );
+  assert.deepEqual(memberOptionsOf(member("m1"), agent("lead")), {});
+});
+
+test("without a choice an endpoint model is protected and no other", () => {
+  const plain = agent("a1");
+  assert.equal(loopProtection(live(plain, "endpoint")), true);
+  assert.equal(loopProtection(live(plain, "openrouter")), false);
+  // A ChatGPT account's lease names no kind.
+  assert.equal(loopProtection(live(plain, undefined)), false);
+  // The owner's choice wins in both directions.
+  assert.equal(
+    loopProtection(live(withOptions("a1", { loopDetection: false }), "endpoint")),
+    false,
+  );
+  assert.equal(
+    loopProtection(live(withOptions("a1", { loopDetection: true }), "openrouter")),
+    true,
+  );
+  // A member: its lead's choice, else the rule for the model it runs on itself.
+  const chosen = withOptions("lead", { loopDetection: true });
+  assert.equal(loopProtection(live(member("m1"), "openrouter", { lead: chosen })), true);
+  assert.equal(
+    loopProtection(live(member("m1"), "endpoint", { lead: agent("lead") })),
+    true,
+  );
+  assert.equal(
+    loopProtection(live(member("m1"), "openrouter", { lead: agent("lead") })),
+    false,
+  );
+  // A start knows no model connection: it keeps what the last apply wrote.
+  const written = { tools: { loopDetection: { enabled: true } } };
+  assert.equal(loopProtection(plain, written), true);
+  assert.equal(loopProtection(plain, {}), false);
+  assert.equal(loopProtection(plain, undefined), false);
+  assert.equal(
+    loopProtection(withOptions("a1", { loopDetection: false }), written),
+    false,
+  );
+  assert.equal(loopProtection(withOptions("a1", { loopDetection: true }), {}), true);
+});
+
+test("the entry holds the key beside allow and exec, and never as false", () => {
+  const shell = agent("a1", { shell: "approval" });
+  const on = agentEntry({ id: "ap-a1" }, live(shell, "endpoint"), ready);
+  assert.deepEqual(loopOf(on), { enabled: true });
+  assert.ok(on.tools.allow.includes("exec"));
+  assert.ok(on.tools.exec);
+  for (const desired of [
+    live(shell, "openrouter"),
+    live(withOptions("a1", { loopDetection: false }), "endpoint"),
+  ]) {
+    const off = agentEntry(
+      { id: "ap-a1", tools: { loopDetection: { enabled: true } } },
+      desired,
+      ready,
+    );
+    assert.equal("loopDetection" in off.tools, false);
+    assert.doesNotMatch(JSON.stringify(off), /"enabled":false/);
+  }
+  // No golden or compiled start ever disables OpenClaw's guard after a compaction.
+  const config = compile([
+    withOptions("a1", { loopDetection: false }),
+    withOptions("a2", { loopDetection: true }),
+  ]);
+  assert.equal(loopOf(config.agents.entries["ap-a1"]), undefined);
+  assert.deepEqual(loopOf(config.agents.entries["ap-a2"]), { enabled: true });
+  assert.equal(config.tools.loopDetection, undefined);
+});
+
+test("a live apply switches protection on and removes it with null", () => {
+  const config = compile([withOptions("a1", { loopDetection: true })]);
+  const patched = (desired) =>
+    agentPatch(config, desired, state).patch.agents.entries["ap-a1"].tools;
+  // Chosen off, or back to automatic on a model that needs none: the key goes.
+  assert.equal(
+    patched(live(withOptions("a1", { loopDetection: false }), "endpoint")).loopDetection,
+    null,
+  );
+  assert.equal(patched(live(agent("a1"), "openrouter")).loopDetection, null);
+  assert.deepEqual(patched(live(agent("a1"), "endpoint")).loopDetection, {
+    enabled: true,
+  });
+  // Nothing to remove where nothing was written.
+  const plain = compile([agent("a1")]);
+  const untouched = agentPatch(plain, live(agent("a1"), "openrouter"), state).patch.agents
+    .entries["ap-a1"].tools;
+  assert.equal("loopDetection" in untouched, false);
+  assert.deepEqual(
+    agentPatch(plain, live(agent("a1"), "endpoint"), state).patch.agents.entries["ap-a1"]
+      .tools.loopDetection,
+    { enabled: true },
+  );
+});
+
+test("the readback notices protection that is missing or left over", () => {
+  const config = compile([agent("a1")]);
+  // As the apply's agents.update wrote it: the entry runs on the leased model.
+  config.agents.entries["ap-a1"].model = "ap-c/m";
+  const expected = {
+    managed: true,
+    tools: config.agents.entries["ap-a1"].tools.allow,
+    skills: [],
+    shellGlobal: false,
+  };
+  const withLoop = structuredClone(config);
+  withLoop.agents.entries["ap-a1"].tools.loopDetection = { enabled: true };
+  const endpoint = live(agent("a1"), "endpoint");
+  const router = live(agent("a1"), "openrouter");
+  assert.equal(agentDrift(withLoop, endpoint, expected), false);
+  assert.equal(agentDrift(config, endpoint, expected), true);
+  assert.equal(agentDrift(config, router, expected), false);
+  assert.equal(agentDrift(withLoop, router, expected), true);
+  // An explicit false in the file is never what AgentPier wrote.
+  const disabled = structuredClone(config);
+  disabled.agents.entries["ap-a1"].tools.loopDetection = { enabled: false };
+  assert.equal(agentDrift(disabled, router, expected), true);
+});
+
+test("the model lease names its connection's kind", () => {
+  const connection = { id: "c1", name: "Local", providerId: "openrouter" };
+  const models = new AssistantModels({
+    connections: {
+      get: () => connection,
+      acquire: () => () => {},
+      secret: () => ({ apiKey: "k" }),
+    },
+  });
+  const lease = models.resolve({ connectionId: "c1", modelId: "a/b" });
+  assert.equal(lease.kind, "openrouter");
 });

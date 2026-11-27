@@ -292,13 +292,18 @@ export const goldenScenarios = {
       sshAgents: new Set(["temp", "lead"]),
       dreaming: { enabled: true, hour: 3, timeZone: "Europe/Berlin" },
     }),
-  // Each agent's thinking level and fast mode (runtimeOptions.openclaw): a temporary
-  // member takes its lead's, and what an earlier start wrote for an agent that sets
-  // none any more is removed.
+  // Each agent's thinking level, fast mode and loop protection
+  // (runtimeOptions.openclaw): a temporary member takes its lead's, and what an
+  // earlier start wrote for an agent that sets none any more is removed. Loop
+  // protection is written only as on: an agent that chose off loses the key, and one
+  // without a choice keeps what its last apply wrote (a start knows no model).
   "model-options": () => {
     const profiles = [
       agent("lead", {
-        runtimeOptions: { openclaw: { thinking: "high", fastMode: true } },
+        runtimeOptions: {
+          openclaw: { thinking: "high", fastMode: true, loopDetection: true },
+        },
+        shell: "approval",
       }),
       agent("temp", {
         teamMemberId: "tm-1",
@@ -307,12 +312,20 @@ export const goldenScenarios = {
         inherited: { capabilities: {}, skills: [], shell: "off", ssh: false },
       }),
       agent("a3", {
-        runtimeOptions: { openclaw: { thinking: "off", fastMode: false } },
+        runtimeOptions: {
+          openclaw: { thinking: "off", fastMode: false, loopDetection: false },
+        },
       }),
       agent("a4"),
     ];
     const existing = roster(profiles);
-    existing.agents.entries["ap-a4"] = { thinkingDefault: "max", fastModeDefault: true };
+    const protectedTools = { tools: { loopDetection: { enabled: true } } };
+    existing.agents.entries["ap-a3"] = structuredClone(protectedTools);
+    existing.agents.entries["ap-a4"] = {
+      thinkingDefault: "max",
+      fastModeDefault: true,
+      ...structuredClone(protectedTools),
+    };
     return base({ profiles }, { existing });
   },
   // A restored file with legacy roster shapes, foreign keys and a TLS listener.

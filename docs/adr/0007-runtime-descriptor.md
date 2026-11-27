@@ -161,7 +161,7 @@ Agents › Runtime › Advanced (decision 5), `agent.capabilities`, groups at th
 of an agent's Capabilities tab (decision 9), `agent.page`, a page of the runtime's
 own below that tab (decision 10), and `agent.identity`, groups below the model on an
 agent's Identity tab, in that tab's draft (since 2026-11-27: OpenClaw's
-`modelOptions`, an agent's thinking level and fast mode, which are per-agent options
+`modelOptions`, an agent's thinking level, fast mode and loop protection, which are per-agent options
 like the wiki; the Identity and the Capabilities draft each send the agent's whole
 `runtimeOptions` for its runtime, and the PATCH's revision refuses a stale one).
 

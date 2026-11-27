@@ -4,8 +4,11 @@ import {
   fastChoice,
   fastValue,
   followsLead,
+  loopAutomatic,
+  loopChecked,
   thinkingChoice,
   thinkingLevels,
+  withLoop,
   withOption,
 } from "../../web/features/assistants/runtimes/openclaw/model-option-rules.js";
 import {
@@ -24,7 +27,8 @@ import * as en from "../../web/lib/i18n/en/assistant-model-options.js";
 import * as advancedDe from "../../web/lib/i18n/de/assistant-advanced.js";
 import * as advancedEn from "../../web/lib/i18n/en/assistant-advanced.js";
 
-// The web half of an OpenClaw agent's thinking level and fast mode: the rules of the
+// The web half of an OpenClaw agent's thinking level, fast mode and loop protection:
+// the rules of the
 // surface below the model on the Identity tab (slot agent.identity) and that tab's
 // draft, which holds the agent's runtime options beside its profile.
 
@@ -67,6 +71,29 @@ test("a choice edits one option of the draft and Default stores nothing", () => 
   assert.equal(fastValue("on"), true);
   assert.equal(fastValue("off"), false);
   assert.equal(fastValue(""), undefined);
+});
+
+test("loop protection follows the model's connection until the owner chooses", () => {
+  const endpoint = { id: "local", providerId: "endpoint" };
+  const router = { id: "router", providerId: "openrouter" };
+  assert.equal(loopAutomatic(endpoint), true);
+  assert.equal(loopAutomatic(router), false);
+  assert.equal(loopAutomatic({ id: "openclaw:1", providerId: "openai" }), false);
+  // A connection that is gone, or not read yet, protects nothing by itself.
+  assert.equal(loopAutomatic(undefined), false);
+  assert.equal(loopChecked({}, endpoint), true);
+  assert.equal(loopChecked(undefined, router), false);
+  assert.equal(loopChecked({ loopDetection: false }, endpoint), false);
+  assert.equal(loopChecked({ loopDetection: true }, router), true);
+  // A choice against the rule is stored; one that agrees with it stores nothing.
+  const wiki = { memoryWiki: true };
+  assert.deepEqual(withLoop(wiki, true, router), { ...wiki, loopDetection: true });
+  assert.deepEqual(withLoop({ ...wiki, loopDetection: true }, false, router), wiki);
+  assert.deepEqual(withLoop(wiki, false, endpoint), { ...wiki, loopDetection: false });
+  assert.deepEqual(withLoop({ loopDetection: false }, true, endpoint), {});
+  // Stored against the old model's rule, it is the owner's choice on the new one too.
+  assert.equal(loopChecked({ loopDetection: true }, endpoint), true);
+  assert.deepEqual(withLoop({ loopDetection: true }, true, endpoint), {});
 });
 
 test("a temporary member follows its lead; every other agent sets its own", () => {
@@ -141,7 +168,7 @@ test("OpenClaw registers the surface below the model; Hermes has none", () => {
   );
   const entry = openClawWeb.entries.find((item) => item.surface === "modelOptions");
   assert.ok(entry);
-  assert.equal(entry.aliases.length, 3);
+  assert.equal(entry.aliases.length, 4);
 });
 
 test("both catalogs name the same texts", () => {

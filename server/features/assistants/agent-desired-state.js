@@ -43,7 +43,8 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * starts with: its GitHub folder, its SSH agent's bin/), `mcp` (ids of the MCP
  * servers bound to it), `stdio` (one of them runs a local command), `instructions`
  * (its managed AGENTS.md) and `model` (its model connection: `{ ref, providerId,
- * provider, agentRuntime }`), the last two only for a live apply; `channelBot`, for
+ * provider, agentRuntime, kind }`, `kind` the connection's, "endpoint" for the
+ * owner's own endpoint), the last two only for a live apply; `channelBot`, for
  * a runtime that runs the agent's own Telegram bot in the agent's own process set
  * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
  * reads it, null for none, left out when unknown; `lead`, a temporary member's lead's

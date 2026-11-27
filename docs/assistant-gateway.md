@@ -1726,7 +1726,7 @@ stored "on", and the report of a learned skill.
 #### Thinking level and fast mode per agent
 
 Since 2026-11-27 an OpenClaw agent may hold a thinking level and a fast mode of its
-own ([agents](agents.md#thinking-and-speed)): `runtimeOptions.openclaw.thinking` (one
+own ([agents](agents.md#model-behaviour)): `runtimeOptions.openclaw.thinking` (one
 of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `adaptive`, `max`, `ultra`)
 and `.fastMode` (`true` or `false`), each stored only when set
 (`runtimes/openclaw/openclaw-options.js`). `agentEntry` compiles them into the agent's
@@ -1764,6 +1764,43 @@ omitted key); the apply's readback compares both keys.
   `agent.reasoning_effort` per home from the level for all agents
   ([Hermes runtime](hermes-runtime.md#advanced-settings)) and has no fast mode; a
   per-agent level there is not wired.
+
+#### Loop protection per agent
+
+OpenClaw's rolling loop detectors are off by default
+(`docs/tools/loop-detection.md` of the pinned runtime, which recommends them for
+smaller models); `agents.entries.<id>.tools.loopDetection.enabled` switches them on
+for one agent. Since 2026-11-27 AgentPier compiles that key
+([agents](agents.md#model-behaviour); `loopProtection`,
+`openclaw-config/agent-entry.js`):
+
+- **The setting** is `runtimeOptions.openclaw.loopDetection`, held and inherited like
+  the thinking level above. Unset is automatic: on while the agent's model comes
+  from an `endpoint` connection (the owner's own OpenAI-compatible endpoint, often a
+  small or local model), off for OpenRouter and ChatGPT accounts. `true` and `false`
+  are the owner's choice against that rule. The switch in the app shows the rule for
+  the drafted model and stores a value only when the owner flips it against the rule.
+- **On** writes `tools.loopDetection: { enabled: true }` into the agent's entry,
+  beside `allow` and `exec`. **Off never writes `false`**: OpenClaw reads an explicit
+  `false` as "also disable the guard after a compaction", which stays on while the
+  key is absent. Off leaves the key out; a live apply removes a written one with
+  `null`, and the apply's readback compares the key.
+- **Which model** an agent runs on is known at a live apply (the model lease names its
+  connection's `kind`), not at a Gateway start, which reads no model connection. A
+  start therefore writes an explicit choice and otherwise keeps what the agent's last
+  apply wrote; the apply before the agent's next turn decides again. A temporary
+  member takes over its lead's explicit choice; without one the rule reads the
+  member's own model.
+- **Measured** by `tests/integration/assistant-model-options-contract.test.js` on
+  2026.11.6 with a model that repeats `exec` with the same command: unprotected it
+  runs all 40 calls. With the agent's key on, the tenth result carries a system note
+  ("Tool-loop warning after 10 repeated calls"), the twentieth call is answered with
+  "CRITICAL: Called exec with identical outcomes 20 times. Session execution blocked
+  to prevent runaway loops", and the run ends with status `error` after 22 model
+  requests. The key applies to the next turn and is removed again without a Gateway
+  restart. `assistant-web-tools-compiled-contract.test.js` runs AgentPier's own apply
+  with a lease of kind `endpoint`: the entries hold `{ enabled: true }`, the readback
+  accepts it, and a Gateway restart keeps it for agents not applied since.
 
 #### Memory wiki
 

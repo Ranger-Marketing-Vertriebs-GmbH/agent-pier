@@ -9,8 +9,8 @@ export const openClawDescriptor = defineRuntimeDescriptor({
   id: "openclaw",
   name: "OpenClaw",
   surfaces: [
-    // An agent's Identity tab › Thinking and speed: its thinking level and fast mode
-    // (runtimeOptions.openclaw, openclaw-options.js).
+    // An agent's Identity tab › Model behaviour: its thinking level, fast mode and
+    // loop protection (runtimeOptions.openclaw, openclaw-options.js).
     { id: "modelOptions", slot: "agent.identity", kind: "built" },
     // An agent's Capabilities tab › Memory wiki: the switch (runtimeOptions.openclaw,
     // openclaw-options.js) and a link to the agent's wiki while it is on.

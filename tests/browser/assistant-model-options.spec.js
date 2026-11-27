@@ -5,11 +5,13 @@ import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 
 // How an OpenClaw agent's model works: OpenClaw's group below the model on the
 // agent's Identity tab (slot agent.identity), in the tab's draft and saved with its
-// PATCH. A temporary team member shows that it follows its lead; a Hermes agent has
-// no such group.
+// PATCH. Loop protection is one switch whose default follows the model's connection.
+// A temporary team member shows that it follows its lead; a Hermes agent has no such
+// group.
 const copy = {
   en: {
-    group: "Thinking and speed",
+    group: "Model behaviour",
+    loop: "Loop protection",
     thinking: "Thinking level",
     fast: "Fast mode",
     inherit: "Default",
@@ -21,7 +23,8 @@ const copy = {
     model: "Model",
   },
   de: {
-    group: "Denken und Tempo",
+    group: "Modellverhalten",
+    loop: "Schleifenschutz",
     thinking: "Denkstufe",
     fast: "Schnellmodus",
     inherit: "Standard",
@@ -69,6 +72,14 @@ const owl = {
 };
 const models = [
   { id: "router", name: "Router", providerId: "openrouter", available: true },
+  // The owner's own endpoint: its models are protected against loops by default.
+  {
+    id: "local",
+    name: "Local",
+    providerId: "endpoint",
+    available: true,
+    models: [{ modelId: "small", name: "small" }],
+  },
 ];
 
 // A stand-in for the server that keeps what a PATCH stores on the profile.
@@ -148,6 +159,49 @@ for (const [language, text] of Object.entries(copy))
       });
     });
 
+    test("loop protection follows the model until the owner flips it", async ({
+      page,
+    }) => {
+      const state = await setup(page, language);
+      await page.goto(settingsPath("identity"));
+      const loop = group(page, text.group).getByRole("switch", { name: text.loop });
+      // An OpenRouter model: off unless the owner switches it on, which is stored.
+      await expect(loop).not.toBeChecked();
+      await loop.check();
+      await saveBar(page, text.unsaved).getByRole("button", { name: text.save }).click();
+      await expect.poll(() => state.patches.length).toBe(1);
+      expect(state.patches[0].runtimeOptions).toEqual({
+        openclaw: { memoryWiki: true, loopDetection: true },
+      });
+      await expect(loop).toBeChecked();
+      // Back to what the model's rule says anyway: nothing is stored for it.
+      await loop.uncheck();
+      await saveBar(page, text.unsaved).getByRole("button", { name: text.save }).click();
+      await expect.poll(() => state.patches.length).toBe(2);
+      expect(state.patches[1].runtimeOptions).toEqual({ openclaw: { memoryWiki: true } });
+    });
+
+    test("a model of the owner's own endpoint is protected by default", async ({
+      page,
+    }) => {
+      const state = await setup(page, language, {
+        model: { connectionId: "local", modelId: "small" },
+        runtimeOptions: undefined,
+      });
+      await page.goto(settingsPath("identity"));
+      const loop = group(page, text.group).getByRole("switch", { name: text.loop });
+      await expect(loop).toBeChecked();
+      await expect(saveBar(page, text.unsaved)).toHaveCount(0);
+      // Switching it off is a choice against the rule, stored as such.
+      await loop.uncheck();
+      await saveBar(page, text.unsaved).getByRole("button", { name: text.save }).click();
+      await expect.poll(() => state.patches.length).toBe(1);
+      expect(state.patches[0].runtimeOptions).toEqual({
+        openclaw: { loopDetection: false },
+      });
+      await expect(loop).not.toBeChecked();
+    });
+
     test("a temporary member shows that it follows its lead", async ({ page }) => {
       await setup(page, language, {
         teamMemberId: "tm-1",
@@ -159,6 +213,7 @@ for (const [language, text] of Object.entries(copy))
       const controls = group(page, text.group);
       await expect(controls).toContainText(text.member);
       await expect(controls.getByRole("combobox")).toHaveCount(0);
+      await expect(controls.getByRole("switch")).toHaveCount(0);
     });
 
     test("a Hermes agent has no such group", async ({ page }) => {

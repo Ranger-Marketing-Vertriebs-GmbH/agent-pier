@@ -140,7 +140,7 @@
     "tests/integration/assistant-mcp-proxy-contract.test.js": 40,
     "tests/integration/assistant-agent-cards-contract.test.js": 40,
     "tests/integration/assistant-memory-wiki-contract.test.js": 40,
-    "tests/integration/assistant-model-options-contract.test.js": 15,
+    "tests/integration/assistant-model-options-contract.test.js": 40,
     "tests/integration/assistant-runtime-patch-contract.test.js": 1,
     "tests/integration/assistant-ask-user-contract.test.js": 65
   }

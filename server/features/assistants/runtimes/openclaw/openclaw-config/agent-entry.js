@@ -31,6 +31,24 @@ export function modelDefaults(agent) {
 /** The entry keys modelDefaults manages; a live apply removes the ones left out. */
 export const modelDefaultKeys = Object.freeze(["thinkingDefault", "fastModeDefault"]);
 
+/**
+ * Whether the agent's entry switches OpenClaw's rolling loop detectors on
+ * (`tools.loopDetection.enabled`, off by default): the owner's choice
+ * (openclaw-options.js `loopDetection`), else automatically for a model of an
+ * endpoint connection, the owner's own and often a small or local model. A Gateway
+ * start knows no model connection (`model` comes with a live apply) and keeps what
+ * the last apply wrote into `entry`; the agent's next apply decides again. Off is
+ * never written as `false`: that would also disable OpenClaw's guard after a
+ * compaction, which stays on while the key is absent.
+ */
+export function loopProtection(agent, entry) {
+  const desired = asDesired(agent);
+  const chosen = desired.runtimeOptions.loopDetection;
+  if (typeof chosen === "boolean") return chosen;
+  if (!desired.model) return entry?.tools?.loopDetection?.enabled === true;
+  return desired.model.kind === "endpoint";
+}
+
 export function agentEntry(
   entry,
   assistant,
@@ -73,6 +91,7 @@ export function agentEntry(
         ...agentWikiTools(agent, { nativeReady, senderFacing }),
       ],
       ...(exec && { exec }),
+      ...(loopProtection(agent, entry) && { loopDetection: { enabled: true } }),
     };
   if (toolsManaged) {
     for (const key of modelDefaultKeys) delete next[key];

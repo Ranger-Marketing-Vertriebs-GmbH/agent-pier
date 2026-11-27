@@ -1494,7 +1494,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Backups                                                    | Sealed credentials and history      | Sealed `.env`, `auth.json` and history              | [Backups](backups.md#hermes-agents)                          |
 | Access and approval audit                                  | AgentPier                           | AgentPier                                           |                                                              |
 | Advanced settings                                          | All six                             | Thinking level, time zone                           | [Advanced settings](#advanced-settings)                      |
-| Thinking level and fast mode per agent                     | Identity › Thinking and speed       | —                                                   | Hermes agents follow the level for all agents                |
+| Thinking level, fast mode and loop protection per agent    | Identity › Model behaviour          | —                                                   | Hermes agents follow the level for all agents                |
 | Updates                                                    | OpenClaw update                     | Hermes update                                       | [Updates](assistant-runtime-updates.md#hermes-agent-runtime) |
 
 ## Contract tests

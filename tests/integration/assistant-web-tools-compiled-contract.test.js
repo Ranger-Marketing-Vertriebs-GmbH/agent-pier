@@ -169,6 +169,8 @@ test(
     const models = {
       resolve: () => ({
         providerId: "fixture",
+        // As a model of the owner's own endpoint: loop protection is on by default.
+        kind: "endpoint",
         modelRef: "fixture/fixture-model",
         provider: fixtureModel(model.url),
         release() {},
@@ -330,6 +332,10 @@ test(
     for (const name of ["web_search", "web_fetch", "view_image", "pdf"])
       assert.ok(granted.includes(name), name);
     assert.equal(granted.includes("browser"), browser.available);
+    // Each apply wrote loop protection and its readback accepted it; the restart
+    // kept it for the agents not applied since (a start knows no model connection).
+    for (const agent of [web, member, isolated])
+      assert.deepEqual(entry(agent).tools.loopDetection, { enabled: true }, agent.name);
     const inherited = entry(member).tools.allow;
     t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
     for (const name of ["web_search", "web_fetch", "memory_search"])
