@@ -27,9 +27,10 @@ export const confirmFull = { confirmShell: true, confirmFull: true };
  * client. The owner account is simulated in the test directory (`h.owner`), never
  * the developer's HOME; its `bin` is the owner's login PATH. The model calls
  * `exec` with the command registered for the `[cmd:<label>]` in the turn's text;
- * a call the optional `tool(input)` returns wins over that mapping.
+ * a call the optional `tool(input)` returns wins over that mapping; `reply(input)`
+ * answers a request itself (assistant-model-server.js), as an exec reviewer does.
  */
-export async function compiledShell(t, installed, { prefix, tool: custom }) {
+export async function compiledShell(t, installed, { prefix, tool: custom, reply }) {
   assert.ok(path.isAbsolute(installed));
   const dataDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   const owner = ownerAccount(dataDir);
@@ -42,7 +43,7 @@ export async function compiledShell(t, installed, { prefix, tool: custom }) {
     const label = [...commands.keys()].find((l) => text.includes(`[cmd:${l}]`));
     return label && { name: "exec", arguments: { command: commands.get(label) } };
   };
-  const model = await assistantModelServer({ tool });
+  const model = await assistantModelServer({ tool, reply });
   const store = new AssistantStore({ dataDir: path.join(dataDir, "store") });
   const runtime = new RuntimeSupervisor({
     dataDir,
