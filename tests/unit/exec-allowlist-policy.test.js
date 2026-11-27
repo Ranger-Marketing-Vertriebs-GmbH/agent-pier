@@ -267,6 +267,37 @@ test("programs resolve through the PATH to their real file", (t) => {
   if (process.getuid?.() !== 0) assert.equal(ownerWritable("/bin/ls"), false);
 });
 
+// A host whose system tools are symlinks (Ubuntu's uutils: /usr/bin/touch links to
+// /usr/lib/cargo/bin/coreutils/touch): OpenClaw reports the real path or the link.
+test("a symlinked program is planned by its real path, however OpenClaw spells it", (t) => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "exec-link-")));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, "real"));
+  fs.mkdirSync(path.join(dir, "bin"));
+  const real = path.join(dir, "real", "tool");
+  const link = path.join(dir, "bin", "tool");
+  fs.writeFileSync(real, "#!/bin/sh\n", { mode: 0o755 });
+  fs.symlinkSync(real, link);
+  const linked = (payload) =>
+    allowAlwaysPlan(
+      { cwd: dir, ...payload },
+      { pathDirs: [path.join(dir, "bin")], writable: () => false },
+    );
+  const entry = { kind: "paths", paths: [real], writable: [] };
+  // By name, by the link and by the real path: always the one real-path entry.
+  for (const command of ["tool x", `${link} x`, `${real} x`])
+    for (const resolvedPath of [undefined, real, link])
+      assert.deepEqual(
+        linked({ command, resolvedPath }),
+        entry,
+        `${command} as ${resolvedPath}`,
+      );
+  // Another program under the same name is still not the one that was asked for.
+  const other = path.join(dir, "other");
+  fs.writeFileSync(other, "#!/bin/sh\n", { mode: 0o755 });
+  assert.equal(linked({ command: "tool x", resolvedPath: other }).reason, "unresolved");
+});
+
 // Owner A16: AgentPier's own SSH wrappers (an agent's bin/ssh, scp and sftp,
 // agent-ssh-shell.js) may be allowlisted; any other ssh, scp or sftp stays allow-once.
 test("the agent's own ssh, scp and sftp wrappers may be allowlisted", () => {

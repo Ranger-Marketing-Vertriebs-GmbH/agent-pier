@@ -11,6 +11,7 @@ import {
 } from "../helpers/assistant-shell-gateway.js";
 import { compiledShell, ownerProgram } from "../helpers/assistant-shell-compiled.js";
 import { shellQuote } from "../../server/lib/launch-serialization.js";
+import { resolveProgram } from "../../server/features/assistants/runtimes/openclaw/exec-allowlist-policy.js";
 
 // docs/assistant-shell-qualification.md (i): OpenClaw's exec mode "auto", which
 // AgentPier's shell level "Automatic review" compiles to. The fixture model is also
@@ -27,6 +28,9 @@ const isReview = (input) =>
   input.messages?.[0]?.content?.includes?.("OpenClaw's exec safety reviewer") === true;
 const verdict = (decision, risk = "low") =>
   JSON.stringify({ decision, risk, rationale: `fixture ${decision}` });
+// The real path of the first `name` on the PATH the Gateway inherits and extends.
+const realProgram = (name) =>
+  resolveProgram(name, { pathDirs: (process.env.PATH || "").split(path.delimiter) });
 // A reviewer whose next answer the test sets; `reviews` records its requests.
 function reviewer() {
   const state = { next: verdict("allow"), reviews: [] };
@@ -100,7 +104,9 @@ test(
       )[1],
     );
     assert.equal(json.command, `touch ${at("allow")}`);
-    assert.equal(json.resolvedPath, "/usr/bin/touch");
+    // The program's real path, wherever this host keeps it (on Ubuntu /usr/bin/touch
+    // is a link into uutils' coreutils folder).
+    assert.equal(json.resolvedPath, realProgram("touch"));
     assert.equal(json.reason, "allowlist-miss");
     assert.equal(json.host, "gateway");
     assert.match(
@@ -386,7 +392,7 @@ test("review: AgentPier's level on the compiled path", options, async (t) => {
   const mark = ownerProgram(h, "mark", 'touch "$1"');
   await h.silent(await send("owned", `mark ${at("m1")}`, verdict("allow", "medium")));
   assert.equal(fs.existsSync(at("m1")), true);
-  assert.match(JSON.stringify(review.reviews.at(-1).messages[1]), new RegExp(mark));
+  assert.ok(review.reviews.at(-1).messages[1].content.includes(mark));
 
   // Refused by the review: nothing runs, nobody is asked, the agent reads why.
   const denied = await h.silent(
