@@ -88,11 +88,20 @@ export const sessionTools = [
   "sessions_send",
   "sessions_spawn",
 ];
+// OpenClaw's ask_user: a question to the owner in the agent's chat, which waits for
+// the answer (agent-questions.js). Held by an owner's own agents only, as nobody else
+// could answer: a team member reports to its lead, a restricted user's chat shows no
+// question card (lockedTools), and a bot's other people must never be asked as the
+// owner (senderLockedTools). Routines and hook runs leave it out (routineTools,
+// agent-hook-rights.js hookTools): nobody is there to answer.
+export const questionTools = ["ask_user"];
 // What an agent with its own Telegram bot for other people never holds: the session
-// tools, email (its grants are refused too, mail/agent-mail-grants.js), project
-// creation and rebuilds (goal-turns.js mayCreateProjects) and previews (mayOpenPreviews).
+// tools, questions to the owner (questionTools), email (its grants are refused too,
+// mail/agent-mail-grants.js), project creation and rebuilds (goal-turns.js
+// mayCreateProjects) and previews (mayOpenPreviews).
 export const senderLockedTools = [
   ...sessionTools,
+  ...questionTools,
   "agentpier_mail",
   "agentpier_project",
   "agentpier_preview",
@@ -100,11 +109,13 @@ export const senderLockedTools = [
 ];
 /**
  * What an agent of restricted users never holds, whatever its stored settings say:
- * shell, SSH, team tools and the session tools that read its other users' chats
+ * shell, SSH, team tools, the session tools that read its other users' chats and
+ * questions to the owner, which its users' chats cannot answer
  * (users/user-agent-lock.js). Its compiled entry also denies them explicitly.
  */
 export const lockedTools = [
   ...shellTools,
+  ...questionTools,
   "agentpier_ssh",
   "agentpier_goal",
   "agentpier_hook",
@@ -124,7 +135,8 @@ export const lockedTools = [
  * exactly the agent's current chat tools and a capability change needs no job
  * rewrite. Writes stay with the tool guard, which admits a routine's own run
  * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
- * schedules) and every other team tool (the bridge serves them only in an owner's
+ * schedules), questions to the owner (questionTools: nobody is there to answer) and
+ * every other team tool (the bridge serves them only in an owner's
  * chat turn). `agentpier_workspace` is in for project folders and coding requests
  * (workspace-calls.js routineContext): folders keep the agent's levels unless the
  * owner switched "May write" off for the routine. `agentpier_ssh` is in: the bridge
@@ -320,6 +332,8 @@ export function toolGrants(assistant, { ssh = false, craft = false } = {}) {
           ]),
         ]
       : []),
+    // Questions to the owner in the agent's own chat: never from a team member.
+    ...(live && !assistant.teamMemberId ? [grant(questionTools)] : []),
     // Work goals, SSH access proposals, coding sessions and email: own agents and
     // permanent members only (goal-turns.js, agent-ssh-proposals.js,
     // agent-coding-sessions.js, mail/agent-mail.js). Without a project with sessions

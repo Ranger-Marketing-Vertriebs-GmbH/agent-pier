@@ -44,6 +44,7 @@ export const bootstrapFiles = [
 export const lockedCoreTools = [
   "exec",
   "process",
+  "ask_user",
   "session_status",
   "sessions_list",
   "sessions_history",

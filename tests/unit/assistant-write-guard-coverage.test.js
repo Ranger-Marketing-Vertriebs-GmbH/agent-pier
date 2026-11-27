@@ -22,6 +22,8 @@ import {
 // here, behind the write guard (writeTools), or behind shell approvals.
 const readOnly = [
   "session_status",
+  // Asks the owner in the chat and returns the answer (agent-questions.js).
+  "ask_user",
   "memory_search",
   "memory_get",
   "read",

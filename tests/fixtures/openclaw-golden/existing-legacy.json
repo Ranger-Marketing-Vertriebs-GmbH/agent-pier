@@ -45,6 +45,7 @@
             "agentpier_share_file",
             "agentpier_pinboard",
             "agentpier_card",
+            "ask_user",
             "agentpier_goal",
             "agentpier_ssh_access",
             "agentpier_coding_session",
@@ -178,6 +179,7 @@
       "agentpier_project",
       "agentpier_preview",
       "agentpier_craft",
+      "ask_user",
       "web_fetch",
       "view_image"
     ],
