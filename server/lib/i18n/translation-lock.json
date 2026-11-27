@@ -507,6 +507,8 @@
   "assistants.telegramMediaTooLarge": "de:e0a41632060b en:299dfe898939",
   "assistants.telegramMediaTooMany": "de:f59c6db333a2 en:d43b622ef732",
   "assistants.telegramOpenInAgentPier": "de:ae36bab7b0f7 en:39536dfcbc33",
+  "assistants.telegramPaired": "de:82152f6369ec en:6f28233ec14a",
+  "assistants.telegramPairedPlain": "de:cc0b54e5b87d en:7d0886850ddf",
   "assistants.telegramPrivateBot": "de:d6fc2da9d0ea en:9870274b9df3",
   "assistants.telegramQueueFull": "de:4c469cd87469 en:0529a2fb68a1",
   "assistants.telegramReplyIncomplete": "de:54c8b8ab323a en:5dbda738d5cb",
