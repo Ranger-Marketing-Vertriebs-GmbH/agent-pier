@@ -56,7 +56,7 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
   // useTabDraft then records a conflict and, once the save marks the typed value as
   // base, never revisits the server. A clean tab always shows the server's values.
   useEffect(() => {
-    if (!draft.dirty && !draft.saving && !sameValue(draft.values, server)) draft.reset();
+    if (!draft.dirty && !draft.saving && !sameValue(draft.values, server)) draft.adopt();
   });
   const directoryError = (values) =>
     String(values.defaultCwd ?? "").trim() ? "" : settingsPageCopy.directoryRequired;

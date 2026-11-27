@@ -84,7 +84,10 @@ const steps = [
 
 - **Values and base.** `server` is the flat field object of the tab (`{}` or nothing
   while it loads). Untouched fields adopt newer server values silently; a field edited
-  here and changed elsewhere is listed in `draft.conflicts`.
+  here and changed elsewhere is listed in `draft.conflicts`. An edit made while a
+  newer record is being applied stays. A tab that puts a clean draft back onto the
+  server's values itself calls `draft.adopt()`, which leaves an edited draft alone;
+  `draft.reset()` discards edits and is for Cancel.
 - **Base revisions.** `revisions` maps each resource the tab writes to its latest
   revision. While the draft is clean the base follows it; from the first edit it is
   frozen and sent with the save, so a foreign change returns 409 and the bar offers

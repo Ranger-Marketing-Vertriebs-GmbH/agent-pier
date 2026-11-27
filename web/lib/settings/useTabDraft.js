@@ -39,14 +39,17 @@ export default function useTabDraft({
   const running = useRef(null);
   const signature = JSON.stringify(server);
   useEffect(() => {
-    const next = followServer(current.current, server);
-    if (next.values !== current.current.values || next.base !== current.current.base) {
-      current.current = { values: next.values, base: next.base };
-      setState(current.current);
-    }
-    setConflicts((previous) =>
-      sameValue(previous, next.conflicts) ? previous : next.conflicts,
-    );
+    // Applied to the draft as it is when React gets to it, not as the last render saw
+    // it: an edit made between that render and this effect is queued before this
+    // update, and a value computed from the render would replace it.
+    setState((previous) => {
+      const next = followServer(previous, server);
+      return next.values === previous.values && next.base === previous.base
+        ? previous
+        : { values: next.values, base: next.base };
+    });
+    const { conflicts: found } = followServer(current.current, server);
+    setConflicts((previous) => (sameValue(previous, found) ? previous : found));
     // `signature` captures every change of `server`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
@@ -98,6 +101,18 @@ export default function useTabDraft({
     baseRevisions.current = followRevisions(baseRevisions.current, nextRevisions);
   }, []);
   const reset = useCallback(() => restore(latest.current), [restore]);
+  // The server's record for a draft without edits; an edited one stays. Unlike reset
+  // it decides on the draft as it is when React applies it, so an edit queued just
+  // before is kept.
+  const adopt = useCallback(
+    () =>
+      setState((previous) =>
+        changedKeys(previous.values, previous.base).length > 0
+          ? previous
+          : { values: latest.current.server, base: latest.current.server },
+      ),
+    [],
+  );
   const reload = useCallback(async () => restore(await pull()), [pull, restore]);
   const run = useCallback(
     async (steps) => {
@@ -209,6 +224,7 @@ export default function useTabDraft({
     save,
     overwrite,
     reset,
+    adopt,
     reload,
     revisions: revisionsOf,
   };
