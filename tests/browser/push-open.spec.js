@@ -41,6 +41,10 @@ serviceWorkerTest(
     });
     await page.reload();
     await page.waitForFunction(() => navigator.serviceWorker.controller);
+    // AgentPier is open: the app renders after its sign-in check, and only then does it
+    // answer the worker. A page that does not answer within 1.5 s is navigated instead
+    // (public/sw.js openLink), which is a reload.
+    await expect(page.locator(".app")).toBeVisible();
     const worker = context.serviceWorkers().find((item) => item.url().endsWith("/sw.js"));
     // Survives only a navigation inside the page, never a reload.
     await page.evaluate(() => (window.__sameDocument = true));
