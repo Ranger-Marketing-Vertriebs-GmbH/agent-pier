@@ -182,6 +182,9 @@ every settings API. What the owner can still give an agent for users:
 - Never a **Memory wiki** ([Capabilities](agents.md#capabilities)): only the owner's
   own agents keep one. The switch shows locked on a user's agent and on a shared
   agent, and an agent that is assigned to users loses it.
+- Never **Usage** ([Usage](agents.md#usage)): tokens and cost are the owner's to see.
+  Her app has no usage figure, not for her own agent or her own chats, and the
+  owner's chat usage never covers a user's chat.
 
 Details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 

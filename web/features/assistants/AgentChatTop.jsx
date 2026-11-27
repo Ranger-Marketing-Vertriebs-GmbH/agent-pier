@@ -11,6 +11,7 @@ import ChatStrips from "./ChatStrips.jsx";
 import ChatSwitchRow from "./ChatSwitchRow.jsx";
 import SummariseConfirm from "./SummariseConfirm.jsx";
 import WorkGoalButton from "./WorkGoalButton.jsx";
+import ChatUsageButton from "./usage/ChatUsageButton.jsx";
 import OwnerChatSelector from "./chats/OwnerChatSelector.jsx";
 import useOwnerChats from "./chats/useOwnerChats.js";
 import "./agent-chat-top.css";
@@ -18,11 +19,12 @@ import "./agent-chat-top.css";
 /**
  * Everything above an owner's agent chat transcript: one header row (the chat's title
  * under the agent's name, which opens the Chats sheet, the work goal and the events as
- * icons) and, on phones and in split-view panes, one row with the Chat | Pinboard
+ * icons, with the chat's token usage beside them) and, on phones and in split-view panes, one row with the Chat | Pinboard
  * switch and Chats (a team member's chat has no row: a header pin icon toggles its
  * pinboard). Wider, the header carries Pinboard itself; the pinboard docks beside the
  * chat. New chat, Summarize this chat and Archived chats live in the Chats sheet (and ⌘K). Then the
  * chat's strips.
+ * `usage`: whether the chat shows its usage (the owner's own chats; ChatUsageButton).
  * `pinboard` is useChatPinboard's result; `talk` is `{ shown, talk, status }`;
  * `summarise` is summariseAction's result; `strips` ChatStrips' `entry`, `output`
  * and `stick`.
@@ -45,6 +47,7 @@ export default function AgentChatTop({
   longChat,
   strips,
   pinboard,
+  usage = false,
   disconnected = false,
 }) {
   const phone = useMobileLayout();
@@ -85,6 +88,11 @@ export default function AgentChatTop({
         conversationId={conversationId}
         events={history.events}
         navigate={navigate}
+      />
+      <ChatUsageButton
+        assistant={assistant}
+        conversationId={conversationId}
+        enabled={usage}
       />
       {/* A member's chat has no row under the header: its pinboard is an icon. */}
       {compact && !chatList && pinboard.enabled && (

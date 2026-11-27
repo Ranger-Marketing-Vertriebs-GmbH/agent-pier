@@ -414,6 +414,7 @@ export default function AssistantChat({
         longChat={longChat}
         strips={{ entry: activityFor(activity, assistant.id), output, stick }}
         pinboard={pinboard}
+        usage={!userChat}
       />
       <ChatPinboardBody assistant={assistant} pinboard={pinboard} navigate={navigate}>
         <div

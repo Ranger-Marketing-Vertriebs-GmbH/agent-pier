@@ -25,6 +25,7 @@
 }
 .assistant-header .agent-chat-work,
 .assistant-header .agent-chat-events,
+.assistant-header .agent-chat-usage,
 .assistant-header .agent-chat-pin {
   display: inline-flex;
   align-items: center;
@@ -51,6 +52,7 @@
   }
   .assistant-header .agent-chat-work,
   .assistant-header .agent-chat-events,
+  .assistant-header .agent-chat-usage,
   .assistant-header .agent-chat-pin {
     width: auto;
     min-width: var(--touch-target);

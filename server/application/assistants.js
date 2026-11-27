@@ -25,6 +25,8 @@ import {
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 import { AgentPinboard } from "../features/assistants/agent-pinboard.js";
 import { AgentCards } from "../features/assistants/agent-cards.js";
+import { AgentUsage } from "../features/assistants/agent-usage.js";
+import { agentUsageChanged } from "../features/assistants/live-usage-topics.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 import {
   agentActionsChanged,
@@ -97,6 +99,10 @@ export function createAssistantServices(options) {
         agentMemoryChanged(options.live, id);
     // A wiki tool call of an agent's turn shows on its wiki page (agent-wiki.js).
     graph.assistants.onWikiChange = (id) => agentWikiChanged(options.live, id);
+    // What the agents' sessions used (agent-usage.js); a run's end reads it anew.
+    graph.assistants.usage = new AgentUsage(graph.assistants);
+    graph.assistants.onUsageChange = (conversation) =>
+      agentUsageChanged(options.live, graph.assistants.usage, conversation);
     // The agents' pinboards (agentpier_pinboard), on the shares of the connected graph.
     graph.assistants.pinboard = new AgentPinboard({
       assistants: graph.assistants,

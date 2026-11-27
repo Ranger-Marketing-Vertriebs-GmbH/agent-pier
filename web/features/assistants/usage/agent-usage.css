@@ -1,0 +1,18 @@
+/* An agent's usage (UsageGroup.jsx) and a chat's (ChatUsageButton.jsx). */
+.agent-usage-row .list-row-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.agent-usage-chart {
+  margin-top: var(--space-3);
+}
+.assistant-header .agent-chat-usage {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.agent-usage-sheet .agent-usage-facts {
+  margin-top: var(--space-3);
+}
+.agent-usage-sheet .agent-usage-note {
+  margin: var(--space-2) 0 0;
+}

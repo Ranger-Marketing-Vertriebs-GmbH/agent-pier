@@ -1,8 +1,10 @@
 // ⌘K entries of the owner's agent chat: the agent's pinboard and browser, and the
-// chat's own actions (the Chats sheet's New chat, Summarize now and Archived chats).
+// chat's own actions (the Chats sheet's New chat, Summarize now and Archived chats,
+// and the header's Usage of this chat).
 import { agentChatsCopy } from "../lib/i18n/messages/agent-chats.js";
 import { agentPinboardCopy } from "../lib/i18n/messages/agent-pinboard.js";
 import { assistantBrowserCopy } from "../lib/i18n/messages/assistant-browser.js";
+import { assistantUsageCopy } from "../lib/i18n/messages/assistant-usage.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
 import {
   browserOffered,
@@ -53,8 +55,8 @@ export function browserEntry(agent, name, root, { bilingual, join, named }) {
 }
 
 /**
- * New chat, Summarize this chat and Archived chats. The chat on screen takes them (usePageAction in
- * AgentChatTop), so the search offers each only while one is mounted that can run it
+ * New chat, Summarize this chat, Archived chats and Usage of this chat. The chat on
+ * screen takes them (usePageAction in AgentChatTop and ChatUsageButton), so the search offers each only while one is mounted that can run it
  * (`offer`). `action` is search-entries.js' action builder.
  */
 export function chatActionEntries(action, path, bilingual) {
@@ -86,6 +88,18 @@ export function chatActionEntries(action, path, bilingual) {
       path,
       { action: "chat-archived", pending: "chat-archived" },
       { offer: "chat-archived", suggested: false },
+    ),
+    // The chat's tokens, cost and context fill (ChatUsageButton).
+    action(
+      "chat-usage",
+      () => assistantUsageCopy.chat.title,
+      path,
+      { action: "chat-usage", pending: "chat-usage" },
+      {
+        offer: "chat-usage",
+        suggested: false,
+        aliases: [bilingual(() => assistantUsageCopy.search.chatTokens)],
+      },
     ),
   ];
 }

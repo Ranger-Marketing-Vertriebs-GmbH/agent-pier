@@ -7,6 +7,7 @@ import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.j
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { assistantProactivityCopy } from "../lib/i18n/messages/assistant-proactivity.js";
 import { assistantShellCopy } from "../lib/i18n/messages/assistant-shell.js";
+import { assistantUsageCopy } from "../lib/i18n/messages/assistant-usage.js";
 import { hookCopy } from "../lib/i18n/messages/assistant-hooks.js";
 import { leadRequestCopy } from "../lib/i18n/messages/lead-requests.js";
 import { routineCopy } from "../lib/i18n/messages/assistant-routines.js";
@@ -70,6 +71,14 @@ const agentGroups = [
   ["hooks", "automation", () => hookCopy.title, ownAgent],
   ["check-ins", "automation", () => assistantProactivityCopy.heartbeat, () => true],
   ["shell", "capabilities", () => assistantShellCopy.title, ownAgent],
+  // What the agent's sessions used, on its Overview (UsageGroup.jsx).
+  [
+    "usage",
+    "overview",
+    () => assistantUsageCopy.title,
+    () => true,
+    [() => assistantUsageCopy.search.tokens, () => assistantUsageCopy.search.cost],
+  ],
   [
     "member-groups",
     "team",

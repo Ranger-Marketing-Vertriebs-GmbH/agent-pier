@@ -22,6 +22,7 @@ import {
   runtimesTopic,
 } from "../features/assistants/live-runtime-topics.js";
 import { agentDetailTopics, agentListTopic } from "../features/assistants/live-topics.js";
+import { agentUsageTopics } from "../features/assistants/live-usage-topics.js";
 import {
   operationJob,
   releaseSessionsTopic,
@@ -119,6 +120,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(runtimesTopic(services));
   hub.define(agentListTopic(services));
   for (const topic of agentDetailTopics(services)) hub.define(topic);
+  for (const topic of agentUsageTopics(services)) hub.define(topic);
   defineJobTopic(hub, operationJob(services));
   defineToolJobTopics(hub, services);
   hub.define(craftRebuildsTopic(services));

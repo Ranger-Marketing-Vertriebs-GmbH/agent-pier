@@ -72,6 +72,10 @@ export const ownerContentRoutes = {
   // Its memory wiki, read only (agent-wiki.js; only the owner's own agents keep one).
   "GET /api/assistants/:id/wiki": "agent",
   "GET /api/assistants/:id/wiki/page": "agent",
+  // What its sessions used (agent-usage.js): a user's own agent only under her opt-in.
+  "GET /api/assistants/:id/usage": "agent",
+  // One chat's tokens, cost and context; a user's chat has none for the owner.
+  "GET /api/assistant-conversations/:id/usage": "conversation",
   "GET /api/assistants/:id/browser": "agent",
   "POST /api/assistants/:id/browser/reset": "agent",
   // Reminders and routines carry the texts a user asked for.

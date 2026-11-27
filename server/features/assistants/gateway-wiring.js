@@ -122,6 +122,8 @@ export function chatEventListener(service) {
       if (event.kind === "finished" && service.runFailures?.get(runId) === "stalled")
         service.runFailures.delete(runId);
       service.feeds?.endRun(conversation.id, runId);
+      // The run's tokens and cost show in its chat and on its agent (agent-usage.js).
+      service.onUsageChange?.(conversation);
       // A run ending is activity, also one AgentPier did not send: a reminder, routine
       // or check-in delivered into the main chat (owner-privacy.js, agent-chats.js).
       // A released user's chat keeps no record of its use.

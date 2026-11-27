@@ -197,6 +197,19 @@ export const liveTopics = Object.freeze({
     interval: 30000,
     sampled: true,
   }),
+  // An agent's tokens and cost today and over 7 and 30 days, and one chat's
+  // (server/features/assistants/live-usage-topics.js): pushed after each finished
+  // turn; the server samples them only while the runtime still computes its report.
+  "agent.usage": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/usage`,
+    interval: 60000,
+  }),
+  "agent.chat-usage": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistant-conversations/${encodeURIComponent(id)}/usage`,
+    interval: 60000,
+  }),
   // The bot's state is sampled by the server while a visible tab watches.
   "agent.senders": Object.freeze({
     mode: "state",

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { chatProblem } from "../../features/assistants/agent-chats.js";
 import { dismissModelHint } from "../../features/assistants/model-hints.js";
+import { usageOf } from "../../features/assistants/agent-usage.js";
 import {
   restartMainChats,
   restartPreview,
@@ -106,6 +107,10 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
       if (!assistants.cards) throw assistantProblem("unavailable", 503);
       res.json(assistants.cards[kind](req.params.id, req.params.cardId, req.body));
     });
+  // The chat's tokens, cost and context fill (agent-usage.js): the owner's chats.
+  router.get("/assistant-conversations/:id/usage", async (req, res) =>
+    res.json(await usageOf(assistants).chat(req.params.id)),
+  );
   router.post("/assistant-conversations/:id/long-chat-dismissal", async (req, res) =>
     res.json(await assistants.longChats.dismiss(req.params.id)),
   );

@@ -24,7 +24,7 @@ import { LoginContext } from "../features/login/LoginContext.js";
 import { useViews } from "../features/views/views-context.js";
 import { requestNavigation } from "../lib/navigation-guard.js";
 // The page actions of the chat on screen (AgentChatTop).
-const chatActions = ["chat-new", "chat-summarise", "chat-archived"];
+const chatActions = ["chat-new", "chat-summarise", "chat-archived", "chat-usage"];
 const SearchDialog = lazy(() => import("./SearchDialog.jsx"));
 
 // Connection names load on the first open and again when an open finds them older
@@ -128,6 +128,7 @@ export default function AppSearch({
       target.action === "chat-new" ||
       target.action === "chat-summarise" ||
       target.action === "chat-archived" ||
+      target.action === "chat-usage" ||
       target.action === "view-new"
     )
       return undefined;

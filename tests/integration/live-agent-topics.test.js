@@ -497,6 +497,8 @@ test("exactly the topics that read through owner privacy are reset by it", async
     "agent.pinboard",
     "agent.reminders",
     "agent.routines",
+    // A user's own agent's usage shows only under her opt-in (live-usage-topics.js).
+    "agent.usage",
     "agent.wiki",
   ]);
 });
