@@ -5,10 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
+  bundledExtractors,
   hasDocumentExtract,
+  hasWebReadability,
   webToolsAvailability,
   webToolsSections,
   webToolsSignatures,
+  webToolsSnapshot,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   capabilityKeys,
@@ -113,6 +116,44 @@ test("PDF extraction is detected in the runtime's bundled plugins", (t) => {
   fs.mkdirSync(plugin, { recursive: true });
   fs.writeFileSync(path.join(plugin, "openclaw.plugin.json"), "{}");
   assert.equal(hasDocumentExtract({ entryPath }), true);
+});
+
+test("web fetch admits the Readability extractor the runtime bundles", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "readability-runtime-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const entryPath = path.join(root, "openclaw.mjs");
+  assert.deepEqual(bundledExtractors({ entryPath }), {
+    documentExtract: false,
+    webReadability: false,
+  });
+  const plugin = path.join(root, "dist", "extensions", "web-readability");
+  fs.mkdirSync(plugin, { recursive: true });
+  fs.writeFileSync(path.join(plugin, "openclaw.plugin.json"), "{}");
+  assert.equal(hasWebReadability({ entryPath }), true);
+  assert.equal(bundledExtractors({ entryPath }).webReadability, true);
+
+  // Without it in the restrictive allow list web_fetch returns the whole page as
+  // Markdown (extractor "raw-html") instead of the article.
+  const inputs = { ...webTools(chosen), webReadability: true };
+  const config = compile([plain], inputs);
+  assert.ok(config.tools.allow.includes("web_fetch"));
+  assert.ok(config.plugins.allow.includes("web-readability"));
+  // An older or rollback runtime without the plugin keeps fetching unrefined.
+  const old = compile([plain], webTools(chosen));
+  assert.ok(old.tools.allow.includes("web_fetch"));
+  assert.equal(old.plugins.allow.includes("web-readability"), false);
+  // Only the fetch capability's sections change, so only its users need a restart.
+  const before = webToolsSignatures({ webTools: webTools(chosen) });
+  const after = webToolsSignatures({ webTools: inputs });
+  assert.notEqual(after.webFetch, before.webFetch);
+  for (const key of Object.keys(before))
+    if (key !== "webFetch") assert.equal(after[key], before[key], key);
+  // The start snapshot keeps the detection, so a later save compares like for like.
+  assert.equal(webToolsSnapshot({ profiles: [], webTools: inputs }).webReadability, true);
+  assert.equal(
+    webToolsSnapshot({ profiles: [], webTools: webTools(chosen) }).webReadability,
+    false,
+  );
 });
 
 test("an agent that reads PDFs compiles pdf and the model ids, never a model", () => {

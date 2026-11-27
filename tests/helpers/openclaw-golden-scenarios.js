@@ -42,6 +42,7 @@ const webTools = (extra = {}) => ({
   images: { ready: false },
   pdf: { ready: false },
   documentExtract: false,
+  webReadability: false,
   ...extra,
 });
 const noMcp = { servers: [], bindings: {}, secrets: {}, redirectUrl: null };
@@ -185,6 +186,7 @@ export const goldenScenarios = {
         images: { ready: true },
         pdf: { ready: true, connectionId: "c1", modelId: "gpt-pdf" },
         documentExtract: true,
+        webReadability: true,
       }),
     }),
   "web-search-unavailable": () =>

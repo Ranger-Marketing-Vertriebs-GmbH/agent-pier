@@ -32,7 +32,7 @@ import { restartWiring } from "./offline-commands-wiring.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import {
-  hasDocumentExtract,
+  bundledExtractors,
   webToolsAvailability,
 } from "../features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/mcp-servers/mcp-inputs.js";
@@ -561,7 +561,7 @@ export function connectAssistantServices(graph) {
           searchPlugins: installed.searchPlugins || {},
           images: webToolsChanges.images(),
           pdf: webToolsChanges.pdf(),
-          documentExtract: hasDocumentExtract(installed),
+          ...bundledExtractors(installed),
         },
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),

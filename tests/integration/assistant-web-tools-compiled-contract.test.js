@@ -18,7 +18,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 import { defaultGrants } from "../../server/features/assistants/member-grants.js";
 import {
-  hasDocumentExtract,
+  bundledExtractors,
   webToolsSections,
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
@@ -223,7 +223,7 @@ test(
           browser,
           searchPlugins: descriptor.searchPlugins || {},
           pdf: { ready: true, ...pdfModel },
-          documentExtract: hasDocumentExtract(descriptor),
+          ...bundledExtractors(descriptor),
         },
       };
       return {
@@ -287,6 +287,10 @@ test(
       "openai",
       "memory-core",
       "duckduckgo",
+      // Without it web_fetch returns whole pages (extractor "raw-html"); the loop
+      // below proves the Gateway enabled it. No fetch runs here: the policy refuses
+      // the loopback page, and a contract reaches no public one.
+      "web-readability",
       "document-extract",
       ...(browser.available ? ["browser"] : []),
     ]);

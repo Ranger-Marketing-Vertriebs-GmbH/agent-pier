@@ -2194,6 +2194,12 @@ the Gateway's startup configuration.
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
 
+`web_fetch` reduces a page to its article with OpenClaw's bundled `web-readability`
+plugin. A start names it in `plugins.allow` whenever the runtime bundles it; the
+restrictive allow list would otherwise leave it off, and the tool would return the
+whole page as Markdown (see the
+[qualification](assistant-web-tools-qualification.md#compiled-configuration-in-team-mode)).
+
 ### PDF reading (2026-10-19)
 
 **Read PDFs** (`readPdfs`, off by default, also grantable to task members within their
