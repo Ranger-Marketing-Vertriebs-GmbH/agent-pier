@@ -162,3 +162,104 @@ test("an endpoint connection's capability carries its preset, never its address 
   for (const field of ["openaiBaseUrl", "authHeader", "apiKey", "hasSecret"])
     assert.equal(fields(capability).includes(field), false, field);
 });
+
+test("an OpenRouter model's catalog price is compiled into its transport", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-cost-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const connections = new ProviderConnections({ dataDir });
+  const c = connections.create({ providerId: "openrouter", name: "Router", apiKey: "k" });
+  const row = (id, pricing) => ({
+    id,
+    name: id,
+    architecture: { input_modalities: ["text"], output_modalities: ["text"] },
+    supported_parameters: ["tools"],
+    pricing,
+  });
+  const rows = normalizeOpenRouter({
+    data: [
+      row("vendor/cached", {
+        prompt: "0.000003",
+        completion: "0.000015",
+        input_cache_read: "0.0000003",
+        input_cache_write: "0.00000375",
+      }),
+      row("vendor/plain", { prompt: "0.000002", completion: "0.000008" }),
+      row("vendor/free", { prompt: "0", completion: "0" }),
+      // Dynamic pricing ("-1"): no price to estimate from.
+      row("vendor/dynamic", { prompt: "-1", completion: "-1" }),
+      row("vendor/half", { prompt: "0.000002" }),
+    ],
+  });
+  const models = new AssistantModels({
+    connections,
+    catalog: {
+      get(providerId, modelId) {
+        const found = rows.find((m) => m.modelId === modelId);
+        if (providerId !== "openrouter" || !found) throw Error("not in catalog");
+        return found;
+      },
+    },
+  });
+  const costOf = (modelId) => {
+    const lease = models.resolve({ connectionId: c.id, modelId });
+    lease.release();
+    return lease.provider.models[0].cost;
+  };
+  // USD per 1M tokens, as OpenClaw's model entry takes it.
+  assert.deepEqual(costOf("vendor/cached"), {
+    input: 3,
+    output: 15,
+    cacheRead: 0.3,
+    cacheWrite: 3.75,
+  });
+  // Without a cache price of its own, cached input costs what input costs.
+  assert.deepEqual(costOf("vendor/plain"), {
+    input: 2,
+    output: 8,
+    cacheRead: 2,
+    cacheWrite: 2,
+  });
+  // A free model is priced at nothing, which OpenClaw reports as a cost of 0.
+  assert.deepEqual(costOf("vendor/free"), {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  });
+  // No invented price: the entry carries none, and OpenClaw counts the call as
+  // unpriced unless OpenRouter's answer names what it billed.
+  for (const modelId of ["vendor/dynamic", "vendor/half", "vendor/unlisted"])
+    assert.equal(costOf(modelId), undefined, modelId);
+  assert.equal(
+    new AssistantModels({ connections }).resolve({
+      connectionId: c.id,
+      modelId: "vendor/plain",
+    }).provider.models[0].cost,
+    undefined,
+  );
+});
+
+test("an endpoint model's transport carries no price: AgentPier knows none", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-cost-endpoint-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const connections = new ProviderConnections({ dataDir });
+  const c = connections.create({
+    providerId: "endpoint",
+    name: "Local",
+    endpoint: {
+      preset: "custom",
+      openaiBaseUrl: "http://127.0.0.1:9/v1",
+      authHeader: null,
+      protocols: { messages: false, responses: false, chatCompletions: true },
+      models: [
+        { modelId: "local", source: "manual", contextTokens: 32768, outputTokens: 4096 },
+      ],
+    },
+  });
+  const lease = new AssistantModels({ connections }).resolve({
+    connectionId: c.id,
+    modelId: "local",
+  });
+  lease.release();
+  assert.equal("cost" in lease.provider.models[0], false);
+});

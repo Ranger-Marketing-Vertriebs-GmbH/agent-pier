@@ -50,6 +50,9 @@ export function normalizeOpenRouter(payload, fetchedAt) {
         pricing: {
           inputPerMTok: perMillion(model.pricing?.prompt),
           outputPerMTok: perMillion(model.pricing?.completion),
+          // Cached input, where the model lists a price of its own for it.
+          cacheReadPerMTok: perMillion(model.pricing?.input_cache_read),
+          cacheWritePerMTok: perMillion(model.pricing?.input_cache_write),
         },
         tools: codingCliIds(),
         source: "https://openrouter.ai/api/v1/models",
