@@ -138,6 +138,11 @@
 .agent-template-note a {
   color: var(--accent-text);
 }
+/* The licence link in the confirmation of semantic memory search. */
+.agent-terms-note a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
 /* "Use team": its label above the three levels, full width on phones too. */
 .list-row.agent-team-usage {
   display: grid;

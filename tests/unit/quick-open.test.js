@@ -490,6 +490,28 @@ test("a session's agent access request waits for that session alone", () => {
   assert.equal(takePageAction("session-agent-access:b", 5001), false);
 });
 
+test("the owner finds semantic memory search on Runtime; a user's search holds none", () => {
+  const owners = buildSearchIndex({ agentsEnabled: true });
+  for (const query of ["semantic memory", "Semantische Gedächtnissuche", "embeddings"]) {
+    const hit = flat(searchEntries(owners, query))[0];
+    assert.equal(hit.id, "page:runtime-memory-search", query);
+    assert.equal(hit.group, "pages");
+    assert.equal(
+      routePath(hit.target.route),
+      "/agents?tab=runtime&section=memory-search",
+    );
+  }
+  // With agents off the owner's index has no Runtime group either.
+  const off = buildSearchIndex({ agentsEnabled: false });
+  assert.equal(
+    off.some((entry) => entry.id === "page:runtime-memory-search"),
+    false,
+  );
+  // It is the owner's installation-wide setting: users never see it.
+  const users = buildUserSearchIndex({ agents: [{ id: "mine", name: "Mine" }] });
+  assert.equal(flat(searchEntries(users, "semantic memory")).length, 0);
+});
+
 test("the owner finds a runtime's install group; a user's search holds none", () => {
   const runtimes = [
     {

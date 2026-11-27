@@ -18,6 +18,7 @@ import { diaryText } from "./dream-diary.js";
 import MemoryPins from "./MemoryPins.jsx";
 import ConflictNotice from "./ConflictNotice.jsx";
 import MemoryArchiveList from "./MemoryArchiveList.jsx";
+import SemanticSearchHint from "./SemanticSearchHint.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 import { RuntimePageLinks } from "../RuntimeSlot.jsx";
 
@@ -317,6 +318,7 @@ export default function MemoryPage({ assistant, onBack, go, readOnly: locked = f
           </button>
         </div>
       </form>
+      <SemanticSearchHint runtime={assistant.runtimeInfo} locked={locked} />
       {results?.length === 0 && <p className="assistant-note">{copy.noResults}</p>}
       {results?.map((result, index) => (
         <article className="assistant-card" key={`${result.path}-${index}`}>

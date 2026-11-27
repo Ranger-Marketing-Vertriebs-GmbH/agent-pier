@@ -137,6 +137,9 @@ export const assistantApi = {
   teamSettings: (input) => api("/assistant-team-settings", "PUT", input),
   dreaming: () => api("/assistant-dreaming"),
   saveDreaming: (input) => api("/assistant-dreaming", "PUT", input),
+  // The owner's semantic memory search; the switch answers at once and its steps
+  // follow over the live topic `runtime.semantic-memory`.
+  setSemanticMemory: (input) => api("/assistant-semantic-memory", "PUT", input),
   channels: () => api("/assistant-channels"),
   createChannel: (input) => api("/assistant-channels", "POST", input),
   updateChannel: (id, input) =>
