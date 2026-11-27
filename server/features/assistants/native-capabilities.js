@@ -76,7 +76,13 @@ export const memberTeamTools = [
   "agentpier_team_peer_delegate",
   "agentpier_team_report",
 ];
-export const shellLevels = ["off", "approval", "full"];
+// Ordered from least to most trusted. "review" (OpenClaw's exec mode "auto") lets a
+// model review each command that is not always allowed: it runs routine ones, refuses
+// some and hands the rest to the owner (docs/assistant-shell-qualification.md (i)).
+// A runtime offers a level only when its trait `approvals.shellLevels` names it.
+export const shellLevels = ["off", "approval", "review", "full"];
+// The levels on which a command may wait for the owner's decision.
+export const askingShellLevels = ["approval", "review"];
 export const shellTools = ["exec", "process"];
 // OpenClaw's session tools: they read (and can steer) other sessions of the agent,
 // so an agent with its own bot for other people never gets them.

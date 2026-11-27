@@ -3504,7 +3504,7 @@ member's effective grants instead (see
 | `mcpServers` (names of any of the owner's servers)                          | Those servers, while the member works ([bindings](#bindings))                                                                   |
 | `memory`                                                                    | A read-only copy of the lead's memory beside the member's own memory (see below)                                                |
 | `reminders`                                                                 | Reminders created on the lead (see below)                                                                                       |
-| `shell` (`approval` or `full`), `ssh`                                       | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants                  |
+| `shell` (`approval`, `review` or `full`), `ssh`                             | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants                  |
 | `github` (`read` or `write`)                                                | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))                          |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
@@ -4747,13 +4747,15 @@ Agents can run command-line programs on the host through OpenClaw's `exec` and
 Each personal agent and each permanent team member has a shell level in its
 settings (**Shell access**). New agents start with **Off**.
 
-| Level         | Compiled for the agent                                | Behavior                                                        |
-| ------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
-| Off           | no `exec` or `process` in the agent's `tools.allow`   | The agent is offered no shell tool at all.                      |
-| With approval | `tools.exec: { mode: "ask", strictInlineEval: true }` | Every command not on the agent's allowlist waits for the owner. |
-| Full access   | `tools.exec: { mode: "full" }`                        | Every command runs at once, without asking.                     |
+| Level            | Compiled for the agent                                 | Behavior                                                                                                                                            |
+| ---------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Off              | no `exec` or `process` in the agent's `tools.allow`    | The agent is offered no shell tool at all.                                                                                                          |
+| With approval    | `tools.exec: { mode: "ask", strictInlineEval: true }`  | Every command not on the agent's allowlist waits for the owner.                                                                                     |
+| Automatic review | `tools.exec: { mode: "auto", strictInlineEval: true }` | The agent's model reviews every command not on the allowlist: it runs it once, refuses it or hands it to the owner. A failed review asks the owner. |
+| Full access      | `tools.exec: { mode: "full" }`                         | Every command runs at once, without asking.                                                                                                         |
 
-Both shell levels also carry `pathPrepend` (see below). While any eligible agent
+Every shell level also carries `pathPrepend` (see below). The levels are ordered:
+Off, With approval, Automatic review, Full access. While any eligible agent
 has shell, the global `tools.allow` includes `exec` and `process`; the global
 `tools.exec.mode` stays `deny`, and an agent without shell keeps both tools out of
 its own `tools.allow`, because a global `deny` alone still offers the tool.
@@ -4769,10 +4771,26 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   [Team member grants](#team-member-grants-2026-10-17)). Archived agents
   have none.
 - **Confirmation.** Raising the level needs the owner's confirmation of the
-  warning (`confirmShell`); raising it to Full access needs a second one
-  (`confirmFull`). Without them the update (and the creation of an agent with full
-  access) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
+  warning (`confirmShell`); raising it to Automatic review needs a second one
+  (`confirmReview`: a model decides instead of the owner), raising it to Full access
+  its own (`confirmFull`). Without them the update (and the creation of an agent at
+  such a level) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
   confirmations, and nothing is stored. Lowering never asks.
+- **Automatic review** is OpenClaw's exec mode `auto`
+  ([shell qualification (i)](assistant-shell-qualification.md#i-exec-mode-auto-the-model-review)).
+  The reviewer is OpenClaw's default: the agent's own model and model connection,
+  one tool-less call per reviewed command, 30 seconds per stage; AgentPier
+  configures no `tools.exec.reviewer`. Only a runtime whose trait
+  `approvals.shellLevels` names `review` offers the level; elsewhere the update
+  answers 400 `shellLevelUnsupported` and the settings name the reason. Wherever a
+  rule depends on the level, Automatic review counts as an asking level like With
+  approval: a hook's run gets the 30-minute budget, a hook's cards offer no **Always
+  allow**, and an email attachment or shared file from outside the workspace still
+  needs Full access. A hook saved at a level above the agent's current one runs at
+  the agent's level; one saved below it runs without shell. A temporary member
+  runs at the lower of its grant and its lead's level. The agent's instructions
+  explain the reviewer's refusal (`Exec denied by auto-review`) and tell it not to
+  work around one.
 - **New agents.** An agent of the owner's created without a level starts **With
   approval** (AGENTPIER-276): every command still asks them, so it needs no
   confirmation; the creation is audited as a level change from Off. The wizard
@@ -4844,7 +4862,8 @@ the Gateway itself keeps its private `HOME`, state and configuration.**
 
 ### Approvals in the web and on Telegram
 
-Under With approval, each request (`exec.approval.requested`, received by the
+Under With approval, and under Automatic review for every command the review hands
+to the owner, each request (`exec.approval.requested`, received by the
 supervisor's own client with the `exec-approvals` cap) becomes an agent action
 awaiting the owner, attributed through the request's agent and session to the
 agent and conversation. A request AgentPier cannot attribute (unknown agent or

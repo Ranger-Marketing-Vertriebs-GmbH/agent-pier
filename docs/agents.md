@@ -338,7 +338,9 @@ What works on Hermes today:
   runs in that chat until it is reset ([Hermes runtime](hermes-runtime.md#shell-levels)).
   **Always allowed commands** lists the remembered commands with their
   folder and when you added them; delete one and the agent asks again. On OpenClaw,
-  **With approval** already asks before every command, so it keeps its three levels.
+  **With approval** already asks before every command, so it has no **Every
+  command**; it has **Automatic review** instead, which Hermes lacks
+  ([shell qualification](assistant-shell-qualification.md#i-exec-mode-auto-the-model-review)).
 - The model connection and the instructions. Every OpenAI-compatible endpoint
   (OpenAI, Azure OpenAI, Anthropic and other vendors' compatible APIs, Ollama,
   llama.cpp, LM Studio) and OpenRouter work; changing the model in **Profile**
@@ -773,9 +775,9 @@ A switch with fresh chats also has the new model review the agent's memory; see
   asking you, so a page could try to talk it into uploading a file it may read: switch
   on the browser only for agents whose folders you would share that way. See
   [browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders).
-- **Shell access:** **Off**, **With approval** or **Full access** (an agent created
-  without a level, for example through the API, starts **With approval**; the wizard
-  uses the level its profile shows). With approval, the
+- **Shell access:** **Off**, **With approval**, **Automatic review** or **Full access**
+  (an agent created without a level, for example through the API, starts **With
+  approval**; the wizard uses the level its profile shows). With approval, the
   agent asks before every command that is not always allowed (its instructions tell it
   to pass a script as an argument, never through a heredoc, a pipe into stdin or a
   redirection, which OpenClaw refuses to approve, and to tell you so plainly if a
@@ -799,6 +801,32 @@ A switch with fresh chats also has the new model review the agent's memory; see
   commands. Temporary team members get
   shell access only through their lead's **Team members may use shell and SSH**
   (see below).
+
+  **Automatic review** (OpenClaw agents) puts a model between the agent and you.
+  Every command that is not always allowed is first reviewed by the agent's own
+  model in a separate call: it lets routine commands run once right away (reading
+  and searching files, builds, tests, local git and the like), refuses some and
+  tells the agent why, and hands you the ones it rates as risky or cannot judge, as
+  the same approval card with the reviewer's reason under **OpenClaw notes**.
+  Commands wrapped in a shell (`sh -c`, `bash -lc`) are never reviewed and always
+  ask you. You are also asked whenever the review fails, times out or answers
+  unclearly; it never falls back to running the command. What you should know
+  before you choose it:
+  - **A model decides, not you.** You no longer see every command first. The
+    reviewer can misjudge a command, and it reads part of the conversation,
+    including what the agent read on the web or in files, so such content can
+    mislead it as it can mislead the agent. Raising an agent to this level asks
+    you to confirm exactly that, after the shell warning.
+  - **It costs a model call per reviewed command**, on the agent's own model
+    connection, and adds a few seconds before the command runs. **Always allow**
+    the programs an agent uses all the time and they skip the review.
+  - **Reviewed commands leave no approval card.** They show in the chat's steps
+    like any command; only the ones handed to you appear under **Actions and
+    coding tasks** and in the audit log.
+  - Routines and hooks run with the same review. A command it hands to you waits
+    for you like under **With approval**, and does not run if you do not answer.
+  - Hermes agents do not have this level: the settings say so under the levels.
+
 - **Skills:** lists the skills that ship with OpenClaw and the skills from the
   [skill catalog](#skill-catalog). A skill teaches the agent a tool, mostly a
   command-line program such as `gh`. Switch on the ones this agent may use; each one
@@ -1959,7 +1987,8 @@ own **Enabled** switch is off.
   **Enabled** pauses or resumes the hook. A shell command a hook run asks for offers
   only **Allow once** and **Deny**, never **Always allow**, so an event cannot make a
   command permanent for your own chats; its card does not explain **Always allow**
-  either. On OpenClaw a run whose **Shell** is **With approval** has 30 minutes, so you
+  either. On OpenClaw a run whose **Shell** is **With approval** or **Automatic review**
+  has 30 minutes, so you
   have time to decide (OpenClaw's approval request also expires after 30 minutes); every
   other hook run ends after 5 minutes. When a run runs out of time while its command still
   waits for you, the notice and the event's row say that the hook waited for your

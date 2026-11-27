@@ -70,7 +70,7 @@ export const workflowDefinitions = {
           telegram: { type: "boolean" },
           research: { type: "boolean" },
           coding: { type: "boolean" },
-          shell: { type: "string", enum: ["off", "approval", "full"] },
+          shell: { type: "string", enum: ["off", "approval", "review", "full"] },
           sshHosts: { type: "array", items: text(100), maxItems: 100 },
           folders: {
             type: "object",

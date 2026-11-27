@@ -68,7 +68,8 @@ export function createOpenClawRuntime(supervisor) {
   return defineAgentRuntime({
     id: openClawDescriptor.id,
     // OpenClaw's "approval" level already asks before every command, so its shell
-    // levels (the default of `approvals.shellLevels`) have no "every".
+    // levels (the default of `approvals.shellLevels`) have no "every"; they have
+    // "review", its exec mode "auto".
     traits: openClawDescriptor.traits,
     host: openClawHost(supervisor),
     sessions: openClawSessions(supervisor, clientOf),

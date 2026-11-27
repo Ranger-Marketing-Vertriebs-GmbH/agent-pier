@@ -1,7 +1,7 @@
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 
-const levels = ["off", "approval", "full"];
+const levels = ["off", "approval", "review", "full"];
 export const profile = {
   id: "home",
   name: "Home",
@@ -35,8 +35,9 @@ export const execAction = (id, extra = {}) => ({
   ...extra,
 });
 
-// A stand-in for the server: raising the level needs confirmShell, full also
-// confirmFull, lowering needs neither (server/features/assistants/shell-changes.js).
+// A stand-in for the server: raising the level needs confirmShell, review also
+// confirmReview, full also confirmFull, lowering needs none
+// (server/features/assistants/shell-changes.js).
 // `activity`, `members` and `requests` (the chat's turns) put the agent mid-turn;
 // `assistants` adds other agents, such as a lead's member; `exactOnly` answers the
 // allowlist as a runtime without one does (Hermes: remembered commands only).
@@ -65,6 +66,7 @@ export async function setup(page, options = {}) {
       if (body.shell && levels.indexOf(body.shell) > levels.indexOf(from)) {
         const required = [
           ...(body.confirmShell ? [] : ["confirmShell"]),
+          ...(body.shell === "review" && !body.confirmReview ? ["confirmReview"] : []),
           ...(body.shell === "full" && !body.confirmFull ? ["confirmFull"] : []),
         ];
         if (required.length)

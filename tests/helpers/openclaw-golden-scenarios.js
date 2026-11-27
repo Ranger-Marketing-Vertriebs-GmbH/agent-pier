@@ -91,7 +91,8 @@ export const goldenScenarios = {
     base({ native: undefined, profiles: [agent("a1", { capabilities: {} })] }),
   // An agent that switched nothing on.
   "no-tools": () => base({ profiles: [agent("a1", { capabilities: {} })] }),
-  // Shell on approval and full, with GitHub and SSH folders on the PATH.
+  // Shell on approval, full and automatic review, with GitHub and SSH folders on the
+  // PATH.
   shell: () =>
     base(
       {
@@ -99,6 +100,7 @@ export const goldenScenarios = {
           agent("a1", { shell: "approval", capabilities: { memory: true } }),
           agent("a2", { shell: "full", capabilities: { reminders: true } }),
           agent("a3", { shell: "off" }),
+          agent("a4", { shell: "review" }),
         ],
         sshAgents: new Set(["a2"]),
         githubShell: { a1: ["/golden/github/a1/bin"] },

@@ -169,12 +169,13 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   assert.equal(details.version, "2026.10.3");
   assert.deepEqual(Object.keys(details.capabilities), [...RUNTIME_CAPABILITIES]);
   // OpenClaw offers everything, each with the default traits: its shell levels have
-  // no "Every command".
+  // no "Every command" but the model-reviewed level.
   for (const [name, capability] of Object.entries(details.capabilities))
     assert.deepEqual(capability, { available: true, ...DEFAULT_TRAITS[name] }, name);
   assert.deepEqual(details.capabilities.approvals.shellLevels, [
     "off",
     "approval",
+    "review",
     "full",
   ]);
   const hermes = runtimeDetails(

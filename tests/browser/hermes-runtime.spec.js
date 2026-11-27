@@ -491,7 +491,7 @@ test("an OpenClaw agent keeps its three shell levels and sends no every-command 
         capabilities: {
           approvals: {
             available: true,
-            shellLevels: ["off", "approval", "full"],
+            shellLevels: ["off", "approval", "review", "full"],
             allowlist: "patterns",
           },
         },

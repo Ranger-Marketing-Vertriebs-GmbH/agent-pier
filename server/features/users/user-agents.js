@@ -32,6 +32,7 @@ export class UserAgents {
       shell: _shell,
       browserVisible: _visible,
       confirmShell: _confirmShell,
+      confirmReview: _confirmReview,
       confirmFull: _confirmFull,
       ...input
     } = body;

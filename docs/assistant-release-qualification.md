@@ -39,9 +39,10 @@ prevails.
   [native architectures](#native-architectures-2026-10-19)). Real Linux hosts
   (systemd, orphan reclaim) remain unqualified, see [Linux](linux.md).
 
-- **Agent shell access (2026-10-12):** before a release, the four shell contracts
+- **Agent shell access (2026-10-12):** before a release, the five shell contracts
   (`assistant-shell-contract`, `assistant-shell-environment-contract`,
-  `assistant-shell-changes-contract`, `assistant-shell-compiled-contract`) must pass
+  `assistant-shell-changes-contract`, `assistant-shell-compiled-contract`,
+  `assistant-shell-auto-review-contract`) must pass
   without skips with `AGENTPIER_SHELL_CONTRACT_RUNTIME`; the `native-contracts` job
   runs them. Locally on macOS arm64 they passed 15 of 15.
 

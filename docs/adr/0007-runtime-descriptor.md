@@ -85,7 +85,8 @@ the slot of Agents › Runtime that renders Hermes's install group follow it, an
 nothing polls an install.
 
 `everyCommandApproval` is no capability any more: it is the `every` entry of
-`approvals.shellLevels`.
+`approvals.shellLevels`. The same trait carries `review`, the level on which a
+model reviews commands (OpenClaw's exec mode `auto`), which only OpenClaw states.
 
 A **surface** is UI a runtime registers at a named slot of a page AgentPier owns. It
 is either _described_ (fields AgentPier renders, validates, stores and hands to the

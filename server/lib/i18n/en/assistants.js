@@ -232,7 +232,11 @@ export const assistants = {
       github: (level) => `GitHub (${level})`,
     },
     githubLevels: { read: "read", write: "read and write" },
-    levels: { approval: "with approval", full: "full access" },
+    levels: {
+      approval: "with approval",
+      review: "automatic review",
+      full: "full access",
+    },
     gets: (labels) => `Gets: ${labels}`,
     getsNothing: "Gets: no tools",
     promoted: (lead, member) =>
@@ -501,6 +505,8 @@ export const assistants = {
     "OpenClaw still holds this ChatGPT login. Move it to AgentPier under Connections › Model access to use it with a Hermes agent.",
   shellEveryCommandUnsupported:
     "“Every command” exists only for Hermes agents; on OpenClaw “With approval” already asks before every command.",
+  shellLevelUnsupported:
+    "This agent's runtime does not offer this shell level. “Automatic review” exists only for OpenClaw agents.",
   notFound: "Agent or conversation not found.",
   pipelineAccessChanged:
     "The pipeline or one of its profiles changed since access was granted. Review the current settings and save project and pipeline access again for the granting agent; for shared access, this is the lead. Then request a new coding task.",
@@ -555,6 +561,8 @@ export const assistants = {
     "This setting is not available with the installed agent runtime.",
   shellConfirmationRequired:
     "With shell access the agent runs commands as your user account on this computer, including outside its workspace. Confirm the warning to turn access on.",
+  shellReviewConfirmationRequired:
+    "With automatic review a model, not you, decides which commands run without asking. Confirm this explicitly.",
   shellFullConfirmationRequired:
     "With full shell access the agent runs every command without asking. Confirm this explicitly.",
   modelsRateLimited: "Too many model list refreshes. Please try again in a minute.",

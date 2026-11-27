@@ -11,6 +11,7 @@ import { validateRuntimeOptions } from "./runtimes/runtime-options.js";
 export async function createAgent(service, body, { userAccess = null } = {}) {
   const {
     confirmShell,
+    confirmReview,
     confirmFull,
     confirmRestart,
     template,
@@ -22,7 +23,7 @@ export async function createAgent(service, body, { userAccess = null } = {}) {
   const record = await service.admit(async () => {
     const base = userAccess ? "off" : "approval",
       level = input.shell ?? base;
-    shellChange({ shell: base }, input, { confirmShell, confirmFull });
+    shellChange({ shell: base }, input, { confirmShell, confirmReview, confirmFull });
     // Skills are assigned once the agent exists (agent-skills.js).
     if (input.skills?.length) throw assistantProblem("invalid");
     refuseRuntimeChoice(service.runtime, input, service.accounts);

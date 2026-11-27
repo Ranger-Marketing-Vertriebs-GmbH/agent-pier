@@ -238,7 +238,7 @@ export const assistants = {
       github: (level) => `GitHub (${level})`,
     },
     githubLevels: { read: "lesen", write: "lesen und schreiben" },
-    levels: { approval: "mit Freigabe", full: "voller Zugriff" },
+    levels: { approval: "mit Freigabe", review: "Modellprüfung", full: "voller Zugriff" },
     gets: (labels) => `Erhält: ${labels}`,
     getsNothing: "Erhält: keine Tools",
     promoted: (lead, member) =>
@@ -522,6 +522,8 @@ export const assistants = {
     "Diese ChatGPT-Anmeldung hält noch OpenClaw. Verschiebe sie unter Zugänge › Modell-Zugänge zu AgentPier, um sie mit einem Hermes-Agenten zu nutzen.",
   shellEveryCommandUnsupported:
     "„Jeder Befehl“ gibt es nur für Hermes-Agenten; bei OpenClaw fragt „Mit Freigabe“ schon vor jedem Befehl.",
+  shellLevelUnsupported:
+    "Die Laufzeit dieses Agenten bietet diese Shell-Stufe nicht. „Automatische Prüfung“ gibt es nur für OpenClaw-Agenten.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   pipelineAccessChanged:
     "Die Pipeline oder eines ihrer Profile wurde seit der Freigabe geändert. Prüfe die aktuellen Einstellungen und speichere den Projekt- und Pipelinezugriff beim freigebenden Agenten erneut; bei geteiltem Zugriff ist das der leitende Agent. Fordere danach einen neuen Coding-Auftrag an.",
@@ -582,6 +584,8 @@ export const assistants = {
     "Diese Einstellung ist mit der installierten Agenten-Laufzeit nicht verfügbar.",
   shellConfirmationRequired:
     "Mit Shell-Zugriff führt der Agent Befehle als dein Benutzerkonto auf diesem Rechner aus, auch außerhalb seines Arbeitsbereichs. Bestätige die Warnung, um den Zugriff einzuschalten.",
+  shellReviewConfirmationRequired:
+    "Mit automatischer Prüfung entscheidet ein Modell statt dir, welche Befehle ohne Nachfrage laufen. Bestätige das ausdrücklich.",
   shellFullConfirmationRequired:
     "Mit vollem Shell-Zugriff führt der Agent jeden Befehl ohne Nachfrage aus. Bestätige das ausdrücklich.",
   modelsRateLimited:

@@ -261,7 +261,7 @@ export function auditEvent(input) {
   if (details.actionId !== undefined) event.details.actionId = auditId(details.actionId);
   // Assistant shell changes name the levels and the allowlist entry removed.
   for (const key of ["shellFrom", "shellTo"])
-    if (["off", "approval", "full"].includes(details[key]))
+    if (["off", "approval", "review", "full"].includes(details[key]))
       event.details[key] = details[key];
   if (details.entryId !== undefined) event.details.entryId = auditId(details.entryId);
   // An agent's skill assignment names the bundled skills, public catalog names.

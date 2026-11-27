@@ -4,11 +4,14 @@ export const assistantShellCopy = {
   levels: {
     off: "Aus",
     approval: "Mit Freigabe",
+    review: "Automatische Prüfung",
     full: "Voller Zugriff",
   },
   levelHints: {
     off: "Der Agent kann keine neuen Befehle ausführen. Bereits im Hintergrund gestartete Befehle laufen weiter, bis sie enden; unter Linux beendet sie auch ein Neustart des Agentendienstes.",
     approval: "Der Agent fragt dich vor jedem Befehl, der nicht immer erlaubt ist.",
+    review:
+      "Ein Modell prüft jeden Befehl, der nicht immer erlaubt ist. Routinebefehle führt es sofort aus, manche lehnt es ab, und bei Befehlen, die es als riskant einstuft oder nicht beurteilen kann, fragt es dich.",
     full: "Der Agent führt jeden Befehl aus, ohne dich zu fragen.",
   },
   // Eine Laufzeit, die vor jedem Befehl fragen kann (Hermes), bietet vier Stufen.
@@ -31,17 +34,26 @@ export const assistantShellCopy = {
     "Ohne Shell-Zugriff funktionieren Skills und Tools nicht, die Kommandozeilenprogramme brauchen, zum Beispiel gh, git oder Mail-Programme.",
   warning:
     "Mit Shell-Zugriff arbeitet der Agent als dein Benutzerkonto: mit deinen Anmeldungen, deinen Dateien und deinen Schlüsseln, und er kann AgentPiers eigene Daten lesen. Der Schreibschutz für Teams gilt nicht für Shell-Befehle.",
+  reviewWarning:
+    "Mit automatischer Prüfung entscheidet ein Modell statt dir, welche Befehle ohne Nachfrage laufen. Es nutzt das Modell des Agenten, und jede Prüfung kostet einen Modellaufruf. Es kann einen Befehl falsch einschätzen, und Texte, die der Agent liest, können es täuschen. Du wirst immer gefragt, wenn die Prüfung fehlschlägt oder zu lange dauert.",
+  reviewUnavailable: (runtime) =>
+    `Die automatische Prüfung gibt es auf ${runtime} nicht: AgentPier bietet eine Modellprüfung nur dort an, wo nachgewiesen ist, dass sie dich bei jedem Fehlschlag fragt.`,
   temporary:
     "Auftragsgebundene Teammitglieder bekommen Shell-Zugriff nur, wenn ihr leitender Agent es unter Team erlaubt, und höchstens mit seiner Stufe.",
   archived: "Archivierte Agenten haben keinen Shell-Zugriff.",
   pending: "Die neue Shell-Stufe gilt, sobald der Agentendienst wieder läuft.",
   badge: {
     approval: "Shell: Freigabe",
+    review: "Shell: geprüft",
     full: "Shell: voll",
   },
   badgeLabel: (level) => `Shell-Zugriff: ${level}`,
   confirmTitle: "Shell-Zugriff einschalten?",
   confirm: "Shell-Zugriff einschalten",
+  reviewTitle: "Ein Modell entscheiden lassen, welche Befehle laufen?",
+  reviewBody:
+    "Mit automatischer Prüfung siehst du nicht mehr jeden Befehl vorher. Ein Modell prüft jeden Befehl, der nicht immer erlaubt ist, und führt die, die es als Routine einstuft, sofort aus, auch Befehle, die Dateien ändern oder löschen. Gefragt wirst du nur bei Befehlen, die es als riskant einstuft oder nicht beurteilen kann, und immer, wenn die Prüfung fehlschlägt.",
+  confirmReview: "Automatische Prüfung erlauben",
   fullTitle: "Jeden Befehl ohne Rückfrage ausführen?",
   fullBody:
     "Mit vollem Zugriff gibt es überhaupt keine Rückfragen: Der Agent führt jeden Befehl sofort aus, auch Befehle, die Dateien löschen oder Daten versenden. Du kannst einen Befehl nicht vorher stoppen.",

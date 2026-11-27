@@ -249,6 +249,14 @@ const shellApprovalGuidance = [
   "- If a command is refused (`SYSTEM_RUN_DENIED: approval cannot safely bind this command`), quote that error and name the construct that caused it. If none of the above applies, say that OpenClaw's command checker refused it, not the owner and not an AgentPier policy. Then retry in an allowed form.",
 ].join("\n");
 
+// "review": what the reviewer's verdicts mean for the agent, beside the checker's
+// refusals above (docs/assistant-shell-qualification.md (i)).
+const shellReviewGuidance = [
+  "- A reviewer model checks each command that is not always allowed, before it runs. It lets routine commands run once, refuses some, and hands the rest to the owner, who then decides on an approval card.",
+  "- `Exec denied by auto-review` is the reviewer's refusal, not the owner's. Do not try to reach the same result another way. Choose a materially safer command, or explain the risk to the owner and ask whether they want exactly this command.",
+  "- Commands wrapped in a shell (`sh -c`, `bash -lc`), prefixed with environment assignments (`env VAR=... cmd`) or otherwise not tied to fixed programs are never reviewed: they always ask the owner. Prefer plain commands.",
+].join("\n");
+
 // The agent's granted secrets file (agent-secrets.js); names and values stay out.
 const secretsGuidance =
   "- Secrets the owner granted you are in `.agentpier/secrets.env` in your workspace. When a task needs them, load them in the same shell command with `set -a; . .agentpier/secrets.env; set +a`. Never print, log, commit or paste their values.";
@@ -316,6 +324,9 @@ export function assistantBootstrap(
           ]
         : []),
     ...(personalShell(assistant) === "approval" ? [shellApprovalGuidance] : []),
+    ...(personalShell(assistant) === "review"
+      ? [`${shellApprovalGuidance}\n${shellReviewGuidance}`]
+      : []),
     ...(projectFolders.length ? [folderGuidance(projectFolders)] : []),
     ...(github ? [githubGuidance(github)] : []),
     ...(plainSshHosts(plainSsh).length

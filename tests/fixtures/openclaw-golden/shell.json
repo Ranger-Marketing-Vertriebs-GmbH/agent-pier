@@ -158,6 +158,57 @@
             "rememberAcrossConversations": false
           }
         }
+      },
+      "ap-a4": {
+        "tools": {
+          "allow": [
+            "session_status",
+            "agentpier_team_propose",
+            "agentpier_team_status",
+            "agentpier_team_stop",
+            "agentpier_team_members",
+            "agentpier_team_ask",
+            "agentpier_team_delegate",
+            "agentpier_team_cancel",
+            "agentpier_team_groups",
+            "agentpier_team_group_delegate",
+            "agentpier_team_archive",
+            "agentpier_team_grant",
+            "agentpier_team_member_update",
+            "agentpier_team_member_summarise",
+            "agentpier_team_models",
+            "agentpier_team_member_routine",
+            "agentpier_team_promote",
+            "agentpier_team_templates",
+            "agentpier_workspace",
+            "agentpier_share_file",
+            "agentpier_pinboard",
+            "agentpier_card",
+            "ask_user",
+            "agentpier_goal",
+            "agentpier_ssh_access",
+            "agentpier_coding_session",
+            "agentpier_mail",
+            "agentpier_project",
+            "agentpier_preview",
+            "exec",
+            "process"
+          ],
+          "exec": {
+            "mode": "auto",
+            "strictInlineEval": true,
+            "pathPrepend": [
+              "/opt/homebrew/bin",
+              "/usr/local/bin"
+            ]
+          }
+        },
+        "memory": {
+          "search": {
+            "enabled": false,
+            "rememberAcrossConversations": false
+          }
+        }
       }
     },
     "ownership": "explicit",

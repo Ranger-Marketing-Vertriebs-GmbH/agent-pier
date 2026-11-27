@@ -51,8 +51,7 @@ export const hookEligible = (agent) =>
 
 /** A hook offers Off plus the agent's own shell level (OpenClaw sets exec per agent). */
 export function shellChoices(level) {
-  if (level === "approval" || level === "full") return ["off", level];
-  return ["off"];
+  return level !== "off" && shellLevels.includes(level) ? ["off", level] : ["off"];
 }
 
 /** The rights of a submitted hook: exact keys, nothing above the ceiling. */
@@ -125,9 +124,11 @@ export function keptRightsInput(input, ceiling, stored) {
 
 function effectiveShell(saved, level) {
   if (saved === level) return saved;
-  // Stored "full" on an agent now at "approval" runs with approval; stored
-  // "approval" on an agent now at "full" fails closed.
-  return saved === "full" && level === "approval" ? "approval" : "off";
+  // The agent's level is the only one a run can have. A hook saved above it runs at
+  // the agent's lower level (stored "full" on an agent now at "review" or
+  // "approval"); one saved below it fails closed (stored "approval" on an agent now
+  // at "review" or "full").
+  return shellLevels.indexOf(saved) > shellLevels.indexOf(level) ? level : "off";
 }
 
 /** The saved rights capped by what the agent holds now (applied on every event). */

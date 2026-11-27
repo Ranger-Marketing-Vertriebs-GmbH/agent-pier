@@ -175,10 +175,10 @@ instructions inside it never allow anything.
 relative to the agent's workspace, or to the granted project with `projectId`. The
 agent's file access decides what it may attach:
 
-| Agent's shell level            | Sources                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| **Full access**                | Its workspace, its granted projects and any file its shell may read.     |
-| **With approval**, or no shell | Its workspace and the project folders granted to it (**Read** suffices). |
+| Agent's shell level          | Sources                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| **Full access**              | Its workspace, its granted projects and any file its shell may read.     |
+| Any other level, or no shell | Its workspace and the project folders granted to it (**Read** suffices). |
 
 For every agent, `.git` folders, AgentPier's data directory (it holds the mail
 passwords and sealed secrets), symbolic links and files with a second hard link are

@@ -8,6 +8,13 @@ import { commonCopy } from "../../../lib/i18n/messages/common.js";
 function texts({ kind, data }) {
   if (kind === "fullShell")
     return [shell.fullTitle, [shell.fullBody], shell.confirmFull, commonCopy.cancel];
+  if (kind === "reviewShell")
+    return [
+      shell.reviewTitle,
+      [shell.reviewBody],
+      shell.confirmReview,
+      commonCopy.cancel,
+    ];
   if (kind === "shell")
     return [shell.confirmTitle, [shell.warning], shell.confirm, commonCopy.cancel];
   if (kind === "stdio")
@@ -28,7 +35,7 @@ function texts({ kind, data }) {
 }
 
 /**
- * A save-chain confirmation (shell, full shell, stdio, restart). The change is risky
+ * A save-chain confirmation (shell, reviewed shell, full shell, stdio, restart). The change is risky
  * but not destructive: a primary button, with Cancel focused so Enter never confirms.
  */
 export default function ConfirmationSheet({ confirmation, onShellCancel }) {
@@ -36,7 +43,7 @@ export default function ConfirmationSheet({ confirmation, onShellCancel }) {
   const [title, body, confirm, cancelLabel] = texts(confirmation);
   const cancel = () => {
     confirmation.cancel();
-    if (confirmation.kind === "shell" || confirmation.kind === "fullShell")
+    if (["shell", "reviewShell", "fullShell"].includes(confirmation.kind))
       onShellCancel?.();
   };
   return (

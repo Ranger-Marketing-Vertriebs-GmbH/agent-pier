@@ -10,11 +10,17 @@ export { shellTools };
  * The per-agent mode replaces the global "deny" (fact b). `strictInlineEval` makes
  * `python -c` and the like ask even once the interpreter is allowlisted; under
  * "full" it would make them ask as well, so only "approval" sets it (fact f).
+ * "review" is OpenClaw's mode "auto": a model reviews every allowlist miss, runs it
+ * once, refuses it or asks the owner, and asks the owner whenever the review fails
+ * (section (i)). `strictInlineEval` sends inline evaluation through that review even
+ * once the interpreter is always allowed. The reviewer stays OpenClaw's default: the
+ * agent's own model and login, 30 seconds per stage.
  * `pathPrepend` carries the owner's login PATH (fact d).
  */
 export function agentExec(level, pathPrepend = []) {
   const path = pathPrepend.length ? { pathPrepend: [...pathPrepend] } : {};
   if (level === "approval") return { mode: "ask", strictInlineEval: true, ...path };
+  if (level === "review") return { mode: "auto", strictInlineEval: true, ...path };
   if (level === "full") return { mode: "full", ...path };
   return undefined;
 }

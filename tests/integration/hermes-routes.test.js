@@ -87,6 +87,7 @@ test("Hermes agents need Hermes; every-command approval needs a runtime offering
   assert.deepEqual(listed.runtimeInfo.capabilities.approvals.shellLevels, [
     "off",
     "approval",
+    "review",
     "full",
   ]);
   const patched = await f.request(`/api/assistants/${agent.id}`, {

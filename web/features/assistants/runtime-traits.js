@@ -9,7 +9,7 @@
 // list has not arrived.
 export const traitDefaults = Object.freeze({
   approvals: Object.freeze({
-    shellLevels: Object.freeze(["off", "approval", "full"]),
+    shellLevels: Object.freeze(["off", "approval", "review", "full"]),
     allowlist: "patterns",
   }),
   agentFiles: Object.freeze({ memoryFormat: "markdown", dreaming: "host" }),
