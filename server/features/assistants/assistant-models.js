@@ -22,6 +22,32 @@ export class AssistantModels {
     }
   }
   /**
+   * The model's price as OpenClaw's model entry takes it (`cost`, USD per 1M
+   * tokens), from the provider catalog, or null without a known input and output
+   * price (a model outside the catalog, dynamic pricing). OpenClaw estimates a call's
+   * cost from it when OpenRouter's answer names none (openclaw-usage.js); a custom
+   * provider has no other price. A model without a cache price of its own is billed
+   * its input price for cached input.
+   */
+  #openRouterCost(modelId) {
+    let pricing;
+    try {
+      pricing = this.catalog?.get("openrouter", modelId).pricing;
+    } catch {
+      return null;
+    }
+    const price = (value) => (Number.isFinite(value) && value >= 0 ? value : null);
+    const input = price(pricing?.inputPerMTok);
+    const output = price(pricing?.outputPerMTok);
+    if (input === null || output === null) return null;
+    return {
+      input,
+      output,
+      cacheRead: price(pricing.cacheReadPerMTok) ?? input,
+      cacheWrite: price(pricing.cacheWritePerMTok) ?? input,
+    };
+  }
+  /**
    * Whether the Gateway shows images to this model, from the same facts the
    * compiled provider declares; null when the connection is unknown. ChatGPT
    * accounts run OpenAI's multimodal models.
@@ -86,6 +112,8 @@ export class AssistantModels {
       const apiKey = this.connections.secret(connectionId)?.apiKey;
       if (connection.providerId === "openrouter" && !apiKey)
         throw assistantProblem("provider");
+      const cost =
+        connection.providerId === "openrouter" ? this.#openRouterCost(modelId) : null;
       const provider =
         connection.providerId === "endpoint"
           ? assistantEndpointProvider(connection, modelId, apiKey)
@@ -98,6 +126,7 @@ export class AssistantModels {
                   id: modelId,
                   name: modelId,
                   ...(this.#openRouterImages(modelId) && { input: ["text", "image"] }),
+                  ...(cost && { cost }),
                 },
               ],
             };

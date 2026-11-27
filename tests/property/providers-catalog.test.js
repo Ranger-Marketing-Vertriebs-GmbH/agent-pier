@@ -126,14 +126,36 @@ test("OpenRouter rows carry per-million prices and null for unusable values", ()
   assert.deepEqual(price({ prompt: "0.000003", completion: "0.000015" }), {
     inputPerMTok: 3,
     outputPerMTok: 15,
+    cacheReadPerMTok: null,
+    cacheWritePerMTok: null,
   });
-  const none = { inputPerMTok: null, outputPerMTok: null };
+  // Cached input has a price of its own where the model lists one.
+  assert.deepEqual(
+    price({
+      prompt: "0.000003",
+      completion: "0.000015",
+      input_cache_read: "0.0000003",
+      input_cache_write: "0.00000375",
+    }),
+    {
+      inputPerMTok: 3,
+      outputPerMTok: 15,
+      cacheReadPerMTok: 0.3,
+      cacheWritePerMTok: 3.75,
+    },
+  );
+  const none = {
+    inputPerMTok: null,
+    outputPerMTok: null,
+    cacheReadPerMTok: null,
+    cacheWritePerMTok: null,
+  };
   assert.deepEqual(price(undefined), none);
   assert.deepEqual(price({ prompt: "-1", completion: "abc" }), none);
   assert.deepEqual(price({ prompt: "-0.5", completion: "" }), none);
   assert.deepEqual(price({ prompt: "0.000001", completion: "-1" }), {
+    ...none,
     inputPerMTok: 1,
-    outputPerMTok: null,
   });
 });
 

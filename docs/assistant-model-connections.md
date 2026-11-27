@@ -100,6 +100,28 @@ think-tag extraction) apply only to coding CLIs that use an adapter route, and t
 adapter option panel is shown only while such a route exists. Hermes agents keep Chat
 Completions for every endpoint connection.
 
+## Prices
+
+An agent's [usage](agents.md#usage) shows a cost only where the model has a price.
+OpenClaw prices a model on a custom provider only from the model entry's own `cost`
+(USD per 1M tokens for `input`, `output`, `cacheRead` and `cacheWrite`); its hosted
+catalog covers its own providers, not the ones AgentPier compiles per connection.
+
+- **OpenRouter.** AgentPier compiles `cost` from its provider catalog (OpenRouter's
+  `pricing.prompt`, `completion`, `input_cache_read` and `input_cache_write`). A
+  model without a cache price of its own is priced at its input price for cached
+  input. A model the catalog does not list, or one with dynamic pricing, gets no
+  `cost`. When an answer names what OpenRouter billed (`usage.cost`), OpenClaw
+  records that amount and uses the compiled price only for answers without one. A price that
+  changes in the catalog reaches an agent with its next model apply or Gateway
+  start.
+- **Endpoints.** A connection's models carry no price in AgentPier, so their entries
+  have no `cost` and their usage shows tokens only, unless the service reports an
+  amount with its answers.
+- **ChatGPT accounts** are subscriptions: never a cost.
+
+Details: [Usage](assistant-gateway.md#usage).
+
 ## Verification
 
 `node --test tests/unit/assistant-provider-endpoint.test.js` exercises selection,
