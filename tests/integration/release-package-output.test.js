@@ -4,7 +4,11 @@ import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { buildRelease, separateHardLinks } from "../../scripts/release-package.mjs";
+import {
+  buildRelease,
+  pruneUnusedDependencies,
+  separateHardLinks,
+} from "../../scripts/release-package.mjs";
 import { unpackRelease } from "../../server/features/operations/release-archive.js";
 import { digest } from "../../server/features/operations/files.js";
 async function fixture(t, exitCode = 0) {
@@ -48,6 +52,14 @@ test("release builder accepts a declared output parent alias without changing it
       path.join(source, "node_modules", dependency),
       { recursive: true },
     );
+  // A canvas binary in the staged tree never reaches the archive (pruneUnusedDependencies).
+  for (const name of ["canvas", "canvas-darwin-arm64"]) {
+    await fs.mkdir(path.join(source, "node_modules/@napi-rs", name), { recursive: true });
+    await fs.writeFile(
+      path.join(source, "node_modules/@napi-rs", name, "package.json"),
+      "{}",
+    );
+  }
   const output = path.join(alias, "custom-release.aprelease");
   const result = await buildRelease({ source, output, node, prepareDependencies: false });
   const bytes = await fs.readFile(output);
@@ -84,6 +96,13 @@ test("release builder accepts a declared output parent alias without changing it
     JSON.parse(await fs.readFile(path.join(unpacked, "node_modules/yazl/package.json")))
       .version,
     "3.3.1",
+  );
+  await assert.rejects(fs.access(path.join(unpacked, "node_modules/@napi-rs")), {
+    code: "ENOENT",
+  });
+  assert.equal(
+    await fs.readFile(path.join(unpacked, "node_modules/node-pty/package.json"), "utf8"),
+    "{}",
   );
   for (const name of ["CaseFolding.txt", "UnicodeData.txt", "LICENSE.txt"])
     assert.deepEqual(
@@ -171,4 +190,36 @@ test("release builder gives hard-linked dependency files their own copy", async 
     "obj.target",
     "sshcrypto.node",
   ]);
+});
+
+test("release builder drops the canvas binaries nothing loads, and only those", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-prune-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const kept = [
+    "@koromix/koffi-darwin-arm64/koffi.node",
+    "koffi/package.json",
+    "node-pty/build/Release/pty.node",
+    "node-pty/package.json",
+    "@napi-rs/wasm-runtime/package.json",
+    "unpdf/package.json",
+  ];
+  const dropped = [
+    "@napi-rs/canvas/package.json",
+    "@napi-rs/canvas-darwin-arm64/skia.darwin-arm64.node",
+    "@napi-rs/canvas-linux-x64-gnu/skia.linux-x64-gnu.node",
+  ];
+  for (const file of [...kept, ...dropped]) {
+    await fs.mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    await fs.writeFile(path.join(root, file), file);
+  }
+  pruneUnusedDependencies(root);
+  for (const file of kept)
+    assert.equal(await fs.readFile(path.join(root, file), "utf8"), file);
+  assert.deepEqual(await fs.readdir(path.join(root, "@napi-rs")), ["wasm-runtime"]);
+  // Without any other @napi-rs package the scope goes too; a tree without it is fine.
+  await fs.rm(path.join(root, "@napi-rs/wasm-runtime"), { recursive: true });
+  await fs.mkdir(path.join(root, "@napi-rs/canvas"));
+  pruneUnusedDependencies(root);
+  await assert.rejects(fs.access(path.join(root, "@napi-rs")), { code: "ENOENT" });
+  pruneUnusedDependencies(root);
 });

@@ -12,6 +12,29 @@ import {
 import { readFile } from "../server/features/operations/files.js";
 import { prepareReleaseRuntime } from "../server/features/operations/release-runtime.js";
 
+/**
+ * Removes the packages from a staged `node_modules` that npm installs but nothing in
+ * AgentPier loads. `@napi-rs/canvas` and its prebuilt `@napi-rs/canvas-<platform>`
+ * binaries: unpdf lists canvas only as an optional peer, for page rendering
+ * AgentPier never asks for, and npm installs it only because the browser PDF.js
+ * (the `pdfjs-dist-browser` dev alias) names it as an optional dependency, which
+ * makes unpdf's peer resolve to it. Other `@napi-rs` packages stay.
+ */
+export function pruneUnusedDependencies(nodeModules) {
+  const scope = path.join(nodeModules, "@napi-rs");
+  let names;
+  try {
+    names = fs.readdirSync(scope);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  for (const name of names)
+    if (name === "canvas" || name.startsWith("canvas-"))
+      fs.rmSync(path.join(scope, name), { recursive: true, force: true });
+  if (!fs.readdirSync(scope).length) fs.rmdirSync(scope);
+}
+
 function validateOutput(file) {
   try {
     const info = fs.lstatSync(file);
@@ -114,6 +137,7 @@ export async function buildRelease({
         recursive: true,
         dereference: false,
       });
+    pruneUnusedDependencies(path.join(stage, "node_modules"));
     separateHardLinks(path.join(stage, "node_modules"));
     const version = JSON.parse(fs.readFileSync(path.join(stage, "package.json"))).version;
     const archive = path.join(runtime, path.basename(output));
