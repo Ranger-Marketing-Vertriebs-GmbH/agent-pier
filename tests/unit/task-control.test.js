@@ -27,7 +27,9 @@ function snapshot(extra = {}) {
   };
 }
 
-function setup(t, { timeoutMs = 20, current = session, snap = snapshot() } = {}) {
+// Without `timeoutMs` a stop has the product's ten seconds: only the tests about a late
+// answer set a short one, so a busy machine never times out a stop that answers.
+function setup(t, { timeoutMs, current = session, snap = snapshot() } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "task-control-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const stops = new TaskStopStore({ dataDir });
@@ -102,7 +104,7 @@ test("a finished, unknown or unsupported task cannot be stopped", async (t) => {
 });
 
 test("a driver that does not answer times out and records nothing", async (t) => {
-  const { control, driver, stops, changes } = setup(t);
+  const { control, driver, stops, changes } = setup(t, { timeoutMs: 20 });
   driver.hang = true;
   await assert.rejects(control.stop("s1", "agent2"), {
     code: "TASK_STOP_TIMEOUT",
@@ -291,7 +293,7 @@ test("a stale snapshot is answered as a down channel", async (t) => {
 });
 
 test("a stop that succeeds after the timeout is still recorded", async (t) => {
-  const { control, driver, stops, changes, snap } = setup(t);
+  const { control, driver, stops, changes, snap } = setup(t, { timeoutMs: 20 });
   driver.stop = async () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     return { ok: true };
@@ -305,7 +307,7 @@ test("a stop that succeeds after the timeout is still recorded", async (t) => {
 });
 
 test("a stop that fails after the timeout changes nothing", async (t) => {
-  const { control, driver, stops, changes } = setup(t);
+  const { control, driver, stops, changes } = setup(t, { timeoutMs: 20 });
   driver.stop = async () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     return { ok: false, reason: "late" };
