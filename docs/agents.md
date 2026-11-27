@@ -389,9 +389,9 @@ What works on Hermes today:
   its run asks you about waits up to five minutes, as in a routine run.
 - Long chats: the hint to summarise a long chat appears as on OpenClaw.
 - Questions: when the agent asks before it goes on, the chat shows **Question from
-  the agent** with its choices and a field for your own answer (**Send answer**); a
-  turn from Telegram asks there too, and your next message answers it. Hermes waits
-  up to an hour.
+  the agent** as for an OpenClaw agent
+  ([Questions from the agent](#questions-from-the-agent)): Hermes asks one question at
+  a time, takes your own answer for each, and waits up to an hour.
 - Telegram: pair the agent's bot under **Channels** as for OpenClaw; messages, voice
   notes (transcribed with Deepgram), photos and files reach the agent and its replies
   come back to the paired chat.
@@ -2014,6 +2014,36 @@ turn's steps: each tool call with its state (Running, Done, Failed) and when it
 thought. Steps show tool names and short titles only, never commands, web addresses,
 image prompts, output or what the agent thought. Once the turn is done, its steps stay below the reply,
 collapsed, while the chat is open; a reload shows the reply alone.
+
+### Questions from the agent
+
+When your own agent is blocked on a decision that is yours, it asks instead of
+guessing, and its turn waits for you. The chat shows **Question from the agent**, marked
+**Waiting for your answer**, with the time the agent waits until:
+
+- One question with plain options shows them as buttons: a click answers. **Your
+  answer** below takes an answer of your own (**Send answer**).
+- An OpenClaw agent may ask up to three questions at once, offer options with a short
+  description, and let you choose several. The card is then a form: pick an option per
+  question (or tick several), choose **Other answer** to write your own where the
+  question takes one, and **Send answer** sends all of them together once every
+  question has its answer.
+- A turn that came from your paired Telegram chat asks there too, one question at a
+  time ("Helper asks (1 of 3): …") with its options numbered. Your next message is the
+  answer: a number, several numbers separated by commas where you may choose several,
+  or your own text. After the last answer the bot confirms **Answer sent to the
+  agent.** You can also answer in AgentPier instead.
+- An OpenClaw agent waits 15 minutes unless it names another time (30 seconds to an
+  hour); a Hermes agent waits an hour. When nobody answers, or you stop the turn, the
+  card leaves and the agent goes on with its best judgment. **The agent no longer
+  waits for this answer.** says that your answer came too late.
+- While the question waits, the line under your message says "Asking you a question".
+
+Who asks: your own agents, in their chats with you. Team members report to their lead
+and never ask you; agents of [users](#users) and agents with their own Telegram bot for
+other people do not ask either, and no routine or hook run asks, because nobody is
+there to answer. Never answer with a password or a key: give the agent a
+[secret](#access) instead.
 
 When the model stays silent for three minutes while the agent waits for it, the chat
 says "No answer from the model for N minutes." with **Stop** and **Try again**. Try
