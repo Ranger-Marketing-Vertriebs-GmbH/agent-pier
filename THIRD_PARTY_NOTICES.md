@@ -96,8 +96,11 @@ serverless build of Mozilla's PDF.js 6.4.299 (Apache-2.0, Copyright Mozilla
 Foundation, <https://github.com/mozilla/pdf.js/tree/v6.4.299>) in
 `node_modules/unpdf/dist/pdfjs.mjs`; the bundle carries no license header of its own,
 and the Apache-2.0 text is AgentPier's `LICENSE`. `unpdf` is pinned to that exact
-version, has no runtime dependencies and no install scripts; its optional
-`@napi-rs/canvas` peer is not installed. AgentPier passes PDF.js no `wasmUrl`, so the
+version, has no runtime dependencies and no install scripts. Its optional
+`@napi-rs/canvas` peer (MIT, <https://github.com/Brooooooklyn/canvas>) 1.2.1, with
+the prebuilt binary for the platform, is installed because the browser build's
+`pdfjs-dist` (see "PDF preview" below) lists it as an optional dependency; unpdf
+loads it only for page rendering, which AgentPier never asks for. AgentPier passes PDF.js no `wasmUrl`, so the
 WebAssembly decoders PDF.js can load (`openjpeg.wasm`, `jbig2.wasm` and the QCMS colour
 module) are neither shipped nor used. Extraction runs in a separate process with time
 and memory limits. DOCX, XLSX and PPTX
@@ -107,6 +110,31 @@ Tests use `smtp-server` 3.19.21 (MIT-0, Copyright (c) 2015-2025 Andris Reinman,
 <https://github.com/nodemailer/smtp-server>) as a development
 dependency with `punycode.js` 2.3.1 and `ipv6-normalize` 1.0.1 (MIT). It is not part
 of installation or update packages.
+
+## PDF preview
+
+The agent chat's PDF preview runs Mozilla's PDF.js 6.5.438 (legacy build, Apache-2.0,
+Copyright Mozilla Foundation, <https://github.com/mozilla/pdf.js/tree/v6.5.438>) in the
+browser, from `pdfjs-dist` 6.5.438. It is a build-time development dependency, installed
+under the alias `pdfjs-dist-browser` so that it never answers unpdf's optional
+`pdfjs-dist` peer, and is pinned to that exact version. Vite bundles its display layer
+into a chunk that loads with the first preview, and that chunk's notice is in
+`dist/third-party-licenses.txt`. Vite copies three further parts unchanged, and these
+are not listed in that file:
+
+- `dist/assets/pdf.worker.min-<hash>.mjs`, the PDF.js worker (Apache-2.0).
+- `dist/assets/pdfjs/standard_fonts/`, the stand-ins PDF.js draws with for PDFs that do
+  not embed their fonts. These are the Foxit fonts (BSD-3-Clause, Copyright 2014 PDFium
+  Authors, `LICENSE_FOXIT`) and the Liberation Sans fonts (GPLv2 with Red Hat's font
+  exception, Copyright 2007-2011 Red Hat, Inc., `LICENSE_LIBERATION`).
+- `dist/assets/pdfjs/wasm/`, only the JavaScript image decoders
+  `openjpeg_nowasm_fallback.js` and `jbig2_nowasm_fallback.js`. They are built from
+  OpenJPEG (BSD-2-Clause, `LICENSE_OPENJPEG`) and the PDFium JBIG2 decoder
+  (BSD-3-Clause, `LICENSE_JBIG2`), with Mozilla's wrappers (`LICENSE_PDFJS_OPENJPEG`,
+  BSD-2-Clause; `LICENSE_PDFJS_JBIG2`, Apache-2.0).
+
+Each license file named above is copied next to the files it covers. The WebAssembly
+modules, QCMS and QuickJS are not shipped.
 
 ## Fonts
 

@@ -186,22 +186,26 @@ for (const [view, use] of [
 
     test("closing while loading leaves no errors", async ({ page }) => {
       const { log, seen } = await open(page, { delay: 500 });
+      // The pdf.js worker lives only while a document is open: destroy() ends it.
+      const others = page.workers().length;
       await log.getByRole("button", { name: "Preview report.pdf" }).click();
       const panel = page.getByRole("dialog", { name: "report.pdf" });
       await expect(panel.getByRole("status")).toHaveText("Loading preview …");
       await page.keyboard.press("Escape");
       await expect(panel).toHaveCount(0);
-      // The answer arrives after the panel closed; nothing is drawn or logged.
+      // The answer arrives after the panel closed; nothing is drawn, opened or logged.
       await page.waitForTimeout(800);
       expect(seen.attachments).toEqual(["pdf"]);
+      await expect.poll(() => page.workers().length).toBe(others);
       // Closed again once the document is open, while its pages are being drawn.
       const opener = log.getByRole("button", { name: "Preview report.pdf" });
       await opener.click();
       await expect(panel.getByText("2 pages")).toBeVisible();
+      expect(page.workers().length).toBe(others + 1);
       await page.keyboard.press("Escape");
       await expect(panel).toHaveCount(0);
       await expect(opener).toBeFocused();
-      await page.waitForTimeout(300);
+      await expect.poll(() => page.workers().length).toBe(others);
     });
   });
 
