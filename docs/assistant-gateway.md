@@ -5686,7 +5686,14 @@ by
 - An exec item's `meta` is the model's `title` argument for the call ("short
   purpose … No secrets", redacted by OpenClaw), or OpenClaw's summary of the command
   ("print text"). Other tools fill `meta` from raw arguments: a URL, a search query,
-  an image prompt.
+  an image prompt. On 2026.11.6 the forms are `from <path>`, `line 1-1 from <path>`
+  (`lines 3-9 from`, `from line 3 in`, `first 20 lines of`) for `read`,
+  `to <path> (40 chars)` for `write`, `in <path> (3 chars)` for `edit`,
+  `from <url> (mode markdown)` for `web_fetch`, `for "<query>" (top 5)` for
+  `web_search`, the query itself for `memory_search`, and for `browser` the page of
+  an `open` or `navigate` but also the element and text of an `act`. `pdf`, `view_image` and `image_generate` add their prompt, and `apply_patch`
+  has no `meta`. The contract pins `read`, `write`, `edit`, `web_fetch` and
+  `browser`; the search forms come from OpenClaw's `tool-display` source.
 - There is no event for "waiting for the model" between tool calls: a finished tool
   hands back to the model.
 - `chat.history` returns `sessionInfo`: `totalTokens` is the size of the last
@@ -5697,10 +5704,20 @@ AgentPier's side:
 
 - `RunSteps` (`server/features/assistants/run-steps.js`) turns those frames into a
   run's steps: tools with their state, and thinking. It never keeps command output,
-  thinking or reply text, arguments or results. A step's label is the exec or process
-  `meta`, at most 80 characters, and only when it reads like a title: text with a
-  secret-like word (token, password, key …), an assignment, a URL, shell characters or
-  a long mixed token is dropped. Other tools show their localized name only. The phase
+  thinking or reply text, results or whole arguments. A step's label is the exec or
+  process `meta`, at most 80 characters, and only when it reads like a title: text
+  with a secret-like word (token, password, key …), an assignment, a URL, shell
+  characters or a long mixed token is dropped. Since 2026-11-27 the tools that read or
+  edit one thing show what they work on (`openClawStep` reads it out of `meta` as the
+  step's `target`): `web_search` and `memory_search` the query, `web_fetch` and
+  `browser` the page's host and path (never the query string, fragment or sign-in,
+  and nothing of what the browser types or clicks), `read`, `write` and `edit` the
+  file's folder and name (`…/notes/plan.md`). Control and invisible characters are
+  removed, the label is cut to 80 characters, and a target with a named credential
+  (`password: …`), an assignment or a random-looking run of 24 characters is dropped
+  whole. Every other tool shows its localized name only: MCP tools and AgentPier's own
+  tools (free arguments), `pdf`, `view_image` and `image_generate` (prompts) and
+  `apply_patch`. Hermes agents show tool names only; its events name no target. The phase
   is `model` (waiting for the model), `thinking`, `writing`, `tool`, `approval`,
   `compacting` or `retrying`. A run keeps its newest 24 steps and counts the rest.
 - `bindChatEvents` (`gateway-wiring.js`) hands every frame of a chat's run to

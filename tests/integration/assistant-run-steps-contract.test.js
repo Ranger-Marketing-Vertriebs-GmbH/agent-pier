@@ -115,6 +115,84 @@ test(
 );
 
 test(
+  "read-only and file tools name what they work on in their item's meta",
+  options,
+  async (t) => {
+    const gw = await shellGateway(t, installed, { prefix: "run-targets-contract-" });
+    const allow = ["session_status", "read", "write", "edit", "web_fetch", "browser"];
+    await gw.configure({
+      tools: {
+        allow,
+        web: { fetch: { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } } },
+      },
+      agents: { entries: { main: { tools: { allow } } } },
+    });
+    const watcher = await gw.approver();
+    const key = ["sk", "1234567890abcdefghij1234"].join("");
+    // One turn per tool. The item's meta is all AgentPier hears of the arguments
+    // (openclaw-events.js reads the target out of it); the label is what the chat shows.
+    const calls = [
+      [
+        "write",
+        { path: "notes/plan.md", content: `first\nsecond ${key}\n` },
+        "to notes/plan.md (40 chars)",
+        "notes/plan.md",
+      ],
+      ["read", { path: "notes/plan.md" }, "from notes/plan.md", "notes/plan.md"],
+      [
+        "read",
+        { path: "notes/plan.md", offset: 1, limit: 1 },
+        "line 1-1 from notes/plan.md",
+        "notes/plan.md",
+      ],
+      [
+        "edit",
+        { path: "notes/plan.md", oldText: "first", newText: "1st" },
+        "in notes/plan.md (3 chars)",
+        "notes/plan.md",
+      ],
+      // Refused before any request (a private address); the meta is the same.
+      [
+        "web_fetch",
+        { url: `http://127.0.0.1:9/page?token=${key}`, extractMode: "markdown" },
+        `from http://127.0.0.1:9/page?token=${key} (mode markdown)`,
+        "127.0.0.1:9/page",
+      ],
+      [
+        "browser",
+        { action: "open", targetUrl: "https://example.com/shop?session=1" },
+        "https://example.com/shop?session=1",
+        "example.com/shop",
+      ],
+      // What the browser types is in its meta and never in the label.
+      [
+        "browser",
+        { action: "act", request: { kind: "type", ref: "e3", text: "hunter2" } },
+        "kind type, ref e3, text hunter2",
+        "",
+      ],
+    ];
+    for (const [index, [name, args, meta, label]] of calls.entries()) {
+      gw.tool.name = name;
+      const run = await gw.send(`target-${index}`, args);
+      const settled = await gw.settle(run);
+      assert.ok(settled.offered.includes(name), name);
+      const events = ofRun(watcher.events, run.runId);
+      const item = events.find((e) => e.payload.stream === "item")?.payload.data;
+      assert.equal(item?.meta, meta, `${name}: ${JSON.stringify(item)}`);
+      const steps = new RunSteps();
+      for (const event of events) steps.observe(openClawRunEvent(event));
+      const view = steps.view(run.runId);
+      assert.deepEqual(
+        view.steps.map((s) => [s.tool, s.label]),
+        [[name, label]],
+      );
+      assert.doesNotMatch(JSON.stringify(view), /hunter2|sk1234|second|session=/);
+    }
+  },
+);
+
+test(
   "a model that stops answering ends the turn with a timeout after retries",
   options,
   async (t) => {

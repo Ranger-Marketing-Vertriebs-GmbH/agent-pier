@@ -3,11 +3,16 @@
 // (start, update, end, failed), thinking, writing, status phases (`retrying` with
 // its attempt, `starting_model`), lifecycle phases (an exec approval's
 // `waiting-approval`) and compaction. Only metadata leaves here: never command
-// output, thinking or reply text, tool arguments or results. A tool's label is the
-// runtime's `title` for it, and only when it reads like a title, not like a command
-// line or a secret. The one exception is an advisor's answer of a Mixture of Agents
-// turn (the owner's decision of 2026-11-17, ADR 0007): model text like the reply,
-// shown as the step's output, capped.
+// output, thinking or reply text, or a tool's results or whole arguments. A tool's
+// label is the runtime's `title` for it, and only when it reads like a title, not
+// like a command line or a secret. Without a title it is the call's `target`, which a
+// runtime names only for tools that read or edit one thing and take no credentials:
+// the search query, the page's host and path (never its query string, fragment or
+// sign-in) or the last two segments of a file path, and nothing when it looks like a
+// secret. MCP tools, AgentPier's own tools and prompts (image creation, PDFs, images)
+// never get a label. The one other exception is an advisor's answer of a Mixture of
+// Agents turn (the owner's decision of 2026-11-17, ADR 0007): model text like the
+// reply, shown as the step's output, capped.
 
 /** At most this many steps per run go to the chat; older ones are counted. */
 export const maxSteps = 24;
@@ -40,6 +45,43 @@ function label(step) {
   const text = step.title.replace(/\s+/g, " ").trim();
   if (!text || unsafe.test(text)) return "";
   return text.slice(0, maxLabel);
+}
+
+// Characters that hide or reorder text (zero width, bidirectional overrides).
+const invisible = /[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
+// A target that holds a named credential, an assignment or a long random-looking run
+// is dropped whole.
+const secretLike =
+  /(?:token|secret|passw\w*|api[_-]?key|private[_-]?key|credential\w*|authorization)\s*[:=]|bearer\s+\S|[A-Za-z0-9_]=\S|(?<![A-Za-z0-9+_])(?=[A-Za-z0-9+_]*\d)(?=[A-Za-z0-9+_]*[A-Za-z])[A-Za-z0-9+_]{24,}/i;
+
+// A web address as its host and path: the query string, the fragment and a sign-in
+// before the host can carry keys.
+function address(text) {
+  if (!URL.canParse(text)) return "";
+  const url = new URL(text);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+  return `${url.host}${url.pathname === "/" ? "" : url.pathname}`;
+}
+
+// A file by its folder and name: the directories above say where an agent lives.
+function fileName(text) {
+  const parts = text.split("/").filter(Boolean);
+  return parts.length > 2 ? `…/${parts.slice(-2).join("/")}` : text;
+}
+
+const shapes = { url: address, path: fileName, query: (text) => text };
+
+function target(step) {
+  const shape = Object.hasOwn(shapes, step.target?.kind) && shapes[step.target.kind];
+  if (!shape || typeof step.target.value !== "string") return "";
+  const text = shape(
+    step.target.value
+      .replace(control, "")
+      .replace(invisible, "")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  return !text || secretLike.test(text) ? "" : capped(text, maxLabel);
 }
 
 const toolState = (step) =>
@@ -100,13 +142,13 @@ export class RunSteps {
         const found = run.steps.find((s) => s.id === id);
         if (found) {
           found.state = toolState(step);
-          found.label ||= label(step);
+          found.label ||= label(step) || target(step);
         } else
           this.add(run, {
             id,
             kind: "tool",
             tool,
-            label: label(step),
+            label: label(step) || target(step),
             state: toolState(step),
           });
         run.retry = null;

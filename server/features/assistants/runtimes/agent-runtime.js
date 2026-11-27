@@ -110,9 +110,11 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     undefined; `delta` the appended text, else undefined; `replace` true when
  *     `delta` is the whole text instead (chat-stream.js nextChatText).
  *   - step: null, or the run's activity the event shows (run-steps.js):
- *     `{ type: "tool", id, name, title, phase, failed }` (`phase` "start", "update"
- *     or "end"; `title` a short summary the runtime gives of the call, or null;
- *     `failed` whether an ended call failed), `{ type: "thinking" }`,
+ *     `{ type: "tool", id, name, title, target, phase, failed }` (`phase` "start",
+ *     "update" or "end"; `title` a short summary the runtime gives of the call, or
+ *     null; `target` what a read-only or file tool works on, `{ kind: "url" | "path"
+ *     | "query", value }`, or null or absent; `failed` whether an ended call failed),
+ *     `{ type: "thinking" }`,
  *     `{ type: "writing" }`, `{ type: "status", phase, attempt, of, reason }`
  *     (`phase` "retrying" with its attempt of `of` and why, or "starting_model"),
  *     `{ type: "advisor", id, advisor, model, text, failed }` (one advisor model's

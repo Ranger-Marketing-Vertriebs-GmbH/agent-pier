@@ -2008,11 +2008,17 @@ failed or expired: **Edit** returns them to the composer.
 
 While the agent works on a message, the line under it says what it does now:
 "Waiting for the model", "Thinking", "Writing the answer", a running tool such as
-"Command · Find the reference images" (the short title the model gave the command), or
+"Command · Find the reference images" (the short title the model gave the command) or
+"Reading a web page · example.com/docs/setup", or
 "The model did not answer, trying again (2 of 8)". **N steps** below it opens the
 turn's steps: each tool call with its state (Running, Done, Failed) and when it
-thought. Steps show tool names and short titles only, never commands, web addresses,
-image prompts, output or what the agent thought. Once the turn is done, its steps stay below the reply,
+thought. Steps show tool names and, for an OpenClaw agent, what a tool works on: a
+command's short title, the query of a web or memory search, the host and path of a
+page it fetches or opens in the browser (never the part after `?`), and the folder
+and name of a file it reads, writes or edits. They never show commands, what the
+browser types, image or PDF prompts, the arguments of MCP tools and AgentPier's own
+tools, output or what the agent thought, and a target that looks like a key or
+password is left out. A Hermes agent's steps show tool names only. Once the turn is done, its steps stay below the reply,
 collapsed, while the chat is open; a reload shows the reply alone.
 
 ### Questions from the agent
