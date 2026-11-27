@@ -341,7 +341,12 @@ test("without Craft Anything the page links to its card and has no start form", 
   await expect(page.getByRole("button", { name: "Start rebuild" })).toHaveCount(0);
   // The install dialog opens here; the link still leads to the card.
   await page.getByRole("link", { name: "Open Craft Anything" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Craft Anything" });
+  await expect(dialog).toBeVisible();
+  // With the tool's state read: its components and the install button.
+  await expect(
+    dialog.getByRole("button", { name: "Install", exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/craft$/);
 });
 
