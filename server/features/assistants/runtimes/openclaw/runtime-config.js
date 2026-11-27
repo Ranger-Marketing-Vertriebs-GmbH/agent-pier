@@ -7,6 +7,7 @@ import {
   guardGatedTools,
   memberTeamTools,
   memoryTools,
+  questionTools,
 } from "../../native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults, heartbeatDefault } from "./openclaw-config/locked-core.js";
@@ -74,6 +75,8 @@ export const nativeTools = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  // OpenClaw's own question to the owner (native-capabilities.js questionTools).
+  ...questionTools,
 ];
 
 /**

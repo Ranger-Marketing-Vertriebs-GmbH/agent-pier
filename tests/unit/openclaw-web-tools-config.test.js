@@ -140,6 +140,7 @@ const nativeAllow = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  "ask_user",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 
@@ -376,6 +377,8 @@ test("a temporary member uses its lead's web tools without widening the global s
         "agentpier_project",
         "agentpier_preview",
         "agentpier_card",
+        // A member reports to its lead and never asks the owner.
+        "ask_user",
       ].includes(tool),
   );
   assert.deepEqual(agentAllow(config, "ap-m2"), [status, ...memberTeamTools, ...rest]);

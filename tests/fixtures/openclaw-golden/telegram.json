@@ -209,6 +209,7 @@
       "agentpier_project",
       "agentpier_preview",
       "agentpier_craft",
+      "ask_user",
       "web_fetch",
       "view_image",
       "exec",
