@@ -91,6 +91,9 @@ function assistantData(root) {
     "owner.json",
     "reminder-webhook.json",
     "state.update-captures/doctor-1/payload/2",
+    // Semantic memory search: the downloaded server and model.
+    "embeddings/models/model.gguf",
+    "embeddings/llama.cpp/b1-linux-x64/llama-server",
   ])
     write(root, excluded, "excluded");
 }
@@ -129,6 +132,7 @@ test("host backups include assistant data without runtimes, caches or keys", asy
   for (const excluded of [
     "logs",
     "runtimes",
+    "embeddings",
     "npm-cache",
     "tmp",
     "backups",

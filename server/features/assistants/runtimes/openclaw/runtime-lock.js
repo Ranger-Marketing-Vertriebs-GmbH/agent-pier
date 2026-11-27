@@ -33,11 +33,35 @@ export function searchPluginPins(manifest) {
       throw Error("Invalid assistant search plugin pin.");
   return pins;
 }
+/**
+ * The pinned plugin for local memory embeddings of a manifest or installation
+ * receipt (OpenClaw's llama.cpp provider), or null: a receipt written before it was
+ * bundled, and a rollback target's, has none.
+ */
+export function embeddingPluginPin(manifest) {
+  const pin = manifest.embeddingPlugin;
+  if (pin === undefined || pin === null) return null;
+  if (
+    pin.id !== "llama-cpp" ||
+    pin.package !== "@openclaw/llama-cpp-provider" ||
+    !/^\d+\.\d+\.\d+$/.test(pin.version) ||
+    !/^[A-Za-z0-9+/]{86}==$/.test(pin.integrity)
+  )
+    throw Error("Invalid assistant embedding plugin pin.");
+  return pin;
+}
+/** Every pinned plugin package of the locked graph: search plugins, then embeddings. */
+const pluginPins = (manifest) => {
+  const embedding = embeddingPluginPin(manifest);
+  return [
+    ...searchPluginPins(manifest).map(([, pin]) => pin),
+    ...(embedding ? [embedding] : []),
+  ];
+};
 /** The root dependencies of the locked graph: OpenClaw's archive plus each plugin. */
 export function lockedDependencies(manifest) {
   const dependencies = { openclaw: "file:openclaw.tgz" };
-  for (const [, pin] of searchPluginPins(manifest))
-    dependencies[pin.package] = pin.version;
+  for (const pin of pluginPins(manifest)) dependencies[pin.package] = pin.version;
   return Object.fromEntries(byKey(dependencies));
 }
 /**
@@ -87,7 +111,7 @@ export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
     upstream?.integrity !== `sha512-${manifest.packageIntegrity}`
   )
     throw Error("Invalid assistant dependency lock metadata.");
-  for (const [, pin] of searchPluginPins(manifest)) {
+  for (const pin of pluginPins(manifest)) {
     const entry = lock.packages[`node_modules/${pin.package}`];
     if (
       entry?.version !== pin.version ||
@@ -97,7 +121,11 @@ export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
       entry.optional ||
       entry.inBundle
     )
-      throw Error("Invalid assistant search plugin lock entry.");
+      throw Error(
+        pin === embeddingPluginPin(manifest)
+          ? "Invalid assistant embedding plugin lock entry."
+          : "Invalid assistant search plugin lock entry.",
+      );
   }
   // Every locked copy of an overridden package carries the security version.
   for (const [override, version] of Object.entries(lockedOverrides(manifest)))

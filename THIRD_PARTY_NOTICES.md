@@ -153,6 +153,16 @@ plugins, and a pinned Node.js runtime under the Node.js license, into the data
 directory. Their license files stay inside that runtime installation; the locked
 versions are listed in `server/features/assistants/runtimes/openclaw/runtime-lock/package-lock.json`.
 
+With the runtime AgentPier also downloads the pinned llama.cpp server build (MIT,
+Copyright (c) 2023-2026 The ggml authors; its license file stays in the installed
+folder) from the llama.cpp releases. Only when the owner switches semantic memory
+search on, it downloads the embedding model EmbeddingGemma 300M (Google; GGUF
+conversion by ggml-org) from Hugging Face. The model is not part of AgentPier and is
+provided under Google's Gemma Terms of Use (https://ai.google.dev/gemma/terms), which
+the switch names and the owner accepts by turning it on. Release, revision and
+SHA-256 of both are pinned in
+`server/features/assistants/runtimes/openclaw/runtime-manifest.js`.
+
 When the owner opts into Hermes Agent, AgentPier downloads the pinned Hermes Agent
 source (MIT, Copyright (c) 2025 Nous Research), the uv installer (MIT or Apache-2.0,
 Copyright (c) Astral Software Inc.) and the CPython build uv installs (Python

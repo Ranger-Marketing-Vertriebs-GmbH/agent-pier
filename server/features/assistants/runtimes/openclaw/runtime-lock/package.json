@@ -5,6 +5,7 @@
   "dependencies": {
     "@openclaw/brave-plugin": "2026.11.6",
     "@openclaw/duckduckgo-plugin": "2026.11.6",
+    "@openclaw/llama-cpp-provider": "2026.11.6",
     "@openclaw/perplexity-plugin": "2026.11.6",
     "openclaw": "file:openclaw.tgz"
   }

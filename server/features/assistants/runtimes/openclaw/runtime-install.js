@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { download as fetchDownload } from "../../../operations/releases.js";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
-import { readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
+import { embeddingPluginPin, readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
 import { runtimeManifest } from "./runtime-manifest.js";
 import {
   applyBundlePatches,
@@ -19,6 +19,7 @@ import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.
 import { proxyEnvironment } from "./runtime-config.js";
 import { relocateRuntimeRecords } from "./state-relocation.js";
 import { readAssistantFeature } from "../../assistant-feature.js";
+import { ensureEmbeddingServer } from "./embedding-assets.js";
 
 const jobs = new Map();
 const executeFile = promisify(execFile);
@@ -156,6 +157,7 @@ export async function selectedAssistantRuntime(options) {
     // The receipt's pins, so a runtime installed before plugins were bundled
     // (or a rollback target) reports none instead of the manifest's.
     searchPlugins: installedSearchPlugins(saved, path.join(directory, "app")),
+    ...installedEmbeddings(saved, path.join(directory, "app")),
     teamPlugin: provisionTeamPlugin({ paths, runtimeVersion: selected.version }),
   };
 }
@@ -181,32 +183,61 @@ function isLink(file) {
  */
 function installedSearchPlugins(pins, app) {
   const plugins = {};
-  for (const [key, pin] of searchPluginPins(pins)) {
-    const directory = path.join(app, "node_modules", ...pin.package.split("/"));
-    for (let parent = directory; parent !== app; parent = path.dirname(parent)) {
-      const stat = fs.lstatSync(parent);
-      if (!stat.isDirectory() || stat.isSymbolicLink())
-        throw Error("Unsafe assistant search plugin directory.");
-    }
-    const manifestFile = path.join(directory, "package.json"),
-      pluginFile = path.join(directory, "openclaw.plugin.json");
-    regular(manifestFile);
-    regular(pluginFile);
-    const installed = readJSON(manifestFile);
-    if (
-      installed.name !== pin.package ||
-      installed.version !== pin.version ||
-      readJSON(pluginFile).id !== pin.id
-    )
-      throw Error("Assistant search plugin installation mismatch.");
-    plugins[key] = { id: pin.id, directory };
-  }
+  for (const [key, pin] of searchPluginPins(pins))
+    plugins[key] = installedPlugin(pin, app, "search plugin");
   return plugins;
+}
+// One pinned plugin package below `app`, checked as described above.
+function installedPlugin(pin, app, kind) {
+  const directory = path.join(app, "node_modules", ...pin.package.split("/"));
+  for (let parent = directory; parent !== app; parent = path.dirname(parent)) {
+    const stat = fs.lstatSync(parent);
+    if (!stat.isDirectory() || stat.isSymbolicLink())
+      throw Error(`Unsafe assistant ${kind} directory.`);
+  }
+  const manifestFile = path.join(directory, "package.json"),
+    pluginFile = path.join(directory, "openclaw.plugin.json");
+  regular(manifestFile);
+  regular(pluginFile);
+  const installed = readJSON(manifestFile);
+  if (
+    installed.name !== pin.package ||
+    installed.version !== pin.version ||
+    readJSON(pluginFile).id !== pin.id
+  )
+    throw Error(`Assistant ${kind} installation mismatch.`);
+  return { id: pin.id, directory };
+}
+/**
+ * `{ embeddingPlugin: { id, directory } }` for a runtime that bundles the plugin for
+ * local memory embeddings, verified like a search plugin; `{}` for one installed
+ * before it was bundled (or a rollback target), which keeps keyword search.
+ */
+function installedEmbeddings(pins, app) {
+  const pin = embeddingPluginPin(pins);
+  return pin ? { embeddingPlugin: installedPlugin(pin, app, "embedding plugin") } : {};
 }
 function regular(file) {
   const stat = fs.lstatSync(file);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
     throw Error("Unsafe assistant runtime file.");
+}
+/**
+ * With a new runtime, the pinned llama.cpp server for local memory embeddings
+ * (embedding-assets.js): the installer's and the update path's share of what
+ * semantic memory search needs, so switching it on later only fetches the model.
+ * Never fails the runtime installation: a host without a pinned build, a failed
+ * download or a missing system library only leaves the server out, and the switch
+ * installs it again or names the reason. Only a stable code is reported.
+ */
+async function installEmbeddingServer({ paths, manifest, ...host }) {
+  if (!manifest.embeddingServer?.archives?.[`${host.platform}-${host.arch}`]) return;
+  try {
+    await ensureEmbeddingServer({ root: paths.root, manifest, ...host });
+  } catch (error) {
+    const code = /^[A-Z][A-Z0-9_]*$/.test(error?.code || "") ? error.code : "FAILED";
+    console.error(`AgentPier could not prepare the embedding server: ${code}`);
+  }
 }
 async function install({
   dataDir,
@@ -258,6 +289,7 @@ async function install({
     regular(result.nodePath);
     regular(result.entryPath);
     result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));
+    Object.assign(result, installedEmbeddings(manifest, path.join(directory, "app")));
     result.teamPlugin = provisionTeamPlugin({ paths, runtimeVersion: manifest.version });
     return result;
   }
@@ -332,6 +364,7 @@ async function install({
       maxBuffer: 32768,
     });
     installedSearchPlugins(manifest, app);
+    installedEmbeddings(manifest, app);
     fs.rmSync(archive);
     fs.rmSync(tarball);
     writePrivate(path.join(stage, "receipt.json"), {
@@ -339,14 +372,18 @@ async function install({
       packageIntegrity: manifest.packageIntegrity,
       nodeChecksum: manifest.nodeChecksums[target],
       searchPlugins: manifest.searchPlugins || {},
+      // The plugin for local memory embeddings; older receipts have none.
+      ...(manifest.embeddingPlugin && { embeddingPlugin: manifest.embeddingPlugin }),
       // A runtime installed before overrides existed has none in its receipt.
       dependencyOverrides: manifest.dependencyOverrides || {},
       ...(patch && { bundlePatch: patch }),
     });
     fs.renameSync(stage, directory);
     result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));
+    Object.assign(result, installedEmbeddings(manifest, path.join(directory, "app")));
     // The verified installation no longer needs downloaded package tarballs.
     fs.rmSync(env.npm_config_cache, { recursive: true, force: true });
+    await installEmbeddingServer({ paths, manifest, platform, arch, download, execute });
     result.teamPlugin = provisionTeamPlugin({ paths, runtimeVersion: manifest.version });
     return result;
   } finally {

@@ -10,6 +10,7 @@ import {
   verifyBundlePatches,
 } from "../server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
 import { stageAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
+import { installedEmbeddingServer } from "../server/features/assistants/runtimes/openclaw/embedding-assets.js";
 import { RuntimeSupervisor } from "../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
   GatewayClient,
@@ -373,8 +374,21 @@ export async function qualifyFreshInstallation() {
         pin.version,
       );
     }
+    // What semantic memory search needs of an installation: the locked plugin and
+    // the pinned llama.cpp server the installer put beside the runtime (the model is
+    // downloaded only when the owner switches it on).
+    const embedding = runtimeManifest.embeddingPlugin;
+    assert.equal(installed.embeddingPlugin?.id, embedding.id);
+    assert.equal(
+      readJSON(path.join(installed.embeddingPlugin.directory, "package.json")).version,
+      embedding.version,
+    );
+    assert.ok(
+      installedEmbeddingServer(paths.root),
+      "The installer did not install the pinned llama.cpp server (on Linux it needs glibc 2.34 or newer and libgomp1).",
+    );
     console.log(
-      "Exact managed Node, npm, OpenClaw, search plugins and dependency lock verified.",
+      "Exact managed Node, npm, OpenClaw, search and embedding plugins, the embedding server and dependency lock verified.",
     );
     const selectionFile = path.join(paths.root, "runtime.json");
     const selected = fs.readFileSync(selectionFile, "utf8");

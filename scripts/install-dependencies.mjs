@@ -28,6 +28,29 @@ const packages = {
   linux: { tmux: "tmux", git: "git", ssh: "openssh-client" },
 };
 const versionArgs = { tmux: ["-V"], git: ["--version"], ssh: ["-V"] };
+// The llama.cpp server behind the agents' semantic memory search (OpenClaw's local
+// embeddings, docs/assistant-gateway.md) is built with OpenMP, whose runtime a
+// minimal Debian or Ubuntu lacks. It is optional: AgentPier runs without it and the
+// setting then names the missing library, so it never fails an installation.
+const optionalLibraries = { linux: [{ file: "libgomp.so.1", package: "libgomp1" }] };
+
+/**
+ * The packages of optional shared libraries this Linux host lacks, read from the
+ * dynamic linker's cache. A listing that cannot be read means unknown: nothing is
+ * installed on a guess.
+ */
+export async function missingLibraryPackages(platform, probe) {
+  const libraries = optionalLibraries[platform];
+  if (!libraries) return [];
+  let listing;
+  try {
+    listing = String((await probe("ldconfig", ["-p"]))?.stdout ?? "");
+  } catch {
+    return [];
+  }
+  if (!/\.so\b/.test(listing)) return [];
+  return libraries.filter(({ file }) => !listing.includes(file)).map((l) => l.package);
+}
 
 /**
  * `ssh -V` (it prints to stderr): `missing` when it does not run, otherwise the OpenSSH
@@ -51,6 +74,22 @@ export async function checkOpenSsh(probe) {
       `AgentPier needs OpenSSH 8.9 or newer; this computer has OpenSSH ${version.major}.${version.minor}. Update the OpenSSH client (for example Ubuntu 22.04 or Debian 12 and newer ship 8.9 or later), then retry.`,
     );
   return version;
+}
+
+async function installOptional(libraries, { probe, installRun, uid, interactive, env }) {
+  const command = uid === 0 ? "apt-get" : "sudo";
+  const prefix = uid === 0 ? [] : [...(interactive ? [] : ["-n"]), "apt-get"];
+  try {
+    await probe("apt-get", ["--version"]);
+    await installRun(command, [...prefix, "install", "-y", ...libraries], {
+      env,
+      timeout: 600000,
+    });
+  } catch {
+    console.error(
+      `Optional: install ${libraries.join(", ")} for the agents' semantic memory search.`,
+    );
+  }
 }
 
 export async function ensureDependencies({
@@ -77,7 +116,20 @@ export async function ensureDependencies({
   const openssh = await checkOpenSsh(probe);
   if (openssh instanceof Error) throw openssh;
   if (openssh === "missing") missing.push("ssh");
-  if (!missing.length) return { installed: [], env: runtimeEnv };
+  const libraries = await missingLibraryPackages(platform, probe);
+  if (!missing.length) {
+    // Only an optional library is missing: installed when packages may be installed
+    // and apt-get is there; a refusal (no sudo) is no error.
+    if (install && libraries.length)
+      await installOptional(libraries, {
+        probe,
+        installRun,
+        uid,
+        interactive,
+        env: runtimeEnv,
+      });
+    return { installed: [], env: runtimeEnv };
+  }
   const names = (platformPackages) =>
     missing.map((tool) => platformPackages?.[tool] ?? tool);
   if (!install)
@@ -120,7 +172,7 @@ export async function ensureDependencies({
       await installRun(command, [...prefix, "update"], options);
       await installRun(
         command,
-        [...prefix, "install", "-y", ...names(packages.linux)],
+        [...prefix, "install", "-y", ...names(packages.linux), ...libraries],
         options,
       );
     } catch {
