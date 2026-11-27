@@ -562,13 +562,49 @@ On a phone: [Overview tab](screenshots/agent-settings-phone.png).
 **Waiting for your approval** and **Actions and coding tasks** (everything the agent
 proposed and what waits for your decision, see
 [agent workflows](assistant-workflows.md)); **At a glance**, one read-only row per tab
-that opens it (a task member's **Capabilities** row names what its lead granted); **Chat attachments** ([attachments](#attachments)); for a team member
+that opens it (a task member's **Capabilities** row names what its lead granted); for a team member
 the member group (where it came from, its history, **Stop member**, **Keep as permanent
-agent**); and **Manage** with **Duplicate**, **Archive** or **Restore** and, once
+agent**); **Usage** ([below](#usage)); **Chat attachments** ([attachments](#attachments)); and **Manage** with **Duplicate**, **Archive** or **Restore** and, once
 archived, **Delete permanently**. At the end sits **Danger zone** with **Restart main
 chat** ([below](#restart-the-main-chat)); only you see it, and not on team members or
 archived agents.
 On a phone the agent service summary sits here too.
+
+#### Usage
+
+**Usage** shows what the agent used **Today**, in the **Last 7 days** and in the
+**Last 30 days**: the tokens (in, out and read from the cache) and, where the model
+has a price, the cost. The bars below show the tokens of each of the last 30 days.
+The figures count everything the agent did: its chats, routines, check-ins, its
+Telegram bot and, on a shared agent, its users' chats. Days are calendar days of the
+computer AgentPier runs on. They come from the agent's runtime, which records every
+model call; AgentPier keeps no count of its own.
+
+In a chat of your own, the header shows the chat's tokens so far (for example
+**12.4K**). Tap it for **Usage of this chat**: input, output, what was read from and
+written to the cache, the total, the **Cost**, and **Context at the last model
+call** (how much of the model's context the last call filled). Both follow each
+finished turn by themselves. A chat that has used nothing yet shows no figure. ⌘K
+finds them as "Usage", "Tokens", "Cost" and "Usage of this chat".
+
+Whether a cost shows depends on the model:
+
+| Model connection                                          | Cost                                                                                                                                                       |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenRouter                                                | What OpenRouter billed for each call; where an answer names no amount, an estimate from OpenRouter's catalog price of the model. A free model shows $0.00. |
+| Endpoint (Ollama, llama.cpp, Azure, a compatible service) | Only when the service reports an amount with its answers. AgentPier knows no price for these models: tokens only, with **No price**.                       |
+| ChatGPT account                                           | Never: a subscription has no price per token. Tokens only, with **No price**.                                                                              |
+
+Costs are in US dollars, as the providers bill them. An amount marked **at least**
+covers only part of the calls: the agent changed its model in that time, or some
+calls had no price. AgentPier never fills such a gap with a guess. Calls from before
+this AgentPier version may have no price either, so longer periods can read **at
+least** or **No price** at first.
+
+Usage is yours alone. A user never sees tokens or cost, not for her own agent and
+not for her chats. A user's chat shows no usage to you either, also when she lets
+you read it, and the **Usage** group of a user's own agent appears only under that
+opt-in. Hermes agents record no usage: the group says so and their chats show none.
 
 <a id="profile"></a>
 

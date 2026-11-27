@@ -63,6 +63,7 @@ export const capabilityGateCopy = {
     advancedSettingsUnsupported: (runtime) =>
       `${runtime} hat in AgentPier noch keine erweiterten Einstellungen.`,
     memoryWikiUnsupported: (runtime) => `${runtime} führt kein Memory-Wiki.`,
+    usageUnsupported: (runtime) => `${runtime} zeichnet keinen Token-Verbrauch auf.`,
   },
 };
 export const componentsCopy = {

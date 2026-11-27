@@ -188,7 +188,8 @@ const assistantUnavailable = () =>
  */
 // `sampleWhile(value)`: with `sampleMs`, an agent's topic is sampled only while its
 // last read answered true (a wiki being rebuilt), as job topics sample a running job.
-function detailTopic(
+// The usage topics are built with it too (live-usage-topics.js).
+export function detailTopic(
   services,
   { name, content = false, privacy = content, read, watch, sampleMs, sampleWhile },
 ) {

@@ -205,8 +205,8 @@ test("agents get their tabs and subpages; old tab names find the new tabs", () =
   assert.ok(helperHits.some((item) => item.id === "agent:tmp:pinboard"));
   const helper = helperHits
     .filter((item) => item.group === "agents" && !item.target.route?.pinboard)
-    .map((item) => item.target.route?.agentTab || "overview");
-  assert.deepEqual(helper, ["overview", "identity", "capabilities", "access"]);
+    .map((item) => item.id.split(":").slice(2).join(":"));
+  assert.equal(helper.join(), "overview,identity,capabilities,access,group:usage");
   assert.equal(
     results("Mias Agent").some((item) => item.target.route?.agentTab === "team"),
     false,

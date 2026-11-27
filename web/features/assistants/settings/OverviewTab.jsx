@@ -20,6 +20,7 @@ import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
 import MainChatRestart from "./MainChatRestart.jsx";
 import MemberGroup from "./MemberGroup.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
+import UsageGroup from "../usage/UsageGroup.jsx";
 import { manageItems } from "./AgentHeaderActions.jsx";
 import {
   accessSummary,
@@ -105,8 +106,8 @@ function ManageGroup({ assistant, navigate }) {
 
 /**
  * Überblick (handoff 5.4): what waits for the owner, the agent's actions and coding
- * tasks (`page=actions`), a summary of every tab, chat attachments, the team member
- * card and Verwalten. On narrow screens the agent service sits here, too. The
+ * tasks (`page=actions`), a summary of every tab, the team member card, what its
+ * sessions used (Usage), chat attachments and Verwalten. On narrow screens the agent service sits here, too. The
  * Gefahrenbereich with Restart main chat comes last.
  */
 export default function OverviewTab({ assistant, page, go, navigate }) {
@@ -145,6 +146,7 @@ export default function OverviewTab({ assistant, page, go, navigate }) {
       )}
       <AtAGlance assistant={assistant} go={go} />
       {assistant.teamMemberId && <MemberGroup assistant={assistant} />}
+      <UsageGroup assistant={assistant} />
       <AttachmentStorageGroup assistant={assistant} />
       <ManageGroup assistant={assistant} navigate={navigate} />
       <RuntimeSummary

@@ -6,6 +6,7 @@ import {
   restoreEntry,
 } from "../../features/assistants/memory-archive.js";
 import { wikiPage, wikiPages } from "../../features/assistants/agent-wiki.js";
+import { usageOf } from "../../features/assistants/agent-usage.js";
 export function assistantCapabilityRoutes(services) {
   const { assistants, assistantMemory, assistantReminders, audit } = services;
   const router = Router();
@@ -64,6 +65,10 @@ export function assistantCapabilityRoutes(services) {
   );
   router.get("/assistants/:id/wiki/page", async (req, res) =>
     res.json(await wikiPage(assistants, req.params.id, req.query.lookup)),
+  );
+  // What the agent's sessions used: today, 7 and 30 days (agent-usage.js).
+  router.get("/assistants/:id/usage", async (req, res) =>
+    res.json(await usageOf(assistants).agent(req.params.id)),
   );
   router.get("/assistants/:id/reminders", async (req, res) =>
     res.json(

@@ -1918,6 +1918,82 @@ import of its memory notes, a page filed with `wiki_apply` and read back through
 sub-port, no vault for other agents, the state rows and their public backup copy, and
 live switches without a restart.
 
+#### Usage
+
+The owner sees the tokens and, where a price is known, the cost of an OpenClaw
+agent ([agents](agents.md#usage)). AgentPier keeps no ledger: the figures are
+OpenClaw's own usage report, checked against 2026.11.6
+(`docs/reference/token-use.md` and `docs/gateway/protocol/rpc-system-and-channels.md`
+of the pinned runtime), read through two methods of the runtime port
+(`openclaw-usage.js`):
+
+- `sessions.usage({ key })`: one chat since it began. Gateway method
+  `sessions.usage` with `{ key, range: "all", mode: "gateway", limit: 1 }`, and
+  `sessions.describe` for the context of its last model call (`totalTokens` while
+  `totalTokensFresh`, of `contextTokens`).
+- `agents.usage({ agentId, days })`: all of an agent's sessions (chats, routines,
+  check-ins, its bot) over the last `days` calendar days. Gateway method
+  `sessions.usage` with `{ agentId, startDate, endDate, mode: "gateway", limit: 1 }`;
+  the days are the Gateway's own (the host's time zone).
+
+Both answer `{ tokens: { input, output, cacheRead, cacheWrite, total }, cost,
+pending }` from the report's `totals`; an agent's also `from`, `to` and `daily`
+(`aggregates.daily`, the days without usage at 0). `usage.cost` and
+`sessions.usage.timeseries` are not called: `sessions.usage` carries the same totals
+and the split by provider that the cost rule needs.
+
+**Cost.** `cost` is `{ amount, currency: "USD", partial }` or `null`, summed from
+`aggregates.byProvider` (`{ provider, count, totals }`):
+
+- OpenClaw records what a provider billed when the answer names it (OpenRouter's
+  `usage.cost`), else an estimate from the model entry's `cost` (USD per 1M tokens).
+  A call with neither counts in `missingCostEntries`; a model entry without `cost`
+  on a custom provider has no price (OpenClaw's catalog prices only its own
+  providers).
+- AgentPier compiles `cost` for OpenRouter models from the provider catalog
+  ([model connections](assistant-model-connections.md#prices)). Endpoint models have
+  no price in AgentPier and get none.
+- Only the providers AgentPier compiled for a connection (`ap-…`) count toward a
+  cost. A ChatGPT account runs on OpenClaw's own `openai` provider: whatever
+  OpenClaw's catalog would estimate for it is ignored, as a subscription has no
+  price per token.
+- No priced call: `null`. Some calls without a price (`missingCostEntries`, or
+  another provider's calls in the same range): `partial: true`, the amount a lower
+  bound.
+
+**Pending.** Right after a turn OpenClaw still computes the session's report (rows
+marked `computing`, `cacheStatus.status` not `fresh`). The adapter reads it again
+after 250, 500 and 1,000 ms; a report still incomplete then is answered with
+`pending: true`. The session's context size follows its report at a run's end: a
+session with usage and no current size is described again after 250 and 500 ms.
+
+**Reads and live updates.** `AgentUsage` (`agent-usage.js`) serves
+`GET /api/assistants/:id/usage` (`{ periods: [today, week, month], daily, pending,
+updatedAt }`, three port reads) and `GET /api/assistant-conversations/:id/usage`
+(`{ tokens, cost, pending, context, updatedAt }`). A read is kept for 60 s per agent
+and per chat and shared while in flight (2 s for a pending one), so an open page
+costs the Gateway one report; OpenClaw caches its own for 30 s. The values are the
+live topics `agent.usage:<agentId>` and `agent.chat-usage:<conversationId>`
+(`live-usage-topics.js`): the chat path signals both when a run of the chat ends
+(`finished`, `aborted` or `failed`), which also drops the kept figures; a pending
+value is sampled every 2 s for visible tabs. Usage outside a chat (a routine's own
+session, the agent's Telegram bot) shows with the next read.
+
+**Who reads it.** Owner only. The agent route is a content route of kind `agent`:
+a user's own agent only under her opt-in. The chat route answers 404 for a user's
+chat, opt-in or not (its figures would count turns from before it), for a chat
+without a session and for a runtime without the `usage` capability. Restricted
+users have no usage route or topic.
+
+**Hermes** declares the capability unavailable (`usageUnsupported`): it reports a
+session's context size only.
+
+`tests/integration/assistant-usage-contract.test.js` checks this on the pinned
+Gateway with a local model server: a turn's tokens (input without the cached part),
+no cost for a model without a price, OpenClaw's estimate for a model entry with
+`cost`, the billed amount of an answer that names one, the context of the last
+call, and an agent's range with its days.
+
 #### Persistence, compaction and visible failures (AGENTPIER-99)
 
 An agent once said it had saved a plan without ever calling `write`; the conversation
