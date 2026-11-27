@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fakeUsage } from "./runtime-port-usage-contract.js";
 
 /**
  * The sessions and events sub-ports of the runtime port contract
@@ -227,6 +228,18 @@ export function fakeSessionPorts({ reach, runFailure = null, connection }) {
     else emit("finished", key, runId);
   };
   const session = (key) => sessions.get(key);
+  // What the sessions used (runtime-port-usage-contract.js); the agents sub-port
+  // reads the same counts through `usage`.
+  const turns = (list) => list.filter((message) => message.role === "user").length;
+  const usage = fakeUsage({
+    turnsOf: (key) => turns(session(key)?.messages || []),
+    turnsOfAgent: (agentId) =>
+      turns(
+        [...sessions.values()]
+          .filter((s) => s.agentId === agentId)
+          .flatMap((s) => s.messages),
+      ),
+  });
   const methods = {
     create: ({ agentId, label }) =>
       reach(() => {
@@ -252,6 +265,7 @@ export function fakeSessionPorts({ reach, runFailure = null, connection }) {
     wait: ({ runId }) => reach(() => ({ runId, status: runs.get(runId) || "timeout" })),
     describe: ({ key }) =>
       reach(() => ({ session: session(key) && { ...session(key) } })),
+    usage: ({ key }) => reach(() => usage.session({ key })),
     list: ({ agentId, label }) =>
       reach(() =>
         [...sessions.values()].filter((s) => s.agentId === agentId && s.label === label),
@@ -296,6 +310,7 @@ export function fakeSessionPorts({ reach, runFailure = null, connection }) {
       ),
     );
   return {
+    usage,
     sessions: { ...methods, on },
     events: {
       subscribe(listener) {

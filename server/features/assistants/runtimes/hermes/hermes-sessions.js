@@ -485,6 +485,11 @@ function sessionsOver(
       await reach();
       throw unsupported("sessions.downloadArtifact");
     },
+    // Hermes keeps no usage record (hermes-runtime.js: capability usage).
+    async usage() {
+      await reach();
+      throw unsupported("sessions.usage");
+    },
     // Background processes Hermes started are reported as notifications, not
     // queryable per session: a session runs background work only while its turn does.
     async backgroundRunning({ key }) {

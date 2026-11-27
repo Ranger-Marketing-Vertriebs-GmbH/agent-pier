@@ -23,6 +23,7 @@ import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-cont
 import { fakeToolPorts, toolsContract } from "./runtime-port-tools-contract.js";
 import { configContract, fakeDesiredConfig } from "./runtime-port-config-contract.js";
 import { memoryContract } from "./runtime-port-memory-contract.js";
+import { usageContract } from "./runtime-port-usage-contract.js";
 import {
   fakeLifecyclePorts,
   lifecycleContract,
@@ -140,6 +141,7 @@ export function runtimePortContract(name, make) {
   sessionExtrasContract(name, make);
   toolsContract(name, make);
   configContract(name, make);
+  usageContract(name, make);
   memoryContract(name, async () => ({ memory: (await make({})).agentFiles.memory }));
 
   test(`${name}: agentFiles.memory is the same in a connection's view`, async () => {
@@ -205,6 +207,11 @@ export function fakeRuntime({
     }
     for (const listener of listeners) listener({ ...state });
   };
+  const { usage: sessionUsage, ...sessionPorts } = fakeSessionPorts({
+    reach,
+    runFailure,
+    connection: () => connection,
+  });
   return defineAgentRuntime({
     id: "fake",
     // Runs without advanced settings (runtime-port-config-contract.js).
@@ -236,8 +243,10 @@ export function fakeRuntime({
         generation: () => generation,
       }),
     },
-    ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
-    ...withDesiredConfig(fakeAgentPorts({ reach, connection: () => connection })),
+    ...sessionPorts,
+    ...withDesiredConfig(
+      fakeAgentPorts({ reach, connection: () => connection, usage: sessionUsage }),
+    ),
     ...fakeApprovalPorts({ reach, connection: () => connection, approvals, questions }),
     ...fakeRoutinePorts({ reach, connection: () => connection }),
     ...fakeToolPorts({ reach, connection: () => connection }),

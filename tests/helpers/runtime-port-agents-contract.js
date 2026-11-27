@@ -179,7 +179,7 @@ export function mergePatch(target, patch) {
  * kept across restarts as a runtime keeps them on disk. Every async call goes
  * through `reach`, which rejects while the runtime is unreachable.
  */
-export function fakeAgentPorts({ reach, connection }) {
+export function fakeAgentPorts({ reach, connection, usage }) {
   const roster = new Map();
   const files = new Map();
   let config = {};
@@ -209,6 +209,8 @@ export function fakeAgentPorts({ reach, connection }) {
         reach(() => {
           if (!roster.has(agentId)) throw Object.assign(new Error("agentLoading"), {});
         }),
+      // The sessions' own counts (runtime-port-sessions-contract.js fakeSessionPorts).
+      usage: (params) => reach(() => usage.agent(params)),
       settled: async () => {},
       admitted: async () => false,
       degraded: () => new Set(),
