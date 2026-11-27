@@ -11,6 +11,7 @@ export const assistantRuntimePaths = [
   "server/features/assistants/**",
   "server/features/assistant-channels/**",
   "server/application/assistant-graph.js",
+  "server/application/semantic-memory-wiring.js",
   "server/features/operations/releases.js",
   "server/lib/storage.js",
   "scripts/*assistant*.mjs",

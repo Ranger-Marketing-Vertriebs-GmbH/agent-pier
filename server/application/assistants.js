@@ -23,6 +23,7 @@ import {
   within,
 } from "./agent-ssh-shell-wiring.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
+import { connectSemanticMemory } from "./semantic-memory-wiring.js";
 import { AgentPinboard } from "../features/assistants/agent-pinboard.js";
 import { AgentCards } from "../features/assistants/agent-cards.js";
 import { AgentUsage } from "../features/assistants/agent-usage.js";
@@ -49,6 +50,7 @@ export const assistantServiceNames = [
   "assistantPdfModel",
   "assistantDreamingSettings",
   "assistantDreaming",
+  "assistantSemanticMemory",
   "assistantMcpServers",
   "assistantChannels",
   "assistantMemory",
@@ -83,6 +85,10 @@ export function createAssistantServices(options) {
     graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
     graph.assistantAgentSsh = created.agentSsh = connectAgentShellSsh(options, graph);
     graph.assistantSkillCatalog = connectSkillCatalog(graph);
+    graph.assistantSemanticMemory = created.semanticMemory = connectSemanticMemory(
+      graph,
+      () => options.live,
+    );
     // Every change of a ChatGPT sign-in reaches its live topic (services.live).
     graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
     // The agent detail topics and the update status (live-topics.js).
@@ -124,6 +130,7 @@ export function createAssistantServices(options) {
       created.webSearch,
       created.pdfModel,
       created.dreaming,
+      created.semanticMemory,
       created.mcpServers,
       created.channels || created.speech,
       created.assistants || created.store,
@@ -231,6 +238,7 @@ export function createAssistantFeature(services) {
       assistantPdfModel,
       assistantDreamingSettings,
       assistantDreaming,
+      assistantSemanticMemory,
       assistantMcpServers,
       assistantMcpOAuth,
       assistantAgentSecrets,
@@ -268,10 +276,14 @@ export function createAssistantFeature(services) {
     // next Gateway start (offline-commands.js).
     await assistants?.dreamingForgets;
     await assistants?.offlineCommands?.close();
+    // A model download or an index rebuild stops; the next start recovers it.
+    await assistantSemanticMemory?.close().catch(() => {});
     try {
       assistantDreamingSettings?.close();
     } catch {}
     await assistants?.close().catch(() => {});
+    // The Gateway is gone: an embedding server it left behind ends too.
+    await assistantSemanticMemory?.retire();
   };
   const create = () => {
     if (!enabled || error || services.assistants) return;

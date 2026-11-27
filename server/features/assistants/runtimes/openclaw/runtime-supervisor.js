@@ -19,7 +19,7 @@ import { processIdentity } from "../../../../lib/process-identity.js";
 import { assertWired } from "../../service-wiring.js";
 import { AGENT_FOLDER } from "../../../ssh/ssh-agent-shared.js";
 import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
-import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
+import { embeddingPortOffset as lastOffset } from "./openclaw-config/semantic-memory.js";
 import {
   ownerShellEnvironment,
   resolveShellOwner,
@@ -56,8 +56,8 @@ export const gatewayDrainMs = 60000;
 // Fresh ports one start tries when another listener answers on the drawn one.
 const portAttempts = 3;
 // The browsers' CDP ports sit at the Gateway port + 12 up to + 110 (web-tools.js,
-// browser-profiles.js).
-export const maxGatewayPort = 65535 - lastCdpOffset;
+// browser-profiles.js), the embedding server's at + 111 (semantic-memory.js).
+export const maxGatewayPort = 65535 - lastOffset;
 // OpenClaw's managed CDP range starts at the Gateway port + 11 (browser-profiles.js).
 const firstCdpOffset = 11;
 // Draws with a held CDP port one start skips before it takes the next fitting draw.
@@ -78,7 +78,7 @@ export async function freePort({ draw = drawPort, inUse = portInUse } = {}) {
   }
 }
 async function cdpRangeHeld(port, inUse) {
-  for (let offset = firstCdpOffset; offset <= lastCdpOffset; offset++)
+  for (let offset = firstCdpOffset; offset <= lastOffset; offset++)
     if (await inUse(port + offset)) return true;
   return false;
 }

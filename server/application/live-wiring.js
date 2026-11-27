@@ -20,6 +20,7 @@ import { connectionProblemsTopic } from "../features/providers/live-topics.js";
 import {
   runtimeUpdatesTopic,
   runtimesTopic,
+  semanticMemoryTopic,
 } from "../features/assistants/live-runtime-topics.js";
 import { agentDetailTopics, agentListTopic } from "../features/assistants/live-topics.js";
 import { agentUsageTopics } from "../features/assistants/live-usage-topics.js";
@@ -118,6 +119,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(connectionProblemsTopic(services));
   hub.define(runtimeUpdatesTopic(services));
   hub.define(runtimesTopic(services));
+  hub.define(semanticMemoryTopic(services));
   hub.define(agentListTopic(services));
   for (const topic of agentDetailTopics(services)) hub.define(topic);
   for (const topic of agentUsageTopics(services)) hub.define(topic);

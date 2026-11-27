@@ -15,6 +15,7 @@ import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantBrowserNetworkRoutes } from "./assistant-browser-network.js";
 import { assistantPdfModelRoutes } from "./assistant-pdf-model.js";
 import { assistantDreamingRoutes } from "./assistant-dreaming.js";
+import { assistantSemanticMemoryRoutes } from "./assistant-semantic-memory.js";
 import { assistantAdvancedSettingsRoutes } from "./assistant-advanced-settings.js";
 import { assistantTelegramSenderRoutes } from "./assistant-telegram-senders.js";
 import { assistantAccountRoutes, modelRefreshRateLimit } from "./assistant-accounts.js";
@@ -126,6 +127,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantBrowserNetworkRoutes(services));
   router.use(assistantPdfModelRoutes(services));
   router.use(assistantDreamingRoutes(services));
+  router.use(assistantSemanticMemoryRoutes(services));
   router.use(assistantAdvancedSettingsRoutes(services));
   router.use(assistantTelegramSenderRoutes(services));
   router.use(assistantTeamRoutes(services));

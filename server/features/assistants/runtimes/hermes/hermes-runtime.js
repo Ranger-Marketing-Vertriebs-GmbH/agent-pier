@@ -47,6 +47,9 @@ export const hermesCapabilities = Object.freeze({
   // Hermes reports a session's context size only (hermes-sessions.js contextOf), no
   // record of the tokens and cost per model call.
   usage: unavailable("usageUnsupported"),
+  // Hermes loads an agent's two small memory files into every chat; it has no
+  // memory search an embedding model could serve.
+  semanticMemory: unavailable("semanticMemoryUnsupported"),
 });
 
 const isRunning = (availability) => !["disabled", "failed"].includes(availability);

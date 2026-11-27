@@ -402,13 +402,17 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // layer serves for every runtime (`channels`); `memoryWiki`, an agent's compiled wiki
 // of pages the owner reads (agentFiles.wikiPages and wikiPage; OpenClaw's memory-wiki
 // plugin); `usage`, the tokens and cost the runtime recorded per session and agent
-// (sessions.usage and agents.usage; OpenClaw's usage report).
+// (sessions.usage and agents.usage; OpenClaw's usage report); `semanticMemory`, a
+// memory search that finds notes by meaning through local embeddings, which the
+// owner switches on for the whole host (OpenClaw's `memory.search`; a runtime that
+// loads its memory into every chat has no memory search and reports it unavailable).
 export const RUNTIME_CAPABILITIES = Object.freeze([
   ...RUNTIME_PORTS,
   "advancedSettings",
   "channelBots",
   "memoryWiki",
   "usage",
+  "semanticMemory",
 ]);
 // How a runtime behaves within a capability is a trait (runtime-traits.js), stated in
 // its descriptor and carried beside the capability's availability: "Every command",

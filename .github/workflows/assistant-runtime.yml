@@ -5,7 +5,9 @@ name: Assistant runtime
 # native contracts on Linux arm64 and macOS x64 and the cross-version updates run
 # only nightly, on demand and before a release (a tag push through release.yml),
 # not after each merge. The merge queue runs the core contracts through
-# assistant-runtime-queue.yml. A pull request that only bumps the version of
+# assistant-runtime-queue.yml (without the semantic memory contract, which runs the
+# real embedding model: here on pull requests that touch the runtime, nightly and
+# before a release). A pull request that only bumps the version of
 # package.json and package-lock.json (a release) runs none of the jobs.
 on:
   workflow_dispatch:
@@ -16,6 +18,7 @@ on:
       - "server/features/assistants/**"
       - "server/features/assistant-channels/**"
       - "server/application/assistant-graph.js"
+      - "server/application/semantic-memory-wiring.js"
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
@@ -128,13 +131,39 @@ jobs:
           "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
           import { bundlePatchId as p } from
           "./server/features/assistants/runtimes/openclaw/runtime-bundle-patches.js";
-          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}${p(m.version) ? `-patch${p(m.version)}` : ""}`)'
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}${p(m.version) ? `-patch${p(m.version)}` : ""}`);
+          console.log(`embeddings=${m.embeddingServer.release}-${m.embeddingModel.sha256.slice(0, 16)}`)'
           >> "$GITHUB_OUTPUT"
       # Only the immutable installation is cached; the data directory stays fresh.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/agentpier-assistant-contracts/assistants/runtimes
           key: assistant-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.runtime.outputs.identity }}
+      # The semantic memory contract runs local embeddings for real: the pinned
+      # llama.cpp server and the EmbeddingGemma model (329 MB), each from its pinned
+      # URL with its pinned SHA-256. Only the shard that runs the contract keeps
+      # them, in a cache keyed by both pins, so the model is downloaded once per pin
+      # and runner architecture and never by the other shards. It runs on the Linux
+      # runners only: the macOS build of the server computes on Metal, and a hosted
+      # macOS runner's virtualized GPU is no qualification of that (it is run on
+      # Apple silicon before a release, docs/assistant-memory-qualification.md).
+      - name: Check whether this shard runs the semantic memory contract
+        id: semantic
+        if: runner.os == 'Linux'
+        run: |
+          if node scripts/assistant-contract-shards.mjs --shard "${{ matrix.shard }}" --total 4 | grep -q semantic-memory; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.semantic.outputs.run == 'true'
+        with:
+          path: ${{ runner.temp }}/agentpier-assistant-contracts/assistants/embeddings
+          key: embedding-assets-${{ runner.os }}-${{ runner.arch }}-${{ steps.runtime.outputs.embeddings }}
+      # The llama.cpp server is built with OpenMP; a runner image without its runtime
+      # gets it as the installer gives it to a host (scripts/install-dependencies.mjs).
+      - name: Provide the OpenMP runtime for the embedding server
+        if: steps.semantic.outputs.run == 'true'
+        run: ldconfig -p | grep -q 'libgomp\.so\.1' || { sudo apt-get update && sudo apt-get install -y libgomp1; }
       - name: Provision through the installer's --with-assistants step
         run: >-
           node scripts/provision-assistant-contracts.mjs
@@ -184,6 +213,10 @@ jobs:
         run: |
           files=$(node scripts/assistant-contract-shards.mjs \
             --shard "${{ matrix.shard }}" --total 4)
+          # Linux only, see the cache step above.
+          if [ "$RUNNER_OS" != Linux ]; then
+            files=$(printf '%s\n' "$files" | grep -v semantic-memory-contract)
+          fi
           echo "$files"
           # --test-force-exit: since Node 24 a file whose timed-out test left a handle
           # open never exits, and the step then hangs until the job's timeout.

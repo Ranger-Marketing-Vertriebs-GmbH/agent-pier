@@ -38,10 +38,13 @@ test("internal ports name AgentPier, the bridge, the reminder webhook, the Gatew
     },
     sessions: { directory },
   });
-  for (const port of [4999, 41100, 41200, 42000, 42011, 42110, 43000, 43001, 41001])
+  // 42111: the embedding server's port, right after the Gateway's CDP ports.
+  for (const port of [
+    4999, 41100, 41200, 42000, 42011, 42110, 42111, 43000, 43001, 41001,
+  ])
     assert.ok(ports.has(port), `${port} is internal`);
   assert.equal(ports.has(41002), false);
-  assert.equal(ports.has(42111), false);
+  assert.equal(ports.has(42112), false);
 });
 
 test("an agent preview lives while its conversation and unarchived agent exist", () => {

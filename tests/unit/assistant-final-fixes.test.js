@@ -64,10 +64,11 @@ test("snap Chromium is never chosen as the browser", () => {
 });
 
 test("the Gateway port leaves room for every CDP port", async () => {
-  const drawn = [65530, 65426, 65425, 40000];
+  const drawn = [65530, 65425, 65424, 40000];
   const inUse = async () => false;
-  assert.equal(await freePort({ draw: async () => drawn.shift(), inUse }), 65425);
-  assert.equal(maxGatewayPort + 110, 65535);
+  assert.equal(await freePort({ draw: async () => drawn.shift(), inUse }), 65424);
+  // The CDP ports end at + 110; the embedding server's port follows them.
+  assert.equal(maxGatewayPort + 111, 65535);
   const profiles = Array.from({ length: 120 }, (_, n) => ({
     id: `a${String(n).padStart(3, "0")}`,
     capabilities: { browser: true },
@@ -78,7 +79,7 @@ test("the Gateway port leaves room for every CDP port", async () => {
     port: maxGatewayPort,
   });
   const ports = Object.values(sections.browser.profiles).map((p) => p.cdpPort);
-  assert.equal(Math.max(...ports), 65535);
+  assert.equal(Math.max(...ports), 65534);
   assert.equal(new Set(ports).size, ports.length);
   // Member slots keep their ports; agents beyond the range get no profile.
   assert.equal(ports.length, 2 + 3 + 91);

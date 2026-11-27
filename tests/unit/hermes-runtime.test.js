@@ -90,9 +90,12 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
   ])
     assert.equal(capabilities[name].available, true, name);
   // Every capability is served but the memory wiki, OpenClaw's own (ADR 0007, 7b),
-  // and the usage record: Hermes reports a session's context size only.
+  // the usage record (Hermes reports a session's context size only) and semantic
+  // memory search: Hermes loads its memory into every chat and has no memory search.
+  const lacking = ["memoryWiki", "usage", "semanticMemory"];
   for (const [name, capability] of Object.entries(capabilities))
-    assert.equal(capability.available, !["memoryWiki", "usage"].includes(name), name);
+    assert.equal(capability.available, !lacking.includes(name), name);
+  assert.equal(capabilities.semanticMemory.reason, "semanticMemoryUnsupported");
   assert.equal(capabilities.memoryWiki.reason, "memoryWikiUnsupported");
   assert.equal(capabilities.usage.reason, "usageUnsupported");
   await assert.rejects(runtime.agents.usage({ agentId: "agent-1", days: 1 }), {

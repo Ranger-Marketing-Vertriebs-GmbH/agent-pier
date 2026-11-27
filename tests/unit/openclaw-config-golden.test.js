@@ -6,6 +6,7 @@ import { compilerFor } from "../../server/features/assistants/runtimes/runtime-f
 import {
   desiredState,
   isDesiredState,
+  withSemanticMemory,
 } from "../../server/features/assistants/agent-desired-state.js";
 import { goldenPaths, goldenScenarios } from "../helpers/openclaw-golden-scenarios.js";
 
@@ -19,8 +20,10 @@ const expected = (name) => fs.readFileSync(path.join(fixtures, `${name}.json`), 
 for (const [name, scenario] of Object.entries(goldenScenarios))
   test(`golden openclaw.json: ${name}`, () => {
     const s = scenario();
-    // What the composition root builds from the stores (assistant-graph.js).
-    const desired = desiredState(s.teams);
+    // What the composition root builds from the stores (assistant-graph.js), with
+    // what the owner's semantic memory search adds while it is on
+    // (semantic-memory-wiring.js); off, the state is the stores' own.
+    const desired = withSemanticMemory(desiredState(s.teams), s.semanticMemory);
     assert.ok(isDesiredState(desired));
     const config = compilerFor(null).compile({
       desired,
