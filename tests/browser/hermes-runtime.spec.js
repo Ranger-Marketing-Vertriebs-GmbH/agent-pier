@@ -426,7 +426,15 @@ test("a duplicate keeps its runtime; without Hermes the wizard has no choice", a
   await wizardNext(page);
   await identity(page);
   await wizardNext(page);
-  await expect(page.locator("#agent-shell").getByRole("radio")).toHaveCount(3);
+  // OpenClaw's levels: no "Every command", but "Automatic review".
+  const levels = page.locator("#agent-shell").getByRole("radio");
+  await expect(levels).toHaveCount(4);
+  await expect(
+    page.locator("#agent-shell").getByRole("radio", { name: /^Every command/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator("#agent-shell").getByRole("radio", { name: /^Automatic review/ }),
+  ).toHaveCount(1);
 });
 
 for (const [language, texts] of [
@@ -479,7 +487,7 @@ for (const [language, texts] of [
   });
 }
 
-test("an OpenClaw agent keeps its three shell levels and sends no every-command field", async ({
+test("an OpenClaw agent keeps its own shell levels and sends no every-command field", async ({
   page,
 }) => {
   const state = await setupAssistantSettings(page, {
@@ -501,7 +509,9 @@ test("an OpenClaw agent keeps its three shell levels and sends no every-command 
   });
   await page.goto(baseURL + settingsPath("capabilities"));
   const shell = page.locator("#agent-shell");
-  await expect(shell.getByRole("radio")).toHaveCount(3);
+  await expect(shell.getByRole("radio")).toHaveCount(4);
+  await expect(shell.getByRole("radio", { name: /^Every command/ })).toHaveCount(0);
+  await expect(shell.getByRole("radio", { name: /^Automatic review/ })).toHaveCount(1);
   await shell.getByRole("radio", { name: "With approval" }).check();
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
