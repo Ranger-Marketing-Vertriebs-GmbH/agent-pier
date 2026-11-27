@@ -18,9 +18,15 @@ const file = () =>
   path.join(fs.mkdtempSync(path.join(os.tmpdir(), "slots-")), "previews", "slots.json");
 const range = { start: 41000, end: 41002 };
 
-test("freePortRange avoids the default preview range", async () => {
-  const found = await freePortRange(3);
-  assert.ok(found.start >= 40000 && found.end < 45000 && found.end - found.start === 2);
+test("freePortRange stays below every port the system hands out, listeners included", async () => {
+  // A test's own server listens on an ephemeral port (Linux from 32768, macOS from
+  // 49152); a range that holds it, or whose Tailscale listeners (slot + 1000) do, is
+  // invalid. The pipeline range (20100-20999) and the default range lie outside too.
+  for (let i = 0; i < 50; i++) {
+    const found = await freePortRange(3);
+    assert.equal(found.end - found.start, 2);
+    assert.ok(found.start > 20999 && found.end + 1000 < 32768, JSON.stringify(found));
+  }
 });
 
 test("allocation prefers the slot the same key used last", async () => {
