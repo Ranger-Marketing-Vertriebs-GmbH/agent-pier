@@ -410,6 +410,11 @@ test("edits are fenced on the session's revision and repeated once on a conflict
     sessions.downloadArtifact({ sessionKey: key, artifactId: "a", maxBytes: 1 }),
     (e) => e.code === "UNSUPPORTED" && e.status === 501,
   );
+  // Hermes keeps no usage record (capability usage).
+  await assert.rejects(
+    sessions.usage({ key }),
+    (e) => e.code === "UNSUPPORTED" && e.status === 501,
+  );
   assert.equal(await sessions.reopenRefused({ key, error: new Error("x") }), false);
 });
 

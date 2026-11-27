@@ -15,6 +15,7 @@ import { hermesModels } from "./hermes-models.js";
 import { hermesChannels } from "./hermes-channels.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
+import { unsupported } from "./hermes-connection.js";
 import { liveTeamFiles } from "./hermes-config/team-plugin.js";
 import { ddgsInstalled } from "./hermes-config/web.js";
 import fs from "node:fs";
@@ -43,6 +44,9 @@ export const hermesCapabilities = Object.freeze({
   ...hermesConfigCapabilities,
   // Hermes keeps no compiled wiki of an agent's knowledge.
   memoryWiki: unavailable("memoryWikiUnsupported"),
+  // Hermes reports a session's context size only (hermes-sessions.js contextOf), no
+  // record of the tokens and cost per model call.
+  usage: unavailable("usageUnsupported"),
 });
 
 const isRunning = (availability) => !["disabled", "failed"].includes(availability);
@@ -236,6 +240,10 @@ export function createHermesRuntime({
     },
     create: async () => ({ agentId }),
     update: async () => ({ agentId }),
+    // Hermes keeps no usage record (capability usage).
+    usage: async () => {
+      throw unsupported("agents.usage");
+    },
     async delete({ deleteFiles = false } = {}) {
       await host.stop();
       if (deleteFiles) await remove();

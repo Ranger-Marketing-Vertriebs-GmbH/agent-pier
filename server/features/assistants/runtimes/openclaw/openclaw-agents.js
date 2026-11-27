@@ -18,6 +18,7 @@ import {
   wikiListing,
   wikiPageOf,
 } from "./openclaw-wiki.js";
+import { openClawUsage } from "./openclaw-usage.js";
 
 // Binds the methods `over(current)` builds to the supervisor's client of each call,
 // with `on(connection)` binding them to the client behind a handle of
@@ -54,6 +55,8 @@ function agentsOver(current) {
   };
   return {
     list: () => call("agents.list", {}),
+    // The tokens and cost of all its sessions over the last days (openclaw-usage.js).
+    usage: ({ agentId, days, now }) => openClawUsage(call).agent({ agentId, days, now }),
     create: async ({ name, workspace, model }) => {
       const created = await write(
         "agents.create",

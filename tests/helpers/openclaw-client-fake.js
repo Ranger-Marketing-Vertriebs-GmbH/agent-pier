@@ -99,6 +99,33 @@ export function openClawClientFake({
     "sessions.list": () => ({ sessions: [...sessions.values()].map((s) => ({ ...s })) }),
     "sessions.describe": ({ key }) =>
       sessions.has(key) ? { session: { ...sessions.get(key) } } : {},
+    // As 2026.11.6's usage report, for one session (`key`) or an agent's: every
+    // turn sent counts one model call of 10 input and 5 output tokens on a provider
+    // without a price (`missingCostEntries`).
+    "sessions.usage": ({ key, agentId, endDate }) => {
+      const turns = [...sessions.values()]
+        .filter((s) => (key ? s.key === key : s.key.startsWith(`agent:${agentId}:`)))
+        .flatMap((s) => s.messages)
+        .filter((message) => message.role === "user").length;
+      const totals = {
+        input: turns * 10,
+        output: turns * 5,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: turns * 15,
+        totalCost: 0,
+        missingCostEntries: turns,
+      };
+      return {
+        sessions: [],
+        totals,
+        aggregates: {
+          byProvider: turns ? [{ provider: "ap-fake", count: turns, totals }] : [],
+          daily: turns && endDate ? [{ date: endDate, tokens: turns * 15, cost: 0 }] : [],
+        },
+        cacheStatus: { status: "fresh", cachedFiles: 0, pendingFiles: 0, staleFiles: 0 },
+      };
+    },
     "sessions.patch": ({ key, ...patch }) => {
       Object.assign(sessions.get(key), patch);
       return { ok: true };

@@ -6,6 +6,7 @@ import {
   memoryReviewMethod,
   memoryReviewTimeoutMs,
 } from "../../team-plugin/memory-review.js";
+import { openClawUsage } from "./openclaw-usage.js";
 
 // Where OpenClaw serves an artifact's bytes once artifacts.download located it.
 const mediaPath = "/api/chat/media/outgoing/";
@@ -109,6 +110,8 @@ function sessionsOver(current) {
     wait: ({ runId, waitMs, timeoutMs }) =>
       call("agent.wait", { runId, timeoutMs: waitMs }, { timeoutMs }),
     describe: ({ key }) => call("sessions.describe", { key }),
+    // The session's tokens, cost and context (openclaw-usage.js).
+    usage: ({ key }) => openClawUsage(call).session({ key }),
     async list({ agentId, label }) {
       const listed = await call("sessions.list", {});
       return (

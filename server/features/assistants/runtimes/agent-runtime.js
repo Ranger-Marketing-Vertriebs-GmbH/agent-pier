@@ -66,6 +66,17 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *     (`status`, `stopReason`, …) after waiting up to `waitMs` for it.
  *   - describe({ key }): `{ session }`; get({ key, limit, timeoutMs }): `{ messages }`;
  *     list({ agentId, label }): the agent's sessions with that label (`[{ key }]`).
+ *   - usage({ key }): what the session used since it began, while the `usage`
+ *     capability is available: `{ tokens: { input, output, cacheRead, cacheWrite,
+ *     total }, cost, pending, context }`. `tokens` are whole counts over every model
+ *     call (`input` without the cached part). `cost` is `{ amount, currency, partial }`
+ *     or null: null when no call has a known price (a subscription login, a model
+ *     without a price), never an invented figure; `partial` when only some calls
+ *     have one, so `amount` is a lower bound. `pending`: the runtime was still
+ *     computing the figures, which may be incomplete (read again). `context`: `{ used,
+ *     limit }`, the tokens its last model call read and the model's window (`limit`
+ *     null when unknown), or null while unknown. A runtime without the capability
+ *     rejects (code UNSUPPORTED).
  *   - delete({ key, deleteTranscript }); compact({ key, timeoutMs }).
  *   - keepOpen({ key }): "reopened", "pinned", "open" or "missing"; the runtime's own
  *     maintenance never archives the session then. reopenRefused({ key, error }):
@@ -133,6 +144,13 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  * - agents: the runtime-side agent. Its async methods reject while the runtime is
  *   unreachable; answers are the runtime's own fields.
  *   - list(): `{ agents: [{ id, … }] }`.
+ *   - usage({ agentId, days, now }): what all of the agent's sessions (chats,
+ *     routines, check-ins, its bot) used over the last `days` calendar days (1 to
+ *     366) of the host's time zone up to the day of `now`, while the `usage`
+ *     capability is available: `{ from, to, tokens, cost, pending, daily }`, `from`
+ *     and `to` the first and last day (`YYYY-MM-DD`), `tokens`, `cost` and `pending`
+ *     as sessions.usage, `daily` one `{ date, tokens }` per day in order. A runtime
+ *     without the capability rejects (code UNSUPPORTED).
  *   - create({ name, workspace, model }): `{ agentId }`; update({ agentId, name,
  *     model }); delete({ agentId, deleteFiles }). Each is a configuration write: it
  *     waits for settled() and runs after every earlier write of the connection.
@@ -379,12 +397,14 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // itself (OpenClaw's Telegram channel), beside the owner's chat AgentPier's channel
 // layer serves for every runtime (`channels`); `memoryWiki`, an agent's compiled wiki
 // of pages the owner reads (agentFiles.wikiPages and wikiPage; OpenClaw's memory-wiki
-// plugin).
+// plugin); `usage`, the tokens and cost the runtime recorded per session and agent
+// (sessions.usage and agents.usage; OpenClaw's usage report).
 export const RUNTIME_CAPABILITIES = Object.freeze([
   ...RUNTIME_PORTS,
   "advancedSettings",
   "channelBots",
   "memoryWiki",
+  "usage",
 ]);
 // How a runtime behaves within a capability is a trait (runtime-traits.js), stated in
 // its descriptor and carried beside the capability's availability: "Every command",
