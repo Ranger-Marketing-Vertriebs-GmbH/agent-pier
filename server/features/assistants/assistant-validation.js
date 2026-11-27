@@ -12,8 +12,7 @@ export const assistantProblem = (key, status = 400, ...args) => {
     serverMessages.agentProjects[key] ??
     serverMessages.agentPinboard[key] ??
     serverMessages.mail[key] ??
-    serverMessages.runtimeOptions[key] ??
-    serverMessages.runtimeUpdates[key];
+    serverMessages.runtimeOptions[key];
   return Object.assign(
     problem(typeof copy === "function" ? copy(...args) : copy, status),
     { key },

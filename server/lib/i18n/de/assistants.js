@@ -601,4 +601,6 @@ export const assistants = {
   browserVisibleLimit:
     "Es laufen bereits drei sichtbare Agenten-Browser. Warte, bis einer frei ist, und versuche es erneut.",
   userAgentLocked: "Für Agenten von Benutzern gesperrt.",
+  updateRolledBack:
+    "Die neue Version konnte nicht aktiviert werden. Die vorherige Version und ihre Daten wurden wiederhergestellt; du kannst erneut aktivieren.",
 };
