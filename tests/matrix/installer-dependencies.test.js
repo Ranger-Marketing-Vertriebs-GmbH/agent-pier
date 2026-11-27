@@ -10,6 +10,9 @@ function fixture({ unavailable = ["tmux"], noManager = false, broken = false } =
     calls,
     run: async (command, args, options) => {
       calls.push({ command, args, options });
+      // The dynamic linker's cache on Linux: the optional OpenMP runtime is there.
+      if (command === "ldconfig")
+        return { stdout: "\tlibgomp.so.1 (libc6) => /lib/libgomp.so.1\n" };
       if (missing.has(command) || (noManager && ["brew", "apt-get"].includes(command)))
         throw Object.assign(Error("missing"), { code: "ENOENT" });
       if (args.includes("install") && !broken) missing.clear();
@@ -42,9 +45,82 @@ test("available prerequisites require no package manager and do not leak environ
   });
   assert.deepEqual(
     ctx.calls.map((c) => c.command),
-    ["tmux", "git", "ssh"],
+    // Linux also reads the dynamic linker's cache for the optional OpenMP runtime.
+    ["tmux", "git", "ssh", ...(process.platform === "linux" ? ["ldconfig"] : [])],
   );
   assert.deepEqual(result, { installedDependencies: [] });
+});
+
+test("Linux installs the optional OpenMP runtime where it is missing, and never fails for it", async () => {
+  const listing = (libraries) =>
+    libraries.map((name) => `\t${name} (libc6) => /lib/${name}\n`).join("");
+  const host = ({ cache, unavailable = [], refuse = false }) => {
+    const calls = [];
+    return {
+      calls,
+      run: async (command, args) => {
+        calls.push([command, ...args]);
+        if (command === "ldconfig") {
+          if (cache === null) throw Error("no ldconfig");
+          return { stdout: cache };
+        }
+        if (unavailable.includes(command)) throw Error("missing");
+        if (refuse && args.includes("install"))
+          throw Error("sudo: a password is required");
+        if (args.includes("install")) unavailable.length = 0;
+        return { stdout: "", stderr: "OpenSSH_9.6p1" };
+      },
+    };
+  };
+  const installs = (ctx) => ctx.calls.filter((call) => call.includes("install"));
+  // Missing on a minimal host: installed by itself, without an update of the lists.
+  const minimal = host({ cache: listing(["libc.so.6", "libssl.so.3"]) });
+  const result = await ensureDependencies({
+    run: minimal.run,
+    platform: "linux",
+    uid: 0,
+  });
+  assert.deepEqual(result.installed, []);
+  assert.deepEqual(installs(minimal), [["apt-get", "install", "-y", "libgomp1"]]);
+  // Together with a missing tool it joins that installation.
+  const both = host({ cache: listing(["libc.so.6"]), unavailable: ["tmux"] });
+  await ensureDependencies({ run: both.run, platform: "linux", uid: 0 });
+  assert.deepEqual(installs(both), [["apt-get", "install", "-y", "tmux", "libgomp1"]]);
+  // Present, unreadable or unknown: nothing is installed.
+  for (const cache of [listing(["libc.so.6", "libgomp.so.1"]), null, "", "fixture"]) {
+    const ctx = host({ cache });
+    await ensureDependencies({ run: ctx.run, platform: "linux", uid: 0 });
+    assert.deepEqual(installs(ctx), []);
+  }
+  // Checking only, a host without apt-get and a refused sudo never fail for it.
+  const checked = host({ cache: listing(["libc.so.6"]) });
+  await ensureDependencies({ run: checked.run, platform: "linux", install: false });
+  assert.deepEqual(installs(checked), []);
+  const noApt = host({ cache: listing(["libc.so.6"]), unavailable: ["apt-get"] });
+  await ensureDependencies({ run: noApt.run, platform: "linux", uid: 0 });
+  assert.deepEqual(installs(noApt), []);
+  const refused = host({ cache: listing(["libc.so.6"]), refuse: true });
+  assert.deepEqual(
+    (
+      await ensureDependencies({
+        run: refused.run,
+        platform: "linux",
+        uid: 501,
+        interactive: false,
+      })
+    ).installed,
+    [],
+  );
+  assert.deepEqual(installs(refused), [
+    ["sudo", "-n", "apt-get", "install", "-y", "libgomp1"],
+  ]);
+  // macOS has no such library to look for.
+  const mac = host({ cache: null });
+  await ensureDependencies({ run: mac.run, platform: "darwin" });
+  assert.equal(
+    mac.calls.some(([command]) => command === "ldconfig"),
+    false,
+  );
 });
 
 for (const [uid, interactive, command, prefix] of [

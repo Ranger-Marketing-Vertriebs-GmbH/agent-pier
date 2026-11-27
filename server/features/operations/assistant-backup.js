@@ -59,6 +59,9 @@ const excludedFolders = new Set([
   // Gateway logs are diagnostics that grow without bound; they never block a backup.
   "logs",
   "runtimes",
+  // The pinned llama.cpp server and embedding model of semantic memory search:
+  // downloads, installed again where they are missing (embedding-assets.js).
+  "embeddings",
   "npm-cache",
   "tmp",
   "backups",
