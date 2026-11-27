@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { pushKinds } from "../../server/features/notifications/push-validation.js";
+import {
+  approvalSubjects,
+  pushKinds,
+} from "../../server/features/notifications/push-validation.js";
 
 const publicFile = (name) => new URL(`../../public/${name}`, import.meta.url);
 const scope = {};
@@ -25,6 +28,8 @@ test("both catalogs word every kind the server sends, with the same keys", () =>
       assert.deepEqual(Object.keys(copy).sort(), ["body", "name", "title"]);
   }
   assert.deepEqual(Object.keys(de.subjects), Object.keys(en.subjects));
+  assert.deepEqual(Object.keys(de.subjects).sort(), [...approvalSubjects].sort());
+  assert.deepEqual(Object.keys(de.subjectBodies), Object.keys(en.subjectBodies));
   assert.deepEqual(Object.keys(de.tools), Object.keys(en.tools));
 });
 
@@ -52,6 +57,21 @@ test("the worker words each detail level in the owner's language", () => {
     render({ v: 2, kind: "agent-approval", subject: "hook", label: "Mira" }, de).title,
     "Mira · Hook-Vorschlag",
   );
+  // An agent's question waits for an answer; its preview shows where a device asks.
+  const asked = { v: 2, kind: "agent-approval", subject: "question", label: "Nova" };
+  assert.deepEqual(render(asked, en), {
+    title: "Nova · Question",
+    body: "An agent is waiting for your answer.",
+  });
+  assert.deepEqual(render({ ...asked, preview: "Which environment?" }, de), {
+    title: "Nova · Frage",
+    body: "„Which environment?“",
+  });
+  // "Event type only" sends no subject: the kind's own words.
+  assert.deepEqual(render({ v: 2, kind: "agent-approval" }, en), {
+    title: "AgentPier: Approval required",
+    body: "An agent is waiting for your decision.",
+  });
   assert.deepEqual(render({ v: 2, kind: "pipeline-failed", stage: "Tests" }, de), {
     title: "AgentPier: Pipeline fehlgeschlagen",
     body: "Öffne AgentPier, um zu sehen, was fehlschlug.\nTests",

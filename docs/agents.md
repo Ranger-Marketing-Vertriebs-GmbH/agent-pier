@@ -2220,6 +2220,13 @@ guessing, and its turn waits for you. The chat shows **Question from the agent**
   card leaves and the agent goes on with its best judgment. **The agent no longer
   waits for this answer.** says that your answer came too late.
 - While the question waits, the line under your message says "Asking you a question".
+- You learn about a waiting question outside its chat as well: the agent's row in the
+  sidebar and the chat's header say **Waiting for your answer**, the
+  [inbox](inbox.md) lists it under **Questions** with the same card, and your devices
+  get one [notification](notifications.md) per question ("Nova · Question"), unless you
+  are looking at that chat or the inbox. The switch **Agent approval or question**
+  covers it. All of them end once you answered, the agent stopped waiting or its turn
+  ended.
 
 Who asks: your own agents, in their chats with you. Team members report to their lead
 and never ask you; agents of [users](#users) and agents with their own Telegram bot for

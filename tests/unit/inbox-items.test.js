@@ -413,3 +413,36 @@ test("a gate names the project folder and the task's first line, not the run id"
   assert.equal(item.source.project, "shop");
   assert.equal(item.task, "Add a vegetarian filter");
 });
+
+test("an agent's question waits under Questions; one whose id is no address is left out", async () => {
+  const { agentQuestionItem } =
+    await import("../../server/features/inbox/inbox-items.js");
+  const agents = new Map([["a1", { id: "a1", name: "Helper" }]]);
+  const conversations = [{ id: "c1", assistantId: "a1", archivedAt: null }];
+  const question = {
+    id: "ask_1",
+    assistantId: "a1",
+    conversationId: "c1",
+    questions: [
+      {
+        id: "stage",
+        header: "Stage",
+        text: "Which stage?",
+        options: [{ label: "prod" }],
+      },
+    ],
+    createdAt: now - 60000,
+    expiresAt: now + 60000,
+  };
+  const listed = agentQuestionItem(question, agents, conversations);
+  assert.deepEqual(
+    [listed.type, listed.tab, listed.kind, listed.title, listed.link, listed.source.name],
+    ["question", "questions", "agent-question", "Stage", "/agents/a1/chats/c1", "Helper"],
+  );
+  assert.equal(listed.expiresAt, at(60000));
+  assert.deepEqual(listed.questions, question.questions);
+  assert.equal(
+    agentQuestionItem({ ...question, id: "a/b c" }, agents, conversations),
+    null,
+  );
+});

@@ -764,6 +764,7 @@ export const assistantCopy = {
     compacting: "Summarising conversation",
     savingMemories: "Saving memories",
     degraded: "Couldn't start",
+    question: "Waiting for your answer",
   },
   // A run that shortens its long history first (server compactions.js).
   compaction: {

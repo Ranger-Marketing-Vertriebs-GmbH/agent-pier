@@ -80,6 +80,31 @@ test("approvals never carry a preview; a team proposal shows its goal", () => {
   const payload = buildPayload(team, at("preview"));
   assert.equal(payload.preview, "Prepare the changelog for release 2.1");
   assert.equal(payload.subject, "team");
+  // An agent's question previews itself and opens its chat, where its card is.
+  const asked = buildPayload(
+    pushEvent({
+      kind: "agent-approval",
+      eventId: "q1",
+      assistantId: "nova",
+      conversationId: "chat-one",
+      subject: "question",
+      inbox: { type: "question", id: "ask_1" },
+      label: "Nova",
+      preview: "Which environment should I deploy to?",
+    }),
+    at("preview"),
+  );
+  assert.deepEqual(
+    [asked.preview, asked.link, asked.item, asked.tag, asked.renotify, asked.decide],
+    [
+      "Which environment should I deploy to?",
+      "/agents/nova/chats/chat-one",
+      "/inbox/question/ask_1",
+      "chat:chat-one",
+      true,
+      undefined,
+    ],
+  );
   // Without the lead's chat the proposal opens its inbox item.
   assert.equal(payload.link, "/inbox/team/team-one");
   assert.equal(payload.item, "/inbox/team/team-one");

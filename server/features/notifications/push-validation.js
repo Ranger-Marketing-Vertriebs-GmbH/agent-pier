@@ -118,6 +118,8 @@ export const approvalSubjects = [
   "team",
   "sftp",
   "mail",
+  // A question an agent asks while its turn waits (agent-questions.js).
+  "question",
 ];
 
 // Kinds about one agent; a notice opens its chat when it names one.

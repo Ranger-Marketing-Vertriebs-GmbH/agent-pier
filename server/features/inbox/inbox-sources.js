@@ -1,5 +1,6 @@
 import {
   actionItem,
+  agentQuestionItem,
   chatLink,
   craftItems,
   gateItem,
@@ -10,6 +11,7 @@ import {
 } from "./inbox-items.js";
 import { escalationKey } from "../assistants/coding-sessions/session-requests.js";
 import { memoryReviews } from "../assistants/memory-reviews.js";
+import { ownerQuestions } from "../assistants/agent-questions.js";
 
 // The escalation of a session prompt (coding-sessions/session-escalations.js) while
 // it waits, with its agent's name and note, or null. A lookup that fails is null, so
@@ -178,6 +180,12 @@ export async function collectItems(
         (a) => !users.has(a.conversationId) && a.payload?.action !== "session_request",
       )
       .map((a) => actionItem(a, agents, conversations)),
+  );
+  // The questions agents ask the owner while their turns wait; a user's are hers.
+  await read("agent questions", () =>
+    ownerQuestions(assistants)
+      .map((q) => agentQuestionItem(q, agents, conversations))
+      .filter(Boolean),
   );
   await read("teams", () =>
     (assistants.teams?.store.list() || [])

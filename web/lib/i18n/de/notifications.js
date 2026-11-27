@@ -83,7 +83,7 @@ export const notificationCopy = {
     "session-waiting": "Session wartet im Terminal",
     "pipeline-gate": "Pipeline wartet an einem Gate",
     "agent-approval":
-      "Freigabe für einen Agenten (Shell, SSH, Aufträge, Team-Vorschläge)",
+      "Freigabe oder Frage eines Agenten (Shell, SSH, Aufträge, Team-Vorschläge)",
     "session-completed": "Antwort bereit",
     "session-ended": "Session beendet",
     "pipeline-completed": "Pipeline abgeschlossen",

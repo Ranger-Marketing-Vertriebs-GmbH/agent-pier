@@ -14,6 +14,7 @@ import {
   InboxCraftDetail,
   InboxGateDetail,
   InboxMemoryReviewDetail,
+  InboxQuestionDetail,
   InboxRequestDetail,
   InboxTeamDetail,
   InboxUnresolvedDetail,
@@ -21,7 +22,7 @@ import {
 import InboxStale from "./InboxStale.jsx";
 
 const details = {
-  question: InboxRequestDetail,
+  question: InboxQuestionDetail,
   approval: InboxRequestDetail,
   gate: InboxGateDetail,
   craft: InboxCraftDetail,

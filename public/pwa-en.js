@@ -141,6 +141,11 @@ self.agentPierNotificationCopyEn = {
     team: "Team proposal",
     sftp: "SFTP transfer",
     mail: "Email to send",
+    question: "Question",
+  },
+  // What a subject waits for when it is no decision.
+  subjectBodies: {
+    question: "An agent is waiting for your answer.",
   },
   tools: {
     claude: "Claude Code",

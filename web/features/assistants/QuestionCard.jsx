@@ -43,9 +43,10 @@ export function cardAnswers(fields, drafts) {
  * click answers it, beside a field for an answer of the owner's own; several
  * questions, a multiple choice or options with a description show as a form that is
  * sent in one piece. The answers go back to the agent's turn; the card leaves once
- * the feed no longer lists it.
+ * the feed no longer lists it. The inbox shows the same card and reads its list again
+ * after an answer (`onAnswered`).
  */
-export default function QuestionCard({ conversationId, question }) {
+export default function QuestionCard({ conversationId, question, onAnswered }) {
   const copy = assistantWorkflowCopy.question;
   const [text, setText] = useState("");
   const [drafts, setDrafts] = useState({});
@@ -62,6 +63,7 @@ export default function QuestionCard({ conversationId, question }) {
     try {
       await assistantApi.answerQuestion(conversationId, question.id, answers);
       setText("");
+      onAnswered?.();
     } catch (failure) {
       // The server names why (the agent no longer waits), translated.
       setError(failure?.message || copy.failed);

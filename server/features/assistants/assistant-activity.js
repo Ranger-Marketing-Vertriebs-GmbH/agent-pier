@@ -31,7 +31,7 @@ function attemptStates(conversations, latest) {
   return states;
 }
 
-function classify({ degraded, attempts, member, pendingApprovals, team }) {
+function classify({ degraded, attempts, member, pendingApprovals, team, asked }) {
   // The running Gateway refused the agent (agent-admission.js): it takes no turn.
   if (degraded)
     return { state: "attention", reason: "degraded", label: "status.degraded" };
@@ -48,6 +48,8 @@ function classify({ degraded, attempts, member, pendingApprovals, team }) {
       label:
         team === "awaiting" ? "teamActive.awaiting" : "team.states.awaiting_approval",
     };
+  // Its turn waits for the owner's answer (agent-questions.js), not for the model.
+  if (asked) return { state: "waiting", reason: "question", label: "status.question" };
   if (attempts.some((s) => workingAttempts.has(s)))
     return {
       state: "working",
@@ -72,6 +74,8 @@ export function assistantActivity({
   conversations = [],
   latest = [],
   awaiting = {},
+  // The agents that ask the owner a question right now.
+  asking = new Set(),
   teams = [],
   members = [],
 }) {
@@ -106,6 +110,7 @@ export function assistantActivity({
         member: memberOf.get(assistant.id),
         pendingApprovals,
         team,
+        asked: asking.has(assistant.id),
       }),
       pendingApprovals,
       team,

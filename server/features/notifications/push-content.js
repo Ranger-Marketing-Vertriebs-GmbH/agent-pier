@@ -10,8 +10,9 @@ export const payloadBudget = 1024;
 export const previewLimit = 140;
 const labelLimit = 60;
 
-// Kinds whose preview level may show a short text: questions, the start of a reply,
-// check-ins and team goals. Approvals never do (a rebuild's approval sends no preview).
+// Kinds whose preview level may show a short text: questions (a CLI's, a rebuild's and
+// an agent's), the start of a reply, check-ins and team goals. Approvals never do (a
+// rebuild's approval sends no preview).
 // A rate-limited session previews the CLI's own limit message with its reset time.
 const previewKinds = new Set([
   "question",
@@ -22,7 +23,7 @@ const previewKinds = new Set([
 ]);
 const previewAllowed = (event) =>
   previewKinds.has(event.kind) ||
-  (event.kind === "agent-approval" && event.subject === "team");
+  (event.kind === "agent-approval" && ["team", "question"].includes(event.subject));
 
 const sensitivePatterns = [
   // URLs and mail addresses.

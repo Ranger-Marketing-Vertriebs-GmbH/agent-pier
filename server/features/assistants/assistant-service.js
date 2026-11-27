@@ -225,6 +225,7 @@ export class AssistantService {
           this.workflows?.store?.awaitingCounts(Date.now(), (action) =>
             ownerApproval(action, this.store),
           ) ?? {},
+        asking: this.questions?.ownerAsking(),
         teams: teamData?.teams ?? [],
         members: teamData?.members ?? [],
       }),

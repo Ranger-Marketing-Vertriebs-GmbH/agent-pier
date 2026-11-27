@@ -14,7 +14,7 @@ The **Control Room** below Inbox groups work by Composer order. A waiting decisi
 
 | Tab           | Items                                                                                                                                                                                                                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                                                                                                                                                      |
+| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode) and [questions your agents ask](agents.md#questions-from-the-agent) while their turn waits                                                                                                                           |
 | **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                                                                                                                                                |
 | **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                                                                                                                                                  |
 | **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, emails to send, hook and SSH access proposals), team proposals, the [memory review after a model switch](agents.md#memory) and [unresolved agent work](#unresolved-agent-work) |
@@ -29,7 +29,8 @@ project folder and the first line of the run's task.
 Select an item to open it in the detail pane. The pane is titled like its row (a CLI
 question by its header, other items by their own title or their kind) with the kind and
 source below. The pane shows the same card you would
-see in place: the native question or approval from the session's chat, the gate
+see in place: the native question or approval from the session's chat, an agent's
+question with the card of its chat, the gate
 decision from the run (with the run's spec when it has one, see
 [pipelines](pipelines.md#spec-and-acceptance-criteria), the risky paths of a risk gate or why its check could not run,
 see [pipelines](pipelines.md#risk-gate), the tokens a run reported against its budget with
@@ -418,6 +419,12 @@ screen decide only when none is open (see [architecture](architecture.md)).
   waiting run's card and an agent's request card follow the run's and the agent's
   live topics (`pipeline.run:<id>`, `agent.actions:<id>`), so a decision made
   elsewhere shows at once.
+- An agent's question (`type` `question`, `kind` `agent-question`, `source.kind`
+  `agent`) also carries its chat (`conversationId`) and its `questions` as the chat's
+  card shows them; the card answers through the chat's own route
+  (`POST /api/assistant-conversations/:id/questions/:questionId/answer`). Questions
+  live in memory while their turn waits (`agent-questions.js`), so an ended one is
+  simply no longer waiting. A question in a restricted user's chat is never listed.
 - The live channel's `inbox` topic (owner only) pushes the same value as
   `GET /api/inbox` whenever the waiting set changes; the start page's **Needs you** and
   the inbox page take their list from it and send no request of their own while the
