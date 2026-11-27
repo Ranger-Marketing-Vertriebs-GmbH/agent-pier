@@ -34,6 +34,13 @@ async function workspace(page, origin, configuredUrl = remoteUrl) {
   );
 }
 
+// Every request goes through the route above, also the assets the app still loads
+// when a test is done. One whose fetch is under way then finds its response disposed
+// with the test's context: such late requests are dropped instead of failing the test.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 for (const locale of ["de-DE", "en-GB"]) {
   test.describe(locale, () => {
     test.use({ locale });
