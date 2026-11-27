@@ -83,7 +83,8 @@
     "tests/integration/assistant-project-files-contract.test.js",
     "tests/integration/assistant-routine-restart-contract.test.js",
     "tests/integration/assistant-shopping-skill-contract.test.js",
-    "tests/integration/assistant-write-guard-contract.test.js"
+    "tests/integration/assistant-write-guard-contract.test.js",
+    "tests/integration/assistant-semantic-memory-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -168,6 +169,7 @@
     "tests/integration/assistant-project-files-contract.test.js": 14,
     "tests/integration/assistant-routine-restart-contract.test.js": 50,
     "tests/integration/assistant-shopping-skill-contract.test.js": 30,
-    "tests/integration/assistant-write-guard-contract.test.js": 20
+    "tests/integration/assistant-write-guard-contract.test.js": 20,
+    "tests/integration/assistant-semantic-memory-contract.test.js": 240
   }
 }

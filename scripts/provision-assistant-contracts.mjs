@@ -22,12 +22,17 @@ export const runtimeVariables = [
   "AGENTPIER_SKILLS_CONTRACT_RUNTIME",
   "AGENTPIER_IMAGE_CONTRACT_RUNTIME",
   "AGENTPIER_E2E_CONTRACT_RUNTIME",
+  "AGENTPIER_SEMANTIC_MEMORY_CONTRACT_RUNTIME",
 ];
 
 /**
  * Provisions the pinned runtime exactly like `setup.sh --with-assistants` into a
  * disposable data directory and returns the environment the opt-in native contract
  * tests read. No credentials are involved; models and channels stay simulated.
+ * AGENTPIER_EMBEDDING_ASSETS names this data directory's assistant folder: the
+ * semantic memory contract keeps the pinned llama.cpp server and embedding model in
+ * its `embeddings/` folder (the runtime installation put the server there; the
+ * contract downloads the model once, and CI caches the folder).
  */
 export async function provisionContractRuntime(
   dataDir,
@@ -53,6 +58,7 @@ export async function provisionContractRuntime(
     AGENTPIER_ASSISTANT_CONTRACT_DIR: dataDir,
     AGENTPIER_ASSISTANT_QUALIFICATION: "1",
     ...Object.fromEntries(runtimeVariables.map((name) => [name, runtime])),
+    AGENTPIER_EMBEDDING_ASSETS: path.join(dataDir, "assistants"),
   };
 }
 

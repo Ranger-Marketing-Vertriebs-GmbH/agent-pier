@@ -19,6 +19,10 @@ import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import { applyLearning, hostLearns } from "./openclaw-config/skill-learning.js";
 import { applyMemoryWiki, hostWiki } from "./openclaw-config/memory-wiki.js";
 import {
+  applySemanticMemory,
+  semanticMemorySections,
+} from "./openclaw-config/semantic-memory.js";
+import {
   applyTelegram,
   configuredAgents,
   telegramSections,
@@ -156,7 +160,7 @@ export function canonicalAgentRoster(config) {
 /**
  * A Gateway start's openclaw.json from AgentPier's desired state (`desired`,
  * agent-desired-state.js: the agents and the host's team plugin, native tools, web
- * tools, MCP servers, Telegram bots and dreaming) and this start's own facts: the
+ * tools, MCP servers, Telegram bots, dreaming and semantic memory search) and this start's own facts: the
  * file it starts from, paths, port, token, the owner's overrides, maintenance, TLS,
  * the owner's login PATH (`shell`) and skill shadows. Pure: the same inputs and
  * runtime state always yield the same configuration. Without `desired`, `teams`,
@@ -377,6 +381,15 @@ export function compileOpenClawConfig({
       );
     }
   }
+  // Memory search by local embeddings while the owner's setting is on and usable
+  // (openclaw-config/semantic-memory.js); otherwise keyword search, and a provider
+  // entry an earlier start wrote is removed.
+  applySemanticMemory(
+    config,
+    enabled && native
+      ? semanticMemorySections({ semanticMemory: host.semanticMemory, port })
+      : null,
+  );
   // Only the native team start compiles the agents' own bots; any other start, and
   // every start without bots, removes what an earlier one wrote.
   applyTelegram(config, telegramCompiled);

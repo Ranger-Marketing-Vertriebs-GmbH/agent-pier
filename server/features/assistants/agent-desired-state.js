@@ -224,3 +224,21 @@ export function desiredState(inputs = {}) {
   built.add(state);
   return state;
 }
+
+/**
+ * The desired state `state` with what local memory embeddings need on its host
+ * (`semanticMemory`: SemanticMemory.compiled(), the plugin, the server and the model
+ * of the owner's semantic memory search), or `state` itself without it: memory
+ * search is then by keyword, the default. The stores' reads (desiredState's inputs)
+ * are built into a state first. Frozen like `state`.
+ */
+export function withSemanticMemory(inputs, semanticMemory) {
+  if (!semanticMemory) return inputs;
+  const state = isDesiredState(inputs) ? inputs : desiredState(inputs || {});
+  const next = Object.freeze({
+    ...state,
+    host: Object.freeze({ ...state.host, semanticMemory: frozen({ ...semanticMemory }) }),
+  });
+  built.add(next);
+  return next;
+}

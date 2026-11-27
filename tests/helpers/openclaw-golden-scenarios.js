@@ -382,4 +382,39 @@ export const goldenScenarios = {
         overrides: [{ path: "agents.defaults.timeoutSeconds", value: 3600 }],
       },
     ),
+  // The owner's semantic memory search is on: local embeddings through the llama.cpp
+  // plugin, with the server and the model AgentPier installed (`semanticMemory` is
+  // what SemanticMemory.compiled() adds to the desired state). An agent with memory,
+  // one without, and the provider entry of an earlier start on another port.
+  "semantic-memory": () => {
+    const profiles = [
+      agent("a1", { capabilities: { memory: true } }),
+      agent("a2", { capabilities: {} }),
+    ];
+    return base(
+      { profiles },
+      {
+        existing: {
+          ...roster(profiles),
+          models: {
+            providers: {
+              "llama-cpp": { baseUrl: "http://127.0.0.1:9/v1", models: [] },
+              p: { baseUrl: "http://127.0.0.1:9" },
+            },
+          },
+        },
+        semanticMemory: {
+          plugin: {
+            id: "llama-cpp",
+            directory: "/golden/runtime/app/node_modules/@openclaw/llama-cpp-provider",
+          },
+          command: `${root}/embeddings/llama.cpp/b10809-linux-x64/llama-server`,
+          model: `${root}/embeddings/models/hf_ggml-org_embeddinggemma-300m-qat-Q8_0.gguf`,
+          modelCacheDir: `${root}/embeddings/models`,
+          preset: `${root}/embeddings/llama-models.ini`,
+          pidFile: `${root}/embeddings/llama-server.pid`,
+        },
+      },
+    );
+  },
 };

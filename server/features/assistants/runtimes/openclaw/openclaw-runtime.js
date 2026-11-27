@@ -10,7 +10,7 @@ import { openClawModels } from "./openclaw-models.js";
 import { openClawRoutines } from "./openclaw-routines.js";
 import { openClawSkills } from "./openclaw-skills.js";
 import { openClawSessions } from "./openclaw-sessions.js";
-import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
+import { embeddingPortOffset } from "./openclaw-config/semantic-memory.js";
 
 // One opaque handle per Gateway client: a restart replaces the client, so the handle
 // tells callers whether an await crossed one. Shared by every adapter of a process.
@@ -39,14 +39,19 @@ const portOf = (url) => {
   }
 };
 
-/** The Gateway's loopback ports: its own, its CDP ports and the browser profiles'. */
+/**
+ * The Gateway's loopback ports: its own, its CDP ports, the embedding server's and
+ * the browser profiles'.
+ */
 function loopbackPorts(supervisor) {
   const ports = [];
   const gateway = portOf(supervisor?.client?.url) ?? supervisor?.webTools?.port;
   if (gateway) {
     ports.push(gateway);
-    // OpenClaw's CDP ports: gateway + 11 up to + lastCdpOffset (web-tools.js).
-    for (let offset = 11; offset <= lastCdpOffset; offset++) ports.push(gateway + offset);
+    // OpenClaw's CDP ports: gateway + 11 up to + lastCdpOffset (web-tools.js); the
+    // embedding server's follows them (openclaw-config/semantic-memory.js).
+    for (let offset = 11; offset <= embeddingPortOffset; offset++)
+      ports.push(gateway + offset);
   }
   for (const profile of Object.values(supervisor?.webTools?.browserProfiles || {}))
     ports.push(profile?.cdpPort);

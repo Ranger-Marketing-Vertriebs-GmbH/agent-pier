@@ -47,6 +47,9 @@ test("contracts use the runtime the installer's --with-assistants step selected"
     AGENTPIER_SKILLS_CONTRACT_RUNTIME: runtime,
     AGENTPIER_IMAGE_CONTRACT_RUNTIME: runtime,
     AGENTPIER_E2E_CONTRACT_RUNTIME: runtime,
+    AGENTPIER_SEMANTIC_MEMORY_CONTRACT_RUNTIME: runtime,
+    // Where the semantic memory contract keeps the pinned server and model.
+    AGENTPIER_EMBEDDING_ASSETS: path.join(dataDir, "assistants"),
   });
 });
 

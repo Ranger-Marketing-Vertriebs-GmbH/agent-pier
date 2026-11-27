@@ -87,6 +87,26 @@ export function runtimesTopic(services) {
   };
 }
 
+// The live `runtime.semantic-memory` topic: the owner's semantic memory search, the
+// value GET /api/assistant-semantic-memory answers (off, downloading with its bytes,
+// rebuilding with its agents, on, or failed with its reason). The service signals
+// every change itself (runtimes/openclaw/semantic-memory.js `changed`: each step of
+// a download and of an index rebuild), so nothing is sampled. Owner only.
+export function semanticMemoryTopic(services) {
+  return {
+    name: "runtime.semantic-memory",
+    mode: "state",
+    authorize: (principal) => principal?.role === "owner",
+    scopeKey: () => "owner",
+    read() {
+      if (!services.assistants || !services.assistantSemanticMemory)
+        throw notRunning(Boolean(services.assistantFeature?.enabled));
+      return services.assistantSemanticMemory.status();
+    },
+    watch: ({ invalidate }) => followAgentSwitch(services, invalidate),
+  };
+}
+
 /** An install state changed: the topic is read again (`live`: the hub, once listening). */
 export const runtimesChanged = (live) => live?.invalidate("runtimes");
 
