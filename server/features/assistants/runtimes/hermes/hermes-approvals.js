@@ -21,8 +21,8 @@ function approvalsOver(current) {
     list: async () => (await queue()).list(),
     // The clarify questions of the agent (hermes-questions.js) and their answers.
     questions: async () => reachable(current()).questions.list(),
-    answer: async ({ id, answer }) =>
-      reachable(current()).questions.answer({ id, answer }),
+    answer: async ({ id, answers }) =>
+      reachable(current()).questions.answer({ id, answers }),
     resolve: async ({ id, decision }) => (await queue()).resolve({ id, decision }),
     // Hermes only: a question AgentPier raises for a routine run, which Hermes asks
     // nobody in (hermes-approval-queue.js ask); resolves with the owner's decision.

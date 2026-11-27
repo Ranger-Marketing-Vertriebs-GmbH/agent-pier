@@ -221,6 +221,12 @@ export class GatewayClient extends EventEmitter {
                   /^[a-z][a-z-]{0,39}$/.test(frame.error.details.state)
                     ? { detailState: frame.error.details.state }
                     : {}),
+                  // The stable reason code of a refusal's details (a question's
+                  // QUESTION_NOT_FOUND, openclaw-questions.js): a code, never text.
+                  ...(typeof frame.error?.details?.reason === "string" &&
+                  /^[A-Z][A-Z_]{2,60}$/.test(frame.error.details.reason)
+                    ? { detailReason: frame.error.details.reason }
+                    : {}),
                   // A plugin method's failure whose whole message is a stable code
                   // (team-plugin/chat-title.js): no text, so it may be logged.
                   ...(frame.error?.code === "UNAVAILABLE" &&

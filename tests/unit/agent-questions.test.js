@@ -74,9 +74,16 @@ const asked = (hub, extra = {}) =>
     payload: {
       id: "q1",
       request: {
-        question: "Which stage?",
-        choices: ["staging", "prod"],
-        multiSelect: false,
+        questions: [
+          {
+            id: "answer",
+            header: "",
+            text: "Which stage?",
+            options: [{ label: "staging" }, { label: "prod" }],
+            multiSelect: false,
+            other: true,
+          },
+        ],
         agentId: "ap-h",
         sessionKey: key,
         runId: "run-1",
@@ -92,8 +99,14 @@ test("a question waits in its chat and the owner's answer reaches the runtime", 
   const questions = new AgentQuestions(s);
   asked(s.gatewayEvents);
   assert.deepEqual(
-    questions.list("c1").map((q) => [q.id, q.question, q.choices, q.runId]),
-    [["q1", "Which stage?", ["staging", "prod"], "run-1"]],
+    questions
+      .list("c1")
+      .map((q) => [
+        q.id,
+        q.questions.map((x) => [x.text, x.options.map((o) => o.label)]),
+        q.runId,
+      ]),
+    [["q1", [["Which stage?", ["staging", "prod"]]], "run-1"]],
   );
   assert.equal(questions.list("c1")[0].telegram, undefined);
   assert.deepEqual(changes.at(-1), { conversationId: "c1" });
@@ -105,7 +118,7 @@ test("a question waits in its chat and the owner's answer reaches the runtime", 
   await assert.rejects(questions.answer("c1", "q1", { answer: "  " }), { status: 400 });
   // A choice's number is its label.
   await questions.answer("c1", "q1", { answer: "2" });
-  assert.deepEqual(answers, [{ id: "q1", answer: "prod" }]);
+  assert.deepEqual(answers, [{ id: "q1", answers: { answer: ["prod"] } }]);
   assert.deepEqual(questions.list("c1"), []);
   // Ended by the runtime (answered elsewhere, timed out).
   asked(s.gatewayEvents, { id: "q2" });
@@ -114,7 +127,11 @@ test("a question waits in its chat and the owner's answer reaches the runtime", 
   // A question of a chat AgentPier does not know is not shown.
   asked(s.gatewayEvents, {
     id: "q3",
-    request: { question: "?", agentId: "ap-h", sessionKey: "agent:ap-h:hermes:other" },
+    request: {
+      questions: [{ id: "answer", text: "?", options: [], other: true }],
+      agentId: "ap-h",
+      sessionKey: "agent:ap-h:hermes:other",
+    },
   });
   assert.deepEqual(questions.list("c1"), []);
 });
@@ -173,7 +190,7 @@ test("a turn from Telegram asks there too, and the next message there answers it
     }),
     true,
   );
-  assert.deepEqual(answers, [{ id: "q1", answer: "staging please" }]);
+  assert.deepEqual(answers, [{ id: "q1", answers: { answer: ["staging please"] } }]);
   assert.deepEqual(patched, [["e1", { state: "delivered", diagnostic: null }]]);
   assert.equal(sent[0].text, "Answer sent to the agent.");
   // Nothing waits any more: the next message is a turn again.

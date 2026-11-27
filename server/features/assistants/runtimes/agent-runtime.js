@@ -247,11 +247,23 @@ export { RUNTIME_SLOTS } from "./runtime-surfaces.js";
  *   - allowAlwaysPlan(payload, { pathDirs, wrapperDirs }): synchronously, what
  *     "Always allow" writes for a request the runtime withheld it from:
  *     `{ kind: "paths", paths, writable }` or `{ kind: "once", reason, program }`.
- *   - questions(), answer({ id, answer }): only on a runtime whose agent asks the
- *     person in the chat (Hermes's clarify tool, hermes/hermes-questions.js): the
- *     waiting questions and the answer, a choice's label or free text. They arrive
- *     as run events of kind "other" (events "question.requested" and
- *     "question.resolved"); a runtime without them never sends either.
+ *   - questions(), answer({ id, answers }): the requests of an agent that asks the
+ *     person in its chat and waits (OpenClaw's ask_user tool,
+ *     openclaw/openclaw-questions.js; Hermes's clarify tool,
+ *     hermes/hermes-questions.js). A request arrives as a run event of kind "other",
+ *     event "question.requested", payload `{ id, request: { questions, agentId,
+ *     sessionKey, runId }, createdAtMs, expiresAtMs }`: one to three `questions`,
+ *     each `{ id, header, text, options: [{ label, description, value }],
+ *     multiSelect, other }` (`other`: an own text is taken; `value`: what the
+ *     runtime expects for the option when it is not its label). Hermes asks one,
+ *     with the id "answer". questions() lists the waiting ones in that shape.
+ *     answer() takes `answers`, `{ <question id>: [value, …] }` for every question,
+ *     and rejects with `answered` once the runtime no longer waits and with
+ *     `invalid` for values a question does not take. The end arrives as
+ *     "question.resolved" `{ id, status, sessionKey, runId }`, `status` "answered",
+ *     "expired" or "cancelled".
+ *   - decline({ id }), optional (OpenClaw): withdraws a request nobody can answer,
+ *     so the agent goes on at once instead of waiting out the runtime's timeout.
  *   - on(connection), as sessions.on.
  * - routines: add, update, remove, run, list runs. Routines are AgentPier's own model
  *   (../routine-definition.js: schedule, prompt, target, delivery, marker, …), which

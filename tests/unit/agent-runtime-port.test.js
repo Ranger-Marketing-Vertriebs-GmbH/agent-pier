@@ -26,9 +26,10 @@ function fakeSupervisor({
   version = null,
   runFailure = null,
   approvals = [],
+  questions = [],
 } = {}) {
   const calls = [];
-  const store = openClawStore({ approvals });
+  const store = openClawStore({ approvals, questions });
   const connect = () => openClawClientFake({ channels, runFailure, calls, store });
   const supervisor = new EventEmitter();
   const state = {

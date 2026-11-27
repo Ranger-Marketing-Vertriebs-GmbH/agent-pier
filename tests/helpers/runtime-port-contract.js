@@ -36,7 +36,8 @@ import {
  * - `unreachable`: true when the backend cannot be reached at all;
  * - `version`: the version the host runs;
  * - `runFailure`: why every run fails (e.g. "timeout"), or none when runs finish;
- * - `approvals`: the exec approval requests pending at the start.
+ * - `approvals`: the exec approval requests pending at the start;
+ * - `questions`: the questions an agent asks the person, waiting at the start.
  * Later tickets add a section per sub-port as its methods arrive.
  */
 export function runtimePortContract(name, make) {
@@ -173,6 +174,7 @@ export function fakeRuntime({
   version = null,
   runFailure = null,
   approvals = [],
+  questions = [],
 } = {}) {
   const reach = async (answer) => {
     if (unreachable)
@@ -236,7 +238,7 @@ export function fakeRuntime({
     },
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
     ...withDesiredConfig(fakeAgentPorts({ reach, connection: () => connection })),
-    ...fakeApprovalPorts({ reach, connection: () => connection, approvals }),
+    ...fakeApprovalPorts({ reach, connection: () => connection, approvals, questions }),
     ...fakeRoutinePorts({ reach, connection: () => connection }),
     ...fakeToolPorts({ reach, connection: () => connection }),
     channels: {

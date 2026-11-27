@@ -31,6 +31,9 @@ export const agentRunStepsCopy = {
     pdf: "Reading a PDF",
     memory_search: "Searching memory",
     memory_get: "Reading memory",
+    // A question to the person in the chat: OpenClaw's ask_user, Hermes's clarify.
+    ask_user: "Asking you a question",
+    clarify: "Asking you a question",
   },
   tool: (name) => `Tool ${name}`,
   // An advisor model's answer of a Mixture of Agents turn.

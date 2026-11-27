@@ -1,8 +1,11 @@
 // How OpenClaw's Gateway frames read as the port's run events (agent-runtime.js):
 // `chat` frames carry a run's reply and end (`state` delta, final, aborted, error with
 // its `errorKind`), `agent` frames its live progress (`stream` lifecycle, item, …),
-// and `exec.approval.requested`/`resolved` the approvals. The reply of a `chat` frame
-// becomes the event's `reply`, an `agent` frame's progress its `step`.
+// `exec.approval.requested`/`resolved` the approvals and `question.requested`/
+// `resolved` the questions of `ask_user`. The reply of a `chat` frame becomes the
+// event's `reply`, an `agent` frame's progress its `step`.
+import { openClawQuestion, openClawQuestionEnd } from "./openclaw-questions.js";
+
 const chatKinds = {
   delta: "text",
   final: "finished",
@@ -12,6 +15,12 @@ const chatKinds = {
 const approvalKinds = {
   "exec.approval.requested": "approval.requested",
   "exec.approval.resolved": "approval.resolved",
+};
+// The questions of `ask_user` keep OpenClaw's frame names and carry the port's
+// payload instead of OpenClaw's record (openclaw-questions.js), kind "other".
+const questionPayloads = {
+  "question.requested": openClawQuestion,
+  "question.resolved": openClawQuestionEnd,
 };
 
 function kindOf(name, payload) {
@@ -106,7 +115,8 @@ export function openClawStep(payload) {
  * `request.sessionKey` and, when live, at the top level too.
  */
 export function openClawRunEvent(frame) {
-  const payload = frame?.payload;
+  const question = questionPayloads[frame?.event];
+  const payload = question ? question(frame.payload) : frame?.payload;
   const kind = kindOf(frame?.event, payload);
   return {
     kind,

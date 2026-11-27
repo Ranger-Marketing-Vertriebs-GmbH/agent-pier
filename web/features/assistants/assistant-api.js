@@ -279,12 +279,13 @@ export const assistantApi = {
     api(`/assistant-conversations/${encodeURIComponent(id)}/messages`, "POST", input),
   queue: (id, input) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/queued`, "POST", input),
-  // The owner's answer to a question the agent waits on (agent-questions.js).
-  answerQuestion: (conversationId, questionId, answer) =>
+  // The owner's answers to the questions of a request the agent waits on
+  // (agent-questions.js): `{ <question id>: [option label or own text, …] }`.
+  answerQuestion: (conversationId, questionId, answers) =>
     api(
       `/assistant-conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/answer`,
       "POST",
-      { answer },
+      { answers },
     ),
   takeBackQueued: (id) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/queued`, "DELETE"),

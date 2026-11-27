@@ -8,3 +8,8 @@ import { serverCatalogs } from "../../lib/i18n/catalogs.js";
 export function telegramMessages(channel) {
   return (serverCatalogs[channel?.language] || serverCatalogs.de).assistants;
 }
+
+/** The copy for an agent's questions in the channel's language (agent-questions.js). */
+export function telegramQuestionMessages(channel) {
+  return (serverCatalogs[channel?.language] || serverCatalogs.de).agentQuestions;
+}
