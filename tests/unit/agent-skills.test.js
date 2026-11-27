@@ -466,7 +466,7 @@ test("an agent the Gateway does not know yet reads the bundled skills on the sam
 });
 
 // Catalog skills (skills.load.extraDirs) on an agent's skill page, next to the
-// bundled ones; skills.status entries in the shape of tests/unit/agent-skills.test.js.
+// bundled ones; skills.status entries in the shape of `status` above.
 const catalogStatus = (name, extra = {}) => ({
   name,
   description: `${name} skill`,
