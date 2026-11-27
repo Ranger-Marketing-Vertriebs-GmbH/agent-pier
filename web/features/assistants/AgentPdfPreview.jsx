@@ -10,8 +10,8 @@ import usePdfDocument from "./usePdfDocument.js";
 
 const ZOOM_STEP = 1.25;
 
-// One page: a placeholder of its size, drawn on its canvas while it is on screen or
-// close to it, and released when it scrolls far away. The backing store follows the
+// One page: a placeholder of its size, drawn on its canvas while it is within one
+// panel height of the panel's visible area, and released when it scrolls further away. The backing store follows the
 // screen's pixel ratio but stays under MAX_CANVAS_PIXELS (iOS blanks larger canvases);
 // the CSS size stays the zoomed size.
 function PdfPage({ document, number, count, scale, fallback }) {
@@ -21,7 +21,8 @@ function PdfPage({ document, number, count, scale, fallback }) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(entry.isIntersecting),
-      { rootMargin: "100% 0px" },
+      // The scrolling panel body is the root: the margin grows its visible area.
+      { root: ref.current.closest(".side-panel-body"), rootMargin: "100% 0px" },
     );
     observer.observe(ref.current);
     return () => observer.disconnect();
@@ -77,6 +78,24 @@ function PdfPage({ document, number, count, scale, fallback }) {
   );
 }
 
+// A zoom button that cannot act right now stays focusable (aria-disabled) and ignores
+// the click, so focus never drops out of the panel when Fit width or a zoom limit is
+// reached.
+function ZoomButton({ label, icon, off, onClick }) {
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      aria-label={label}
+      title={label}
+      aria-disabled={off || undefined}
+      onClick={off ? undefined : onClick}
+    >
+      <Icon name={icon} />
+    </button>
+  );
+}
+
 // The pages under a toolbar: Fit width (the scale at which the first page fills the
 // panel's width, kept as the panel resizes) and Zoom in / Zoom out in steps of x1.25,
 // from half to four times that width.
@@ -118,36 +137,24 @@ function PdfPages({ document }) {
       <div className="agent-pdf-toolbar">
         <span className="agent-pdf-count">{copy.pdfPages(count)}</span>
         <div className="agent-pdf-zoom">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={copy.zoomOut}
-            title={copy.zoomOut}
-            disabled={!fit || scale <= min}
+          <ZoomButton
+            label={copy.zoomOut}
+            icon="zoom-out"
+            off={!fit || scale <= min}
             onClick={() => step(1 / ZOOM_STEP)}
-          >
-            <Icon name="zoom-out" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={copy.zoomFit}
-            title={copy.zoomFit}
-            disabled={!fit || zoom === null}
+          />
+          <ZoomButton
+            label={copy.zoomFit}
+            icon="fit-width"
+            off={!fit || zoom === null}
             onClick={() => setZoom(null)}
-          >
-            <Icon name="fit-width" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={copy.zoomIn}
-            title={copy.zoomIn}
-            disabled={!fit || scale >= max}
+          />
+          <ZoomButton
+            label={copy.zoomIn}
+            icon="zoom-in"
+            off={!fit || scale >= max}
             onClick={() => step(ZOOM_STEP)}
-          >
-            <Icon name="zoom-in" />
-          </button>
+          />
         </div>
       </div>
       <div className="agent-pdf-pages" ref={list}>

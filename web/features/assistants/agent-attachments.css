@@ -111,11 +111,12 @@ button.agent-attachment-preview:focus-visible {
   font-size: 13px;
   line-height: 1.5;
 }
-/* A PDF in the side panel: the page count and zoom stay on top while its pages
-   scroll; zoomed pages scroll sideways inside their list, never the page. */
+/* A PDF in the side panel: the panel body scrolls the pages both ways (zoomed pages
+   never widen the page itself), and the page count and zoom stay in view. */
 .agent-pdf-toolbar {
   position: sticky;
   top: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -132,9 +133,13 @@ button.agent-attachment-preview:focus-visible {
   display: flex;
   gap: 4px;
 }
+/* Looks like a disabled button, but keeps focus (see ZoomButton). */
+.agent-pdf-zoom .icon-button[aria-disabled="true"] {
+  opacity: 0.42;
+  pointer-events: none;
+}
 .agent-pdf-pages {
   min-width: 0;
-  overflow-x: auto;
   display: grid;
   gap: 12px;
   justify-items: start;

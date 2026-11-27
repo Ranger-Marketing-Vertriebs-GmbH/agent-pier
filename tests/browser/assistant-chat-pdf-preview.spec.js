@@ -120,8 +120,9 @@ for (const [view, use] of [
       const second = panel.getByRole("img", { name: "Page 2 of 2" });
       await expect(first).toBeVisible();
       await expect.poll(() => drawn(first)).toBe(true);
-      await second.scrollIntoViewIfNeeded();
+      // Within one panel height of the visible area, page 2 is drawn before it shows.
       await expect.poll(() => drawn(second)).toBe(true);
+      await second.scrollIntoViewIfNeeded();
       expect(await width(second)).toBeGreaterThan(0);
       // Neither font is embedded. Helvetica comes from the system; ZapfDingbats has
       // no system font, so pdf.js reads its stand-in from the app's own assets.
@@ -145,18 +146,42 @@ for (const [view, use] of [
       await log.getByRole("button", { name: "Preview report.pdf" }).click();
       const panel = page.getByRole("dialog", { name: "report.pdf" });
       const first = panel.getByRole("img", { name: "Page 1 of 2" });
+      const second = panel.getByRole("img", { name: "Page 2 of 2" });
+      const zoomIn = panel.getByRole("button", { name: "Zoom in" });
+      const fitWidth = panel.getByRole("button", { name: "Fit width" });
       await expect(first).toBeVisible();
       const fit = await width(first);
-      await panel.getByRole("button", { name: "Zoom in" }).click();
+      await zoomIn.click();
       await expect.poll(() => width(first)).toBeGreaterThan(fit);
       // Zoomed pages scroll inside the panel, never the page.
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
         page.viewportSize().width,
       );
-      await panel.getByRole("button", { name: "Zoom out" }).click();
+      // Zoomed until page 2 is below the panel's visible area: within one panel height
+      // of it, it is drawn before it scrolls in.
+      const below = () =>
+        second.evaluate(
+          (node) =>
+            node.getBoundingClientRect().top >
+            node.closest(".side-panel-body").getBoundingClientRect().bottom,
+        );
+      for (let step = 0; step < 5 && !(await below()); step += 1) {
+        const before = await width(first);
+        await zoomIn.click();
+        await expect.poll(() => width(first)).toBeGreaterThan(before);
+      }
+      expect(await below()).toBe(true);
+      await expect.poll(() => drawn(second)).toBe(true);
+      await fitWidth.click();
+      await expect.poll(() => width(first)).toBe(fit);
+      // Fit width is now unavailable, yet focus stays in the panel.
+      await expect(fitWidth).toHaveAttribute("aria-disabled", "true");
+      expect(await panel.evaluate((node) => node.contains(document.activeElement))).toBe(
+        true,
+      );
       await panel.getByRole("button", { name: "Zoom out" }).click();
       await expect.poll(() => width(first)).toBeLessThan(fit);
-      await panel.getByRole("button", { name: "Fit width" }).click();
+      await fitWidth.click();
       await expect.poll(() => width(first)).toBe(fit);
       await expect.poll(() => drawn(first)).toBe(true);
     });

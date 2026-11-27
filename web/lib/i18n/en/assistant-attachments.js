@@ -1,3 +1,5 @@
+import { formatNumber } from "../index.js";
+
 export const assistantAttachmentsCopy = Object.freeze({
   attach: "Attach file, image or video",
   choose: "Choose files, images or videos",
@@ -20,7 +22,7 @@ export const assistantAttachmentsCopy = Object.freeze({
   previewFailed: "The preview could not be loaded. You can still download the file.",
   previewTooLarge: (limit) =>
     `This file is larger than ${limit}, too large for a preview. Download it to read it.`,
-  pdfPages: (count) => (count === 1 ? "1 page" : `${count} pages`),
+  pdfPages: (count) => (count === 1 ? "1 page" : `${formatNumber(count)} pages`),
   pdfPage: (n, count) => `Page ${n} of ${count}`,
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",

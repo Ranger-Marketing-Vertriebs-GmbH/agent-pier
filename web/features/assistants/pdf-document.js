@@ -4,6 +4,8 @@
 // that do not embed theirs, and the JavaScript image decoders, are copied to
 // /assets/pdfjs/ by vite.config.js. WebAssembly stays off: the app CSP has no
 // 'wasm-unsafe-eval'. Scripts in a PDF never run (no scripting, no eval).
+// No CMaps ship (about 1.5 MB): a CJK PDF with non-embedded predefined CMaps may lose
+// that text, and it keeps its download.
 import workerSrc from "pdfjs-dist-browser/legacy/build/pdf.worker.min.mjs?url";
 
 const assets = `${import.meta.env.BASE_URL}assets/pdfjs/`;
