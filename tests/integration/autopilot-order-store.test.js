@@ -5,6 +5,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { once, EventEmitter } from "node:events";
 import test from "node:test";
+import "../helpers/composer-writes.js";
 import { OrderStore } from "../../server/features/autopilot/order-store.js";
 import { projectScope } from "../../server/features/memory/project-scope.js";
 
@@ -199,7 +200,7 @@ test("an order above 64 KiB is written and read without a pipe to the pinned chi
   assert.match(helper, /timeout: \d+/, "the synchronous child has a time limit");
   // The request file is unlinked before the child starts.
   const requests = fs
-    .readdirSync(`/tmp/agentpier-composer-writes-${process.getuid()}`)
+    .readdirSync(process.env.AGENTPIER_COMPOSER_WRITES_DIR)
     .filter((name) => name.startsWith(".request-"));
   assert.deepEqual(requests, []);
 });

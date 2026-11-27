@@ -8,6 +8,8 @@ import { createApplication } from "../../server/app.js";
 import { tmuxSocketPath } from "../../server/features/sessions/tmux-naming.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 // Also when a file runs without the test runner: its tmux servers never outlive it.
+// An app writes Composer orders under the writer lock: never the live one.
+import "./composer-writes.js";
 import "./tmux-reaper.js";
 
 const execute = promisify(execFile);

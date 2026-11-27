@@ -57,10 +57,26 @@ function readDocument(folder, name) {
   }
 }
 
-// The same private per-user location in GUI launches and CLI-specific TMPDIRs.
+// The same private per-user location in GUI launches and CLI-specific TMPDIRs: the
+// server and every Composer session of the user must take the same writer lock, and
+// they share neither a TMPDIR nor a data directory.
+// AGENTPIER_COMPOSER_WRITES_DIR (an absolute path) names another folder for test runs,
+// which must never make a running AgentPier wait. A process of Node's test runner
+// without it is refused instead of taking the shared lock.
+export const defaultWritesDirectory = () =>
+  path.join(fs.realpathSync("/tmp"), `agentpier-composer-writes-${process.getuid()}`);
 function writesDirectory() {
   const uid = process.getuid();
-  const dir = path.join(fs.realpathSync("/tmp"), `agentpier-composer-writes-${uid}`);
+  const chosen = process.env.AGENTPIER_COMPOSER_WRITES_DIR;
+  if (chosen !== undefined && !path.isAbsolute(chosen)) unsafe();
+  if (chosen === undefined && process.env.NODE_TEST_CONTEXT)
+    throw Object.assign(
+      new Error(
+        "A test must not use the Composer writer lock of a running AgentPier: set AGENTPIER_COMPOSER_WRITES_DIR (tests/helpers/composer-writes.js).",
+      ),
+      { code: "ORDER_TEST_LOCK" },
+    );
+  const dir = chosen ?? defaultWritesDirectory();
   try {
     fs.mkdirSync(dir, { mode: 0o700 });
   } catch (error) {
