@@ -125,7 +125,11 @@ export class MemoryReview {
   }
 }
 
-// The reviews under way per service, for memoryReviewsSettled.
+// The reviews of each service for memoryReviewsSettled, as `{ done, settled }`: those
+// under way, and those that ended since the last read or the last switch. A review
+// can end before anyone asks (a runtime that refuses at once), so an ended one stays
+// until it is read; the next switch drops what nobody read, so at most one switch's
+// results are kept.
 const running = new WeakMap();
 
 /**
@@ -157,7 +161,9 @@ export function startMemoryReviews(service, plan) {
   const review = new MemoryReview({ service });
   let set = running.get(service);
   if (!set) running.set(service, (set = new Set()));
-  const done = Promise.all(
+  for (const earlier of set) if (earlier.settled) set.delete(earlier);
+  const entry = { done: null, settled: false };
+  entry.done = Promise.all(
     ids.map(async (assistantId) => ({ assistantId, ...(await review.run(assistantId)) })),
   )
     .then(async (reviews) => {
@@ -172,14 +178,22 @@ export function startMemoryReviews(service, plan) {
       );
       return [];
     })
-    .finally(() => set.delete(done));
-  set.add(done);
-  return done;
+    .finally(() => (entry.settled = true));
+  set.add(entry);
+  return entry.done;
 }
 
-/** The results of the reviews under way for `service`, once they are settled. */
-export const memoryReviewsSettled = (service) =>
-  Promise.all([...(running.get(service) || [])]);
+/**
+ * The results of the reviews of `service` that are under way or ended unread, once
+ * all are settled; each review's results are returned once.
+ */
+export async function memoryReviewsSettled(service) {
+  const set = running.get(service);
+  const entries = [...(set || [])];
+  const results = await Promise.all(entries.map((entry) => entry.done));
+  for (const entry of entries) set.delete(entry);
+  return results;
+}
 
 /**
  * Where the results of one switch's reviews go (`reviews` as startMemoryReviews
