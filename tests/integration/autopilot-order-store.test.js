@@ -302,3 +302,81 @@ test("a local file cannot attach a session to its order", async (t) => {
   assert.equal(store.sessionOrder("forged"), null);
   assert.doesNotThrow(() => store.assertStart("forged", project.id));
 });
+
+// A store whose watch handles never report, as a new FSEvents watch does for a
+// moment on macOS: a change made right after the watch began is never reported.
+function silentStore(t, { temp, project }, onChange) {
+  const store = new OrderStore({
+    dataDir: path.join(temp, "silent-data"),
+    projects: () => [project],
+    onChange,
+    settleMs: 20,
+  });
+  t.after(() => store.close());
+  store.watchers.watch = () => Object.assign(new EventEmitter(), { close() {} });
+  return store;
+}
+
+test("a Composer folder created before its watch reports is announced once the watch settled", async (t) => {
+  const f = await fixture(t);
+  const changes = [];
+  const announced = new Promise((resolve) => {
+    const store = silentStore(t, f, (projectId, id) => {
+      changes.push([projectId, id]);
+      resolve(store);
+    });
+    store.list().then((orders) => {
+      assert.deepEqual(orders, []);
+      fs.mkdirSync(f.directory);
+      fs.writeFileSync(path.join(f.directory, "order.json"), '{"title":"one"}');
+    });
+  });
+  const store = await announced;
+  assert.deepEqual(changes, [[f.project.id, null]]);
+  const [order] = await store.list();
+  assert.equal(order.document.title, "one");
+});
+
+test("an order replaced before the folder's watch reports is announced once the watch settled", async (t) => {
+  const f = await fixture(t);
+  fs.mkdirSync(f.directory);
+  fs.writeFileSync(path.join(f.directory, "order.json"), '{"title":"one"}');
+  const changes = [];
+  const announced = new Promise((resolve) => {
+    const store = silentStore(t, f, (projectId, id) => {
+      changes.push([projectId, id]);
+      resolve(store);
+    });
+    store.list().then(([order]) => {
+      assert.equal(order.document.title, "one");
+      fs.writeFileSync(path.join(f.directory, "next.tmp"), '{"title":"two"}');
+      fs.renameSync(
+        path.join(f.directory, "next.tmp"),
+        path.join(f.directory, "order.json"),
+      );
+    });
+  });
+  const store = await announced;
+  assert.deepEqual(changes, [[f.project.id, null]]);
+  assert.equal((await store.list())[0].document.title, "two");
+});
+
+test("a watch that reported is not checked again", async (t) => {
+  const f = await fixture(t);
+  fs.mkdirSync(f.directory);
+  const changes = [];
+  const store = silentStore(t, f, (projectId, id) => changes.push([projectId, id]));
+  const handles = [];
+  store.watchers.watch = () => {
+    const handle = Object.assign(new EventEmitter(), { close() {} });
+    handles.push(handle);
+    return handle;
+  };
+  await store.list();
+  // The folder's handle reports the new order itself.
+  fs.writeFileSync(path.join(f.directory, "order.json"), '{"title":"one"}');
+  handles.at(-1).emit("change", "rename", "order.json");
+  assert.equal(changes.length, 1);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(changes.length, 1, "the settle check added no second announcement");
+});
