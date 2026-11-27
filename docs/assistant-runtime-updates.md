@@ -668,6 +668,42 @@ no longer matches its pin (name, version, id, or a symbolic link) fails the
 selected runtime's installation check, so the Gateway does not start even when no
 agent uses web search.
 
+## Embedding plugin and semantic memory search
+
+The lock also holds OpenClaw's llama.cpp provider plugin
+(`@openclaw/llama-cpp-provider`, `runtimeManifest.embeddingPlugin`), checked and
+recorded in the receipt like a search plugin and exposed as
+`embeddingPlugin: { id, directory }`. A runtime installed before it was bundled, and
+a rollback target, reports none: the owner's
+[semantic memory search](assistant-gateway.md#semantic-memory-search) is then not
+offered (`RUNTIME_UPDATE_REQUIRED`) until the current runtime is activated. A Gateway
+loads the plugin only while that setting is on.
+
+With a new runtime the installer also installs the pinned llama.cpp server
+(`runtimeManifest.embeddingServer`) below `<data>/assistants/embeddings/`, outside
+the runtime directory, the update snapshot and host backups. This never fails the
+runtime installation (a host without a pinned build, a failed download or a missing
+system library only logs a stable code); switching the setting on installs it again
+or names the reason. The embedding model is downloaded only by that switch.
+
+Updates and rollbacks keep memory search working without an update step of their
+own, because every Gateway start reconciles the indexes before it spawns:
+
+- The marker that says which search the indexes were built for lives in the
+  Gateway's state tree, so a snapshot and its rollback carry it with the indexes.
+- A start on a runtime without the plugin (a rollback to the previous version)
+  compiles keyword search, switches the setting off with its reason and, if the
+  restored indexes were built for local embeddings, rebuilds them for keyword search
+  with that runtime's own `openclaw memory index --force`.
+- A start whose indexes are older than the setting (a snapshot from before it was
+  switched on) rebuilds them for local embeddings, and falls back to keyword search
+  if that fails.
+- An OpenClaw index-format change of an update is OpenClaw's own: the first search
+  rebuilds the index with the configured provider.
+
+The setting itself (`<data>/assistants/semantic-memory.json`) is no ledger and not
+part of a snapshot. An activation in progress refuses the switch (`SERVICE_BUSY`).
+
 Existing installations receive the plugins through the normal update path. The
 plugins change the lock digest, so an AgentPier update stages a new candidate
 installation next to the selected runtime even when the OpenClaw version stays the same.

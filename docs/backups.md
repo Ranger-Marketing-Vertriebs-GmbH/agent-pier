@@ -61,7 +61,7 @@ Always, as public (unencrypted) members:
   switched on is part of that agent's settings. Agent databases go in as configuration
   copies (see "Agent databases" below). A restore without private content brings
   back working agents with their settings, channels, team policy, reminders,
-  access, schedules and shell approvals, and an empty history. Runtimes, package caches (in any spelling, such
+  access, schedules and shell approvals, and an empty history. Runtimes, the embedding server and model of semantic memory search (`embeddings/`; the setting itself is kept, and a restored instance without the model goes back to keyword search with the reason), package caches (in any spelling, such
   as Chromium's `Cache`, `Code Cache` and `GPUCache`), update snapshots, TLS
   material, backup keys and the agents' browser profiles are never public members
   (see `docs/assistant-gateway.md`).

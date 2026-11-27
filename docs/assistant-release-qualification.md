@@ -56,7 +56,7 @@ prevails.
 
 | Area                  | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Boundaries                                                                                                                                                                              |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native memory         | Two pinned Gateway contracts verify deletion/re-index/restart, model-reference switching and agent isolation.                                                                                                                                                                                                                                                                                                                                                                                              | Deterministic HTTP model; no semantic embeddings or erasure of historical transcripts/backups.                                                                                          |
+| Native memory         | Two pinned Gateway contracts verify deletion/re-index/restart, model-reference switching and agent isolation; a third runs semantic memory search with the real embedding model ([memory qualification](assistant-memory-qualification.md#semantic-memory-search)).                                                                                                                                                                                                                                        | Deterministic HTTP model; no semantic embeddings or erasure of historical transcripts/backups.                                                                                          |
 | Native scheduling     | Nine native scheduler cases cover Berlin/New York DST, explicit timezones, 30-day downtime, restart, missed-run policy, backlog spacing and duplicate completion delivery.                                                                                                                                                                                                                                                                                                                                 | Injected clock with real scheduler/SQLite; not an operating-system suspend or crash experiment.                                                                                         |
 | Runtime update        | Two native cases verify activation and rollback after injected candidate validation failure for OpenClaw 2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9, 2026.9.9 → 2026.10.3, the skip update 2026.9.8 → 2026.10.3, 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.7 with OpenClaw's Doctor migration, and 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.9 (see below; the pairs to 2026.11.2 are not qualified yet); a local throwaway variant covered the Node-only update 26.7.0 → 26.12.1 on 2026.10.3. | Earlier pairs ran on Node 26.7.0; the current runtime is Node 26.12.1. macOS arm64 locally; Linux x64 in the nightly `cross-version` job.                                               |
 | Project identity      | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                                                                                                                                                                                                                                                                                                                                                 | Synthetic projects; no real user coding task executed.                                                                                                                                  |
@@ -94,7 +94,7 @@ What is real and what is a double:
 
 | Part               | In the run                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway            | The pinned OpenClaw 2026.11.6 runtime (Node 26.12.1, lock `9870a9aff363…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
+| Gateway            | The pinned OpenClaw 2026.11.6 runtime (Node 26.12.1, lock `d10cc6cf1220…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
 | AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.      |
 | Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                  |
 | Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                              |
@@ -1233,6 +1233,34 @@ every time. AgentPier itself was not affected: the reconciler counts only a term
 `agent.wait` answer (`run-reconciler.js` `terminalState`). The native contracts that
 send a turn right after a completion run (work goals, owner run) now wait with
 `tests/helpers/assistant-run-wait.js`, which asks again until the run has ended.
+
+### Lock addition: the llama.cpp provider plugin (2026-11-27)
+
+Semantic memory search ([gateway guide](assistant-gateway.md#semantic-memory-search))
+needs OpenClaw's llama.cpp provider plugin, which OpenClaw does not bundle.
+`@openclaw/llama-cpp-provider` 2026.11.6 (`sha512-DyCvx93Z…dpUg==`, the npm
+registry's `dist.integrity`) joins the runtime lock as `embeddingPlugin`. The lock
+was refreshed with `--keep-graph`: one package record added (444 entries,
+`d10cc6cf1220…`), nothing else moved; its only dependency, `@openclaw/fs-safe`
+0.26.13, was already in the graph. The OpenClaw version stays 2026.11.6, so existing
+installations stage the same version with the new lock and the owner activates it
+like an update (no Doctor migration); the cross-version job's predecessor is the
+previous release's 2026.11.6 or 2026.11.3 installation, neither of which has the
+plugin.
+
+Two further pins live in the manifest, outside the lock: the llama.cpp server
+(`embeddingServer`, release `b10809`, the build the plugin's own
+`LLAMA_SERVER_RELEASE` names, one GitHub release archive per platform) and the model
+(`embeddingModel`, EmbeddingGemma 300M QAT Q8_0 at repository revision
+`66f974f8…`). Every archive and the model were downloaded and their SHA-256 compared
+with the pins on 2026-11-27. When a later pin moves the plugin, compare the plugin's
+`LLAMA_SERVER_RELEASE`, its archive digests and its default embedding model with
+these pins in the same change; a changed model digest switches the setting off on
+every installation that has it on (the indexes are another model's), which the
+release's Upgrade notes must say.
+
+The semantic memory contract passed against the installation with this lock on macOS
+arm64 and Linux arm64 ([memory qualification](assistant-memory-qualification.md#semantic-memory-search)).
 
 ### Native architectures (2026-10-19)
 

@@ -1669,8 +1669,10 @@ with her as the actor.
 Saving an empty note clears that file; it does not purge chat history or other
 workspace notes. Native file tools stay within the workspace.
 
-The initial managed search uses OpenClaw's keyword provider `none`, requiring no
-embedding account. Transcript indexing and cross-conversation recall stay off,
+By default the managed search uses OpenClaw's keyword provider `none`, requiring no
+embedding account; the owner can switch on local embeddings
+([Semantic memory search](#semantic-memory-search)). Transcript indexing and
+cross-conversation recall stay off,
 scheduled check-ins replace OpenClaw's own heartbeat (see
 [Proactivity](#proactivity-check-ins-2026-10-12)), and dreaming runs only when the owner
 switches it on ([Dreaming](#dreaming)).
@@ -1678,7 +1680,145 @@ switches it on ([Dreaming](#dreaming)).
 enabling cron does not also start OpenClaw's skill reviews, unless an agent has
 **Learns its own skills** switched on ([Self-learning skills](#self-learning-skills)).
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
-Semantic search and comprehensive deletion/re-ingestion remain follow-ups.
+Comprehensive deletion/re-ingestion remains a follow-up.
+
+#### Semantic memory search
+
+**Agents › Runtime › Semantic memory search** is the owner's optional switch for
+OpenClaw's vector search (`runtimes/openclaw/semantic-memory.js`, compiled by
+`openclaw-config/semantic-memory.js`). Off, the
+default, nothing changes: keyword search with provider `none`, and the compiled
+`openclaw.json` is byte for byte the one from before the setting. On, notes and
+queries are embedded by a local model, EmbeddingGemma 300M, so `memory_search` (the
+agent's tool, check-ins, memory steps and the memory page's search) also finds a note
+that shares no word with the query, across languages. It is one switch for the
+whole Gateway: the embedding server and its model are loaded once and the index
+rebuild needs the Gateway stopped, so there is no per-agent variant. Hermes agents
+are not affected and show nothing: Hermes loads `MEMORY.md` and `USER.md` into every
+chat and has no memory search (capability `semanticMemory`,
+`unavailable("semanticMemoryUnsupported")`).
+
+What OpenClaw 2026.11.6 does, verified against its `docs/plugins/llama-cpp.md`,
+`docs/reference/memory-config.md`, `docs/cli/memory.md`,
+`docs/gateway/local-model-services.md` and the plugin's code:
+
+- `memory.search.provider: "local"` is served by the plugin `llama-cpp`
+  (`@openclaw/llama-cpp-provider`, a JavaScript package that is not bundled with
+  OpenClaw). It starts a llama.cpp `llama-server` on demand as a child of the
+  Gateway (`models.providers.llama-cpp.localService`), sends embeddings over
+  loopback and stops the server after ten idle minutes. The in-process
+  `node-llama-cpp` runtime of earlier versions is gone.
+- Left to itself the plugin downloads a server build from GitHub and the model from
+  Hugging Face, at setup and again whenever its managed installation is missing.
+- Once `openclaw.json` names another embedding provider than an agent's index was
+  built with, that agent's `memory_search` returns nothing at all, keyword hits
+  included, until `openclaw memory index --force` rebuilds the index, and that
+  command refuses beside a running Gateway. Both directions pause (keyword to local
+  and back).
+- Where no index holds vectors yet, a rebuild with a local provider that cannot start
+  (a model it cannot load, a missing system library) indexes by keyword alone and
+  still exits 0.
+- The model is `ggml-org/embeddinggemma-300m-qat-q8_0-GGUF`,
+  `embeddinggemma-300m-qat-Q8_0.gguf`: 328,577,056 bytes, 768 dimensions, licensed
+  under Google's [Gemma Terms of Use](https://ai.google.dev/gemma/terms). The
+  repository is not gated, so the download needs no account; the terms still apply
+  to whoever uses the model, which is why the switch names them and asks first. The
+  plugin recognises it as its default model by its cache file name and then prefixes
+  queries and notes with EmbeddingGemma's task prompts.
+
+What AgentPier makes of it:
+
+- **Pinned and verified, never fetched by the Gateway.** The plugin is part of the
+  runtime lock (`runtime-manifest.js` `embeddingPlugin`, npm integrity; see
+  [runtime updates](assistant-runtime-updates.md)). The server build
+  (`embeddingServer`: llama.cpp release `b10809`, the build the plugin was made for,
+  one archive per platform, 11 to 17 MB) and the model (`embeddingModel`) are pinned by
+  URL, size and SHA-256 and installed by AgentPier (`embedding-assets.js`) below
+  `<data>/assistants/embeddings/`: the server with every new runtime installation
+  (the installer and the update path, never failing them) and again by the switch,
+  the model only by the switch. The compiled configuration names the server through
+  a start wrapper (`/bin/sh`, not the plugin's managed path, so the plugin never
+  installs or restores a build), the model as an absolute local file (which the plugin
+  only checks to be a GGUF file) and `fallback: "none"`. Neither folder is part of an
+  update snapshot or a host backup.
+- **The switch is a restart.** Switching on downloads what is missing (the model
+  continues a partial download with a range request and is only used with the pinned
+  size and digest), saves the setting and restarts the Gateway like **Restart now**:
+  running agent work is interrupted, which the confirmation says; an account sign-in
+  or an executing workflow refuses it (`SERVICE_BUSY`, nothing changed). Switching
+  off saves and restarts the same way, and removes the model once the keyword
+  indexes are back.
+- **Every Gateway start reconciles the indexes** before the spawn (`beforeSpawn`,
+  beside the [offline-only commands](#offline-only-commands)), with this start's
+  `openclaw.json` written and no Gateway running. A marker in the Gateway's state
+  tree (`state/agentpier-memory-index.json`) records the search every index was last
+  rebuilt for and the model's digest. When the marker differs from what the start
+  compiles, or an earlier rebuild did not finish, one offline
+  `openclaw memory index --force` rebuilds every agent's index (agents whose memory
+  is off included, so
+  switching their memory on later never meets a paused index), and a rebuild for
+  local embeddings is then checked with `openclaw memory status --deep --json`:
+  every agent must report a valid index of the local provider and a working
+  embedding probe. Because the marker lives in the state tree, an update snapshot,
+  its rollback and a host backup carry it together with the indexes it describes.
+- **Failure goes back to keyword search.** A failed or unverified rebuild for local
+  embeddings switches the setting off with its reason, rewrites the file the Gateway
+  is about to spawn with for keyword search and rebuilds the keyword indexes in the
+  same start. A start also compiles keyword search, with the reason, when the setting
+  is on but cannot run: the runtime has no embedding plugin (a rollback target), or
+  the server or the model is gone. A rebuild the previous start or the previous
+  AgentPier process left unfinished (its journal in
+  `<data>/assistants/semantic-memory.json`) counts as interrupted: the setting goes
+  off as `INTERRUPTED` and the next start rebuilds the keyword indexes. A keyword
+  rebuild that fails as well is repeated by every later start.
+- **States** (`GET /api/assistant-semantic-memory`, pushed over the live topic
+  `runtime.semantic-memory`): `off`, `downloading` (bytes), `rebuilding` (stopping,
+  indexing with agents done of total, starting), `on` and `failed` (off, with a
+  stable reason code). `PUT { enabled, revision, acceptTerms }` answers 202 with the
+  first state; the operation continues in the background.
+- **An embedding server never outlives its Gateway for long.** The start wrapper
+  writes the server's pid; before every Gateway start and at AgentPier's shutdown a
+  process that still runs the installed server executable under that pid is stopped
+  (`embedding-server.js`). OpenClaw reclaims such orphans only for installations it
+  manages itself.
+
+Measured with the contract below (2026-11-27, two agents with three short notes):
+
+| Host                                   | Server memory while loaded | Switching on (rebuild) | Switching off (rebuild) | First search | Next search |
+| -------------------------------------- | -------------------------- | ---------------------- | ----------------------- | ------------ | ----------- |
+| macOS, Apple silicon (Metal)           | 544 MB                     | 20 s (13.0 s)          | 9.3 s (3.6 s)           | 3.0 s        | 38 ms       |
+| Linux arm64 (CPU, Debian 13 in Docker) | 737 MB                     | 15 s (9.6 s)           | 8 s (3.1 s)             | 2.6 s        | 35 ms       |
+
+The model takes 329 MB (313 MiB) on disk and the server 27 MB unpacked. "Server
+memory" is the resident memory of the server's two processes (its router and the
+process holding the model); it is freed after ten idle minutes. Switching times
+are with the assets present, from the confirmation to the Gateway being ready; the
+rebuild in brackets includes the check of a rebuild for local embeddings, the rest
+is the restart. The macOS run shared the machine with a browser test run. A first
+search after an idle pause starts the server and loads the model; with a server
+executable macOS had not run before it took up to 8 s. A rebuild embeds every note,
+so its time grows with the size of the memory; on Linux the pinned build runs on the
+CPU.
+
+Limits: the pinned Linux build needs glibc 2.34 (2.38 on arm64) and the OpenMP
+runtime (`libgomp1`, which the installer adds on Debian and Ubuntu; a host without it
+gets `EMBEDDING_SERVER_UNUSABLE`). If the server stops working after a successful
+switch (a system library removed by an upgrade), OpenClaw keeps answering with
+keyword hits and the setting still shows on; switching off and on checks it again.
+Session transcripts stay unindexed, as before.
+
+A release that ships this needs **Upgrade notes**: existing installations must
+activate the new OpenClaw runtime under **Agents › Runtime › OpenClaw updates** before
+the switch is offered (same OpenClaw version, new lock with the embedding plugin);
+keyword search and every compiled configuration are unchanged until the owner
+switches it on; switching it on downloads 329 MB from Hugging Face under the Gemma
+Terms of Use and restarts the agent service; Linux hosts need `libgomp1`
+(`sh scripts/install.sh --dependencies-only`); and a later release that pins another
+embedding model switches the setting off with a reason, to be switched on again.
+
+The native contract `tests/integration/assistant-semantic-memory-contract.test.js`
+proves it on the pinned Gateway with the real plugin, server and model
+([memory qualification](assistant-memory-qualification.md#semantic-memory-search)).
 
 #### Self-learning skills
 

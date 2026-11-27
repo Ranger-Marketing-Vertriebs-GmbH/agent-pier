@@ -1113,6 +1113,51 @@ settings shows what was actually saved. Project knowledge that an agent proposes
 (**Access › Projects**) waits for your approval; when you decline it or it expires, the agent is
 told it was not saved.
 
+#### Semantic memory search
+
+By default an agent's memory search matches words: "Urlaub am Meer" does not find a
+note about "Ferien an der Ostsee". **Agents › Runtime › Semantic memory search**
+changes that for all OpenClaw agents at once. With **Find notes by meaning** on, a
+local embedding model (Google's EmbeddingGemma 300M) runs on this computer, and the
+agent's memory search, its check-ins and memory steps, and **Search memory** on the
+memory page also find notes by what they mean, across wording and languages (the
+model is multilingual; German and English notes are found from either language).
+Nothing leaves the computer: no embedding service is used, and none can be
+configured.
+
+What it costs: a one-time download of 313 MB (329 MB on disk) from Hugging Face,
+and about 550 to 750 MB of memory while agents search (less on Apple silicon, more on
+Linux). The model is loaded with the first
+search and unloaded after ten minutes without one, so the first search after a
+pause takes a few seconds longer.
+
+- **Turn on …** asks first: AgentPier downloads the model, then restarts the agent
+  service and rebuilds every agent's memory index. Running agent work is interrupted,
+  and the agents are not available until the rebuild is done: seconds for a few notes,
+  longer for a large memory. The group shows each step (the download with its size,
+  the rebuild with the agents done) as it happens. The model is licensed under
+  Google's [Gemma Terms of Use](https://ai.google.dev/gemma/terms); turning it on
+  accepts them.
+- **Turn off …** restarts the agent service again, rebuilds the indexes for keyword
+  search and removes the model.
+- If the download or the rebuild fails, or AgentPier restarts in the middle, keyword
+  search is restored and the setting shows **Off** with the reason; switching it on
+  again retries (a broken-off download continues where it stopped). Memory search is
+  never left without an index.
+- It is off, with the reason, where it cannot run: until the current OpenClaw runtime
+  is activated under **OpenClaw updates**, while the agent service is stopped, and on
+  a Linux host without the OpenMP runtime (`libgomp1`; see
+  [Linux](linux.md)). After a rollback to the previous OpenClaw version it switches
+  itself off and the agents search by keyword.
+- An OpenClaw agent's memory page says when its search works by meaning. Each agent
+  still searches only its own notes, and a deleted note leaves the index with it.
+- Hermes agents are not affected and show nothing of it: Hermes loads an agent's
+  memory into every chat and has no memory search.
+- Search for it with ⌘K ("Semantic memory search", "embeddings", "Semantische
+  Gedächtnissuche").
+
+How it is built: [gateway guide](assistant-gateway.md#semantic-memory-search).
+
 #### Dreaming
 
 **Agents › Runtime › Dreaming** switches nightly
