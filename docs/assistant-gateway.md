@@ -5895,6 +5895,21 @@ runId }`. Hermes's single question is a one-element list. The approvals sub-port
   choice, or an own text. The answers go to OpenClaw together after the last one;
   until then the request also stays answerable in the web chat. A forwarded message or
   a file is never an answer.
+- **Outside the chat.** A waiting request is read from the same store
+  (`AgentQuestions#waitingAll`) by the agents' approval push
+  (`application/agent-approval-events.js`: kind `agent-approval`, subject `question`,
+  the first question as the preview a device at the preview level gets, cut to 140
+  characters and dropped when it looks like a command, a path or a secret), by the
+  agent list's activity (`assistant-activity.js`: state `waiting`, reason `question`,
+  on the `agent.list` topic) and by the owner's inbox (`inbox-items.js`
+  `agentQuestionItem`, on the `inbox` topic). The push goes out once per request id:
+  a reconnect's listing, a request asked again and an AgentPier restart keep the id,
+  and the notification service's delivery claim is stored. Nothing is sent to a
+  person who looks at that chat or at the inbox. A question in a user's chat, should
+  a runtime ever ask one, goes to that user's devices and never to the owner's list,
+  inbox or devices (`approval-audience.js`). Hermes's `clarify` questions arrive
+  through the same store and behave alike; a runtime that asks none notifies nobody.
+  The question's text is never logged.
 - **Who holds the tool.** `ask_user` is compiled for the owner's own agents
   (`questionTools` in `native-capabilities.js`) once AgentPier's native tools are
   ready. Never for a team member (it reports to its lead), a user agent (`lockedTools`:

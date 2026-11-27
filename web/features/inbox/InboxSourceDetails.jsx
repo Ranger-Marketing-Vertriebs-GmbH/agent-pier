@@ -23,6 +23,7 @@ import useAssistants from "../assistants/useAssistants.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useTeamActions from "../assistants/useTeamActions.js";
 import CraftQuestion from "../craft/CraftQuestion.jsx";
+import QuestionCard from "../assistants/QuestionCard.jsx";
 import InboxStale from "./InboxStale.jsx";
 
 // Each source's own card, fed from the live topic (or the endpoint) the source's page
@@ -65,6 +66,32 @@ export function InboxRequestDetail({ item, navigate, done }) {
         openTerminal={() => navigate({ view: "workspace", sessionId, mode: "terminal" })}
       />
     </section>
+  );
+}
+
+/**
+ * A question an agent asks while its turn waits, as in the agent's chat: the item
+ * carries the questions, the chat's own route takes the answer. The item leaves the
+ * live `inbox` topic once the agent has its answer or stops waiting.
+ */
+export function InboxAgentQuestionDetail({ item, done }) {
+  return (
+    <section className="inbox-card">
+      <QuestionCard
+        conversationId={item.conversationId}
+        question={{ id: item.id, questions: item.questions, expiresAt: item.expiresAt }}
+        onAnswered={done}
+      />
+    </section>
+  );
+}
+
+/** A question waits in a CLI session or, asked by an agent, in the agent's chat. */
+export function InboxQuestionDetail(props) {
+  return props.item.source?.kind === "agent" ? (
+    <InboxAgentQuestionDetail {...props} />
+  ) : (
+    <InboxRequestDetail {...props} />
   );
 }
 

@@ -190,3 +190,21 @@ test("the header never says Ready while the chat is cut off or the agent archive
     "Unbekannt, solange offline",
   );
 });
+
+test("header and sidebar say that the agent waits for the owner's answer", () => {
+  const asking = entry("waiting", "status.question", { reason: "question" });
+  for (const state of ["accepted", "running"])
+    assert.deepEqual(status({ attempt: { state }, entry: asking }), {
+      tone: "waiting",
+      label: "Wartet auf deine Antwort",
+    });
+  assert.deepEqual(status({ attempt: { state: "interrupted" }, entry: asking }), {
+    tone: "attention",
+    label: copy.status.interrupted,
+  });
+  assert.deepEqual(sidebarSubline({ assistant, entry: asking, copy }), {
+    text: "Wartet auf deine Antwort",
+    tone: "accent",
+  });
+  assert.equal(activityDot(asking), "waiting");
+});

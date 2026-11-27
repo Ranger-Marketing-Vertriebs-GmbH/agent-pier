@@ -81,7 +81,7 @@ export const notificationCopy = {
     permission: "Approval for a CLI",
     "session-waiting": "Session waiting in the terminal",
     "pipeline-gate": "Pipeline waiting at a gate",
-    "agent-approval": "Agent approval (shell, SSH, tasks, team proposals)",
+    "agent-approval": "Agent approval or question (shell, SSH, tasks, team proposals)",
     "session-completed": "Response ready",
     "session-ended": "Session ended",
     "pipeline-completed": "Pipeline completed",

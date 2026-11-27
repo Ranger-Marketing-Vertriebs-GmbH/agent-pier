@@ -49,6 +49,8 @@
     const copy = catalog.kinds[payload.kind];
     const label = text(payload.label, 80);
     const subject = catalog.subjects[payload.subject] || "";
+    // An agent's question waits for an answer, not for a decision.
+    const waits = (subject && catalog.subjectBodies?.[payload.subject]) || copy.body;
     const preview = text(payload.preview, 160);
     // A CLI approval names the tool that asks, never what it would run.
     const toolName =
@@ -77,7 +79,7 @@
           ? catalog.quote(preview)
           : toolName
             ? catalog.toolRequest(toolName)
-            : copy.body,
+            : waits,
         context,
       ]
         .filter(Boolean)

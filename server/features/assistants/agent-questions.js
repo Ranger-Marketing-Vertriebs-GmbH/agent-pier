@@ -6,6 +6,7 @@ import {
   runtimeForSession,
 } from "./runtimes/runtime-for.js";
 import { telegramQuestionMessages } from "../assistant-channels/telegram-messages.js";
+import { ownerApproval } from "../users/approval-audience.js";
 
 // Questions an agent asks the person in its chat while its turn waits (OpenClaw's
 // ask_user tool, runtimes/openclaw/openclaw-questions.js; Hermes's clarify tool,
@@ -24,6 +25,12 @@ import { telegramQuestionMessages } from "../assistant-channels/telegram-message
 // nobody answered. A question lives as long as its turn waits, so none is stored.
 // After a reconnect the shared host is asked what still waits (resync); Hermes asks
 // again after a restart.
+//
+// A waiting request also reaches the person outside the chat, as the approvals of the
+// agent do: a push to their devices (application/agent-approval-events.js), the
+// agent's "waiting for your answer" state in the list (assistant-activity.js) and an
+// item of the owner's inbox (inbox/inbox-sources.js). All three read waitingAll(), so
+// they end with the question.
 //
 // A request nobody can answer is declined at once where the runtime takes that
 // (approvals.decline, OpenClaw), so the agent goes on instead of waiting out the
@@ -95,6 +102,28 @@ function typedValues(question, message) {
   return numbered
     ? parts.map((part) => question.options[Number(part) - 1].label)
     : [typed];
+}
+
+// A question as the chat's card and the inbox show it: without where it came from
+// and without the values the runtime expects for its options.
+function shown({ telegram: _telegram, sessionKey: _key, typed: _typed, ...question }) {
+  return {
+    ...question,
+    questions: question.questions.map((asked) => ({
+      ...asked,
+      options: asked.options.map(({ value: _value, ...option }) => option),
+    })),
+  };
+}
+
+/**
+ * The questions that wait for the owner, oldest first. One asked in a user's chat is
+ * hers alone (users/approval-audience.js) and never counts for the owner.
+ */
+export function ownerQuestions(service) {
+  return (service?.questions?.waitingAll() ?? []).filter((question) =>
+    ownerApproval(question, service.store),
+  );
 }
 
 export class AgentQuestions {
@@ -237,18 +266,23 @@ export class AgentQuestions {
     for (const item of listed) if (!this.ended.has(item.id)) this.requested(item);
   }
 
+  /** Every question an agent waits on, in any chat, oldest first. */
+  waitingAll() {
+    const now = this.now();
+    return [...this.pending.values()].filter((q) => !(q.expiresAt <= now)).map(shown);
+  }
+
+  /**
+   * The agents that ask the owner a question right now, for the agent list's activity
+   * (assistant-activity.js): as a user's approvals, a user's questions never count.
+   */
+  ownerAsking() {
+    return new Set(ownerQuestions(this.s).map((question) => question.assistantId));
+  }
+
   /** The questions waiting in chat `conversationId`, oldest first. */
   list(conversationId) {
-    const now = this.now();
-    return [...this.pending.values()]
-      .filter((q) => q.conversationId === conversationId && !(q.expiresAt <= now))
-      .map(({ telegram: _telegram, sessionKey: _key, typed: _typed, ...shown }) => ({
-        ...shown,
-        questions: shown.questions.map((question) => ({
-          ...question,
-          options: question.options.map(({ value: _value, ...option }) => option),
-        })),
-      }));
+    return this.waitingAll().filter((q) => q.conversationId === conversationId);
   }
 
   /**

@@ -40,6 +40,7 @@ export const inboxCopy = {
     mail_send: "Email to send",
     "memory-review": "Memory after a model switch",
     mail_forward: "Email to forward",
+    "agent-question": "Question from an agent",
     gate: "Stage approval",
     decision: "Stage decision",
     "craft-question": "Question from a rebuild",

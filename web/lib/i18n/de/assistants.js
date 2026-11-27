@@ -794,6 +794,7 @@ export const assistantCopy = {
     compacting: "Fasst Verlauf zusammen",
     savingMemories: "Speichert Erinnerungen",
     degraded: "Konnte nicht starten",
+    question: "Wartet auf deine Antwort",
   },
   // Ein Lauf, der zuerst seinen langen Verlauf kürzt (Server compactions.js).
   compaction: {

@@ -100,6 +100,37 @@ export function requestItem(entry, session, escalation = null) {
   });
 }
 
+// An item's id is part of its address /inbox/<type>/<id>.
+const addressable = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+
+/**
+ * A question an agent asks in its chat while its turn waits (agent-questions.js
+ * waitingAll), with the questions its card shows: the inbox answers it through the
+ * chat's own route. Null for a request whose id is no address; it still waits in the
+ * chat.
+ */
+export function agentQuestionItem(question, agents, conversations) {
+  if (!addressable.test(question.id)) return null;
+  const [first] = question.questions;
+  return item("question", {
+    id: question.id,
+    kind: "agent-question",
+    status: "pending",
+    revision: null,
+    source: {
+      kind: "agent",
+      id: question.assistantId,
+      name: agents.get(question.assistantId)?.name || "",
+    },
+    conversationId: question.conversationId,
+    title: first?.header || first?.text,
+    questions: question.questions,
+    createdAt: question.createdAt,
+    expiresAt: question.expiresAt,
+    link: chatLink(question.assistantId, question.conversationId, conversations),
+  });
+}
+
 /** A pipeline run waiting at a gate or for a decision on a stage. */
 export function gateItem(run) {
   const node = run.nodes?.find((n) => n.id === run.currentNodeId);

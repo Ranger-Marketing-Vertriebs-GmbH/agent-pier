@@ -73,13 +73,13 @@ export function headerStatus({
       label: serviceLabel(runtime, copy) ?? availability ?? "",
     };
   const current = entry ?? IDLE_ACTIVITY;
-  // A turn waiting for the owner's approval stays accepted or running; the header
-  // says what it waits for, as the sidebar does. An unclear outcome comes first.
+  // A turn waiting for the owner's approval or answer stays accepted or running; the
+  // header says what it waits for, as the sidebar does. An unclear outcome comes first.
   if (
     attempt &&
     !attentionAttempts.has(attempt.state) &&
-    current.reason === "approval" &&
-    current.pendingApprovals > 0
+    ((current.reason === "approval" && current.pendingApprovals > 0) ||
+      current.reason === "question")
   )
     return {
       tone: "waiting",

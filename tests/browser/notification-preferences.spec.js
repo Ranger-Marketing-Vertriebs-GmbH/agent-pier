@@ -52,7 +52,7 @@ for (const size of ["desktop", "phone"])
       await expect(dialog.getByRole("heading", { name, exact: true })).toBeVisible();
     for (const name of [
       "Question from a CLI",
-      "Agent approval (shell, SSH, tasks, team proposals)",
+      "Agent approval or question (shell, SSH, tasks, team proposals)",
       "Pipeline failed",
       "Session reached its usage limit",
       "Session could not be resumed",

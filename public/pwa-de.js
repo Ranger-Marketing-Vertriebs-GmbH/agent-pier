@@ -141,6 +141,11 @@ self.agentPierNotificationCopy = {
     team: "Team-Vorschlag",
     sftp: "SFTP-Übertragung",
     mail: "E-Mail-Versand",
+    question: "Frage",
+  },
+  // Worauf ein Betreff wartet, wenn es keine Entscheidung ist.
+  subjectBodies: {
+    question: "Ein Agent wartet auf deine Antwort.",
   },
   tools: {
     claude: "Claude Code",

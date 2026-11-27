@@ -200,3 +200,29 @@ test("an agent the running Gateway refused needs attention before anything else"
   assert.equal(entry.reason, "degraded");
   assert.equal(entry.label, "status.degraded");
 });
+
+test("an agent that asks the owner a question waits, after what needs attention or approval", () => {
+  const asking = new Set(["home"]);
+  const running = [row("c", "running")];
+  assert.deepEqual(derive({ latest: running, asking }).home, {
+    state: "waiting",
+    reason: "question",
+    label: "status.question",
+    pendingApprovals: 0,
+    team: null,
+  });
+  // Another agent's question changes nothing here.
+  assert.equal(
+    derive({ latest: running, asking: new Set(["other"]) }).home.state,
+    "working",
+  );
+  assert.equal(
+    derive({ latest: [row("c", "uncertain")], asking }).home.reason,
+    "attempt",
+  );
+  assert.equal(
+    derive({ latest: running, asking, awaiting: { home: { own: 1, team: 0 } } }).home
+      .reason,
+    "approval",
+  );
+});

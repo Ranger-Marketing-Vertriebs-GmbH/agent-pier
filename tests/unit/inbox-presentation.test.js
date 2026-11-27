@@ -60,3 +60,19 @@ test("a gate's context names the pipeline, the project and the task", () => {
     setLanguage("de");
   }
 });
+
+test("an agent's question is told from a CLI's by its kind and its agent", () => {
+  setLanguage("en");
+  try {
+    const item = {
+      type: "question",
+      kind: "agent-question",
+      title: "Which environment should I deploy to?",
+      source: { kind: "agent", id: "nova", name: "Nova" },
+    };
+    assert.equal(kindLabel(item), "Question from an agent");
+    assert.equal(itemContext(item), "Question from an agent · Nova");
+  } finally {
+    setLanguage("de");
+  }
+});
