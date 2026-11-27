@@ -14,13 +14,35 @@ export const documentExtractPlugin = "document-extract";
  * extraction plugin, which reads PDF text and page images (2026.10.3 has it).
  */
 export function hasDocumentExtract(installed) {
+  return bundlesPlugin(installed, documentExtractPlugin);
+}
+
+export const webReadabilityPlugin = "web-readability";
+/**
+ * Whether the runtime `installed` bundles OpenClaw's Readability extractor, which
+ * reduces a page web_fetch loaded to its article (2026.11.6 has it). An older or
+ * rollback runtime without it keeps fetching; its allow list just never names it.
+ */
+export function hasWebReadability(installed) {
+  return bundlesPlugin(installed, webReadabilityPlugin);
+}
+
+/** Both as the `webTools` inputs of a start (webToolsAvailability). */
+export function bundledExtractors(installed) {
+  return {
+    documentExtract: hasDocumentExtract(installed),
+    webReadability: hasWebReadability(installed),
+  };
+}
+
+function bundlesPlugin(installed, id) {
   if (typeof installed?.entryPath !== "string") return false;
   return fs.existsSync(
     path.join(
       path.dirname(installed.entryPath),
       "dist",
       "extensions",
-      documentExtractPlugin,
+      id,
       "openclaw.plugin.json",
     ),
   );
@@ -31,7 +53,8 @@ export function hasDocumentExtract(installed) {
  * `{ search, browser, searchPlugins, images, pdf }`: the WebSearchSettings.resolve()
  * result, the detectBrowser() result, the runtime descriptor's bundled search plugins,
  * the ChatGPT image readiness, the PdfModelSettings.resolve() result and whether the
- * runtime bundles PDF extraction (hasDocumentExtract). A
+ * runtime bundles PDF extraction (hasDocumentExtract) and the Readability extractor
+ * (hasWebReadability, which only refines web_fetch and gates nothing). A
  * provider whose plugin the runtime lacks (old or rollback runtime) is unavailable:
  * OpenClaw would offer web_search without a provider and fail each call.
  */
@@ -94,8 +117,14 @@ export function webToolsSections({ profiles, webTools, port, only }) {
       sections.plugins.entries[plugin.id] = { config: { webSearch: { apiKey: key } } };
   }
   // Private and internal targets are refused before any request is sent.
-  if (active("webFetch"))
+  if (active("webFetch")) {
     web.fetch = { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } };
+    // Bundled and on by default, but the restrictive allow list leaves it off; without
+    // it web_fetch converts the whole page, navigation and footer included
+    // (`extractor: "raw-html"`), instead of the article (`extractor: "readability"`).
+    if (webTools?.webReadability === true)
+      sections.plugins.allow.push(webReadabilityPlugin);
+  }
   if (Object.keys(web).length) sections.web = web;
   // An explicit model keeps image_generate on the account's OpenAI route instead of
   // auto-detection; the timeout follows OpenClaw's hosted image defaults.
@@ -238,6 +267,8 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
     searchPlugins: webTools?.searchPlugins || {},
     // Whether the runtime bundles PDF extraction; a save compares with the same.
     documentExtract: webTools?.documentExtract === true,
+    // Whether the runtime bundles the Readability extractor; compared the same way.
+    webReadability: webTools?.webReadability === true,
     tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
     signatures: webToolsSignatures({ webTools }),
   };

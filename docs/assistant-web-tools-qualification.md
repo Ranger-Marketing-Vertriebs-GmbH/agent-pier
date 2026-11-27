@@ -114,6 +114,21 @@ address`; the page receives no request.
   in `plugins.allow` the call fails with `PDF extraction disabled or unavailable`. On
   2026.10.3 and 2026.10.7 the agent entry schema rejects `pdfModel` and `imageModel`
   as unrecognized keys, so the configured model stays global.
+- **`web_fetch` extracts with Readability** (since 2026-11-27, OpenClaw 2026.11.6).
+  OpenClaw disables every bundled plugin a non-empty `plugins.allow` does not name
+  ("not in allowlist"), including `web-readability`, which is enabled by default and
+  provides the `readability` content extractor. Without it `web_fetch` converts the
+  whole page to Markdown, navigation and footers included, and its result says
+  `extractor: "raw-html"`. A start therefore adds `web-readability` to
+  `plugins.allow` whenever web fetch is compiled and the runtime bundles the plugin
+  (`hasWebReadability`; an older or rollback runtime without it keeps fetching whole
+  pages, and an id the runtime does not know would only be a warning: "plugin not
+  found ... stale config entry ignored"). The contract asserts the allow list and that
+  `plugins.list` reports the plugin enabled. It cannot assert
+  `extractor: "readability"` on a result, because the fetch policy refuses the only
+  page a contract can reach (loopback). The plugin id is part of the web fetch
+  signature, so it reaches a running Gateway with the restart of the update that
+  brings it.
 - **The lead's temporary member** has the default grants (since 2026-10-17,
   [team member grants](assistant-gateway.md#team-member-grants-2026-10-17)): its
   entry holds `web_search`, `web_fetch` and `memory_search` within the lead's
@@ -379,7 +394,7 @@ and restart the Gateway when they change, rather than relying on live patches.
 
 These measurements are from 2026.9.8. Since 2026-10-23 (AGENTPIER-202) a start compiles
 every section the runtime can serve, whether an agent uses it yet or not: the browser
-block with the member slots, the search provider's plugin, `document-extract` with
+block with the member slots, the search provider's plugin, `web-readability`, `document-extract` with
 the PDF fallback or its placeholder, and the image model. The global `tools.allow` is only an upper bound;
 each agent's entry names its own tools. Switching web search, web pages, the browser,
 its visible window, PDFs or images for one agent then changes only that agent's entry

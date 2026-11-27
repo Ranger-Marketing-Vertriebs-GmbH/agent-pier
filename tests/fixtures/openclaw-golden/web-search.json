@@ -232,6 +232,7 @@
       "openai",
       "memory-core",
       "brave",
+      "web-readability",
       "document-extract"
     ],
     "load": {

@@ -14,7 +14,7 @@ import { WebSearchSettings } from "../../server/features/assistants/web-search-s
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { hasDocumentExtract } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
+import { bundledExtractors } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
@@ -140,7 +140,7 @@ test(
         browser,
         searchPlugins: descriptor.searchPlugins || {},
         pdf: { ready: true, ...fixture },
-        documentExtract: hasDocumentExtract(descriptor),
+        ...bundledExtractors(descriptor),
       },
     });
     await runtime.start();
@@ -172,7 +172,7 @@ test(
     // and PDF extraction, without the agent's own profile.
     assert.equal(started.browser.enabled, true);
     assert.equal(started.browser.profiles[own], undefined);
-    for (const id of ["duckduckgo", "document-extract", "browser"])
+    for (const id of ["duckduckgo", "web-readability", "document-extract", "browser"])
       assert.ok(started.plugins.allow.includes(id), id);
     for (const name of ["web_search", "web_fetch", "pdf", "browser"])
       assert.ok(started.tools.allow.includes(name), name);

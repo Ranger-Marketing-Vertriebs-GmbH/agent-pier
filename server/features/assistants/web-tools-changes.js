@@ -140,6 +140,7 @@ export class WebToolsChanges {
       browser: this.detect(),
       searchPlugins: running.searchPlugins,
       documentExtract: running.documentExtract,
+      webReadability: running.webReadability,
       images: this.images(),
       pdf,
       browserAllowPrivateNetwork: this.network().allowPrivateNetwork,
