@@ -7,6 +7,7 @@ import { DeepgramTranscriber } from "../../server/features/speech/deepgram-trans
 import { TelegramClient } from "../../server/features/assistant-channels/telegram-client.js";
 import { withMessageSources } from "../../server/features/assistants/message-source.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 export async function qualifyAssistantChannels({ dataDir, assistants, assistantId }) {
   const botId = Date.now(),
@@ -73,6 +74,11 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
     updates.push(message(1, { text: `/start ${pair.code}` }));
     await channels.ingress.poll(channel.id, signal);
     assert.equal(channels.store.get(channel.id).chatId, "42");
+    // The pairing is confirmed in the chat before any turn (telegram-ingress.js).
+    const agent = assistants.store.getAssistant(assistantId).name;
+    assert.deepEqual(delivered.splice(0), [
+      serverCatalogs.de.assistants.telegramPaired(agent),
+    ]);
     // Long and multi-line, with trailing whitespace: the chat must still find its turn.
     const list = `Shopping list:\n${Array.from(
       { length: 80 },
