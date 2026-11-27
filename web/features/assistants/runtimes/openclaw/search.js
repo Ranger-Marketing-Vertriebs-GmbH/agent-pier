@@ -26,6 +26,9 @@ export const openClawSearch = Object.freeze({
         () => modelCopy.search.fast,
         () => modelCopy.search.effort,
         () => modelCopy.search.loop,
+        () => modelCopy.search.fallback,
+        () => modelCopy.search.failover,
+        () => modelCopy.search.backup,
       ]),
     }),
     // The agent's wiki, read only, for each agent that keeps one.

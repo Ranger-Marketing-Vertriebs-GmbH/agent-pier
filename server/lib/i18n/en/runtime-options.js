@@ -25,7 +25,14 @@ export const runtimeOptions = Object.freeze({
   memoryWikiTaskMember:
     "A temporary team member cannot keep a memory wiki. Only your own agents can.",
   modelOptionsTaskMember:
-    "A temporary team member works with its lead's thinking level, fast mode and loop protection. Set them on the lead.",
+    "A temporary team member works with its lead's thinking level, fast mode, loop protection and fallback models. Set them on the lead.",
+  fallbackTooMany: (max) => `An agent takes at most ${max} fallback models.`,
+  fallbackTwice: "Each fallback must be a different model.",
+  fallbackOwnModel: "A fallback must be another model than the agent's own.",
+  fallbackKind:
+    "Only a model of an OpenRouter connection or of an endpoint can be a fallback. A ChatGPT login cannot.",
+  fallbackUnavailable:
+    "This fallback's model connection or model is not available. Check it under Connections › Model access.",
   memoryWikiNotLoaded:
     "The memory wiki is available after the pending restart of the agent service.",
   runtimeOptionsRestartRequired:

@@ -9,7 +9,12 @@ import { stalledMinutes, useNow } from "./run-steps.js";
 
 const tones = { running: "working", done: "ok", failed: "error" };
 export const toolName = (step) => copy.tools[step.tool] || copy.tool(step.tool || "?");
-const stepName = (step) => (step.kind === "thinking" ? copy.thinking : toolName(step));
+const stepName = (step) =>
+  step.kind === "thinking"
+    ? copy.thinking
+    : step.kind === "fallback"
+      ? copy.fallback
+      : toolName(step);
 
 // What the turn does now: the running tool with its title, or the phase. An exec
 // approval waits for a person and a compaction summarises the chat, not the model.

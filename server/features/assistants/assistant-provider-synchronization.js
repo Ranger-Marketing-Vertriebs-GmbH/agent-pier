@@ -2,7 +2,8 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { temporaryMember } from "./team-presentation.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
-import { personalCapabilities } from "./native-capabilities.js";
+import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js";
+import { leadOf } from "./agent-desired-state.js";
 import { hostOf, hostReady } from "./runtimes/runtime-for.js";
 import { optionConnections } from "./runtimes/runtime-options.js";
 
@@ -44,8 +45,20 @@ export class AssistantProviderSynchronization {
     const entries = config.agents?.entries || config.agents?.list;
     const providers = { ...config.models?.providers };
     const pdf = this.pdfModel();
+    // The model connections each agent's options name (OpenClaw: its fallback
+    // models), a temporary member's those of its lead.
+    const options = new Map(
+      profiles.map((profile) => [
+        profile.id,
+        optionConnections(
+          profile,
+          inheritsFromLead(profile) ? leadOf(profiles, profile) : null,
+        ),
+      ]),
+    );
     const connectionIds = [
       ...profiles.map((profile) => profile.model.connectionId),
+      ...[...options.values()].flat().map((entry) => entry.connectionId),
       ...(pdf ? [pdf.connectionId] : []),
     ];
     for (const key of Object.keys(providers))
@@ -65,12 +78,25 @@ export class AssistantProviderSynchronization {
           );
           entry.model = { primary: selected.modelRef, fallbacks: [] };
           if (!selected.available) blocked.add(profile.id);
+          else
+            entry.model.fallbacks = await this.fallbacks(
+              options.get(profile.id),
+              selected.modelRef,
+              providers,
+            );
           continue;
         }
         lease = await a.models.resolve(profile.model);
         if (!lease.provider || !lease.providerId) throw assistantProblem("provider");
         providers[lease.providerId] = lease.provider;
-        entry.model = { primary: lease.modelRef, fallbacks: [] };
+        entry.model = {
+          primary: lease.modelRef,
+          fallbacks: await this.fallbacks(
+            options.get(profile.id),
+            lease.modelRef,
+            providers,
+          ),
+        };
       } catch {
         entry.model = { ...blockedModel };
         blocked.add(profile.id);
@@ -83,6 +109,32 @@ export class AssistantProviderSynchronization {
     writePrivate(a.runtime.paths.config, config);
     this.blocked = blocked;
     a.config.reset?.();
+  }
+  /**
+   * The fallback model refs of one agent's entry at a start, in the owner's order,
+   * each with its provider prepared in `providers` exactly as a primary's is. Only a
+   * connection AgentPier compiles a provider for can be one (openclaw-options.js);
+   * one that is missing, without its key or otherwise cannot serve is left out,
+   * never a blocked agent. A blocked agent gets none: its primary must answer first.
+   */
+  async fallbacks(selections = [], primary, providers) {
+    const refs = [];
+    for (const selection of selections) {
+      let lease;
+      try {
+        if (!central({ model: selection })) continue;
+        lease = await this.assistants.models.resolve(selection);
+        if (!lease.provider || !lease.providerId) continue;
+        if (lease.modelRef === primary || refs.includes(lease.modelRef)) continue;
+        providers[lease.providerId] = lease.provider;
+        refs.push(lease.modelRef);
+      } catch {
+        // Left out: the agent runs on its model and the fallbacks that resolved.
+      } finally {
+        lease?.release();
+      }
+    }
+    return refs;
   }
   /**
    * The global PDF model of a start that offers `pdf` (web-tools.js compiled the tool

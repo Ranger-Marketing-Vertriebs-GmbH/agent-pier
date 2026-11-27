@@ -61,6 +61,8 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
     if (!["user", "assistant"].includes(role)) return [];
     // The runtime's own turns (an exec completion's event turn) are never the owner's.
     if (role === "user" && entry.internal === true) return [];
+    // Nor is its own status line (a model fallback's route change) the agent's reply.
+    if (entry.status === true) return [];
     const raw = typeof entry.text === "string" ? entry.text : "";
     const text = role === "user" ? shownTurnText(raw) : raw;
     if (!text) return [];

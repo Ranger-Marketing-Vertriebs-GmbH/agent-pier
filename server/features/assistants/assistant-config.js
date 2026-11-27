@@ -21,6 +21,7 @@ import {
 } from "./built-in-skills.js";
 import { compilerFor, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import { desiredAgent, leadOf } from "./agent-desired-state.js";
+import { resolveOptionConnections } from "./option-connections.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -402,11 +403,20 @@ export class AssistantConfig {
       : bootstrap;
     // The agent as AgentPier wants it (agent-desired-state.js), which the runtime's
     // config sub-port applies; its grants yield `allowed` above.
+    // The model connections its options name (OpenClaw: its fallback models), a
+    // temporary member's those of its lead; one that cannot serve is left out.
+    const lead = leadOf(grants.profiles || [], assistant);
+    const optionConnections = await resolveOptionConnections(
+      this.models,
+      assistant,
+      inheritsFromLead(assistant) ? lead : null,
+    );
     const desired = desiredAgent(assistant, {
       ssh,
       craft,
       shellPath,
-      lead: leadOf(grants.profiles || [], assistant),
+      lead,
+      optionConnections,
       instructions: bootstrap,
       model: {
         ref: lease.modelRef,
@@ -436,6 +446,7 @@ export class AssistantConfig {
           senderFacing,
           ssh,
           desired.runtimeOptions,
+          optionConnections,
         ]),
       )
       .digest("hex");
@@ -460,7 +471,8 @@ export class AssistantConfig {
       // Watched before the first write, so the commit cannot be announced unseen.
       adoption = config.watchAdoption(this.adoption);
       const base = adoption.watching ? await config.get() : {};
-      if (desired.model.provider) await config.applyModel({ desired });
+      if (desired.model.provider || optionConnections.some((entry) => entry.provider))
+        await config.applyModel({ desired });
       // agents.create and agents.update write the configuration: the roster is read
       // once the runtime admitted its agents.
       await agents.settled();

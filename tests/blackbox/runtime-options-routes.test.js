@@ -178,3 +178,96 @@ test("the owner sets an OpenClaw agent's thinking, fast mode and loop protection
   assert.equal(cleared.status, 200, await cleared.clone().text());
   assert.equal("runtimeOptions" in store.storedAssistant(created.id), false);
 });
+
+test("the owner sets an OpenClaw agent's fallback models, in order", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const store = f.application.assistants.store;
+  const model = fixtureModel(f);
+  const created = await json(
+    await f.request("/api/assistants", {
+      method: "POST",
+      body: { name: "Home", instructions: "", model, shell: "off" },
+    }),
+  );
+  // Other models of the same OpenRouter connection, as two fallbacks.
+  const fallbacks = [
+    { connectionId: model.connectionId, modelId: "vendor/first" },
+    { connectionId: model.connectionId, modelId: "vendor/second" },
+  ];
+  const saved = await patch(f, created, {
+    runtimeOptions: { openclaw: { thinking: "low", fallbacks } },
+  });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  let record = await json(saved);
+  assert.deepEqual(record.runtimeOptions, { openclaw: { thinking: "low", fallbacks } });
+  assert.deepEqual(store.storedAssistant(created.id).runtimeOptions, {
+    openclaw: { thinking: "low", fallbacks },
+  });
+  const options = (value) => ({ runtimeOptions: { openclaw: value } });
+  await refused(
+    await patch(
+      f,
+      record,
+      options({
+        fallbacks: [...fallbacks, { ...fallbacks[0], modelId: "vendor/third" }],
+      }),
+    ),
+    400,
+    "fallbackTooMany",
+  );
+  await refused(
+    await patch(f, record, options({ fallbacks: [fallbacks[0], fallbacks[0]] })),
+    400,
+    "fallbackTwice",
+  );
+  await refused(
+    await patch(f, record, options({ fallbacks: [model] })),
+    400,
+    "fallbackOwnModel",
+  );
+  await refused(
+    await patch(
+      f,
+      record,
+      options({ fallbacks: [{ connectionId: "openclaw:none", modelId: "gpt-x" }] }),
+    ),
+    409,
+    "fallbackUnavailable",
+  );
+  await refused(
+    await patch(f, record, options({ fallbacks: "vendor/first" })),
+    400,
+    "optionsInvalid",
+  );
+  // A temporary member works with its lead's and stores none of its own.
+  const member = store.reserveMember({
+    id: "m1",
+    parent: created.id,
+    assignment: { name: "Helper" },
+    snapshot: store.getAssistant(created.id),
+    teamId: "t1",
+    lifetime: "temporary",
+  });
+  await refused(
+    await patch(f, member, options({ fallbacks: [fallbacks[0]] })),
+    409,
+    "modelOptionsTaskMember",
+  );
+  // Reordering is a new list; none removes the key and leaves the other options.
+  const reordered = await patch(
+    f,
+    record,
+    options({ thinking: "low", fallbacks: [fallbacks[1], fallbacks[0]] }),
+  );
+  assert.equal(reordered.status, 200, await reordered.clone().text());
+  record = await json(reordered);
+  assert.deepEqual(store.storedAssistant(created.id).runtimeOptions.openclaw.fallbacks, [
+    fallbacks[1],
+    fallbacks[0],
+  ]);
+  const cleared = await patch(f, record, options({ thinking: "low", fallbacks: [] }));
+  assert.equal(cleared.status, 200, await cleared.clone().text());
+  assert.deepEqual(store.storedAssistant(created.id).runtimeOptions, {
+    openclaw: { thinking: "low" },
+  });
+});

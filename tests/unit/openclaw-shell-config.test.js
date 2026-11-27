@@ -254,6 +254,8 @@ test("a live apply raises and lowers shell with the global list in one patch", a
   assert.deepEqual(client.patches.at(-1).replacePaths, [
     `agents.entries.${agent.runtimeAgentId}.tools.allow`,
     `agents.entries.${agent.runtimeAgentId}.tools.exec.pathPrepend`,
+    // The model's fallback list is replaced whole as well (none here: `[]`).
+    `agents.entries.${agent.runtimeAgentId}.model.fallbacks`,
     "tools.allow",
   ]);
   const stopped = compile(store.listAssistants(), live());

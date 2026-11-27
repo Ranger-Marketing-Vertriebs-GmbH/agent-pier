@@ -193,6 +193,13 @@ test("an OpenClaw agent's model behaviour is found on its Identity tab", () => {
     "Owl Fast mode",
     "Owl Denkaufwand",
     "Owl Reasoning effort",
+    // Its fallback models are rows of the same group.
+    "Owl Ersatzmodelle",
+    "Owl Fallback models",
+    "Owl Ausweichmodell",
+    "Owl Failover",
+    "Owl Reservemodell",
+    "Owl Backup model",
   ])
     assert.ok(
       results(query, entries).some((item) => item.id === own),
@@ -233,6 +240,8 @@ test("an OpenClaw agent's model behaviour is found on its Identity tab", () => {
     "Schnellmodus",
     "Loop protection",
     "Schleifenschutz",
+    "Fallback models",
+    "Ersatzmodelle",
   ])
     assert.equal(results(query, users).length, 0, query);
 });

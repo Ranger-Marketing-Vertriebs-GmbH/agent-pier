@@ -66,6 +66,13 @@ again. A runtime that was disabled remains disabled. A native account logout res
 refused while active or uncertain work runs.
 Changed transport settings or credentials receive a new native provider identity,
 so the selected model cannot inherit obsolete keys or headers through native merging.
+An agent's [fallback models](agents.md#fallback-models) use OpenRouter and endpoint
+connections the same way: each fallback's provider is prepared with the agent's own
+at every Gateway start and agent apply, a connection a fallback names counts as used
+by that agent (a change to it restarts the Gateway like a change to a model's
+connection), and a fallback whose connection is removed or unusable is simply left
+out of the agent's chain. A ChatGPT account cannot be a fallback
+([why](assistant-gateway.md#fallback-models)).
 If the connection is removed or unusable, the profile receives a blocked model with
 no fallbacks, then its reminders/routines are paused. The blocked selection prevents
 native scheduled work from using an old credential even before pause completes.

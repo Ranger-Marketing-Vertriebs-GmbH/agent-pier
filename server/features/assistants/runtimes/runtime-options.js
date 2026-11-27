@@ -103,9 +103,15 @@ export const runtimePagesOf = (agent) =>
     ? []
     : [...(moduleOf(runtimeIdOf(agent)).pages?.(runtimeOptionsOf(agent)) || [])];
 
-/** The model connections `[{ connectionId, modelId }]` the agent's options name. */
-export const optionConnections = (agent) =>
-  moduleOf(runtimeIdOf(agent)).connections(runtimeOptionsOf(agent));
+/**
+ * The model connections `[{ connectionId, modelId }]` the agent's options name. With
+ * `lead` (the record of the lead a temporary member follows), those of the options
+ * the member runs with (memberOptionsOf).
+ */
+export const optionConnections = (agent, lead = null) =>
+  moduleOf(runtimeIdOf(agent)).connections(
+    lead ? memberOptionsOf(agent, lead) : runtimeOptionsOf(agent),
+  );
 
 /**
  * `record` (a stored agent) with its options for its runtime as it may still hold

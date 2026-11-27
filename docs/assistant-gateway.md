@@ -1804,6 +1804,93 @@ for one agent. Since 2026-11-27 AgentPier compiles that key
   with a lease of kind `endpoint`: the entries hold `{ enabled: true }`, the readback
   accepts it, and a Gateway restart keeps it for agents not applied since.
 
+<a id="fallback-models"></a>
+
+#### Fallback models per agent
+
+Every agent entry used to hold `model: { primary, fallbacks: [] }`, OpenClaw's strict
+"no fallback", so an outage of the model's provider failed the turn. An agent can
+now name up to two fallback models ([agents](agents.md#fallback-models)).
+
+- **The setting** is `runtimeOptions.openclaw.fallbacks`, an ordered list of
+  `{ connectionId, modelId }` (at most two, `openclaw-options.js`), validated on a
+  write: no repeat, not the agent's own model, a connection of kind `openrouter` or
+  `endpoint` that can serve now (409 `fallbackUnavailable`; one already stored
+  stays although its connection went away), never a ChatGPT login (400
+  `fallbackKind`). Read tolerantly, so a rollback starts the agent. A temporary
+  member stores none (409 `modelOptionsTaskMember`) and takes over its lead's.
+- **Why no ChatGPT login.** A ChatGPT model ref carries its account as
+  `openai/<model>@<profile>`. OpenClaw strips that pin from a fallback candidate
+  (`splitTrailingAuthProfile` keeps only the model, `model-selection-shared` of the
+  pinned runtime) and then chooses among the `openai` profiles itself, so with two
+  accounts AgentPier could not say which one answers. OpenRouter and endpoint
+  connections are compiled as providers of their own with their own key
+  (`ap-<connection>-<uuid>`), which a fallback ref names exactly.
+- **Compiled twice, the same way.** A Gateway start knows no model connection
+  while it compiles (`agentEntry` leaves `model` alone); the start's provider
+  preparation (`AssistantProviderSynchronization.prepare`) then resolves each
+  agent's model and its fallbacks, writes `models.providers.<id>` for each
+  (endpoint transport, key, image input and the other per-model fields exactly as
+  for a primary) and `model: { primary, fallbacks: [refs] }`. A live apply resolves
+  them again (`resolveOptionConnections`), writes missing providers first
+  (`providerPatch`) and the model with its fallbacks in the agent's patch
+  (`agentPatch`, with `agents.entries.<id>.model.fallbacks` as a replace path so a
+  shorter list drops items); the readback compares the list (`agentDrift`). The
+  list applies to the agent's next turn without a restart.
+- **Left out, never a failure.** A fallback whose connection is missing, without its
+  key or unresolvable is skipped at both places; so are the agent's own model and a
+  repeat. An agent whose own model is gone is blocked as before and gets no
+  fallbacks: a fallback never stands in for a removed primary. A fallback's
+  connection counts for `uses()`, so a change to it requests the Gateway restart.
+- **No default chain.** The list is always written, empty without fallbacks:
+  OpenClaw replaces `agents.defaults.model.fallbacks` with an agent's own list and
+  never merges, so no agent picks up a chain it did not name.
+- **OpenClaw's semantics** (`docs/concepts/model-failover.md` of the pinned runtime):
+  it first retries the same model, then rotates auth profiles of the provider, then
+  moves to the next model. Rate limits, overload, server errors, timeouts, refused
+  keys, billing and a model that is not found advance; an abort, a content refusal,
+  a terminal run timeout and local errors do not. A fallback does not change the
+  session's model (`modelOverride` stays unset; `sessions.list` reports
+  `activeModel` beside `model`): the next turn starts at the primary. After a rate
+  limit the session keeps the fallback in memory for 10 idle minutes, 30 at most; a
+  refused key rests the provider (cooldown), during which the primary is skipped.
+  Routine and check-in runs use the agent's list (no `payload.fallbacks` is
+  written). A session with a model override would be strict, and AgentPier sets
+  none.
+- **What the owner sees.** OpenClaw reports a fallback three ways, all with its
+  internal provider ids: `lifecycle` frames (`fallback_step`, `fallback`), a second
+  `chat` `final` with the status line "↪️ Model Fallback: …" (content blocks marked
+  `openclawStatusNotice`), and assistant messages "Model switched from … to …" mirrored
+  into the transcript (`openclawDeliveryMirror.kind: "model-fallback"`). AgentPier
+  turns `fallback_step` into the run step `{ type: "fallback", model }` with the
+  model id alone (`openclaw-events.js`, `run-steps.js`: one step "Answered by a
+  fallback model" per run), reads the status line as no reply and no end of the run,
+  and marks the mirrored messages `entry.status`, which the chat history leaves out
+  (`publicMessages`). The agent's instructions still name its own model.
+- **Capabilities follow the primary.** What an agent may do is decided by its own
+  model: image input for `view_image` and attachments
+  (`AssistantModels.imageInput`), the PDF model the tool guard names
+  (`pdf-policy.js`: the agent's own model or the owner's PDF fallback, never a chat
+  fallback) and image creation through the ChatGPT account. When a fallback
+  answers, OpenClaw clamps the thinking level for it and drops images it cannot
+  take with a note in the turn; no tool is added or removed.
+- **Measured** by `tests/integration/assistant-model-fallback-contract.test.js` on
+  2026.11.6: a primary that refuses its key is asked once, a fallback that does not
+  exist is skipped at run time and the second one answers; the run receipt names
+  `requested` and `effective`; the events yield one fallback step with the model id,
+  one reply and no provider id in any reply; the history shows the turn and the
+  reply only; the session's model stays the primary; and `fallbacks: []` fails the
+  turn without asking another model, all without a restart. A separate measurement
+  on the same runtime: a provider answering 500 was retried 8 times in about 90
+  seconds before the fallback answered, and one answering 429 with `Retry-After`
+  was still being retried after four minutes.
+- **Not verified:** a ChatGPT account as the primary with a fallback (the contract
+  runs custom providers only), and fallbacks for sub-agents (AgentPier grants no
+  `sessions_spawn`).
+- **Hermes** has its own `fallback_providers` and `fallback_model`, which AgentPier
+  does not manage ([Hermes runtime](hermes-runtime.md)); a Hermes agent shows no
+  fallback rows.
+
 #### Memory wiki
 
 OpenClaw's bundled plugin `memory-wiki` (`docs/plugins/memory-wiki.md` of the pinned

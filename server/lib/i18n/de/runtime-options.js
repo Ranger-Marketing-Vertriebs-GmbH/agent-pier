@@ -25,7 +25,15 @@ export const runtimeOptions = Object.freeze({
   memoryWikiTaskMember:
     "Ein temporäres Teammitglied kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
   modelOptionsTaskMember:
-    "Ein temporäres Teammitglied arbeitet mit der Denkstufe, dem Schnellmodus und dem Schleifenschutz seines leitenden Agenten. Stelle sie dort ein.",
+    "Ein temporäres Teammitglied arbeitet mit der Denkstufe, dem Schnellmodus, dem Schleifenschutz und den Ersatzmodellen seines leitenden Agenten. Stelle sie dort ein.",
+  fallbackTooMany: (max) => `Ein Agent nimmt höchstens ${max} Ersatzmodelle.`,
+  fallbackTwice: "Jedes Ersatzmodell muss ein anderes Modell sein.",
+  fallbackOwnModel:
+    "Ein Ersatzmodell muss ein anderes Modell sein als das eigene Modell des Agenten.",
+  fallbackKind:
+    "Nur ein Modell eines OpenRouter-Zugangs oder eines Endpunkts kann Ersatzmodell sein. Eine ChatGPT-Anmeldung kann es nicht.",
+  fallbackUnavailable:
+    "Der Modell-Zugang oder das Modell dieses Ersatzmodells ist nicht verfügbar. Prüfe ihn unter Zugänge › Modell-Zugänge.",
   memoryWikiNotLoaded:
     "Das Memory-Wiki ist nach dem ausstehenden Neustart des Agentendienstes verfügbar.",
   runtimeOptionsRestartRequired:

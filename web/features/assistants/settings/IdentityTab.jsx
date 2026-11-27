@@ -7,7 +7,7 @@ import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js"
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import useAssistants from "../useAssistants.js";
 import { assistantApi } from "../assistant-api.js";
-import RuntimeSlot from "../RuntimeSlot.jsx";
+import RuntimeSlot, { runtimeOptionsProblem } from "../RuntimeSlot.jsx";
 import { followsLeadModel } from "./agent-settings-fields.js";
 import { identityStep } from "./agent-settings-steps.js";
 import { identityServer } from "./identity-fields.js";
@@ -51,9 +51,14 @@ export default function IdentityTab({ assistant, navigate }) {
     if (result.status === "saved") await refresh();
     return result;
   };
+  // The runtime's own options (slot agent.identity) may not be savable yet.
+  const runtimeId = assistant.runtimeInfo?.id ?? assistant.runtime;
+  const optionsProblem = runtimeOptionsProblem(runtimeId, draft.values.runtimeOptions);
   // The browser checks the fields (a name is required) before anything is sent.
   const save = async () =>
-    profileValid(draft) ? after(await draft.save(steps)) : { status: "invalid" };
+    profileValid(draft) && !optionsProblem
+      ? after(await draft.save(steps))
+      : { status: "invalid" };
   const overwrite = async () => after(await draft.overwrite(steps));
   const sheet = useAgentDraftGuard({
     draft,
@@ -119,9 +124,14 @@ export default function IdentityTab({ assistant, navigate }) {
         />
         <RuntimeSlot
           name="agent.identity"
-          runtime={assistant.runtimeInfo?.id ?? assistant.runtime}
+          runtime={runtimeId}
           context={{
             assistant,
+            // The drafted model, which cannot be its own fallback.
+            model: {
+              connectionId: draft.values.connectionId,
+              modelId: draft.values.modelId,
+            },
             // The drafted model's connection: a runtime's defaults may follow its kind.
             connection: models.find((m) => m.id === draft.values.connectionId),
             options: draft.values.runtimeOptions,
@@ -139,7 +149,8 @@ export default function IdentityTab({ assistant, navigate }) {
         onSave={save}
         onOverwrite={overwrite}
         saveLabel={copy.save}
-        note={copy.pendingConfigShort}
+        note={optionsProblem || copy.pendingConfigShort}
+        saveDisabled={Boolean(optionsProblem)}
       />
       <ConfirmationSheet confirmation={draft.confirmation} />
       <UnsavedChangesSheet {...sheet} />

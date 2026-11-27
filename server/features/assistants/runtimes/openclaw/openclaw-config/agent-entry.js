@@ -49,6 +49,26 @@ export function loopProtection(agent, entry) {
   return desired.model.kind === "endpoint";
 }
 
+/**
+ * The agent's fallback models as its entry holds them (`model.fallbacks`): the model
+ * refs of its options' fallbacks (openclaw-options.js; a temporary member's are its
+ * lead's) that the start or the apply could resolve (`optionConnections`), in the
+ * owner's order, without its own model and without repeats. One whose connection is
+ * missing, signed out or without its key is left out, never a failure.
+ */
+export function fallbackRefs(agent) {
+  const desired = asDesired(agent);
+  const resolved = desired.optionConnections || [];
+  const refs = [];
+  for (const { connectionId, modelId } of desired.runtimeOptions.fallbacks || []) {
+    const ref = resolved.find(
+      (entry) => entry.connectionId === connectionId && entry.modelId === modelId,
+    )?.ref;
+    if (ref && ref !== desired.model?.ref && !refs.includes(ref)) refs.push(ref);
+  }
+  return refs;
+}
+
 export function agentEntry(
   entry,
   assistant,
@@ -97,6 +117,12 @@ export function agentEntry(
     for (const key of modelDefaultKeys) delete next[key];
     Object.assign(next, modelDefaults(agent));
   }
+  // Its model with its fallbacks, once its model connection is known (a live apply;
+  // a Gateway start writes both while it prepares the providers,
+  // assistant-provider-synchronization.js). An empty list is OpenClaw's strict "no
+  // fallback": no default chain ever applies to an agent.
+  if (toolsManaged && agent.model?.ref)
+    next.model = { primary: agent.model.ref, fallbacks: fallbackRefs(agent) };
   // The agent's final skill list (agents.defaults.skills is []): the bundled and
   // catalog skills the owner switched on, plus AgentPier's built-in skills the agent
   // gets (built-in-skills.js), and only once native tools are ready.

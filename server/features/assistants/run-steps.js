@@ -10,7 +10,8 @@
 // the search query, the page's host and path (never its query string, fragment or
 // sign-in) or the last two segments of a file path, and nothing when it looks like a
 // secret. MCP tools, AgentPier's own tools and prompts (image creation, PDFs, images)
-// never get a label. The one other exception is an advisor's answer of a Mixture of
+// never get a label. A run that moves on to a fallback model shows one step naming
+// that model's id. The one other exception is an advisor's answer of a Mixture of
 // Agents turn (the owner's decision of 2026-11-17, ADR 0007): model text like the
 // reply, shown as the step's output, capped.
 
@@ -178,6 +179,19 @@ export class RunSteps {
           }),
           state: failed ? "failed" : "done",
         });
+        break;
+      }
+      case "fallback": {
+        // One step per run: the fallback model that answers instead of the agent's
+        // own (OpenClaw names each model it moves on to; the last one counts).
+        const model =
+          typeof step.model === "string"
+            ? capped(step.model.replace(control, "").replace(invisible, ""), maxLabel)
+            : "";
+        const state = step.failed === true ? "failed" : "done";
+        const found = run.steps.find((s) => s.id === "fallback");
+        if (found) Object.assign(found, { label: model, state });
+        else this.add(run, { id: "fallback", kind: "fallback", label: model, state });
         break;
       }
       case "thinking":

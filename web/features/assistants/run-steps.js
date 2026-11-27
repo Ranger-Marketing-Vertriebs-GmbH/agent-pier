@@ -21,7 +21,7 @@ const phases = new Set([
 const busy = new Set(["tool", "approval", "compacting"]);
 const states = new Set(["running", "done", "failed"]);
 
-const kinds = new Set(["thinking", "advisor"]);
+const kinds = new Set(["thinking", "advisor", "fallback"]);
 // What a failed advisor's step may name (server run-steps.js).
 const failures = /^(?:http-[1-5]\d\d|timeout|connection|interrupted|error)$/;
 

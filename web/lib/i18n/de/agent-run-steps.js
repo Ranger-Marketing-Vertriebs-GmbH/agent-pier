@@ -17,6 +17,8 @@ export const agentRunStepsCopy = {
       ? `Das Modell hat nicht geantwortet, neuer Versuch (${attempt} von ${of})`
       : "Das Modell hat nicht geantwortet, neuer Versuch",
   thinking: "Hat nachgedacht",
+  // Das eigene Modell des Agenten konnte nicht antworten; der Schritt nennt das Ersatzmodell.
+  fallback: "Antwort von einem Ersatzmodell",
   tools: {
     exec: "Befehl",
     process: "Hintergrundbefehl",

@@ -168,7 +168,9 @@ test("OpenClaw registers the surface below the model; Hermes has none", () => {
   );
   const entry = openClawWeb.entries.find((item) => item.surface === "modelOptions");
   assert.ok(entry);
-  assert.equal(entry.aliases.length, 4);
+  // Thinking level, fast mode, reasoning effort, loop protection and three names
+  // of the fallback models.
+  assert.equal(entry.aliases.length, 7);
 });
 
 test("both catalogs name the same texts", () => {
