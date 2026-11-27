@@ -4,11 +4,13 @@ import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import { getLanguage } from "../../lib/i18n/index.js";
-import { assistantChannelCopy as channelCopy } from "../../lib/i18n/messages/assistant-channel.js";
+import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { PairingBlock } from "../assistants/settings/TelegramConnection.jsx";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { userApi } from "./user-api.js";
+
+const channelCopy = assistantCopy.channel;
 
 /**
  * Her own agent's Telegram bot at Extended (server me-telegram.js): she connects it

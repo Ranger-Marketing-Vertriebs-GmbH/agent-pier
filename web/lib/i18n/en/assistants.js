@@ -1,5 +1,3 @@
-import { assistantChannelCopy } from "./assistant-channel.js";
-import { assistantTeamCopy } from "./assistant-team.js";
 export const assistantCopy = {
   updates: {
     title: "OpenClaw updates",
@@ -220,7 +218,167 @@ export const assistantCopy = {
       skipped: "Skipped",
     },
   },
-  team: assistantTeamCopy,
+  team: {
+    modelChanged: "Model: changed since taken over from the lead",
+    modelOriginal: "Model: as taken over from the lead",
+    followsLeadModel: "Runs on the lead's current model and changes with it.",
+    followLeadModelChoice: "Follow the lead's model",
+    instructionsChanged: "Instructions: changed since creation",
+    instructionsOriginal: "Instructions: as created",
+    setupUnknown:
+      "Setup may already have taken effect. Review the state before acknowledging uncertainty. The service restarts; this member finishes as failed and is not replaced.",
+    title: "Teams",
+    settings: "Team settings",
+    memberSettings: "Team member",
+    allowOnce: "Allow a team for this message",
+    startedBecause: (quote) => `Started because you wrote: “${quote}”`,
+    approvalHint:
+      "This team is waiting for your approval. Members will have their own chats.",
+    approve: "Approve team",
+    decline: "Decline team",
+    stopTeam: "Stop team",
+    stopMember: "Stop member",
+    allowedChip: "Team allowed",
+    archive: "Archive",
+    restore: "Restore",
+    autonomous: "Allow teams without asking each time",
+    // How a lead involves its members on its own (server team-guidance.js).
+    usage: "Use team",
+    usageLevels: {
+      onRequest: "On request",
+      suggest: "Suggest",
+      autonomous: "Autonomous",
+    },
+    usageHints: {
+      onRequest: "The agent asks or delegates to its members only when you ask it to.",
+      suggest:
+        "The agent offers to involve a matching member in one sentence and waits for your yes. Your yes counts as your request.",
+      autonomous:
+        "The agent asks members and delegates suitable tasks on its own; only many actions in a short time stop it, so that no loop runs away. Its own tasks may change the member's workspace; shell, SSH, project folders, GitHub and new teams keep their usual approvals.",
+    },
+    memberShellSsh: "Team members may use shell and SSH",
+    memberShellSshHint:
+      "Lead agents grant their task members only what they have themselves. With this option they may also grant shell, at most at their own level, and SSH on their own hosts; you approve every later grant. It applies to teams proposed while it is on. Members act unattended, and content they read can steer them.",
+    permissionHint:
+      "The agent asks by default. Use /team or the message option to allow one team for an assignment.",
+    maxMembers: "Maximum team size",
+    timeout: "Member time limit (minutes)",
+    timeoutHint:
+      "Applies to a team's work on its assignment and to questions. A task the agent gives a member, or a member gives a colleague, may run up to 60 minutes; questions to a member busy with one can wait that long.",
+    capacity: "Concurrent members on this host",
+    capacityRange: (min, max) => `Choose a value from ${min} to ${max}.`,
+    concurrentHint:
+      "All members may work at the same time while host capacity is available.",
+    save: "Save team settings",
+    permanent: "Permanent agent",
+    taskBound: "Task-bound member",
+    independent:
+      "Model and instructions are this agent's own. Changes to the lead do not overwrite them.",
+    independentTask:
+      "The instructions are an independent copy that changes to the lead do not overwrite; you can change them after completion. The model follows the lead's unless the member is given one of its own.",
+    promote: "Keep as permanent agent",
+    states: {
+      partial: "Partially successful",
+      awaiting_approval: "Awaiting approval",
+      approved: "Approved",
+      queued: "Waiting for capacity",
+      provisioning: "Setting up",
+      provisioning_uncertain: "Setup outcome unknown",
+      ready: "Ready",
+      admitting: "Starting",
+      running: "Working",
+      stopping: "Stopping",
+      uncertain: "Outcome unknown",
+      completed: "Completed",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      declined: "Declined",
+    },
+    internalTurns: {
+      "coding-start": "The agent received the outcome of the approved coding start.",
+      "team-result": "Team results received. The agent is summarizing them.",
+      "member-result": "A member's answer arrived. The agent is passing it on.",
+      "peer-result": "A colleague's answer arrived. The agent continues.",
+      "coding-result": "Coding run result received.",
+      "memory-result": "A project knowledge note was not saved. The agent was told.",
+      "ssh-result": "SSH command result received.",
+      "sftp-result": "SFTP operation result received.",
+      "mail-result": "Email send result received.",
+      "ssh-access-result":
+        "The outcome of an SSH access proposal was passed to the agent.",
+      "memory-step": "The agent was asked to save its memories before the summary.",
+      "member-long-chat": "A member's chat has grown long. The agent was told.",
+      "goal-continuation": "AgentPier asked the agent to continue its goal.",
+      "coding-session": "A coding session changed. The agent continues.",
+    },
+    // All results of a task to a group, in one turn (instead of
+    // internalTurns["member-result"]).
+    groupResults: (group) =>
+      `Results of the group ${group} received. The agent is summarizing them.`,
+    // A member's question or task that ended without a result (instead of
+    // internalTurns["member-result"]).
+    memberOutcomes: {
+      deadline: "A member's result: cancelled (time limit)",
+      owner: "A member's result: cancelled by you",
+      lead: "A member's result: cancelled by the lead agent",
+      stopped: "A member's result: stopped",
+      cancelled: "A member's result: cancelled",
+      failed: "A member's result: failed",
+    },
+    // The same in the asking member's chat (instead of internalTurns["peer-result"]).
+    peerOutcomes: {
+      deadline: "A colleague's result: cancelled (time limit)",
+      owner: "A colleague's result: cancelled by you",
+      lead: "A colleague's result: cancelled by the lead agent",
+      stopped: "A colleague's result: stopped",
+      cancelled: "A colleague's result: cancelled",
+      failed: "A colleague's result: failed",
+    },
+    notes: {
+      started: (title) => `Team started: ${title}`,
+      completed: (title) => `Team completed: ${title}`,
+      partial: (title) => `Team partly completed: ${title}`,
+      failed: (title) => `Team failed: ${title}`,
+      cancelled: (title) => `Team cancelled: ${title}`,
+      declined: (title) => `Team proposal declined: ${title}`,
+      unsent: (title) => `Team results could not be passed to the agent: ${title}`,
+    },
+    awaitingReview: "Waiting for your review",
+    reviewTitle: (title) => `Review needed: ${title}`,
+    reviewHint:
+      "The outcome of these members is unknown. The team can only finish once you review them.",
+    reviewMember: (name) => `Review ${name}`,
+    pendingTitle: "Teams waiting for you",
+    listHint:
+      "Every team this agent started, with its members, status and results. Open a member to read its chat.",
+    filterLabel: "Show teams",
+    active: (count) => `Active (${count})`,
+    archived: (count) => `Archived (${count})`,
+    noTeams: "This agent has not started a team yet.",
+    noActive: "No active teams.",
+    noArchived: "No archived teams.",
+    showInChat: "Show in chat",
+    report: "Report",
+    noReport: "No written report",
+    // A report stored incomplete beyond the history limit.
+    reportShortened: "Shortened – the whole report is in the member’s chat.",
+    openMemberChat: "Open chat",
+    results: {
+      queued: "Results waiting to be summarized",
+      pending: "Results are being summarized in the chat",
+      accepted: "Results are being summarized in the chat",
+      running: "Results are being summarized in the chat",
+      completed: "Results summarized in the chat",
+      failed: "The summary failed",
+      cancelled: "The summary was stopped",
+      interrupted: "Summary outcome unknown",
+      uncertain: "Summary outcome unknown",
+      reviewed: "Summary outcome reviewed",
+      skipped: "No summary",
+      unsent: "The results could not be passed to the agent. Read the reports here.",
+    },
+    inherited: (name, revision) => `Created by ${name} · inherited revision ${revision}`,
+  },
   remoteChanged: (fields) =>
     `This agent changed on the server while you were editing (${fields}). Your edits are kept; reload to use the latest values instead.`,
   reloadLatest: "Reload latest",
@@ -280,7 +438,120 @@ export const assistantCopy = {
     dictationSendHint:
       "Off: the dictated text stays in the message field so you can edit it before sending.",
   },
-  channel: assistantChannelCopy,
+  channel: {
+    language: "Language of Telegram notices",
+    languageDe: "German",
+    languageEn: "English",
+    languageHint:
+      "Notices written by AgentPier (approvals, team updates, links) use this language. It is taken from this browser when you first connect; pairing again keeps your choice. Notices already queued keep their text; the agent’s own replies are not translated.",
+    appUrl: "AgentPier address for links",
+    appUrlHint:
+      "Telegram notices link back to this address. It is taken from this browser when you connect or pair; leave it empty to send notices without links.",
+    ignored: (privateCount, groupCount) =>
+      `Ignored messages: ${privateCount} from other private chats, ${groupCount} from groups.`,
+    teamNotification: "Team notification",
+    fileNotification: "File shared by the agent",
+    connected: (chatId) => `Connected to private chat ${chatId}`,
+    description:
+      "Use this agent’s shared chat from your private Telegram conversation. Replies to Telegram messages return to Telegram.",
+    paused: "Paused or awaiting pairing",
+    disconnected: "Disconnected",
+    failed: "The channel operation could not be completed.",
+    token: "Telegram bot token",
+    botHint:
+      "Create a dedicated bot with BotFather. A bot already used by another service must be disconnected there first.",
+    connect: "Connect Telegram",
+    pairHint:
+      "Open the link and send the start message to pair your private chat. This code expires after ten minutes.",
+    pair: "Pair my private chat",
+    newPair: "Create a new pairing code",
+    pause: "Pause Telegram",
+    resume: "Resume Telegram",
+    disconnect: "Disconnect bot",
+    activity: "Telegram activity",
+    voice: "Voice message",
+    media: "Photo, video or file",
+    retry: "Retry",
+    review: "Acknowledge without resending",
+    openChat: "Review agent chat",
+    title: "Telegram",
+    inProgress:
+      "Still in progress. A review action appears here if it needs your decision.",
+    states: {
+      partial: "Partially successful",
+      queued: "Queued",
+      voice_pending: "Waiting for transcription",
+      transcribing: "Transcribing",
+      transcription_failed: "Transcription failed",
+      dispatching: "Starting agent",
+      running: "Agent working",
+      model_uncertain: "Agent outcome unknown",
+      model_reviewed: "Outcome reviewed in chat",
+      outbound: "Waiting to send",
+      delivering: "Sending reply",
+      delivered: "Delivered",
+      delivery_failed: "Delivery failed",
+      delivery_uncertain: "Delivery outcome unknown",
+      reply_unavailable: "Answer without text",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      reviewed: "Reviewed",
+    },
+    diagnostics: {
+      FILE_UNAVAILABLE: "The shared file is no longer available in AgentPier.",
+      FILE_TOO_LARGE: "The shared file is larger than Telegram accepts.",
+      CHANNEL_DESTINATION_CHANGED:
+        "The chat binding changed. Review this input before continuing.",
+      TELEGRAM_CONFLICT: "Another service is polling this bot. Stop it before resuming.",
+      TELEGRAM_WEBHOOK:
+        "This bot has an existing webhook. Disconnect its other integration first.",
+      TELEGRAM_UNAVAILABLE: "Telegram is currently unavailable.",
+      TELEGRAM_REJECTED:
+        "Telegram rejected the request. Check the bot connection and whether the chat allows messages.",
+      TELEGRAM_RATE_LIMIT:
+        "Telegram requested a pause. Delivery will resume after the waiting period.",
+      MEDIA_TOO_LARGE: "Voice messages are limited to 10 MB and ten minutes.",
+      MEDIA_UNSUPPORTED: "Only Ogg voice messages can be transcribed.",
+      MEDIA_REFUSED:
+        "Nothing in this message could be passed on to the agent. The Telegram chat was told what failed.",
+      VOICE_TOO_LONG: "The voice message was too long and was declined before download.",
+      TRANSCRIPTION_REJECTED:
+        "Deepgram rejected the audio. Deepgram's response is shown below.",
+      TRANSCRIPTION_QUOTA:
+        "The Deepgram balance or quota is exhausted. Check your Deepgram account.",
+      TRANSCRIPTION_RATE_LIMITED:
+        "Deepgram still asked to slow down after several attempts. You can retry the transcription later.",
+      MEDIA_DOWNLOAD: "The voice message could not be downloaded.",
+      SPEECH_NOT_CONFIGURED: "Configure Deepgram in Connections before transcribing.",
+      SPEECH_AUTH: "Deepgram rejected the credential. Update it in Connections.",
+      TRANSCRIPTION_EMPTY: "No speech was recognized.",
+      TRANSCRIPTION_FAILED: "Transcription failed. You can retry it explicitly.",
+      TRANSCRIPTION_INTERRUPTED:
+        "Transcription was interrupted. It was not repeated automatically.",
+      MODEL_REQUEST_FAILED: "The agent request failed or was cancelled.",
+      MODEL_OUTCOME_UNKNOWN:
+        "Review and resolve the unknown request in the agent chat first.",
+      REPLY_UNAVAILABLE: "Waiting for the confirmed reply for this request.",
+      REPLY_TOO_LARGE:
+        "The reply exceeds the Telegram delivery limit for this integration.",
+      REPLY_WITHOUT_TEXT:
+        "The agent finished without a text answer. Review it in the agent chat; nothing was sent to Telegram.",
+      CHANNEL_QUEUE_FULL:
+        "The Telegram queue is full. New messages are declined until queued inputs are processed or reviewed.",
+      DECISION_FAILED:
+        "A decision from Telegram could not be saved. Decide in AgentPier instead.",
+      MODEL_OUTCOME_REVIEWED:
+        "The unknown request was reviewed in the agent chat. Nothing was sent to Telegram.",
+      CALLBACK_FAILED:
+        "A Telegram button press could not be processed. Decide in AgentPier instead.",
+      TEAM_NOTIFICATION_FAILED:
+        "Telegram notifications for a team could not be prepared. Check the team in AgentPier.",
+      DELIVERY_UNCERTAIN:
+        "Telegram may have received the reply. Check your chat before acknowledging; nothing will be sent again automatically.",
+      RUNTIME_UPDATE_CLOSED:
+        "Closed without sending when you paused the agents for an OpenClaw update.",
+    },
+  },
   accountsTitle: "ChatGPT for agents",
   accountsDescription:
     "Connect your ChatGPT account and select it in an agent’s settings.",

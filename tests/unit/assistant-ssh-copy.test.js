@@ -5,8 +5,8 @@ import { setLanguage } from "../../web/lib/i18n/index.js";
 test("agent SSH copy exists in both languages with the keys later tasks use", async () => {
   const { assistantSshCopy } =
     await import("../../web/lib/i18n/messages/assistant-ssh.js");
-  const { assistantTeamCopy } =
-    await import("../../web/lib/i18n/messages/assistant-team.js");
+  const { assistantCopy } = await import("../../web/lib/i18n/messages/assistants.js");
+  const assistantTeamCopy = assistantCopy.team;
   const { telegramSendersCopy } =
     await import("../../web/lib/i18n/messages/telegram-senders.js");
   const { routineCopy } =

@@ -6,7 +6,6 @@ import { assistantPdfCopy } from "../lib/i18n/messages/assistant-pdf.js";
 import { agentGroupSearchAction } from "../features/assistants/groups/group-search.js";
 import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
 import { assistantDreamingCopy } from "../lib/i18n/messages/assistant-dreaming.js";
-import { assistantTeamCopy } from "../lib/i18n/messages/assistant-team.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { craftAnythingCopy } from "../lib/i18n/messages/craft-anything.js";
@@ -58,7 +57,7 @@ const runtimeGroups = [
   ["feature", () => assistantCopy.feature.title, ["agentsFeature"]],
   ["service", () => agentsHubCopy.runtime.service, ["agentService"]],
   ["updates", () => assistantCopy.updates.title],
-  ["members", () => assistantTeamCopy.capacity],
+  ["members", () => assistantCopy.team.capacity],
   ["dreaming", () => assistantDreamingCopy.title],
   [
     "advanced",

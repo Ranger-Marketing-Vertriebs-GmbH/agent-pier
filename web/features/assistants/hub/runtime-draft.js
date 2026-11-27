@@ -4,7 +4,7 @@
 // revision, so a partial save only repeats what failed.
 import { assistantAdvancedCopy } from "../../../lib/i18n/messages/assistant-advanced.js";
 import { assistantDreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
-import { assistantTeamCopy } from "../../../lib/i18n/messages/assistant-team.js";
+import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { operationsCopy } from "../../../lib/i18n/messages/operations.js";
 import { settingsPageCopy } from "../../../lib/i18n/messages/settings.js";
 import {
@@ -104,7 +104,7 @@ export function ownFieldError(field, value, label) {
 
 export const capacityError = (values) =>
   capacityInvalid(values.hostMaxConcurrent)
-    ? assistantTeamCopy.capacityRange(capacityRange.min, capacityRange.max)
+    ? assistantCopy.team.capacityRange(capacityRange.min, capacityRange.max)
     : "";
 
 /**
@@ -147,7 +147,7 @@ export function runtimeSteps({
       notApplied: () => settingsPageCopy.agentsNotApplied,
     }),
     hostCapacityStep({
-      label: () => assistantTeamCopy.settings,
+      label: () => assistantCopy.team.settings,
       save: api.teamSettings,
       refresh: refresh.assistants,
     }),
