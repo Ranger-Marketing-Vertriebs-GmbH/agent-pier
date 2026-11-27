@@ -84,6 +84,14 @@ export const shellLevels = ["off", "approval", "review", "full"];
 // The levels on which a command may wait for the owner's decision.
 export const askingShellLevels = ["approval", "review"];
 export const shellTools = ["exec", "process"];
+// OpenClaw's session tools that only read: they list, read and search the agent's
+// own earlier chats, never another agent's (`tools.sessions.visibility: "agent"`,
+// runtime-config.js). Part of memory: an agent holds them while its memory is on
+// (toolGrants), never an agent of users or one with its own bot for other people,
+// whose sessions are other people's chats, and never a temporary team member.
+// `sessions_send`, `sessions_spawn` and OpenClaw's other session tools, which run,
+// steer or change a session, are granted to no agent.
+export const recallTools = ["sessions_list", "sessions_history", "sessions_search"];
 // OpenClaw's session tools: they read (and can steer) other sessions of the agent,
 // so an agent with its own bot for other people never gets them.
 export const sessionTools = [
@@ -140,7 +148,9 @@ export const lockedTools = [
  * profile can hold, so OpenClaw's intersection with the agent's tools.allow leaves
  * exactly the agent's current chat tools and a capability change needs no job
  * rewrite. Writes stay with the tool guard, which admits a routine's own run
- * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
+ * (TeamBridge.routineWrite). recallTools are in: a routine's run is a session of the
+ * same agent, so it reads that agent's chats only, and an agent whose chats are other
+ * people's never holds them. Left out: reminders and routines (a routine never
  * schedules), questions to the owner (questionTools: nobody is there to answer) and
  * every other team tool (the bridge serves them only in an owner's
  * chat turn). `agentpier_workspace` is in for project folders and coding requests
@@ -156,6 +166,7 @@ export const lockedTools = [
 export const routineTools = [
   "session_status",
   ...memoryTools,
+  ...recallTools,
   ...Object.values(capabilityTools).flat(),
   ...shellTools,
   "agentpier_ssh",
@@ -193,6 +204,25 @@ export const inheritsFromLead = (assistant) =>
  */
 export const memoryEnabled = (assistant) =>
   personalCapabilities(assistant).memory || inheritsFromLead(assistant);
+/**
+ * Whether an agent may look up its own earlier chats (recallTools): its memory is on
+ * and its sessions are the owner's. Never an agent of users (lockedTools), never a
+ * temporary member (its memory is always on, but its work ends with its team). An
+ * agent with its own bot for other people loses them with senderLockedTools.
+ */
+export const recallsChats = (assistant) =>
+  !isUserAgent(assistant) &&
+  !inheritsFromLead(assistant) &&
+  personalCapabilities(assistant).memory;
+/**
+ * Whether a call of `toolName` by `assistant` (or no known agent) is a read of
+ * earlier chats it may not make, whatever its compiled entry says: the tool guard
+ * asks for every call (team-bridge.js toolPolicy). `senderFacing(assistant)`: the
+ * running Gateway serves its own bot for other people.
+ */
+export const recallRefused = (assistant, toolName, senderFacing) =>
+  recallTools.includes(toolName) &&
+  !(assistant && recallsChats(assistant) && !senderFacing?.(assistant));
 /** Whether the agent's browser shows a window; a user agent's never does (hard lock). */
 export const browserVisible = (assistant) =>
   !isUserAgent(assistant) && assistant?.browserVisible === true;
@@ -314,6 +344,8 @@ export function toolGrants(assistant, { ssh = false, craft = false } = {}) {
           grant([tool], guardedTools.includes(tool) ? ["native", "guard"] : ["native"]),
         )
       : []),
+    // Its own earlier chats, read only (recallsChats).
+    ...(recallsChats(assistant) ? [grant(recallTools)] : []),
     ...(capabilities.reminders
       ? [
           grant([

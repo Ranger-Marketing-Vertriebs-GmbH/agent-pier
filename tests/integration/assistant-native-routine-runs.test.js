@@ -72,6 +72,10 @@ test("a routine run gets exactly the agent's chat tools minus scheduling and mos
     "read",
     "write",
     "edit",
+    // Its own earlier chats, read only, with memory on (recallTools).
+    "sessions_list",
+    "sessions_history",
+    "sessions_search",
     // Project folders, read-only unless the owner marked the routine "May write".
     "agentpier_workspace",
     // A routine run hands its owner files too (agent-shares.js).

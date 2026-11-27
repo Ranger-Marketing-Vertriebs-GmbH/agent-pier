@@ -34,6 +34,9 @@ export const agentRunStepsCopy = {
     ask_user: "Stellt dir eine Frage",
     clarify: "Stellt dir eine Frage",
     memory_get: "Liest das Gedächtnis",
+    sessions_search: "Durchsucht frühere Chats",
+    sessions_history: "Liest einen früheren Chat",
+    sessions_list: "Sieht frühere Chats durch",
   },
   tool: (name) => `Tool ${name}`,
   // Die Antwort eines Beratermodells in einem Mixture-of-Agents-Durchlauf.

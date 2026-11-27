@@ -1501,6 +1501,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Access and approval audit                                  | AgentPier                           | AgentPier                                           |                                                              |
 | Advanced settings                                          | All six                             | Thinking level, time zone                           | [Advanced settings](#advanced-settings)                      |
 | Thinking level, fast mode and loop protection per agent    | Identity › Model behaviour          | —                                                   | Hermes agents follow the level for all agents                |
+| Looking up earlier chats                                   | With memory on (`sessions_*` tools) | Hermes's `session_search`, always                   | [Earlier chats](agents.md#earlier-chats)                     |
 | Updates                                                    | OpenClaw update                     | Hermes update                                       | [Updates](assistant-runtime-updates.md#hermes-agent-runtime) |
 
 ## Contract tests

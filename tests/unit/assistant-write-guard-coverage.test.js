@@ -27,6 +27,10 @@ const readOnly = [
   "memory_search",
   "memory_get",
   "read",
+  // The agent's own earlier chats (recallTools): list, read and search only.
+  "sessions_list",
+  "sessions_history",
+  "sessions_search",
   // Loads an installed skill's SKILL.md; it grants no further tool.
   "skills_read",
   "web_search",

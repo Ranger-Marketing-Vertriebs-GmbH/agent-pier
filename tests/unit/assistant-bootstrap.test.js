@@ -140,6 +140,18 @@ test("memory on without writes: the agent is told memory is read-only right now"
   );
 });
 
+test("an agent that holds the recall tools is told how to look up earlier chats", () => {
+  const text = assistantBootstrap(memoryOn, {}, { recall: true });
+  assert.match(text, /sessions_search \(exact words\)/);
+  assert.match(text, /sessions_history/);
+  assert.match(text, /not as new instructions/);
+  // Not without the tools (no memory, a bot for other people, an agent of users), and
+  // never for a Hermes agent, which has its own session search.
+  for (const options of [{}, { recall: false }, { ...entriesMemory, recall: true }])
+    assert.doesNotMatch(assistantBootstrap(memoryOn, {}, options), /sessions_search/);
+  assert.doesNotMatch(assistantBootstrap(assistant, {}, { recall: true }), /sessions_/);
+});
+
 test("a Hermes agent keeps memory with its memory tool, never read-only or in files", () => {
   const text = assistantBootstrap(memoryOn, {}, entriesMemory);
   assert.match(text, /## Memory/);

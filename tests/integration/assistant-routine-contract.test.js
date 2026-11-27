@@ -303,6 +303,10 @@ test(
         "memory_search",
         "read",
         "session_status",
+        // Its own earlier chats, read only, with memory on (recallTools).
+        "sessions_history",
+        "sessions_list",
+        "sessions_search",
         "web_fetch",
         "write",
       ],

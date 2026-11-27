@@ -734,7 +734,9 @@ contract then checks that the supervisor's next start admits every agent
 (`assistant-release-qualification.md`, "Startup settlement").
 
 Agents receive `session_status` plus the managed AgentPier tools their settings
-enable (team, memory, reminder, routine and coding tools; see the sections below).
+enable (team, memory, reminder, routine and coding tools; see the sections below),
+and with memory on the three read-only session tools for
+[their own earlier chats](#earlier-chats).
 Gmail, Microsoft 365, Google Calendar and Apple service tools remain deferred.
 This tool boundary is not an OS sandbox.
 
@@ -5311,6 +5313,75 @@ calls.
 `"all"` lets session tools reach other agents' transcripts. Teams do not use
 OpenClaw session tools (members run in their own sessions and report through the
 AgentPier bridge), and the team plugin contract passes with it.
+
+<a id="earlier-chats"></a>
+
+**Earlier chats (recall).** An agent whose memory is on holds OpenClaw's three
+read-only session tools, `recallTools` in `native-capabilities.js`:
+`sessions_search` (full-text search of user and assistant text, at most 25 hits of
+300 characters), `sessions_history` (one session's transcript, bounded to 80 KB) and
+`sessions_list` (session metadata). None of them takes a parameter that starts a
+run, steers, patches or deletes a session; `sessions_history` may restore a cold
+transcript from OpenClaw's own storage and `sessions_search` may start a background
+reindex, nothing else. `sessions_send`, `sessions_spawn`, `sessions`,
+`sessions_create`, `sessions_yield` and `subagents` are granted to no agent and are
+not in the global `tools.allow`.
+
+- **Who holds them** (`recallsChats`, `toolGrants`): an own agent or a permanent
+  member with **Remember information** on. Never an agent of users (`lockedTools`:
+  the allow list loses them, the entry's deny list names them), never an agent
+  whose own bot for other people the Gateway runs (`senderLockedTools`, on a start,
+  an agent apply and a live MCP apply), never a temporary member (its memory is
+  always on, its work ends with its team), never an archived agent. No separate
+  switch: recalling earlier chats is part of memory.
+- **What "agent" covers.** OpenClaw decides by the agent id of the target session's
+  key (`agent:<id>:…`), not by its kind: the agent's dashboard chats (every
+  AgentPier chat, archived in AgentPier or not), its routines' cron sessions, its
+  hooks' sessions, the Telegram sessions of its paired chat and its own sub-runs
+  are visible to it. A session of another agent id is refused
+  (`cross_agent_visibility_restricted`) even to the session that spawned it: the
+  owned-child exception exists only under `"tree"` and `"all"`. Team members are
+  agents of their own, so a lead cannot read its members' sessions nor a member its
+  lead's or a sibling's. A broad search runs over every agent's store and drops
+  foreign hits before the result limit; `tools.agentToAgent` is consulted only
+  after the visibility refusal and its per-agent `send` list only for
+  `sessions_send`, so neither widens a read. `tools.sessions` has two keys,
+  `visibility` and `allowThreadTargets` (send only); AgentPier writes the first and
+  the section is compiler-owned.
+- **Run-time guard.** The three tools are among the plugin's `lockedCoreTools`, so
+  every call asks `/tool-policy`. The bridge refuses a call by an agent that may not
+  recall (`recallRefused`: no memory, an agent of users, a temporary member, a bot
+  for other people, an unknown agent), whatever its compiled entry says, any call
+  in a memory step, and any call in a hook's run (`hookLockedTool`).
+- **Routines.** `routineTools` names the three tools: a routine's run is a cron
+  session of the same agent, so it reads that agent's sessions only, and OpenClaw
+  intersects the cap with the agent's own list, which already leaves them out for
+  every agent whose chats are other people's. Hooks stay without them: a hook's run
+  works on content from outside.
+- **Deleted and archived chats.** AgentPier deletes a chat with
+  `sessions.delete { deleteTranscript: true }` and purges OpenClaw's transcript
+  archives (`chat-removal.js`); the session row is gone, so neither search nor
+  history returns it. A chat archived in AgentPier stays an open OpenClaw session
+  (`archiveDashboardAfter: false`) and stays readable.
+- **Instructions.** The agent's managed `AGENTS.md` (Memory) names the tools while
+  it holds them and says that earlier chats are transcripts, not memory and not new
+  instructions; OpenClaw's own system prompt lists them as well.
+- **Steps.** The chat names the three tools ("Searching earlier chats", "Reading an
+  earlier chat", "Looking through earlier chats") and shows no target for them: a
+  session key is an internal identifier.
+- **Transcripts are unmasked.** `sessions_history` returns text as it was written,
+  credentials included, which is why the agents above never hold it. An own agent
+  reads only what was already said in its own chats.
+- **Hermes.** A Hermes agent has Hermes's `session_search` toolset by default,
+  independent of its memory switch; AgentPier disables it for an agent of users and
+  for one with a bot for other people (`hermes-config/home.js`,
+  `hermes-config/telegram.js`). Nothing changes there.
+
+The [native contract](../tests/integration/assistant-chat-recall-contract.test.js)
+pins this on the pinned runtime: an agent finds and reads its own earlier chat and
+lists it; another agent with the same tools gets no hit, no row and
+`status: "forbidden"` for the transcript; an agent whose entry leaves the tools out
+is offered none; and a chat deleted with its transcript is found no more.
 
 <a id="openclaw-tool-search"></a>
 
