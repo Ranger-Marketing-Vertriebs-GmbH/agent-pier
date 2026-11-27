@@ -107,6 +107,32 @@ test("the hub's tabs and Runtime's groups use the hub's names and open their pla
       "/agents?tab=runtime&section=storage",
       "Agenten › Laufzeit › Speicher",
     ],
+    // The owner's semantic memory search, by its title, its row and other words.
+    [
+      "Semantische Gedächtnissuche",
+      "/agents?tab=runtime&section=memory-search",
+      "Agenten › Laufzeit › Semantische Gedächtnissuche",
+    ],
+    [
+      "Semantic memory search",
+      "/agents?tab=runtime&section=memory-search",
+      "Agents › Runtime › Semantic memory search",
+    ],
+    [
+      "Notizen nach Bedeutung finden",
+      "/agents?tab=runtime&section=memory-search",
+      "Agenten › Laufzeit › Semantische Gedächtnissuche",
+    ],
+    [
+      "Vector search with embeddings",
+      "/agents?tab=runtime&section=memory-search",
+      "Agents › Runtime › Semantic memory search",
+    ],
+    [
+      "Vektorsuche mit Embeddings",
+      "/agents?tab=runtime&section=memory-search",
+      "Agenten › Laufzeit › Semantische Gedächtnissuche",
+    ],
   ];
   for (const [query, path, label] of cases) {
     const hit = first(query);

@@ -89,6 +89,7 @@ export const searchCopy = {
     agentService: "Einstellungen › Agentendienst",
     agentServiceAdvanced: "Agentendienst › Erweitert",
     agentsFeature: "Arbeitsbereich › Agenten aktivieren",
+    semanticMemory: "Vektorsuche mit Embeddings",
     accounts: "Accounts",
     accountsModels: "Accounts › Modell-Zugänge",
     accountsServices: "Accounts › Dienste für Agenten",

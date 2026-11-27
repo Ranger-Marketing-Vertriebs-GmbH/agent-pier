@@ -26,6 +26,7 @@ import HubFrame from "./HubFrame.jsx";
 import RuntimeAdvancedGroup from "./RuntimeAdvancedGroup.jsx";
 import RuntimeFeatureGroup from "./RuntimeFeatureGroup.jsx";
 import RuntimeServiceGroup from "./RuntimeServiceGroup.jsx";
+import SemanticMemoryGroup, { semanticMemorySection } from "./SemanticMemoryGroup.jsx";
 import {
   advancedKey,
   advancedRangeError,
@@ -44,6 +45,7 @@ const teamCopy = assistantCopy.team;
 const sectionIds = {
   advanced: "agents-runtime-advanced",
   storage: "agents-runtime-storage",
+  "memory-search": semanticMemorySection,
   // The first group a runtime registers itself (the slot `hub.runtime`).
   runtimes: "agents-runtime-runtimes",
 };
@@ -217,6 +219,7 @@ export function RuntimeOn({ frame, feature, section }) {
         disabled={!dreaming || draft.saving}
         savedZone={draft.base.dreamingTimeZone}
       />
+      <SemanticMemoryGroup />
       <RuntimeAdvancedGroup
         data={advanced.data}
         settings={advanced.settings}

@@ -247,6 +247,13 @@ export const liveTopics = Object.freeze({
     interval: 30000,
     sampled: true,
   }),
+  // The owner's semantic memory search: its state and each step of a model download
+  // or an index rebuild, pushed by the service itself.
+  "runtime.semantic-memory": Object.freeze({
+    mode: "state",
+    path: () => "/assistant-semantic-memory",
+    interval: 5000,
+  }),
   // The runtime list with each runtime's install state (ADR 0007), pushed by every
   // change of an optional runtime's switch; a running install or update is sampled.
   runtimes: Object.freeze({

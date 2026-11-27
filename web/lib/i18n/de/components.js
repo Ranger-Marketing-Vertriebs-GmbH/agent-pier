@@ -64,6 +64,8 @@ export const capabilityGateCopy = {
       `${runtime} hat in AgentPier noch keine erweiterten Einstellungen.`,
     memoryWikiUnsupported: (runtime) => `${runtime} führt kein Memory-Wiki.`,
     usageUnsupported: (runtime) => `${runtime} zeichnet keinen Token-Verbrauch auf.`,
+    semanticMemoryUnsupported: (runtime) =>
+      `${runtime} lädt das Gedächtnis eines Agenten in jeden Chat und hat keine Gedächtnissuche.`,
   },
 };
 export const componentsCopy = {

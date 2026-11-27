@@ -167,6 +167,20 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (method === "GET" && /^\/api\/assistants\/[^/]+\/actions$/.test(path))
       return route.fulfill({ json: { actions: [] } });
+    // Agents › Runtime › Semantic memory search: off, the default.
+    if (method === "GET" && path === "/api/assistant-semantic-memory")
+      return route.fulfill({
+        json: {
+          available: true,
+          enabled: false,
+          state: "off",
+          progress: null,
+          failure: null,
+          pending: false,
+          revision: 1,
+          model: { id: "embeddinggemma-300m-qat-q8_0", size: 328577056, termsUrl: "" },
+        },
+      });
     if (method === "GET" && path === "/api/assistant-dreaming")
       return route.fulfill({
         json: {
