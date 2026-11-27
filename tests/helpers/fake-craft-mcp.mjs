@@ -61,7 +61,7 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { busyGate } from "./fake-craft-busy.mjs";
 import { addPictures, checkPictures } from "./fake-craft-pictures.mjs";
@@ -102,12 +102,20 @@ function readIndex() {
   }
 }
 
+// A JSON file replaced in one step: a test (or AgentPier) reading it while a builder
+// step writes never sees it empty or half written.
+function writeJSON(file, value) {
+  const draft = `${file}.${process.pid}.tmp`;
+  writeFileSync(draft, JSON.stringify(value, null, 2));
+  renameSync(draft, file);
+}
+
 function writeIndex() {
   if (!indexFile) return;
   mkdirSync(configDir, { recursive: true });
   const index = readIndex();
   for (const [name, project] of projects) index[name] = project.folder;
-  writeFileSync(indexFile, JSON.stringify(index, null, 2));
+  writeJSON(indexFile, index);
 }
 
 function project(name) {
@@ -128,7 +136,7 @@ const recordFile = (entry) => path.join(entry.folder, "craft.json");
 const read = (entry) => JSON.parse(readFileSync(recordFile(entry), "utf8"));
 function write(entry, record) {
   record.updated_at = new Date().toISOString();
-  writeFileSync(recordFile(entry), JSON.stringify(record, null, 2));
+  writeJSON(recordFile(entry), record);
 }
 function update(entry, change) {
   const record = read(entry);
@@ -255,7 +263,7 @@ function perform(entry, step) {
     const usage = readUsage(entry);
     for (const [key, value] of Object.entries(step.usage))
       usage[key] = (usage[key] ?? 0) + value;
-    writeFileSync(path.join(entry.folder, "usage.json"), JSON.stringify(usage, null, 2));
+    writeJSON(path.join(entry.folder, "usage.json"), usage);
   }
   if (step.check)
     update(entry, (record) => {
@@ -395,10 +403,11 @@ const tools = {
     });
     addPictures(folder, args.pictures);
     update(entry, (r) => r.pictures.push(...(args.pictures ?? [])));
-    writeFileSync(
-      path.join(folder, "usage.json"),
-      JSON.stringify({ input_tokens: 0, output_tokens: 0, cost_usd: 0 }, null, 2),
-    );
+    writeJSON(path.join(folder, "usage.json"), {
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+    });
     activity(entry, `Rebuild started: ${args.request}`);
     writeIndex();
     startRound(entry);
