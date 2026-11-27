@@ -94,18 +94,32 @@ test("an inline answer the caller never received is handed back as a follow-up",
 test("the bridge hands an answer back when the caller is gone", async (t) => {
   const f = await lead(t);
   let handedBack = 0;
+  // The ask tells when it began and answers when the test lets it, so the caller
+  // leaves while the ask runs, however slow the machine is.
+  const signals = () => {
+    let resolve;
+    const promise = new Promise((r) => (resolve = r));
+    return { promise, resolve };
+  };
+  const asking = signals();
+  const answer = signals();
+  const callerGone = signals();
   const bridge = new TeamBridge({
     assistants: f.assistants,
     teams: {
       async ask(inv) {
         inv.undelivered = () => handedBack++;
-        await new Promise((r) => setTimeout(r, 300));
+        asking.resolve();
+        await answer.promise;
         return { status: "answered" };
       },
     },
   });
   const { url, token } = await bridge.start();
   t.after(() => bridge.close());
+  bridge.server.on("request", (req, res) => {
+    if (req.url === "/invoke") res.on("close", callerGone.resolve);
+  });
   f.turn();
   const post = (endpoint, body, signal) =>
     fetch(url + endpoint, {
@@ -123,13 +137,19 @@ test("the bridge hands an answer back when the caller is gone", async (t) => {
     })
   ).json();
   assert.ok(ticket.ticket, "positive control: the lead's own turn prepares");
-  await assert.rejects(
-    post(
-      "/invoke",
-      { ticket: ticket.ticket, action: "ask", input: {} },
-      AbortSignal.timeout(50),
-    ),
+  const caller = new AbortController();
+  const call = post(
+    "/invoke",
+    { ticket: ticket.ticket, action: "ask", input: {} },
+    caller.signal,
   );
+  await asking.promise;
+  caller.abort();
+  await assert.rejects(call);
+  // The bridge saw the connection close before the member's answer came.
+  await callerGone.promise;
+  assert.equal(handedBack, 0, "nothing to hand back before the answer");
+  answer.resolve();
   await until(() => handedBack > 0, "hand-back");
   assert.equal(handedBack, 1);
 });
