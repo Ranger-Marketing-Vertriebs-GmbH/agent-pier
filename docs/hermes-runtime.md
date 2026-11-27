@@ -1424,11 +1424,15 @@ until the next turn, as OpenClaw's is after a compaction (no hint meanwhile).
 When a Hermes agent calls its `clarify` tool, Hermes asks every connection attached to
 the session (`clarify.request`, one per question, with its choices; Hermes marks the
 first as recommended). The adapter (`hermes-questions.js`) publishes it as the run
-event `question.requested` and the run reports the phase `waiting-approval`;
-`agent-questions.js` shows it in the agent's chat as a card with the choices and a field
-for an own answer, and, when the turn came from the owner's paired Telegram chat, as a
-notice there, where the next message answers it (a number picks a choice). The answer
-goes back with `clarify.respond`. Hermes waits up to `agent.clarify_timeout`, which
+event `question.requested` in the port's shape, a request of one to three questions
+([Questions to the owner](assistant-gateway.md#questions-to-the-owner-2026-11-27)):
+Hermes's one question as a one-element list, its id `answer`, its choices as options
+without descriptions, an own answer always taken. The run reports the phase
+`waiting-approval`; `agent-questions.js` shows it in the agent's chat as a card with
+the choices and a field for an own answer, and, when the turn came from the owner's
+paired Telegram chat, as a notice there, where the next message answers it (a number
+picks a choice). The answer goes back with `clarify.respond` as one text (several
+chosen options joined by ", "). Hermes waits up to `agent.clarify_timeout`, which
 AgentPier sets to an hour (Hermes's own default since v0.23 is 90 seconds), and then
 tells the agent nobody answered; an interrupt withdraws the question
 (`approval.cancelled`). Questions are not stored: after a restart, the attached session
@@ -1483,7 +1487,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Work goals, coding sessions, mail, previews                | Team plugin                         | Hermes team plugin                                  |                                                              |
 | Teams, lead requests, member grants, lead shares, mentions | Team plugin                         | Hermes team plugin                                  | Members run on the lead's runtime                            |
 | Invisible subagents                                        | `sessions_spawn`                    | `delegate_task`                                     |                                                              |
-| Questions to the owner                                     | —                                   | `clarify`                                           |                                                              |
+| Questions to the owner                                     | `ask_user` (one to three questions) | `clarify` (one question)                            | OpenClaw: own agents only; waits 15 minutes, Hermes an hour  |
 | Restricted users' locked tools                             | Refused at run time                 | Toolsets compiled off                               |                                                              |
 | Telegram (owner's chat)                                    | AgentPier channel layer             | The same                                            |                                                              |
 | Telegram for other people                                  | OpenClaw's adapter                  | Hermes's adapter                                    | A people change restarts the agent                           |

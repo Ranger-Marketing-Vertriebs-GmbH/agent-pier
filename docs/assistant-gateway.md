@@ -4073,7 +4073,7 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
 - **Compiled tools.** `agentEntry` applies `lockedEntry`
   (`server/features/users/user-agent-lock.js`) last, on a Gateway start and on every
   live apply. The entry's `tools.allow` loses `exec`, `process`, `agentpier_ssh`,
-  `agentpier_mail`, every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
+  `agentpier_mail`, `ask_user`, every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
   and it has no `tools.exec` override. `AgentGithub` compiles no GitHub MCP server
   for it and describes no GitHub access, even when its stored access names one. This
   holds for a forged shell level or GitHub access in the database as well. Its browser
@@ -4085,7 +4085,7 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   an agent that is no user agent any more (an own agent kept as the owner's) removes
   the deny again (`tools.deny: null` with its path in `replacePaths`).
 - **Run time.** The team plugin's `before_tool_call` hook asks the bridge
-  (`/tool-policy`) before every call of `exec`, `process` and the session tools
+  (`/tool-policy`) before every call of `exec`, `process`, `ask_user` and the session tools
   (`lockedCoreTools`), for every agent; for a user agent the bridge answers
   `allow: false` and the call is blocked, as it is when the bridge cannot be reached.
   Team and SSH bridge calls of a user agent answer 403.
@@ -5491,6 +5491,83 @@ and `PROJECT_FOLDER_UNAVAILABLE` (409). Switching coding on also answers the exi
 `PROJECT_NOT_GRANTED` (403) when the agent no longer holds the project or its folder
 with write access. See [projects agents
 create](assistant-workflows.md#projects-agents-create).
+
+## Questions to the owner (2026-11-27)
+
+An agent that is blocked on a decision of the owner asks in its chat and waits for the
+answer: OpenClaw's built-in `ask_user` tool, at parity with Hermes's `clarify`
+([Hermes runtime](hermes-runtime.md)). What the owner sees is in
+[Questions from the agent](agents.md#questions-from-the-agent).
+
+- **OpenClaw's side (2026.11.6).** `ask_user` takes one to three questions, each with
+  an id, a header of at most 12 characters, one sentence, two to four options (label,
+  optional description) and `multiSelect`; an own answer is always taken (`isOther`).
+  The Gateway keeps the request as a question record and broadcasts
+  `question.requested` to operator clients; `question.resolved { id, status }` follows
+  with `answered`, `expired` or `cancelled`. `question.list` returns the pending
+  records, `question.resolve { id, answers: { answers: { <questionId>: [value, …] } } }`
+  answers one and `{ id, cancel: true }` withdraws it. The methods need the scope
+  `operator.questions`, which AgentPier's `operator.admin` includes, and no handshake
+  cap. The Gateway offers the tool to a primary session whose surface takes question
+  input: a session without a channel, as every AgentPier chat, counts as web chat. A
+  client that declares the cap `no-question-input` takes the tool from the turns it
+  sends, so AgentPier's handshake (`gateway-protocol.js`) never declares it. The wait
+  is the tool's own: 900 seconds unless the model names `timeoutSeconds`, clamped to
+  30 to 3600; it is not configurable. After it the tool returns `no_answer` and the
+  agent goes on with its best judgment. An aborted run withdraws its question. Records
+  live in the Gateway's memory, so a Gateway restart ends them with their runs.
+- **The port's shape.** `runtimes/openclaw/openclaw-questions.js` turns the frames
+  into the run events every runtime sends (`agent-runtime.js`, approvals):
+  `question.requested` with `{ id, request: { questions: [{ id, header, text, options:
+[{ label, description, value }], multiSelect, other }], agentId, sessionKey, runId },
+createdAtMs, expiresAtMs }` and `question.resolved` with `{ id, status, sessionKey,
+runId }`. Hermes's single question is a one-element list. The approvals sub-port
+  lists the waiting requests (`questions()`), answers one with the values of every
+  question (`answer({ id, answers })`) and, on OpenClaw, withdraws one nobody can
+  answer (`decline({ id })`). A refusal says whether the question is gone
+  (`answered`: `QUESTION_ALREADY_TERMINAL`, `QUESTION_NOT_FOUND`) or the answer was
+  not taken (`invalid`: `QUESTION_INVALID_ANSWER`); anything else may be sent again.
+- **In AgentPier.** `agent-questions.js` keeps the waiting requests in memory, by the
+  chat whose `runtimeSessionKey` is the request's session, and lists them in the chat
+  feed (`questions`), so every open device shows the card
+  ([Live agent chat feed](#live-agent-chat-feed)). `POST
+/api/assistant-conversations/:id/questions/:questionId/answer` takes `{ answers: {
+<question id>: [option label or own text, …] } }` for every question, or `{ answer }`
+  for a request's only question (a number picks an option). It answers 400 for answers
+  that leave a question open, name several options of a single choice or an own text
+  the question does not take, 404 for an unknown request, 409 `questionGone` once the
+  runtime no longer waits and 503 while it is away. An option goes back as the value
+  OpenClaw expects for it (`value`, else its label). A request that asks for a secret,
+  a form or a file is never shown.
+- **Nobody to answer.** A request from a session that is no chat of AgentPier, from an
+  archived chat, or one AgentPier does not show is
+  withdrawn at once, so the agent reads `no_answer` and goes on instead of waiting out
+  the timeout.
+- **Reconnect.** Events sent while AgentPier's connection is away are lost, so every
+  ready lists what the Gateway still waits on: requests it no longer lists leave the
+  chat, and ones AgentPier missed are taken up, in Telegram too.
+- **Telegram.** A turn from the owner's paired chat is asked there as well
+  (`follow-up-target.js`, the rule exec approvals follow): one question per notice,
+  "<agent> asks (2 of 3): …" for a request of several, options numbered with their
+  description. The owner's next text message there answers the question asked last
+  (`telegram-ingress.js`): a number, several separated by commas for a multiple
+  choice, or an own text. The answers go to OpenClaw together after the last one;
+  until then the request also stays answerable in the web chat. A forwarded message or
+  a file is never an answer.
+- **Who holds the tool.** `ask_user` is compiled for the owner's own agents
+  (`questionTools` in `native-capabilities.js`) once AgentPier's native tools are
+  ready. Never for a team member (it reports to its lead), a user agent (`lockedTools`:
+  a user's chat has no question card; its entry denies the tool and the plugin's
+  `/tool-policy` check refuses a call) or an agent with its own Telegram bot for other
+  people (`senderLockedTools`: a third person must never be asked as the owner). It is
+  in no routine's or hook run's `toolsAllow` (`routineTools`, `hookTools`), and a
+  memory step's or hook's session is refused by `/tool-policy`.
+- **Contract.** `tests/integration/assistant-ask-user-contract.test.js`
+  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this on the pinned Gateway: the event with
+  AgentPier's handshake, one and three questions answered, the stopped turn, the
+  30-second minimum wait, the request withdrawn for an unknown session, the listing
+  after a missed event, and the tool withheld without the grant and from a
+  `no-question-input` client.
 
 ## Live agent chat feed
 
