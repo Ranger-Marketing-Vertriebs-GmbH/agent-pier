@@ -277,36 +277,40 @@ test(
       JSON.stringify(m.content).includes("artifact_managed_image_"),
     );
     t.diagnostic(`completion=${JSON.stringify(completion).slice(0, 1200)}`);
-    // Known limit (docs/assistant-gateway.md): with tools.fs.workspaceOnly OpenClaw
-    // loads images a prompt names only from the agent's workspace, and offers no
-    // setting for further folders. The completion turn names the image in
-    // state/media/tool-image-generation/, so the vision model gets that turn without
-    // the picture and the Gateway logs the refusal. When a bump changes this, the
-    // entry in the doc goes (or the new setting is wired into runtime-config.js).
-    const delivery = model.requests.find((r) =>
-      JSON.stringify(r.messages).includes("tool-image-generation/"),
-    );
+    // Known limit (docs/assistant-gateway.md): the completion turn names the image in
+    // state/media/tool-image-generation/ only inside OpenClaw's runtime context, which
+    // its prompt image loader does not read (2026.11.6; 2026.11.3 still tried and
+    // refused the path outside the workspace, logging "Native image: failed to
+    // load"). So the vision model gets that turn without the picture. When a bump
+    // changes this, the entry in the doc goes (or the new setting is wired into
+    // runtime-config.js).
+    // The completion turn starts after the image is in the history: wait for its
+    // request to the model.
+    const names = (value) => JSON.stringify(value).includes("tool-image-generation/");
+    const turnDeadline = Date.now() + 60000;
+    while (!model.requests.some((r) => names(r.messages)) && Date.now() < turnDeadline)
+      await delay(250);
+    const delivery = model.requests.find((r) => names(r.messages));
     assert.ok(delivery, "the completion turn named the generated image to the model");
     assert.doesNotMatch(
       JSON.stringify(delivery.messages),
       /"image_url"/,
       "the completion turn reached the vision model without the image",
     );
-    const consoleLog = path.join(runtime.paths.logs, "gateway-console.log");
-    let refusal;
-    const logDeadline = Date.now() + 10000;
-    do {
-      refusal = fs
-        .readFileSync(consoleLog, "utf8")
-        .split("\n")
-        .find((line) => line.includes("Native image: failed to load"));
-      if (refusal) break;
-      await delay(250);
-    } while (Date.now() < logDeadline);
-    t.diagnostic(`prompt image refusal=${refusal}`);
-    assert.match(
-      refusal || "",
-      /tool-image-generation\/.*Local media path is not under an allowed directory/,
+    const naming = delivery.messages.filter((m) => names(m.content));
+    t.diagnostic(`image named by=${JSON.stringify(naming).slice(0, 300)}`);
+    assert.ok(
+      naming.every(
+        (m) =>
+          m.role === "user" &&
+          /^"OpenClaw runtime context:/.test(JSON.stringify(m.content)),
+      ),
+      "only the runtime context names the image",
+    );
+    // The request left after the prompt's images were prepared: no load was tried.
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(runtime.paths.logs, "gateway-console.log"), "utf8"),
+      /Native image: failed to load/,
     );
     // AgentPier copies it into the chat's share store from the Gateway.
     const attachments = new AgentAttachments({

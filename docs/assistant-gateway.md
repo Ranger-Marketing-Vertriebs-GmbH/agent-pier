@@ -6748,17 +6748,20 @@ follows the requalification checklist in
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
-- **Generated images in the delivery turn.** OpenClaw (checked up to 2026.11.3) loads the images a
-  prompt names only from the agent's workspace while `tools.fs.workspaceOnly` is on,
-  and offers no setting for further folders: in 2026.11.3 the prompt image loader
-  falls back to the workspace alone whenever `workspaceOnly` is on, and `tools.fs`
-  knows no key besides `workspaceOnly`. The `image_generate` completion turn
-  names the image in `state/media/tool-image-generation/`, so a vision model gets the
-  turn without the picture, and the Gateway logs that the local media path "is not
-  under an allowed directory". Delivery is unaffected (OpenClaw sends the media,
-  AgentPier copies the artifact), and `view_image` still reads the shared media
-  folder. Switching `workspaceOnly` off is not an option. The image contract pins
-  this with a vision-capable fake model, so a bump that changes it fails there.
+- **Generated images in the delivery turn.** A vision model gets the `image_generate`
+  completion turn without the picture (checked up to 2026.11.6). The turn names the
+  image in `state/media/tool-image-generation/`, outside the agent's workspace.
+  Since 2026.11.6 that path stands only in OpenClaw's runtime context of the turn,
+  which the prompt image loader does not read, so no load is tried and nothing is
+  logged. In 2026.11.3 the loader tried it and refused: it loads the images a prompt
+  names only from the agent's workspace while `tools.fs.workspaceOnly` is on (still
+  so in 2026.11.6), `tools.fs` knows no key besides `workspaceOnly`, and the Gateway
+  logged that the local media path "is not under an allowed directory". Delivery is
+  unaffected (OpenClaw sends the media, AgentPier copies the artifact), and
+  `view_image` still reads the shared media folder. Switching `workspaceOnly` off is
+  not an option. The image contract pins this with a vision-capable fake model, so a
+  bump that changes it fails there; it is opt-in and no CI job runs it, so run it
+  with every runtime bump.
 - **Allowlist warnings from memory search.** AgentPier's own memory search calls
   `memory_search` through `tools.invoke`, where OpenClaw builds only Gateway-scope
   tools. The Gateway then logs once that `read`, `write`, `edit`, `view_image` and
