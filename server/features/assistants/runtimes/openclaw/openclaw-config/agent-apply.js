@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { shellTools } from "../../../native-capabilities.js";
-import { agentEntry } from "./agent-entry.js";
+import { agentEntry, modelDefaultKeys, modelDefaults } from "./agent-entry.js";
 import { learningAllow, learningApplied, learningModeChange } from "./skill-learning.js";
 import { wikiAllow, wikiApplied } from "./memory-wiki.js";
 
@@ -87,6 +87,9 @@ export function agentPatch(config, desired, state) {
     if (managed && Array.isArray(current?.skills) && !next.skills) next.skills = null;
     if (managed && Array.isArray(current?.tools?.deny) && !next.tools?.deny)
       next.tools = { ...next.tools, deny: null };
+    // Likewise a thinking level or fast mode the agent no longer sets.
+    for (const key of modelDefaultKeys)
+      if (managed && current && key in current && !(key in next)) next[key] = null;
     return next;
   };
   const patch = keyed
@@ -132,7 +135,8 @@ export function agentPatch(config, desired, state) {
 /**
  * Whether the running configuration `config` holds anything else for the desired
  * agent than its apply wrote (`expected`): its tools (`tools`), exec override and
- * skills while `managed`, the global shell tools while `shellGlobal` is managed, the
+ * skills and its thinking level and fast mode while `managed`, the global shell
+ * tools while `shellGlobal` is managed, the
  * learning tool and review mode while `learningGlobal` is, the wiki's global tools
  * while `wikiGlobal` is, its
  * memory search while `memory` is (a boolean), and the agent runtime and model of
@@ -154,6 +158,10 @@ export function agentDrift(config, desired, expected) {
   // OpenClaw's merge keeps existing keys first: compare regardless of key order.
   if (managed && !isDeepStrictEqual(own?.tools?.exec ?? null, exec ?? null)) return true;
   if (managed && !isDeepStrictEqual(own?.skills ?? [], skills)) return true;
+  // How its model works (agent-entry.js modelDefaults), absent when unset.
+  const defaults = modelDefaults(desired);
+  if (managed && modelDefaultKeys.some((key) => own?.[key] !== defaults[key]))
+    return true;
   if (shellGlobal !== undefined && shellAllow(config?.tools?.allow, shellGlobal) !== null)
     return true;
   if (memory !== undefined && own?.memory?.search?.enabled !== memory) return true;

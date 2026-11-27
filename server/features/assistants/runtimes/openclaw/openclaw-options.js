@@ -7,8 +7,40 @@ import { isShared, isUserAgent } from "../../../users/user-access.js";
 // (openclaw-config/memory-wiki.js compiles it). Off is stored as nothing. Only the
 // owner's own agents may have one (the owner's decision of 2026-11-17): never an agent
 // shared with users, never a user's own agent, never a temporary team member.
+//
+// `thinking` and `fastMode`: how the agent's model works, OpenClaw's per-agent
+// `thinkingDefault` and `fastModeDefault` (openclaw-config/agent-entry.js compiles
+// them; the pinned runtime's docs/tools/thinking.md). Unset is stored as nothing and
+// leaves OpenClaw's own order in charge: the model's parameters, then the owner's
+// default for all agents (Advanced settings), then the provider's. Any of the owner's
+// own agents, a shared one and a user's agent may hold them; only the owner sets them
+// (user-agent-settings.js locks runtimeOptions for users). A temporary team member
+// stores none: it runs with its lead's (`inherited`).
 
-const optionKeys = new Set(["memoryWiki"]);
+/**
+ * The thinking levels OpenClaw accepts (`agents.entries.*.thinkingDefault`). A level
+ * the agent's model does not support is clamped by OpenClaw at each run, never
+ * refused (tests/integration/assistant-model-controls-contract.test.js).
+ */
+export const thinkingLevels = Object.freeze([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "adaptive",
+  "max",
+  "ultra",
+]);
+
+const optionKeys = new Set(["memoryWiki", "thinking", "fastMode"]);
+// How the model works: what a temporary member takes over from its lead.
+const modelKeys = ["thinking", "fastMode"];
+const validModelOption = {
+  thinking: (value) => thinkingLevels.includes(value),
+  fastMode: (value) => typeof value === "boolean",
+};
 const isRecord = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
 /**
@@ -34,36 +66,65 @@ const refusals = {
 
 /**
  * OpenClaw's options as stored (`value`, any JSON) for `agent`, read tolerantly:
- * unknown keys are left out, and the wiki of an agent that may not keep one (it
- * became shared or a user's after it was switched on) reads as off. `{}` when off.
+ * unknown keys and values are left out, the wiki of an agent that may not keep one
+ * (it became shared or a user's after it was switched on) reads as off, and a
+ * temporary member has no model options of its own. `{}` without any.
  */
 export function readOpenClawOptions(value, agent, context = {}) {
-  if (!isRecord(value) || value.memoryWiki !== true) return {};
-  if (agent && wikiRefusal(agent, context)) return {};
-  return { memoryWiki: true };
+  if (!isRecord(value)) return {};
+  const result = {};
+  if (value.memoryWiki === true && !(agent && wikiRefusal(agent, context)))
+    result.memoryWiki = true;
+  if (!(agent && temporaryMember(agent)))
+    for (const key of modelKeys)
+      if (Object.hasOwn(value, key) && validModelOption[key](value[key]))
+        result[key] = value[key];
+  return result;
 }
 
 /**
+ * What a temporary team member takes over of its lead's options (`options`, as read):
+ * how the model works. The wiki is the lead's alone.
+ */
+export const inheritedOpenClawOptions = (options) =>
+  Object.fromEntries(
+    modelKeys
+      .filter((key) => Object.hasOwn(options, key))
+      .map((key) => [key, options[key]]),
+  );
+
+/**
  * OpenClaw's options of a write (`value`) for `agent`, or a translated refusal: an
- * unknown key, a value that is not a boolean, and the wiki for an agent that may not
- * keep one (409). Returns the stored form, `{}` when off.
+ * unknown key, a value of the wrong kind (a thinking level OpenClaw does not name),
+ * the wiki for an agent that may not keep one (409) and model options for a temporary
+ * member, which follows its lead (409). Returns the stored form, `{}` without any.
  */
 export function validateOpenClawOptions(value, { agent, senderFacing } = {}) {
   if (!isRecord(value)) throw assistantProblem("optionsInvalid");
   const unknown = Object.keys(value).find((key) => !optionKeys.has(key));
   if (unknown) throw assistantProblem("optionsUnknownKey", 400, unknown);
-  if (!("memoryWiki" in value)) return {};
-  if (typeof value.memoryWiki !== "boolean") throw assistantProblem("optionsInvalid");
-  if (!value.memoryWiki) return {};
-  const refusal = wikiRefusal(agent, { senderFacing });
-  if (refusal) throw assistantProblem(refusals[refusal], 409);
-  return { memoryWiki: true };
+  const stored = {};
+  if ("memoryWiki" in value) {
+    if (typeof value.memoryWiki !== "boolean") throw assistantProblem("optionsInvalid");
+    const refusal = value.memoryWiki && wikiRefusal(agent, { senderFacing });
+    if (refusal) throw assistantProblem(refusals[refusal], 409);
+    if (value.memoryWiki) stored.memoryWiki = true;
+  }
+  for (const key of modelKeys) {
+    if (!(key in value)) continue;
+    if (!validModelOption[key](value[key])) throw assistantProblem("optionsInvalid");
+    if (agent && temporaryMember(agent))
+      throw assistantProblem("modelOptionsTaskMember", 409);
+    stored[key] = value[key];
+  }
+  return stored;
 }
 
 /** OpenClaw's options module (runtime-options.js): validate, read and connections. */
 export const openClawOptions = Object.freeze({
   validate: validateOpenClawOptions,
   read: readOpenClawOptions,
+  inherited: inheritedOpenClawOptions,
   // The agent's wiki, read only, while it keeps one (descriptor.js, slot agent.page).
   pages: (options) => (options.memoryWiki ? ["wiki"] : []),
   // The wiki names no model connection.

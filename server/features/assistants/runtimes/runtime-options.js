@@ -13,8 +13,9 @@ import { openClawOptions } from "./openclaw/openclaw-options.js";
 // `read(value, agent)` tolerantly on every read (what a later descriptor no longer
 // names, or what the agent may no longer hold, is left out, never an error, so a
 // rollback still starts the agent), optionally `pages(options)` (the agent's pages
-// of the runtime's own the options switch on, slot `agent.page`) and
-// `connections(options)`,
+// of the runtime's own the options switch on, slot `agent.page`),
+// `inherited(options)` (what a temporary team member takes over of its lead's
+// options) and `connections(options)`,
 // the model connections the options name, which a live apply resolves. A runtime
 // without options of its own takes none: any key is refused, nothing is read.
 const modules = Object.freeze({
@@ -77,6 +78,19 @@ export function runtimeOptionsOf(agent, context = {}) {
   } catch {
     return Object.freeze({});
   }
+}
+
+/**
+ * The options a temporary member runs with: its own (`member`, a stored record) and,
+ * over them, what its runtime lets it take over of its lead's (`lead`, a stored
+ * record on the same runtime, or null). Frozen.
+ */
+export function memberOptionsOf(member, lead) {
+  const own = runtimeOptionsOf(member);
+  const id = runtimeIdOf(member);
+  const inherited = lead && runtimeIdOf(lead) === id && moduleOf(id).inherited;
+  if (!inherited) return own;
+  return frozen(structuredClone({ ...own, ...inherited(runtimeOptionsOf(lead)) }));
 }
 
 /**

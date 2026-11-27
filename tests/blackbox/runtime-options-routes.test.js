@@ -114,3 +114,53 @@ test("an OpenClaw agent takes no Hermes options and users never set any", async 
     false,
   );
 });
+
+test("the owner sets an OpenClaw agent's thinking level and fast mode", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const store = f.application.assistants.store;
+  const created = await json(
+    await f.request("/api/assistants", {
+      method: "POST",
+      body: { name: "Home", instructions: "", model: fixtureModel(f), shell: "off" },
+    }),
+  );
+  const saved = await patch(f, created, {
+    runtimeOptions: { openclaw: { thinking: "high", fastMode: false } },
+  });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  const record = await json(saved);
+  assert.deepEqual(record.runtimeOptions, {
+    openclaw: { thinking: "high", fastMode: false },
+  });
+  assert.deepEqual(store.storedAssistant(created.id).runtimeOptions, {
+    openclaw: { thinking: "high", fastMode: false },
+  });
+  await refused(
+    await patch(f, record, { runtimeOptions: { openclaw: { thinking: "extreme" } } }),
+    400,
+    "optionsInvalid",
+  );
+  await refused(
+    await patch(f, record, { runtimeOptions: { openclaw: { fastMode: "auto" } } }),
+    400,
+    "optionsInvalid",
+  );
+  // A temporary member works with its lead's and stores none of its own.
+  const member = store.reserveMember({
+    id: "m1",
+    parent: created.id,
+    assignment: { name: "Helper" },
+    snapshot: store.getAssistant(created.id),
+    teamId: "t1",
+    lifetime: "temporary",
+  });
+  await refused(
+    await patch(f, member, { runtimeOptions: { openclaw: { thinking: "low" } } }),
+    409,
+    "modelOptionsTaskMember",
+  );
+  // "Default" for both stores no options at all.
+  const cleared = await patch(f, record, { runtimeOptions: {} });
+  assert.equal(cleared.status, 200, await cleared.clone().text());
+  assert.equal("runtimeOptions" in store.storedAssistant(created.id), false);
+});

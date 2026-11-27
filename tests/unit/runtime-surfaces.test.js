@@ -33,6 +33,7 @@ test("the slots are AgentPier's: a fixed list the port exports", () => {
   assert.deepEqual(RUNTIME_SLOTS, [
     "hub.runtime",
     "hub.runtime.advanced",
+    "agent.identity",
     "agent.capabilities",
     "agent.page",
   ]);
@@ -74,6 +75,7 @@ test("a wrong surface fails as the module loads, naming what is wrong", () => {
 });
 
 const openClawSurfaces = [
+  { id: "modelOptions", slot: "agent.identity", kind: "built", shows: "whileEnabled" },
   { id: "memoryWiki", slot: "agent.capabilities", kind: "built", shows: "whileEnabled" },
   { id: "wiki", slot: "agent.page", kind: "built", shows: "whileEnabled" },
 ];

@@ -1723,6 +1723,48 @@ Gateway: the tool in `tools.effective` and in a real turn for the learning agent
 alone, the mode in both directions live and after a restart, a user's agent with a
 stored "on", and the report of a learned skill.
 
+#### Thinking level and fast mode per agent
+
+Since 2026-11-27 an OpenClaw agent may hold a thinking level and a fast mode of its
+own ([agents](agents.md#thinking-and-speed)): `runtimeOptions.openclaw.thinking` (one
+of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `adaptive`, `max`, `ultra`)
+and `.fastMode` (`true` or `false`), each stored only when set
+(`runtimes/openclaw/openclaw-options.js`). `agentEntry` compiles them into the agent's
+managed entry as OpenClaw's `agents.entries.<id>.thinkingDefault` and
+`fastModeDefault` (`docs/tools/thinking.md` and
+`docs/gateway/config-agents/entries-and-multi-agent.md` of the pinned runtime). An
+unset option leaves its key out, so OpenClaw's own order decides: the model's
+`params.thinking`, then `agents.defaults.thinkingDefault` (the owner's **Thinking
+level** for all agents), then the provider's default. A start removes a key an
+earlier one wrote, and a live apply sends `null` for it (a merge patch keeps an
+omitted key); the apply's readback compares both keys.
+
+- **Who holds them.** Any agent of its own: the owner's agents, shared agents, users'
+  agents and permanent members. Only the owner writes them (`runtimeOptions` is locked
+  for users, `user-agent-settings.js`). A temporary member stores none (a write is
+  refused with 409) and is compiled with its lead's (`memberOptionsOf`,
+  `runtimes/runtime-options.js`): its desired state takes over what the runtime's
+  options module names as `inherited`. The lead's options are part of the member's
+  apply fingerprint, and `followLead` re-applies running members when the lead's entry
+  changed, so a change reaches them at once.
+- **Live.** Saving runs the agent's apply (`recompiles`), never a restart.
+  `tests/integration/assistant-model-options-contract.test.js` pins on 2026.11.6 that
+  both keys are accepted for every level, that the next turn uses the new level also
+  in a chat that already ran (no level sticks to a session), that `null` removes a
+  key, and that the Gateway keeps its process.
+- **No per-model list.** OpenClaw clamps a level the model does not have instead of
+  failing the turn, so AgentPier offers the whole enum and reads no model catalog. On
+  an OpenAI-compatible endpoint whose model is marked `reasoning: true` the contract
+  measures `reasoning_effort`: unset `medium`; `minimal`, `low`, `medium`, `high`
+  as named; `xhigh`, `max` and `ultra` `high`; `adaptive` `medium`; `off` sends no
+  effort. A model without thinking gets none at any level. Fast mode adds no
+  `service_tier` on a custom endpoint; it is a provider feature (OpenAI, Anthropic).
+- **The surface.** OpenClaw registers `modelOptions` at the slot `agent.identity`
+  (ADR 0007), so the group shows only for OpenClaw agents. Hermes compiles one
+  `agent.reasoning_effort` per home from the level for all agents
+  ([Hermes runtime](hermes-runtime.md#advanced-settings)) and has no fast mode; a
+  per-agent level there is not wired.
+
 #### Memory wiki
 
 OpenClaw's bundled plugin `memory-wiki` (`docs/plugins/memory-wiki.md` of the pinned

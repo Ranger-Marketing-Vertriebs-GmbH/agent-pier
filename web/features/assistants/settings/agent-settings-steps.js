@@ -17,6 +17,7 @@ import {
   teamKeys,
   workBody,
 } from "./agent-settings-fields.js";
+import { identityKeys, identityPatch } from "./identity-fields.js";
 
 // Save-chain steps of the agent tabs (docs/settings-pattern.md). Every step sends the
 // revision the draft started from, so a change made elsewhere comes back as a 409.
@@ -26,6 +27,17 @@ export const profileStep = ({ assistantId, label, update }) =>
     label,
     keys: profileKeys,
     body: profilePatch,
+    update,
+  });
+
+// The Identity tab: the profile and, when changed, the runtime's own options of the
+// slot agent.identity (identity-fields.js).
+export const identityStep = ({ assistant, label, update }) =>
+  assistantPatchStep({
+    assistantId: assistant.id,
+    label,
+    keys: identityKeys,
+    body: identityPatch(assistant),
     update,
   });
 
