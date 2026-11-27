@@ -195,14 +195,23 @@ test(
       await until(() => model.requests.slice(offset).some(isRoutine), 120000),
       "the scheduled run started",
     );
-    await until(() => f.service.outbox.all(f.channel.id).length > 0, 90000);
+    // The run is over once its note is written and edited. (This waited for a message
+    // in the channel's outbox, which this fixture never gets: 90 s every time.)
+    const workspace = path.join(runtime.paths.workspaces, id);
+    const note = () => {
+      try {
+        return fs.readFileSync(path.join(workspace, notePath), "utf8");
+      } catch {
+        return "";
+      }
+    };
+    await until(() => note().includes("SENT_EDITED"), 90000);
     const runRequests = model.requests.slice(offset).filter(isRoutine);
     const runTools = offered(runRequests[0]);
     t.diagnostic(`scheduled run tools=${JSON.stringify(runTools)}`);
     assert.ok(regained, "the guard report re-applied write and edit");
     for (const name of ["write", "edit"])
       assert.ok(runTools.includes(name), `the scheduled run is offered ${name}`);
-    const workspace = path.join(runtime.paths.workspaces, id);
     assert.equal(
       fs.readFileSync(path.join(workspace, notePath), "utf8"),
       "RESTART_NOTE\nSENT_EDITED\n",
