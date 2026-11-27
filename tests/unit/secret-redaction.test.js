@@ -147,27 +147,73 @@ test("redaction is idempotent and keeps text around a secret intact", () => {
   assert.equal(redactSecrets(undefined), undefined);
 });
 
-test("every rule stays fast on adversarial 16 KB input", () => {
+// How much longer `run` takes for 16 times the input: about 16 for a linear scan,
+// about 256 for a quadratic one (a regex that backtracks from every position), whatever
+// the machine's speed. The limit lies in the middle (64), a factor of four from both.
+// It counts this thread's CPU time, not the clock, so the time other processes take on
+// a busy machine is left out. Linux advances that counter only every 0.5 to 1 ms, so a
+// measurement repeats the run until 10 ms of CPU time have passed and takes the mean.
+// Both sizes are measured in turns and the fastest turn of each counts, so a slow
+// stretch (a slower core, a collection) falls on both or neither.
+const sizeFactor = 16;
+const linearAtMost = 64;
+const measuredMicroseconds = 10000;
+function growth(run, input, bytes, rounds = 3) {
+  const cpu = () => {
+    const { user, system } = process.threadCpuUsage();
+    return user + system;
+  };
+  const timed = (text) => {
+    const start = cpu();
+    let runs = 0;
+    let spent = 0;
+    do {
+      run(text);
+      runs++;
+      spent = cpu() - start;
+    } while (spent < measuredMicroseconds);
+    return spent / runs;
+  };
+  const small = input(bytes);
+  const large = input(bytes * sizeFactor);
+  let fastestSmall = Infinity;
+  let fastestLarge = Infinity;
+  for (let round = 0; round < rounds; round++) {
+    fastestSmall = Math.min(fastestSmall, timed(small));
+    fastestLarge = Math.min(fastestLarge, timed(large));
+  }
+  return fastestLarge / fastestSmall;
+}
+
+test("every rule's time grows linearly on adversarial input, 16 KB to 256 KB", () => {
+  const repeated = (unit) => (bytes) => unit.repeat(Math.ceil(bytes / unit.length));
   const inputs = [
-    "a".repeat(16384),
-    "a.".repeat(8192),
-    "PASSWORD".repeat(2048),
-    `eyJ${"a".repeat(16384)}`,
-    "--password ".repeat(1500),
-    "mysql ".repeat(2700),
-    "curl -u ".repeat(2000),
-    "a://b:".repeat(2700),
-    "$(".repeat(8192),
-    '"'.repeat(16384),
-    pem("BEGIN", "RSA").repeat(500),
-    '\\"password\\":\\"'.repeat(1000),
+    repeated("a"),
+    repeated("a."),
+    repeated("PASSWORD"),
+    (bytes) => `eyJ${"a".repeat(bytes)}`,
+    repeated("--password "),
+    repeated("mysql "),
+    repeated("curl -u "),
+    repeated("a://b:"),
+    repeated("$("),
+    repeated('"'),
+    repeated(pem("BEGIN", "RSA")),
+    repeated('\\"password\\":\\"'),
   ];
   redactSecrets("warm up --password x");
-  const start = performance.now();
-  for (const input of inputs) redactSecrets(input);
-  const took = performance.now() - start;
-  assert.ok(took < 20 * (inputs.length / 5), `took ${took.toFixed(1)} ms`);
-  const five = performance.now();
-  for (const input of inputs.slice(0, 5)) redactSecrets(input);
-  assert.ok(performance.now() - five < 20, "the five named inputs in under 20 ms");
+  for (const input of inputs) {
+    const factor = growth(redactSecrets, input, 16384);
+    assert.ok(
+      factor < linearAtMost,
+      `${JSON.stringify(input(24))}…: ${sizeFactor} times the input took ${factor.toFixed(1)} times as long`,
+    );
+  }
+});
+
+test("the growth measure tells a backtracking regex from a linear one", () => {
+  // /a*b/ tries every start position of a run of "a" that no "b" follows.
+  const backtracking = (text) => /a*b/.test(text);
+  const factor = growth(backtracking, (bytes) => "a".repeat(bytes), 512);
+  assert.ok(factor > linearAtMost, `only ${factor.toFixed(1)} times as long`);
 });
