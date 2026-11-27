@@ -52,7 +52,6 @@ import { notifications } from "./en/notifications.js";
 import { audit } from "./en/audit.js";
 import { users } from "./en/users.js";
 import { runtimeOptions } from "./en/runtime-options.js";
-import { runtimeUpdates } from "./en/runtime-updates.js";
 import { storageCleanup } from "./en/storage-cleanup.js";
 import { rea } from "./en/rea.js";
 import { craft } from "./en/craft.js";
@@ -91,7 +90,6 @@ export const englishServerMessages = Object.freeze({
   audit,
   users,
   runtimeOptions,
-  runtimeUpdates,
   storageCleanup,
   rea,
   craft,
