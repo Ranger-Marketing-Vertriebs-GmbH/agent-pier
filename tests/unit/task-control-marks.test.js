@@ -49,7 +49,6 @@ function setup(t, entries = {}) {
     reads: { flags: () => ({}) },
     stops,
     onChange: (id) => changes.push(id),
-    timeoutMs: 20,
   });
   control.register("claude", driver);
   const entry = (id, current = snap) => {
@@ -178,6 +177,8 @@ test("a shell that started after the mark under the same id is a new run", async
 
 test("an exception in onChange after a late success is logged, never unhandled", async (t) => {
   const { control, driver, stops } = setup(t);
+  // The only stop here that must time out; the others keep the product's ten seconds.
+  control.timeoutMs = 20;
   const logged = t.mock.method(console, "error", () => {});
   const unhandled = [];
   const listener = (error) => unhandled.push(error);
