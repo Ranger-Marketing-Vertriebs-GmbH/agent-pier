@@ -21,6 +21,11 @@ export const assistantAttachmentsCopy = Object.freeze({
     "Die Vorschau konnte nicht geladen werden. Du kannst die Datei trotzdem herunterladen.",
   previewTooLarge: (limit) =>
     `Diese Datei ist größer als ${limit} und zu groß für eine Vorschau. Lade sie herunter, um sie zu lesen.`,
+  pdfPages: (count) => (count === 1 ? "1 Seite" : `${count} Seiten`),
+  pdfPage: (n, count) => `Seite ${n} von ${count}`,
+  zoomIn: "Vergrößern",
+  zoomOut: "Verkleinern",
+  zoomFit: "An Breite anpassen",
   audio: (name) => `Audio: ${name}`,
   uploading: "Wird hochgeladen …",
   uploadingProgress: (percent) => `Wird hochgeladen … ${percent} %`,
