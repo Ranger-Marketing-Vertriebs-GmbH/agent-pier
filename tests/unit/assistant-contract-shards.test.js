@@ -31,6 +31,22 @@ test("every contract gated on the installed runtime runs in the native-contracts
   }
 });
 
+test("every image contract of the installed runtime runs in the native-contracts job", () => {
+  // The image contract pins a known limit of the pinned OpenClaw; a runtime bump once
+  // broke it unnoticed while no job ran it.
+  const dir = new URL("tests/integration/", root);
+  const gated = fs
+    .readdirSync(dir)
+    .filter((name) =>
+      fs
+        .readFileSync(new URL(name, dir), "utf8")
+        .includes("process.env.AGENTPIER_IMAGE_CONTRACT_RUNTIME"),
+    );
+  assert.ok(gated.includes("assistant-image-contract.test.js"));
+  for (const name of gated)
+    assert.ok(contractShards.files.includes(`tests/integration/${name}`), name);
+});
+
 test("shards partition the contracts deterministically for every total", () => {
   for (let total = 1; total <= 8; total++) {
     const shards = splitShards(total);

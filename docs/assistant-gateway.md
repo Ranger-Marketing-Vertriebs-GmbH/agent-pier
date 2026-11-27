@@ -2576,7 +2576,8 @@ image as no longer available. Each copy writes an `assistant.sent` audit event w
 `kind: "generated-image"` (outcome `failure` for one that could not be kept).
 
 The opt-in contract `tests/integration/assistant-image-contract.test.js`
-(`AGENTPIER_IMAGE_CONTRACT_RUNTIME`) runs the pinned runtime with AgentPier's compiled
+(`AGENTPIER_IMAGE_CONTRACT_RUNTIME`, set by the `native-contracts` job, which runs it
+with the other native contracts) runs the pinned runtime with AgentPier's compiled
 configuration and a local fake of the OpenAI Images API (OpenClaw's QA switch
 `OPENCLAW_QA_ALLOW_LOCAL_IMAGE_PROVIDER` admits the loopback endpoint) and verifies the
 tool, the completion message and the copy into the chat. Its fake model reads images,
@@ -6760,8 +6761,7 @@ follows the requalification checklist in
   unaffected (OpenClaw sends the media, AgentPier copies the artifact), and
   `view_image` still reads the shared media folder. Switching `workspaceOnly` off is
   not an option. The image contract pins this with a vision-capable fake model, so a
-  bump that changes it fails there; it is opt-in and no CI job runs it, so run it
-  with every runtime bump.
+  bump that changes it fails there, in the `native-contracts` job.
 - **Allowlist warnings from memory search.** AgentPier's own memory search calls
   `memory_search` through `tools.invoke`, where OpenClaw builds only Gateway-scope
   tools. The Gateway then logs once that `read`, `write`, `edit`, `view_image` and
