@@ -5,13 +5,19 @@ import { inspectNodeVersions } from "./ci-node-versions.mjs";
 const root = path.resolve(import.meta.dirname, "..");
 const roots = ["server", "web", "scripts", "tests"];
 const limit = 600;
+// Language catalogs grow with the product's copy, not with its logic: they are
+// exempt, as AGENTS.md and docs/architecture.md say.
+const catalog = /^(?:web|server)\/lib\/i18n\/(?:de|en)\//;
 const violations = [];
 let checked = 0;
 function inspect(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) inspect(file);
-    else if (/\.(?:m?js|jsx|css)$/.test(entry.name)) {
+    else if (
+      /\.(?:m?js|jsx|css)$/.test(entry.name) &&
+      !catalog.test(path.relative(root, file).split(path.sep).join("/"))
+    ) {
       const lines = fs.readFileSync(file, "utf8").trimEnd().split("\n").length;
       checked++;
       if (lines > limit)
