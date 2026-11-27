@@ -65,7 +65,10 @@ function commands(t, options = {}) {
     debounceMs: options.debounceMs ?? 10,
     retryMs: options.retryMs ?? 60000,
     ownershipWaitMs: [1, 1],
-    warn: (...args) => warnings.push(args.join(" ")),
+    warn: (...args) => {
+      warnings.push(args.join(" "));
+      options.warned?.(warnings.length);
+    },
   });
   t.after(() => queue.close());
   return { queue, s, events, root, forgets, requests, warnings };
@@ -198,12 +201,16 @@ test("a command waits while OpenClaw still sees the stopped Gateway's ownership"
 });
 
 test("a failed command stays queued, and a Gateway that does not come back is the supervisor's", async (t) => {
+  // Each failed forget warns once, after its attempt is saved: the third is the last.
+  let spent;
+  const lastAttempt = new Promise((resolve) => (spent = resolve));
   const f = commands(t, {
     startFails: true,
     retryMs: 5,
     forget: () => {
       throw Object.assign(new Error("locked"), { code: "ETIMEDOUT" });
     },
+    warned: (count) => count === 3 && spent(),
   });
   await f.queue.forget("orchid", ["s-1"]);
   await assert.rejects(
@@ -220,10 +227,15 @@ test("a failed command stays queued, and a Gateway that does not come back is th
   ]);
   assert.match(f.warnings[0], /could not remove a deleted chat from dreaming: ETIMEDOUT/);
   assert.deepEqual(f.s.states.at(-1), { maintenanceWindow: false });
-  // Without a Gateway, the retries run directly until the attempts are spent.
-  await sleep(100);
+  // Without a Gateway, the retries run directly until the attempts are spent. Their
+  // timers and durable writes take as long as the machine needs, so wait for the
+  // last attempt itself, not for a fixed time.
+  await lastAttempt;
+  await f.queue.idle();
   const attempts = JSON.parse(fs.readFileSync(file(f.root), "utf8")).forgets[0].attempts;
   assert.equal(attempts, 3);
+  assert.equal(f.queue.timer, null, "no further retry is scheduled");
+  assert.equal(f.warnings.length, 3);
 });
 
 test("a forget waiting 15 minutes for idle agents restarts the Gateway at once", async (t) => {
