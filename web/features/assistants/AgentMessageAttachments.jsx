@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
 import FileLink from "../../components/FileLink.jsx";
@@ -7,11 +7,15 @@ import {
   isMarkdownAttachment,
   MARKDOWN_PREVIEW_MAX_BYTES,
 } from "./agent-markdown-preview.js";
+import { isPdfAttachment, PDF_PREVIEW_MAX_BYTES } from "./agent-pdf-preview.js";
 import "./agent-attachments.css";
 import { useAgentPaths } from "./agent-paths.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { videoDuration } from "../../lib/format-duration.js";
+
+// pdf.js loads with the first PDF preview, never with the chat.
+const AgentPdfPreview = lazy(() => import("./AgentPdfPreview.jsx"));
 
 export function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return "";
@@ -32,7 +36,7 @@ const useSource = () => {
 // The name, its details and an explicit download button under a player or in a
 // chip. FileLink keeps a home-screen app (iOS) in place: the share sheet instead
 // of navigating; native iOS players offer no download of their own. With `onOpen`
-// the name is a button that opens the file's preview (Markdown).
+// the name is a button that opens the file's preview (Markdown, PDF).
 function FileRow({ file, details, onOpen }) {
   const source = useSource();
   const text = (
@@ -128,8 +132,8 @@ function UnavailableAttachment({ file }) {
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
 // thumbnails that open the image in the in-app viewer, videos and audio that play
-// inline, Markdown files that open a rendered preview, and chips, each with a
-// download button. Nothing navigates away: a home-screen app
+// inline, Markdown files that open a rendered preview, PDFs that open page by page,
+// and chips, each with a download button. Nothing navigates away: a home-screen app
 // (iOS) has no way back. All are served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
@@ -162,8 +166,13 @@ export default function AgentMessageAttachments({ files, shared = false }) {
           ) : (
             <li key={file.id} className="agent-attachment-chip ready">
               <span className="agent-attachment-icon" aria-hidden="true">
-                {/* A Markdown file opens as a readable preview. */}
-                <Icon name={isMarkdownAttachment(file) ? "book" : "file"} size={16} />
+                {/* A Markdown file or a PDF opens as a readable preview. */}
+                <Icon
+                  name={
+                    isMarkdownAttachment(file) || isPdfAttachment(file) ? "book" : "file"
+                  }
+                  size={16}
+                />
               </span>
               <FileRow
                 file={file}
@@ -172,7 +181,10 @@ export default function AgentMessageAttachments({ files, shared = false }) {
                   isMarkdownAttachment(file)
                     ? (event) =>
                         setOpen({ file, opener: event.currentTarget, markdown: true })
-                    : undefined
+                    : isPdfAttachment(file)
+                      ? (event) =>
+                          setOpen({ file, opener: event.currentTarget, pdf: true })
+                      : undefined
                 }
               />
             </li>
@@ -190,7 +202,20 @@ export default function AgentMessageAttachments({ files, shared = false }) {
           close={() => setOpen(null)}
         />
       )}
-      {open && !open.markdown && (
+      {open?.pdf && (
+        <Suspense fallback={null}>
+          <AgentPdfPreview
+            key={open.file.id}
+            file={open.file}
+            src={source(open.file.id)}
+            details={fileSize(open.file.size)}
+            limit={fileSize(PDF_PREVIEW_MAX_BYTES)}
+            opener={open.opener}
+            close={() => setOpen(null)}
+          />
+        </Suspense>
+      )}
+      {open && !open.markdown && !open.pdf && (
         <ImageViewer
           key={open.file.id}
           src={source(open.file.id)}

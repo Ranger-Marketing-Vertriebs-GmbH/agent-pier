@@ -111,6 +111,40 @@ button.agent-attachment-preview:focus-visible {
   font-size: 13px;
   line-height: 1.5;
 }
+/* A PDF in the side panel: the page count and zoom stay on top while its pages
+   scroll; zoomed pages scroll sideways inside their list, never the page. */
+.agent-pdf-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* The side panel's own background. */
+  background: var(--neutral-05);
+}
+.agent-pdf-count {
+  color: var(--hint);
+  font-size: 13px;
+}
+.agent-pdf-zoom {
+  display: flex;
+  gap: 4px;
+}
+.agent-pdf-pages {
+  min-width: 0;
+  overflow-x: auto;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+/* Paper until the page is drawn. */
+.agent-pdf-page {
+  display: block;
+  max-width: none;
+  background: var(--neutral-30);
+}
 .agent-attachment-name {
   /* A name never reorders the text around it. */
   unicode-bidi: isolate;

@@ -2271,8 +2271,11 @@ chip, with the agent's short caption. Select the name of a Markdown file (`.md`,
 lists, tables and code as in the chat, raw HTML left out, images only named (a remote
 image never loads) and links opening in a new tab. Esc, a click beside it or **Close**
 closes it and the panel keeps **Download**. The preview reads at most 512 KB; a larger
-file, or one that fails to load, says so and offers the download instead. It works for
-your own attachments and in a user's own app as well. Every video, audio and file in the chat, your own
+file, or one that fails to load, says so and offers the download instead. Select the
+name of a PDF to read it in the same panel: every page, scrolling, **Zoom in**, **Zoom
+out** and **Fit width**; the preview reads PDFs up to 10 MB, and a larger file, or one
+that cannot be opened, offers the download instead. Scripts inside a PDF never run.
+Both previews work for your own attachments and in a user's own app as well. Every video, audio and file in the chat, your own
 attachments included, has a download button beside its name and size that saves the
 whole file without leaving the chat; the players themselves offer no download on an
 iPhone. In the home-screen app (iPhone, iPad) a download opens the share sheet instead, so

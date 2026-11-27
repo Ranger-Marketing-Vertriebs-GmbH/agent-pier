@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { startupPlugin } from "./scripts/startup-plugin.mjs";
@@ -19,8 +22,49 @@ export function devServer(env = process.env) {
   };
 }
 
+// pdf.js reads these at run time, so they are copied as they are to
+// /assets/pdfjs/ (web/features/assistants/pdf-document.js): the stand-in fonts for
+// PDFs that do not embed theirs, and the JavaScript image decoders that replace the
+// WebAssembly ones the app CSP does not allow. Their licenses travel with them.
+const pdfjsRoot = path.dirname(
+  createRequire(import.meta.url).resolve("pdfjs-dist/package.json"),
+);
+const pdfjsFiles = {
+  standard_fonts: () => true,
+  wasm: (name) => name.endsWith("_nowasm_fallback.js") || name.startsWith("LICENSE"),
+};
+export function pdfjsAssets() {
+  const files = Object.entries(pdfjsFiles).flatMap(([folder, wanted]) =>
+    readdirSync(path.join(pdfjsRoot, folder))
+      .filter(wanted)
+      .map((name) => `${folder}/${name}`),
+  );
+  return {
+    name: "agentpier-pdfjs-assets",
+    configureServer(server) {
+      server.middlewares.use("/assets/pdfjs/", (req, res, next) => {
+        const name = decodeURIComponent(new URL(req.url, "http://dev").pathname.slice(1));
+        if (!files.includes(name)) return next();
+        res.setHeader(
+          "Content-Type",
+          name.endsWith(".js") ? "text/javascript" : "application/octet-stream",
+        );
+        res.end(readFileSync(path.join(pdfjsRoot, name)));
+      });
+    },
+    generateBundle() {
+      for (const name of files)
+        this.emitFile({
+          type: "asset",
+          fileName: `assets/pdfjs/${name}`,
+          source: readFileSync(path.join(pdfjsRoot, name)),
+        });
+    },
+  };
+}
+
 export default defineConfig(({ command, isPreview }) => ({
-  plugins: [react(), startupPlugin()],
+  plugins: [react(), startupPlugin(), pdfjsAssets()],
   server: {
     host: "127.0.0.1",
     ...(command === "serve" && !isPreview ? devServer() : {}),
