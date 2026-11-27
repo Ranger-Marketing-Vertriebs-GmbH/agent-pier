@@ -346,3 +346,50 @@ test.describe("settings workspace field checks", () => {
     expect(feature.puts).toEqual([{ enabled: true }]);
   });
 });
+
+// The language can be chosen before the workspace state has arrived. An edit made
+// while React applies that state must stay: the draft follows the server for the
+// fields the owner did not touch only.
+for (const moment of ["with the state's render", "one task after it"])
+  test(`a language chosen ${moment} is kept`, async ({ page }) => {
+    await operationsFixture(page);
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    await page.route("**/api/state", async (route) => {
+      await held;
+      await route.fallback();
+    });
+    await page.goto(baseURL + "/settings");
+    const language = page.getByLabel("Sprache", { exact: true });
+    await expect(language).toBeEnabled();
+    const directory = page.getByLabel("Standard-Arbeitsverzeichnis", { exact: true });
+    await expect(directory).toBeDisabled();
+    // The choice follows the first change React writes to the page for the state.
+    await language.evaluate((select, later) => {
+      const choose = () => {
+        select.value = "en";
+        select.dispatchEvent(new window.Event("change", { bubbles: true }));
+      };
+      new window.MutationObserver((_, observer) => {
+        observer.disconnect();
+        if (later) window.setTimeout(choose, 0);
+        else choose();
+      }).observe(document.querySelector("main"), {
+        attributes: true,
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
+    }, moment.startsWith("one task"));
+    release();
+    await expect(directory).toBeEnabled();
+    await expect(directory).not.toHaveValue("");
+    await expect(
+      settingsBar(page).getByRole("button", { name: "Einstellungen speichern" }),
+    ).toBeVisible();
+    await expect(language).toHaveValue("en");
+    // What the effects of the state's render queued has been rendered by now.
+    await page.evaluate(() => new Promise((resolve) => window.setTimeout(resolve, 200)));
+    await expect(language).toHaveValue("en");
+    await expect(settingsBar(page)).toBeVisible();
+  });
