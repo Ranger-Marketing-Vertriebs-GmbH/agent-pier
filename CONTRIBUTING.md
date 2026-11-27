@@ -44,8 +44,9 @@ language. Run the i18n unit and browser tests when changing language behavior.
 ## Code and tests
 
 Use JavaScript ES modules and React JSX. Follow nearby feature boundaries and
-names. Prettier uses two-space indentation, double quotes and semicolons. Checked
-source and test files must stay below 600 lines.
+names. Prettier uses two-space indentation, double quotes and semicolons. Source and
+style files checked by `check:structure` must not exceed 600 lines; language
+catalogs and test files (`tests/`) are exempt.
 
 Add regression coverage for behavior changes. Test the user-visible outcome,
 including interruption and recovery when relevant. Preserve account isolation,

@@ -3,13 +3,12 @@ import path from "node:path";
 import { inspectNodeVersions } from "./ci-node-versions.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const roots = ["server", "web", "scripts", "tests"];
+const roots = ["server", "web", "scripts"];
 const limit = 600;
-// Language catalogs grow with the product's copy, not with its logic, and test
-// files grow with their cases: both are exempt, as AGENTS.md and
+// Language catalogs grow with the product's copy, not with its logic: they are
+// exempt, and so is everything under tests/ (not walked), as AGENTS.md and
 // docs/architecture.md say.
 const catalog = /^(?:web|server)\/lib\/i18n\/(?:de|en)\//;
-const exempt = (relative) => catalog.test(relative) || relative.startsWith("tests/");
 const violations = [];
 let checked = 0;
 function inspect(directory) {
@@ -18,7 +17,7 @@ function inspect(directory) {
     if (entry.isDirectory()) inspect(file);
     else if (
       /\.(?:m?js|jsx|css)$/.test(entry.name) &&
-      !exempt(path.relative(root, file).split(path.sep).join("/"))
+      !catalog.test(path.relative(root, file).split(path.sep).join("/"))
     ) {
       const lines = fs.readFileSync(file, "utf8").trimEnd().split("\n").length;
       checked++;
