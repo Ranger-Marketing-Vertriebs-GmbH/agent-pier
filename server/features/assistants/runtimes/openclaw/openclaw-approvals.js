@@ -1,5 +1,6 @@
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
 import { boundPort } from "./openclaw-agents.js";
+import { openClawQuestions } from "./openclaw-questions.js";
 
 // OpenClaw refuses exec.approvals.set over a stale base hash with INVALID_REQUEST
 // naming the change; a fresh read fixes that one refusal, no other.
@@ -12,7 +13,8 @@ const staleAllowlist = (error) =>
  * pending requests (`exec.approval.list`), the owner's answer, the history of how
  * requests ended, and the exec allowlist file (`exec.approvals.get/set`, keyed by
  * runtime agent id). Requests and their end arrive as run events (events sub-port,
- * `approval.requested`/`approval.resolved`). Answers are OpenClaw's own.
+ * `approval.requested`/`approval.resolved`). Answers are OpenClaw's own. The
+ * questions agents ask with `ask_user` are openclaw-questions.js's.
  * `allowAlwaysPlan` is OpenClaw's side of "Always allow" for a request it withheld
  * it from (exec-allowlist-policy.js).
  */
@@ -30,5 +32,7 @@ function approvalsOver(current) {
       call("exec.approvals.set", { baseHash, file }),
     staleAllowlist,
     allowAlwaysPlan: (payload, options) => allowAlwaysPlan(payload, options),
+    // The questions of the agents' ask_user tool (openclaw-questions.js).
+    ...openClawQuestions(call),
   };
 }

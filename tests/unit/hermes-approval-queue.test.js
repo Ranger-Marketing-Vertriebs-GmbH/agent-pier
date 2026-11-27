@@ -189,7 +189,7 @@ test("a session attached again asks what still waits, questions too", async () =
   );
   // The clarify question waits for the owner instead of an empty answer.
   assert.deepEqual(
-    (await approvals.questions()).map((q) => [q.id, q.request.question]),
+    (await approvals.questions()).map((q) => [q.id, q.request.questions[0].text]),
     [["c1", "Which?"]],
   );
   assert.equal(seen.find((e) => e.event === "question.requested").kind, "other");
@@ -236,9 +236,17 @@ test("a clarify question is answered by the owner; settled and cancelled ones en
   assert.deepEqual(
     { ...requested.payload.request, hermes: undefined },
     {
-      question: "Which stage?",
-      choices: ["staging", "prod"],
-      multiSelect: false,
+      // The port's shape: Hermes's one question as a one-element list.
+      questions: [
+        {
+          id: "answer",
+          header: "",
+          text: "Which stage?",
+          options: [{ label: "staging" }, { label: "prod" }],
+          multiSelect: false,
+          other: true,
+        },
+      ],
       agentId,
       sessionKey: key,
       runId: "run-1",
@@ -248,8 +256,11 @@ test("a clarify question is answered by the owner; settled and cancelled ones en
   assert.equal(requested.payload.expiresAtMs - requested.payload.createdAtMs, 600000);
   // The run waits for the owner meanwhile.
   assert.ok(seen.some((e) => e.step?.phase === "waiting-approval"));
-  await assert.rejects(approvals.answer({ id: "c1", answer: " " }), (e) => e.answered);
-  await approvals.answer({ id: "c1", answer: "prod" });
+  await assert.rejects(
+    approvals.answer({ id: "c1", answers: { answer: [" "] } }),
+    (e) => e.answered,
+  );
+  await approvals.answer({ id: "c1", answers: { answer: ["prod"] } });
   assert.deepEqual(peer.frames.find((f) => f.method === "clarify.respond").params, {
     session_id: "s1",
     execution_generation: 1,
@@ -261,7 +272,10 @@ test("a clarify question is answered by the owner; settled and cancelled ones en
       .status;
   assert.equal(ended("c1"), "answered");
   assert.deepEqual(await approvals.questions(), []);
-  await assert.rejects(approvals.answer({ id: "c1", answer: "prod" }), (e) => e.answered);
+  await assert.rejects(
+    approvals.answer({ id: "c1", answers: { answer: ["prod"] } }),
+    (e) => e.answered,
+  );
   // Answered elsewhere or withdrawn by an interrupt.
   ask("c2");
   ask("c3");

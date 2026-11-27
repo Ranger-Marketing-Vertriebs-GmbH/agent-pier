@@ -14,8 +14,10 @@ import { refused } from "./hermes-approval-queue.js";
 // its snapshot), which reopened() asks anew.
 //
 // The queue publishes each as a run event of kind "other" (agent-runtime.js), event
-// `question.requested` with the payload `{ id, request: { question, choices,
-// multiSelect, agentId, sessionKey, runId }, createdAtMs, expiresAtMs }` and
+// `question.requested` with the port's payload `{ id, request: { questions: [{ id,
+// header, text, options: [{ label }], multiSelect, other }], agentId, sessionKey,
+// runId }, createdAtMs, expiresAtMs }` (Hermes asks one question per request, its
+// id "answer", and takes any text for it) and
 // `question.resolved` with `{ id, status, sessionKey, runId }` (`status` "answered",
 // "expired" or "cancelled"), which agent-questions.js turns into the question the
 // owner sees in the agent's chat. While one waits, its run reports the lifecycle
@@ -31,6 +33,8 @@ const defaultTimeoutS = 3600;
 const text = (value, max) => (typeof value === "string" ? value.slice(0, max) : "");
 export const maxAnswerLength = 16384;
 export const declinedRequests = ["sudo", "secret"];
+// The id of the one question a clarify request asks.
+export const clarifyQuestionId = "answer";
 
 export class HermesQuestionQueue {
   constructor(client, runs) {
@@ -77,9 +81,18 @@ export class HermesQuestionQueue {
     const item = {
       id,
       request: {
-        question: text(params.question, 4000),
-        choices,
-        multiSelect: params.multi_select === true && choices.length > 0,
+        questions: [
+          {
+            id: clarifyQuestionId,
+            header: "",
+            text: text(params.question, 4000),
+            options: choices
+              .filter((choice) => choice.trim())
+              .map((label) => ({ label })),
+            multiSelect: params.multi_select === true && choices.length > 0,
+            other: true,
+          },
+        ],
         agentId: this.runs.agentId,
         sessionKey,
         runId,
@@ -98,11 +111,19 @@ export class HermesQuestionQueue {
     return [...this.pending.values()].map((item) => structuredClone(item));
   }
 
-  /** Sends `answer` (a choice's label or free text) to question `id`. */
-  async answer({ id, answer }) {
+  /**
+   * Sends the answer to question `id`: `answers` holds the values of its one
+   * question (choices' labels or free text), which Hermes takes as one text, several
+   * joined by ", ".
+   */
+  async answer({ id, answers }) {
     const item = this.pending.get(id);
     if (!item) throw refused("unknown or expired question id");
-    if (typeof answer !== "string" || !answer.trim() || answer.length > maxAnswerLength)
+    const values = answers?.[clarifyQuestionId];
+    const answer = Array.isArray(values)
+      ? values.filter((value) => typeof value === "string").join(", ")
+      : "";
+    if (!answer.trim() || answer.length > maxAnswerLength)
       throw refused("answer must be a non-empty text");
     const { sessionId, executionGeneration } = item.request.hermes;
     item.answering = true;

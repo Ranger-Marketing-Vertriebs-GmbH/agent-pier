@@ -239,7 +239,7 @@ function activeAssistantRoutes(services) {
     const result = await assistants.send(req.params.id, req.body);
     res.status(sendStatus(result)).json(result);
   });
-  // The owner's answer to a question the agent waits on (agent-questions.js).
+  // The owner's answers to a request the agent waits on (agent-questions.js).
   router.post(
     "/assistant-conversations/:id/questions/:questionId/answer",
     async (req, res) =>

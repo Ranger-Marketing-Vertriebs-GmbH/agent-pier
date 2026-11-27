@@ -32,9 +32,14 @@ test(
       240000,
       "the question in the chat",
     );
-    assert.equal(question.question, "Which stage?");
+    // Hermes's one question, as the one-element list every runtime's questions are.
+    assert.equal(question.questions.length, 1);
+    assert.equal(question.questions[0].text, "Which stage?");
     // Hermes marks the first choice as the agent's recommendation.
-    assert.deepEqual(question.choices, ["staging (Recommended)", "prod"]);
+    assert.deepEqual(
+      question.questions[0].options.map((option) => option.label),
+      ["staging (Recommended)", "prod"],
+    );
     assert.ok(question.expiresAt > Date.now());
     // The chat feed carries it to the chat's question card.
     const feed = await json(

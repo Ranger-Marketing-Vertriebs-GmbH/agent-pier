@@ -4,16 +4,46 @@ import { gatewayError } from "../../server/features/assistants/runtimes/openclaw
 import { mergePatch } from "./runtime-port-agents-contract.js";
 
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
-const answered = (code, remoteMessage = code) =>
-  Object.assign(new Error(code), { code, answered: true, status: 400, remoteMessage });
+const answered = (code, remoteMessage = code, extra = {}) =>
+  Object.assign(new Error(code), {
+    code,
+    answered: true,
+    status: 400,
+    remoteMessage,
+    ...extra,
+  });
 
 /**
  * What a Gateway keeps on disk across restarts: its agents, their workspace files
  * its configuration with a hash per write, the exec approvals still pending
  * (`approvals`, as `exec.approval.list` items), how others ended, the exec
  * allowlist file and the cron jobs with their runs. One store serves every client a supervisor connects in turn.
+ * `questions` (askedQuestion, runtime-port-approvals-contract.js) wait as ask_user
+ * question records.
  */
-export const openClawStore = ({ approvals = [] } = {}) => ({
+export const openClawStore = ({ approvals = [], questions = [] } = {}) => ({
+  questions: new Map(
+    questions.map((item) => [
+      item.id,
+      {
+        id: item.id,
+        questions: [
+          {
+            questionId: "choice",
+            header: "Choice",
+            question: item.text,
+            options: item.options.map((label) => ({ label })),
+            isOther: true,
+          },
+        ],
+        agentId: "ap-1",
+        sessionKey: "agent:ap-1:dashboard:s1",
+        createdAtMs: 0,
+        expiresAtMs: 0,
+        status: "pending",
+      },
+    ]),
+  ),
   agents: new Map(),
   files: new Map(),
   config: {},
@@ -236,6 +266,17 @@ function approvalAnswers(store) {
       return { ok: true };
     },
     "approval.history": () => ({ items: store.ended.map((item) => ({ ...item })) }),
+    // The questions of ask_user (question.list/resolve, OpenClaw 2026.11.6).
+    "question.list": () => ({
+      questions: [...store.questions.values()].map((item) => structuredClone(item)),
+    }),
+    "question.resolve": ({ id, answers }) => {
+      if (!store.questions.delete(id))
+        throw answered("INVALID_REQUEST", `question '${id}' was not found`, {
+          detailReason: "QUESTION_NOT_FOUND",
+        });
+      return { status: "answered", answers };
+    },
     "exec.approvals.get": () => ({
       file: structuredClone(store.allowlist.file),
       hash: hash(),

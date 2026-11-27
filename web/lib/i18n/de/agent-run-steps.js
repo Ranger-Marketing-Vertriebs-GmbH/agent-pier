@@ -30,6 +30,9 @@ export const agentRunStepsCopy = {
     apply_patch: "Bearbeitet Dateien",
     pdf: "Liest ein PDF",
     memory_search: "Durchsucht das Gedächtnis",
+    // Eine Frage an die Person im Chat: ask_user bei OpenClaw, clarify bei Hermes.
+    ask_user: "Stellt dir eine Frage",
+    clarify: "Stellt dir eine Frage",
     memory_get: "Liest das Gedächtnis",
   },
   tool: (name) => `Tool ${name}`,

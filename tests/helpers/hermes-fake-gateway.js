@@ -84,14 +84,15 @@ const refusal = (id, reason, data = {}) => ({
  * `admission_id` and `execution_generation` (status "error" with an error surface of
  * code `runFailure` when given), revision-fenced `session.mutate`, an
  * `approval.request` event per entry of `approvals` once the client declared server
- * requests, `session.stats` from a row's `stats` (set by a test), and the bridge's
+ * requests and a `clarify.request` per entry of `questions` (askedQuestion,
+ * runtime-port-approvals-contract.js), `session.stats` from a row's `stats` (set by a test), and the bridge's
  * `agentpier.http` over the cron routes (hermes-fake-cron.js) and `agentpier.note`,
  * which appends an `internal_notification` user row.
  */
 export function fakeHermesGateway(
   peer,
   store,
-  { runFailure = null, approvals = [] } = {},
+  { runFailure = null, approvals = [], questions = [] } = {},
 ) {
   const attached = new Set();
   let seq = 0;
@@ -158,6 +159,16 @@ export function fakeHermesGateway(
           command: item.request?.command ?? "",
           description: "dangerous command",
           choices: ["once", "deny", "session", "always"],
+          timeout_s: 300,
+        });
+      for (const item of questions)
+        event("clarify.request", "", {
+          kind: "clarify",
+          prompt_id: item.id,
+          execution_generation: 0,
+          question: item.text,
+          choices: item.options,
+          multi_select: false,
           timeout_s: 300,
         });
       ok(id, { server_requests: ["approval", "clarify"] });
@@ -303,6 +314,10 @@ export function fakeHermesGateway(
       ok(id, { status: "resolved", prompt_id: prompt });
       event("approval.settled", sid, { prompt_id: prompt, execution_generation: 0 });
     },
+    "clarify.respond": (id, { session_id: sid, prompt_id: prompt }) => {
+      ok(id, { status: "resolved", prompt_id: prompt });
+      event("clarify.settled", sid, { prompt_id: prompt });
+    },
     "agentpier.http": (id, params) =>
       ok(
         id,
@@ -367,6 +382,7 @@ export function fakeHermesSupervisor({
   version = null,
   runFailure = null,
   approvals = [],
+  questions = [],
 } = {}) {
   const store = hermesStore();
   const supervisor = new EventEmitter();
@@ -388,7 +404,11 @@ export function fakeHermesSupervisor({
       setState({ availability: "starting" });
       const { transport, peer } = memoryTransport();
       supervisor.peer = peer;
-      fakeHermesGateway(peer, store, { runFailure, approvals: first ? approvals : [] });
+      fakeHermesGateway(peer, store, {
+        runFailure,
+        approvals: first ? approvals : [],
+        questions: first ? questions : [],
+      });
       first = false;
       supervisor.client = createHermesClient(transport, { agentId, timeoutMs: 2000 });
       await supervisor.client.connect({ timeoutMs: 2000 });

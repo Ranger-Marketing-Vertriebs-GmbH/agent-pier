@@ -1,6 +1,6 @@
 import { channelError } from "./telegram-client.js";
 import { queueLimit, serviceMessage } from "./channel-ledger.js";
-import { telegramMessages } from "./telegram-messages.js";
+import { telegramMessages, telegramQuestionMessages } from "./telegram-messages.js";
 import { TelegramMedia, mediaNotice } from "./telegram-media.js";
 import { hostReady } from "../assistants/runtimes/runtime-for.js";
 // A long poll that stayed open this long found nothing pending at Telegram.
@@ -327,19 +327,24 @@ export class TelegramIngress {
         userId: entry.userId,
       });
     if (!question) return false;
+    let taken;
     try {
-      await assistants.questions.answer(channel.conversationId, question.id, {
-        answer: entry.text,
-      });
+      taken = await assistants.questions.answerTyped(
+        channel.conversationId,
+        question.id,
+        entry.text,
+      );
     } catch (error) {
       return error?.status === 503;
     }
     ledger.patch(entry.id, { state: "delivered", diagnostic: null });
-    this.service.notice(channel, {
-      key: `question-answered:${entry.id}`,
-      kind: "question-answered",
-      text: telegramMessages(channel).telegramQuestionAnswered,
-    });
+    // A request's next question went out as its own notice (agent-questions.js).
+    if (!taken.more)
+      this.service.notice(channel, {
+        key: `question-answered:${entry.id}`,
+        kind: "question-answered",
+        text: telegramQuestionMessages(channel).telegramQuestionAnswered,
+      });
     assistants.changed({ conversationId: channel.conversationId });
     return true;
   }
