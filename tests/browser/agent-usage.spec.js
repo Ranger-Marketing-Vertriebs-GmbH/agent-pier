@@ -8,7 +8,12 @@ import { baseURL } from "../helpers/browser.js";
 import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
 
-const openClaw = { id: "openclaw", name: "OpenClaw", version: "2026.11.6" };
+const openClaw = {
+  id: "openclaw",
+  name: "OpenClaw",
+  version: "2026.11.6",
+  capabilities: { usage: { available: true } },
+};
 const hermes = {
   id: "hermes",
   name: "Hermes",
@@ -222,6 +227,58 @@ test("the Overview shows today, 7 and 30 days with the tokens per day", async ({
     await expect(row(group, label).locator(".list-row-value")).toHaveText("No price");
   await expect(group.locator(".list-card")).not.toContainText("$");
 });
+
+test("an agent whose runtime view states no usage is asked nothing", async ({ page }) => {
+  // As every fixture agent without a runtime view: no request the fixtures must know.
+  const requests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/usage")) requests.push(request.url());
+  });
+  await chat(page, { runtimeInfo: undefined });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
+  await expect(button(page)).toHaveCount(0);
+  await page.goto(baseURL + settingsPath());
+  const group = page.locator("#agent-usage");
+  await expect(row(group, "Today").locator(".list-row-value")).toHaveText("—");
+  expect(requests).toEqual([]);
+});
+
+for (const status of [404, 500])
+  test(`a usage read that fails with ${status} leaves the chat and the Overview quiet`, async ({
+    page,
+  }) => {
+    const state = await chat(page);
+    const reads = { chat: 0, agent: 0 };
+    await page.route("**/api/assistant-conversations/dinner/usage", (route) => {
+      reads.chat++;
+      return route.fulfill({ status, json: { error: "Not available." } });
+    });
+    await page.route("**/api/assistants/home/usage", (route) => {
+      reads.agent++;
+      return route.fulfill({ status, json: { error: "Not available." } });
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner");
+    await expect(page.getByText("We can plan dinner together.")).toBeVisible();
+    await expect.poll(() => reads.chat).toBeGreaterThan(0);
+    // No figure, no error, and the chat still takes a message.
+    await expect(button(page)).toHaveCount(0);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.getByRole("textbox").first().fill("Still there?");
+    await page.keyboard.press("Enter");
+    await expect.poll(() => state.posted.length).toBe(1);
+    await page.goto(baseURL + settingsPath());
+    const group = page.locator("#agent-usage");
+    await expect(group.getByRole("status")).toHaveText(
+      "The usage cannot be read right now.",
+    );
+    await expect(row(group, "Today").locator(".list-row-value")).toHaveText("—");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    // No retry storm: the reads stay a handful while the pages sit open.
+    await page.waitForTimeout(1500);
+    expect(reads.chat).toBeLessThanOrEqual(3);
+    expect(reads.agent).toBeLessThanOrEqual(3);
+  });
 
 test("⌘K opens the usage of the chat on screen", async ({ page }) => {
   await page.addInitScript(() => {

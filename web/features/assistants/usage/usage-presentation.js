@@ -4,6 +4,17 @@ import { assistantUsageCopy as copy } from "../../../lib/i18n/messages/assistant
 import { formatNumber } from "../../../lib/i18n/index.js";
 import { formatTokens, tokenCount } from "../../chat/token-presentation.js";
 
+/**
+ * Whether the web app asks for the usage of `assistant`: only while its runtime view
+ * states the `usage` capability as available, which the server does for every agent
+ * it lists (runtime-for.js runtimeDetails). An agent whose view is not loaded yet, or
+ * a server from before the capability, is asked nothing. Never a user's own agent:
+ * its figures are not shown to the owner in the app.
+ */
+export const usageOffered = (assistant) =>
+  assistant?.runtimeInfo?.capabilities?.usage?.available === true &&
+  assistant.userAccess?.mode !== "own";
+
 /** Whether the figures `usage` (`{ tokens }`) count any token at all. */
 export const hasUsage = (usage) => tokenCount(usage?.tokens?.total) > 0;
 

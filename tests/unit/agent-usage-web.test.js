@@ -9,6 +9,7 @@ import {
   hasUsage,
   tokenRows,
   tokensText,
+  usageOffered,
 } from "../../web/features/assistants/usage/usage-presentation.js";
 import { capabilityOf, unavailableText } from "../../web/components/capability-gate.js";
 import { topicInfo } from "../../web/lib/live/live-topics.js";
@@ -138,6 +139,24 @@ test("a runtime without a usage record says so in both languages", (t) => {
   );
 });
 
+test("usage is asked only where the runtime view states it, never for a user's own agent", () => {
+  const stated = (available) => ({
+    runtimeInfo: { capabilities: { usage: { available } } },
+  });
+  assert.equal(usageOffered(stated(true)), true);
+  assert.equal(usageOffered(stated(false)), false);
+  // A view not loaded yet, or one from before the capability: nothing is asked.
+  for (const agent of [
+    undefined,
+    {},
+    { runtimeInfo: {} },
+    { runtimeInfo: { capabilities: {} } },
+  ])
+    assert.equal(usageOffered(agent), false);
+  assert.equal(usageOffered({ ...stated(true), userAccess: { mode: "own" } }), false);
+  assert.equal(usageOffered({ ...stated(true), userAccess: { mode: "shared" } }), true);
+});
+
 test("the usage topics read their routes; the fallback polls slowly", () => {
   for (const [name, path] of [
     ["agent.usage", "/assistants/a%2Fb/usage"],
@@ -157,6 +176,7 @@ test("the usage topics read their routes; the fallback polls slowly", () => {
 test("⌘K finds an agent's usage and the chat's own, in both languages", () => {
   const agents = [
     { id: "ops", name: "Ops-Wache" },
+    { id: "usr", name: "Mias Agent", userAccess: { mode: "own", members: [] } },
     { id: "old", name: "Alt", archivedAt: "2026-01-01T00:00:00.000Z" },
   ];
   const index = buildSearchIndex({
@@ -181,6 +201,11 @@ test("⌘K finds an agent's usage and the chat's own, in both languages", () => 
     assert.ok(hits(query).includes("agent:ops:group:usage"), query);
   assert.equal(
     index.some((entry) => entry.id === "agent:old:group:usage"),
+    false,
+  );
+  // A user's own agent has no usage group for the owner.
+  assert.equal(
+    index.some((entry) => entry.id === "agent:usr:group:usage"),
     false,
   );
   // The chat's usage sheet is the chat's own action: offered only while it shows.

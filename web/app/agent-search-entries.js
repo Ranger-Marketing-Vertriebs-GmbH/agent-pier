@@ -76,7 +76,8 @@ const agentGroups = [
     "usage",
     "overview",
     () => assistantUsageCopy.title,
-    () => true,
+    // A user's own agent shows no usage group.
+    (agent) => agent.userAccess?.mode !== "own",
     [() => assistantUsageCopy.search.tokens, () => assistantUsageCopy.search.cost],
   ],
   [
