@@ -295,16 +295,27 @@ test("tags hidden in quoted attributes cannot make a forward parse slowly", asyn
     ),
   );
   const forward = forwardOf(f);
-  let started = Date.now();
+  // The work, not the clock: the CPU time of this process (the parse runs in a
+  // worker thread), which a busy machine does not stretch the way it stretches the
+  // wait for the fake IMAP server. A parse that backtracks takes far longer.
+  const cpuMs = () => {
+    const { user, system } = process.cpuUsage();
+    return (user + system) / 1000;
+  };
+  let started = cpuMs();
   const r = await forward({ uid: alternative.uid });
-  assert.ok(Date.now() - started < 1000);
+  let spent = cpuMs() - started;
+  t.diagnostic(`first forward: ${spent.toFixed(0)} ms CPU`);
+  assert.ok(spent < 1000, `${spent.toFixed(0)} ms CPU`);
   assert.match(r.htmlNote, /too deeply nested/);
   const p = f.workflows.get(r.actionId).payload;
   assert.equal(p.html, null);
   assert.equal(p.forward.htmlOmitted, true);
-  started = Date.now();
+  started = cpuMs();
   assert.equal(await code(forward({ uid: only.uid })), "MAIL_DRAFT_UNSUPPORTED");
-  assert.ok(Date.now() - started < 1000);
+  spent = cpuMs() - started;
+  t.diagnostic(`second forward: ${spent.toFixed(0)} ms CPU`);
+  assert.ok(spent < 1000, `${spent.toFixed(0)} ms CPU`);
   assert.equal(f.count("Drafts"), 1);
 });
 
