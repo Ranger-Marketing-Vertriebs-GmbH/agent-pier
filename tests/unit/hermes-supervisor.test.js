@@ -120,7 +120,10 @@ test("stop ends both process groups, descendants included, and nothing stays", a
   assert.equal(host.status().availability, "disabled");
   assert.equal(host.connected(connection), false);
   assert.equal(dropped, 1);
-  for (const pid of [...pids, grandchild]) assert.equal(alive(pid), false, String(pid));
+  for (const pid of pids) assert.equal(alive(pid), false, String(pid));
+  // The gateway's descendant was killed with its group, but it is init's to reap:
+  // until then its pid still answers a signal 0 (a zombie on Linux).
+  await progress(() => !alive(grandchild));
   await host.assertStopped();
   assert.equal(host.restartNeeded(), false);
 });
