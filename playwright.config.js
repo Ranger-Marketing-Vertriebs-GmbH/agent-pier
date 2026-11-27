@@ -1,4 +1,6 @@
 import { defineConfig } from "@playwright/test";
+// The test server and every worker inherit a Composer writer lock folder of the run.
+import "./tests/helpers/composer-writes.js";
 
 const externalUrl = process.env.AGENTPIER_TEST_URL;
 const storageState = process.env.AGENTPIER_TEST_STORAGE_STATE;
