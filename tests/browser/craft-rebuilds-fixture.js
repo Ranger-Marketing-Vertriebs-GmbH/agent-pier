@@ -1,4 +1,5 @@
 import { isLiveStubRequest } from "../helpers/live-stub.js";
+import { craftState, installedCraft } from "./craft-anything-fixture.js";
 
 // A mocked Rebuilds API (server/http/routes/craft-rebuilds.js) for the Rebuilds page:
 // three rebuilds (one waiting for a question and an approval, one building, one
@@ -192,6 +193,10 @@ export async function craftRebuildsFixture(
         home: "/fixture",
         defaultCwd: "/fixture/projects",
       });
+    // The tool itself, as its card and its dialog read it (never an empty object:
+    // the server always names the components).
+    if (path === "/craft-anything" && method === "GET")
+      return json(installed ? installedCraft() : craftState());
     if (path === "/craft/rebuilds" && method === "GET") return json(list());
     if (path === "/craft/rebuilds" && method === "POST") {
       const known = state.rebuilds.find((item) => item.requestId === body.requestId);
