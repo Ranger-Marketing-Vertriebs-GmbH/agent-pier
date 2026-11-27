@@ -327,6 +327,13 @@ test.describe("phone", () => {
     const button = page
       .locator(".sidebar-head")
       .getByRole("button", { name: "Search (Ctrl+K)" });
+    // The drawer slides in (a transform): measured on the way, the box sits on a
+    // fraction of a pixel and its width comes out as 43.99999.
+    await page
+      .locator(".sidebar")
+      .evaluate((drawer) =>
+        Promise.all(drawer.getAnimations().map((animation) => animation.finished)),
+      );
     const box = await button.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
