@@ -4,6 +4,8 @@ The opt-in memory contract exercises pinned OpenClaw 2026.9.8 with AgentPier's
 managed memory configuration, `NativeMemory`, assistant configuration updates,
 and actual native model/tool execution. It uses the keyword provider `none`;
 there is no embedding service or real model account in this qualification.
+Local embeddings have a contract of their own, on the current pin
+([Semantic memory search](#semantic-memory-search)).
 
 ## Running the contract
 
@@ -66,6 +68,71 @@ The removed-file assertion explicitly includes a native forced index rebuild;
 it does not promise synchronous erasure from every search reader. Database/WAL
 forensics, backups, provenance-based `memory forget`, semantic embeddings,
 cross-version migration, and other operating systems remain outside this contract.
+
+## Semantic memory search
+
+`tests/integration/assistant-semantic-memory-contract.test.js` runs the owner's
+semantic memory search end to end on the pinned OpenClaw 2026.11.6, with the real
+llama.cpp provider plugin from the runtime lock, the real pinned llama.cpp server
+(release `b10809`) and the real EmbeddingGemma 300M model. There is no embedding
+service and no model account; nothing leaves the machine. It drives the production
+`SemanticMemory` service through its production wiring
+(`server/application/semantic-memory-wiring.js`); only the Gateway restart is a plain
+stop and start instead of the provider synchronization's.
+
+```sh
+AGENTPIER_SEMANTIC_MEMORY_CONTRACT_RUNTIME=/absolute/path/to/2026.11.6-node26.12.1-… \
+AGENTPIER_EMBEDDING_ASSETS=/absolute/path/to/a/data/assistants \
+  node --test --test-force-exit tests/integration/assistant-semantic-memory-contract.test.js
+```
+
+`AGENTPIER_EMBEDDING_ASSETS` names a folder whose `embeddings/` subfolder keeps the
+pinned server and model between runs. What is missing there is downloaded once from
+the pinned URLs (the server from GitHub, the 329 MB model from Hugging Face) and
+checked against the pinned SHA-256; each test then works on its own copy in its own
+temporary data directory. `scripts/provision-assistant-contracts.mjs` sets both
+variables. Without them the tests skip.
+
+The first test: with the setting off the compiled search is keyword search and a
+German note about "Ferien an der Ostsee" is no hit for "Urlaub am Meer". Switching on
+checks the assets, restarts the Gateway and rebuilds both agents' indexes; the
+compiled configuration then names the local provider, the model file, the plugin and
+the loopback provider entry. "Urlaub am Meer" finds the Ostsee note, an English
+question finds a German note, each of two agents gets only its own notes (also for a
+query that matches the other agent's note by word and by meaning), a deleted note
+leaves the vector index and a new one enters it without a rebuild, an agent created
+afterwards searches by meaning from its first note, and a Gateway restart (another
+server port) keeps the indexes valid. Switching off restores keyword search at once,
+removes the model and leaves no embedding server behind. It reports the time of each
+step, the search latency and the server's resident memory as diagnostics.
+
+The second test: a model file the server cannot load (right size and receipt) makes
+the rebuild's check fail (`openclaw memory status --deep` cannot embed); the setting
+goes off with `MEMORY_INDEX_FAILED` and the same start rebuilds the keyword index,
+so keyword search answers. Then, with the
+setting really on, the journal of a rebuild that an AgentPier process left unfinished
+switches it off as `INTERRUPTED`, and the next Gateway start rebuilds the keyword
+index.
+
+On 2026-11-27 both tests passed on macOS arm64 (Apple silicon, 117 s) and, in a
+Debian 13 container, on Linux arm64 (94 s), each against a runtime provisioned
+through the installer's step; the measurements are in the
+[gateway guide](assistant-gateway.md#semantic-memory-search). Linux x64 runs in CI.
+
+CI runs it in the `native-contracts` job of `assistant-runtime.yml` on the Linux
+runners (pull requests that touch the assistant runtime on x64; nightly, on demand
+and before a release also on arm64), not in the merge queue's core contracts and
+not on the hosted macOS runner: the macOS build of the server computes on Metal,
+and a virtualized GPU is no qualification of that. Run it on Apple silicon before a
+release with the command above. The shard that runs it caches `embeddings/` under a key of the server
+release and the model digest, so the model is downloaded once per pin and runner
+architecture.
+
+Not covered: a real model deciding to search, retrieval quality beyond the fixed
+examples, transcripts (they stay unindexed), an update between two runtimes that both
+bundle the plugin (there is only one so far), and a rollback to 2026.11.3 with the
+setting on (unit-tested: the start falls back to keyword search; that runtime never
+had local embeddings, so its snapshot holds keyword indexes).
 
 ## Dreaming
 

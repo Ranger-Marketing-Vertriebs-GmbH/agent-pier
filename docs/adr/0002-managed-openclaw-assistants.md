@@ -268,6 +268,14 @@ configuration, UI projections and adapters for its existing channel and
 authorization boundaries. Do not create a second personal-memory database,
 embedding pipeline or scheduler merely to expose these features in AgentPier.
 
+Amendment (2026-11-27): the owner's optional semantic memory search follows this
+rule. It is OpenClaw's own vector search (`memory.search.provider: "local"`, its
+llama.cpp provider plugin and index), not an AgentPier pipeline: AgentPier pins and
+installs the plugin, the embedding server and the model, compiles their paths and
+runs OpenClaw's own index rebuild while its Gateway is stopped. Keyword search stays
+the default, and no remote embedding provider is offered. See
+[the gateway guide](../assistant-gateway.md#semantic-memory-search).
+
 An isolated probe of the pinned OpenClaw 2026.9.8 runtime verified native memory
 write/search and fresh-conversation recall after restart, plus a persisted
 one-shot automation delivered once through an authenticated webhook into the

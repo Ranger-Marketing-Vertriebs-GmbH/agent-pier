@@ -570,6 +570,11 @@ entry back as a `§` block and is refused with `memoryTooLarge` (409) when the f
 would go over its limit.
 Memory search looks for the query's words in the entries of both files; Hermes's own
 `session_search` covers past chats, not memory.
+That search is AgentPier's own over the two files on the memory page. The agent
+itself has no memory search: Hermes puts both files into every chat. The owner's
+[semantic memory search](agents.md#semantic-memory-search) therefore does not exist
+for Hermes agents (capability `semanticMemory`, `semanticMemoryUnsupported`), and
+nothing of it shows for them.
 
 The agent keeps its memory with Hermes's `memory` tool and Hermes's background review
 after a turn. Its instructions (`SOUL.md`, **Memory**) tell it so: save to the `memory`
@@ -1503,6 +1508,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Thinking level, fast mode and loop protection per agent    | Identity › Model behaviour          | —                                                   | Hermes agents follow the level for all agents                |
 | Fallback models per agent                                  | Identity › Model behaviour          | —                                                   | Hermes's own `fallback_providers` are not managed            |
 | Looking up earlier chats                                   | With memory on (`sessions_*` tools) | Hermes's `session_search`, always                   | [Earlier chats](agents.md#earlier-chats)                     |
+| Finding notes by meaning (local embeddings)                | Agents › Runtime, for all agents    | —                                                   | [Semantic memory search](agents.md#semantic-memory-search)   |
 | Updates                                                    | OpenClaw update                     | Hermes update                                       | [Updates](assistant-runtime-updates.md#hermes-agent-runtime) |
 
 ## Contract tests
