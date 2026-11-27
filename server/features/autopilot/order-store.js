@@ -101,13 +101,37 @@ async function resolveProject(project) {
   }
 }
 
+// The order files of a Composer folder as one string: each name with its inode, size
+// and change time, so a file added, removed, rewritten or replaced makes another one.
+function orderFiles(dir) {
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((name) => orderFilename(name))
+      .sort()
+      .map((name) => {
+        try {
+          const stat = fs.lstatSync(path.join(dir, name), { bigint: true });
+          return `${name}:${stat.ino}:${stat.size}:${stat.mtimeNs}`;
+        } catch {
+          return name;
+        }
+      })
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
 export class OrderStore {
-  constructor({ dataDir, projects, onChange = () => {} }) {
+  constructor({ dataDir, projects, onChange = () => {}, settleMs = 1000 }) {
     this.file = path.join(dataDir, "autopilot", "register.json");
     this.projects = projects;
     this.onChange = onChange;
     this.watchers = new DirectoryWatchers({ maxDirectories: Infinity });
     this.watches = new Map();
+    this.settleMs = settleMs;
+    this.settling = new Map();
     this.closed = false;
   }
 
@@ -207,8 +231,22 @@ export class OrderStore {
       old?.release();
       this.watches.delete(key);
       if (!identity) return;
-      const release = this.watchers.add(dir, names, callback, identity);
-      if (release) this.watches.set(key, { dir, identity, release, projectId });
+      // `heard`: the handle reported something, so it runs; `files`: the order files
+      // as the watch began (#settle).
+      const record = { dir, identity, projectId, heard: false };
+      if (child === "orders") record.files = orderFiles(dir);
+      record.release = this.watchers.add(
+        dir,
+        names,
+        (...event) => {
+          record.heard = true;
+          callback(...event);
+        },
+        identity,
+      );
+      if (!record.release) return;
+      this.watches.set(key, record);
+      this.#settleLater(project, key);
     };
     watch(commonDir, "parent", "agentpier-composer", () => {
       this.#watch(project);
@@ -223,6 +261,36 @@ export class OrderStore {
         );
       this.onChange(projectId, ref?.id ?? null);
     });
+  }
+  // A new fs.watch handle reports nothing for a moment: on macOS FSEvents starts
+  // after fs.watch returned, and a change made meanwhile (measured: still 8 % of those
+  // made 100 ms later on a busy machine) is never reported. So each new watch is
+  // checked once, `settleMs` later, against the folder itself, unless the handle has
+  // reported something by then: a Composer folder that appeared is watched and
+  // announced, and so are entries added to, replaced in or removed from it.
+  #settleLater(project, key) {
+    clearTimeout(this.settling.get(key));
+    const timer = setTimeout(() => {
+      this.settling.delete(key);
+      this.#settle(project);
+    }, this.settleMs);
+    timer.unref?.();
+    this.settling.set(key, timer);
+  }
+  #settle(project) {
+    const { projectId } = project;
+    if (this.closed || !this.watches.has(projectId + ":parent")) return;
+    const orders = this.watches.get(projectId + ":orders");
+    if (!orders) {
+      this.#watch(project);
+      if (this.watches.has(projectId + ":orders")) this.onChange(projectId, null);
+      return;
+    }
+    if (orders.heard) return;
+    const files = orderFiles(orders.dir);
+    if (files === orders.files) return;
+    orders.files = files;
+    this.onChange(projectId, null);
   }
 
   #read(ref, project) {
@@ -448,6 +516,8 @@ export class OrderStore {
 
   close() {
     this.closed = true;
+    for (const timer of this.settling.values()) clearTimeout(timer);
+    this.settling.clear();
     for (const watch of this.watches.values()) watch.release();
     this.watches.clear();
     this.watchers.close();
