@@ -1983,7 +1983,10 @@ session, the agent's Telegram bot) shows with the next read.
 a user's own agent only under her opt-in. The chat route answers 404 for a user's
 chat, opt-in or not (its figures would count turns from before it), for a chat
 without a session and for a runtime without the `usage` capability. Restricted
-users have no usage route or topic.
+users have no usage route or topic. The web app asks for usage only where it shows
+it: for an agent whose runtime view states the `usage` capability as available,
+never for a user's own agent or a user's chat. A read that fails leaves the chat
+header without a figure and the Overview rows at "—" with one quiet line.
 
 **Hermes** declares the capability unavailable (`usageUnsupported`): it reports a
 session's context size only.

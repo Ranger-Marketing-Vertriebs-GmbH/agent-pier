@@ -603,8 +603,7 @@ least** or **No price** at first.
 
 Usage is yours alone. A user never sees tokens or cost, not for her own agent and
 not for her chats. A user's chat shows no usage to you either, also when she lets
-you read it, and the **Usage** group of a user's own agent appears only under that
-opt-in. Hermes agents record no usage: the group says so and their chats show none.
+you read it, and a user's own agent has no **Usage** group for you. Hermes agents record no usage: the group says so and their chats show none.
 
 <a id="profile"></a>
 

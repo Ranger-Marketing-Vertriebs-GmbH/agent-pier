@@ -1,7 +1,5 @@
 import React, { useId } from "react";
 import CapabilityGate from "../../../components/CapabilityGate.jsx";
-import { capabilityOf } from "../../../components/capability-gate.js";
-import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { unknownValue } from "../../../components/ListRow.jsx";
@@ -10,7 +8,13 @@ import { locale } from "../../../lib/i18n/index.js";
 import { assistantUsageCopy as copy } from "../../../lib/i18n/messages/assistant-usage.js";
 import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 import { formatTokens } from "../../chat/token-presentation.js";
-import { costText, dailyPoints, hasUsage, tokensText } from "./usage-presentation.js";
+import {
+  costText,
+  dailyPoints,
+  hasUsage,
+  tokensText,
+  usageOffered,
+} from "./usage-presentation.js";
 import "./agent-usage.css";
 
 const periodIds = ["today", "week", "month"];
@@ -31,8 +35,10 @@ const shortDay = (date) =>
  */
 export default function UsageGroup({ assistant }) {
   const id = useId();
-  const offered = capabilityOf(assistant.runtimeInfo, "usage").available;
+  const offered = usageOffered(assistant);
   const topic = useLiveTopic(offered ? `agent.usage:${assistant.id}` : null);
+  // A user's own agent shows no usage to the owner (docs/agents.md "Usage").
+  if (assistant.userAccess?.mode === "own") return null;
   const usage = topic.data;
   const periods = new Map((usage?.periods || []).map((period) => [period.id, period]));
   const points = dailyPoints(usage?.daily, shortDay);
@@ -42,7 +48,12 @@ export default function UsageGroup({ assistant }) {
         {copy.title}
       </GroupLabel>
       <CapabilityGate runtime={assistant.runtimeInfo} capability="usage">
-        {!usage && topic.error && <ErrorMessage error={copy.unavailable} />}
+        {/* A read that failed says so once, quietly; the rows keep their dashes. */}
+        {!usage && topic.error && (
+          <p className="field-description agent-usage-unavailable" role="status">
+            {copy.unavailable}
+          </p>
+        )}
         <ListCard labelledBy={id}>
           {periodIds.map((periodId) => {
             const period = periods.get(periodId);

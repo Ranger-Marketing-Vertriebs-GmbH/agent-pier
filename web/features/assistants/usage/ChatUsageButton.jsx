@@ -1,6 +1,5 @@
 import React, { useEffect, useId, useState } from "react";
 import { usePageAction } from "../../../app/page-action.js";
-import { capabilityOf } from "../../../components/capability-gate.js";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
 import Sheet from "../../../components/Sheet.jsx";
@@ -16,6 +15,7 @@ import {
   formatCost,
   hasUsage,
   tokenRows,
+  usageOffered,
 } from "./usage-presentation.js";
 import "./agent-usage.css";
 
@@ -35,15 +35,13 @@ const rowLabel = (id) =>
  * row's second line: the text is too long for a value). The live
  * topic `agent.chat-usage:<conversationId>` pushes it after each finished turn.
  * Nothing for a user's chat (`enabled` false), a runtime that records no usage (the
- * agent's Overview says why) and a chat that used nothing yet. ⌘K "Usage of this chat" opens the sheet.
+ * agent's Overview says why), a chat that used nothing yet and a read that failed:
+ * the header stays as it is, without an error. ⌘K "Usage of this chat" opens the sheet.
  */
 export default function ChatUsageButton({ assistant, conversationId, enabled = true }) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const offered =
-    enabled &&
-    Boolean(conversationId) &&
-    capabilityOf(assistant.runtimeInfo, "usage").available;
+  const offered = enabled && Boolean(conversationId) && usageOffered(assistant);
   const topic = useLiveTopic(offered ? `agent.chat-usage:${conversationId}` : null);
   const usage = topic.data;
   const shown = offered && hasUsage(usage);
