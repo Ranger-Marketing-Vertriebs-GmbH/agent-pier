@@ -31,6 +31,9 @@ export const agentRunStepsCopy = {
     pdf: "Reading a PDF",
     memory_search: "Searching memory",
     memory_get: "Reading memory",
+    sessions_search: "Searching earlier chats",
+    sessions_history: "Reading an earlier chat",
+    sessions_list: "Looking through earlier chats",
     // A question to the person in the chat: OpenClaw's ask_user, Hermes's clarify.
     ask_user: "Asking you a question",
     clarify: "Asking you a question",

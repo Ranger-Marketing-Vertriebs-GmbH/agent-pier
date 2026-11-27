@@ -8,6 +8,7 @@ import {
   memberTeamTools,
   memoryTools,
   questionTools,
+  recallTools,
 } from "../../native-capabilities.js";
 import { agentEntry, modelDefaultKeys } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults, heartbeatDefault } from "./openclaw-config/locked-core.js";
@@ -60,6 +61,8 @@ export const teamTools = [
 export const nativeTools = [
   ...teamTools,
   ...memoryTools,
+  // An agent's own earlier chats, read only; each entry decides who holds them.
+  ...recallTools,
   "agentpier_reminder",
   "agentpier_routine",
   "agentpier_workspace",
@@ -238,7 +241,9 @@ export function compileOpenClawConfig({
   // Without a mode the gateway host runs exec in "full"; "deny" is the default every
   // agent without its own override gets (openclaw-config/shell.js).
   // Session tools reach only the calling agent's own sessions; OpenClaw's default
-  // "all" would let one agent read another's transcripts.
+  // "all" would let one agent read another's transcripts. Under "agent" a session of
+  // another agent id is refused even to the session that spawned it, so a lead never
+  // reads its members' sessions (recallTools, native-capabilities.js).
   // Code Mode stays off: OpenClaw 2026.10 engages it while `codeMode` is absent ("auto")
   // for catalog-preferred models such as ChatGPT's. The model then sees only `exec` and
   // `wait`, and a tool called from the cell returns only its `details`, never its text

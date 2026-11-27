@@ -973,6 +973,31 @@ AgentPier also tells the agent not to record its own refusals or limits it set i
 as rules or notes: only your rules, decisions and facts belong in memory. The same
 rule is part of the memory step before **Summarize now**.
 
+<a id="earlier-chats"></a>
+
+**Earlier chats.** With **Remember information** on, an OpenClaw agent can also look
+up its own earlier chats: it searches them for exact words, reads the passage it
+found and lists its chats (the steps "Searching earlier chats", "Reading an earlier
+chat" and "Looking through earlier chats"). So "what did we decide about the
+invoice last week?" works in a new chat although nothing was written to memory. This
+is reading only, and only the agent's own chats: your chats with it (archived ones
+too), its routines' runs and what it worked on for a lead. It never reaches another
+agent's chats, a lead never reads its members' chats this way and a member never its
+lead's. A chat you delete is deleted with its text and cannot be looked up again.
+There is no separate switch; these agents never get it, whatever their memory
+setting:
+
+- an agent of users (shared or a user's own): its chats are several people's, and
+  each person's chats stay her own;
+- an agent with its own Telegram bot for other people, whose chats are theirs;
+- a temporary team member, and any hook's run (a hook works on an outside event).
+
+A routine's run of an agent that has it can look up earlier chats as well. Earlier
+chats are transcripts, not memory: what should last still belongs in `MEMORY.md`.
+A Hermes agent searches its past chats with Hermes's own session search, which does
+not depend on **Remember information**; the same agents (of users, with a bot for
+other people) go without it.
+
 **Memory** in the agent's settings edits `MEMORY.md` and `USER.md` and also the day
 notes under `memory/`: pick a note under **Notes written by the agent**, change it and
 press **Save notes**, or press **Delete note** and confirm. A save fails with a conflict

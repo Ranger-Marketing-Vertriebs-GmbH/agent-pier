@@ -1,6 +1,48 @@
 import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
+import { recallsChats } from "./native-capabilities.js";
 import { memoryFor, traitOf } from "./runtimes/runtime-for.js";
 import { resolveOptionConnections } from "./option-connections.js";
+
+/**
+ * The instructions' guidance (assistant-bootstrap.js) of an agent on the shared
+ * Gateway (OpenClaw, AssistantConfig applyOnce) on what its tools reach now.
+ * `nativeReady`: AgentPier's native tools are offered; `senderFacing`: the Gateway
+ * serves its own bot for other people; `craft`: rebuilds are available; `plainSsh`:
+ * its SSH agent as synced for this turn; `images`: this start can serve the image
+ * tool (web-tools.js availability).
+ */
+export function gatewayGuidance(
+  config,
+  assistant,
+  { nativeReady, senderFacing, craft, plainSsh, images },
+) {
+  const guard = !!config.writeGuard?.();
+  return {
+    memoryWritable: guard,
+    // Whether it holds the tools that read its earlier chats (recallTools).
+    recall: nativeReady && recallsChats(assistant) && !senderFacing,
+    // Its granted project folders, resolved now (agent-project-files.js).
+    projectFolders: (nativeReady && config.projectFolders?.(assistant)) || [],
+    // Its GitHub access: profile, level and the server's tool prefix.
+    github: (nativeReady && config.github?.(assistant)) || null,
+    // Its trusted hosts' plain ssh aliases, by catalog name (agent-ssh-shell.js).
+    plainSsh: plainSsh || null,
+    images: nativeReady && images && guard,
+    // Whether it receives a secrets file; names the file, never its contents.
+    secrets: !!config.secretsGranted?.(assistant),
+    // The projects it may start coding sessions on (AgentCodingSessions.projects).
+    codingSessions: (nativeReady && config.codingSessions?.(assistant)) || [],
+    // The projects whose coding sessions may talk to it (talk-reach.js).
+    talkProjectIds: (nativeReady && config.talkProjectIds?.(assistant)) || [],
+    // Its granted email accounts (AgentMail.accounts), by name and id only.
+    mailAccounts: (nativeReady && config.mailAccounts?.(assistant)) || [],
+    // Whether it holds agentpier_project (profileTools without senderLockedTools).
+    projectCreation: nativeReady && mayCreateProjects(assistant, senderFacing),
+    // Whether it holds agentpier_craft as well.
+    craft: craft && nativeReady && mayCreateProjects(assistant, senderFacing),
+    previews: nativeReady && mayOpenPreviews(assistant, senderFacing),
+  };
+}
 
 /**
  * What the apply of an agent on its own process set (Hermes, AssistantConfig

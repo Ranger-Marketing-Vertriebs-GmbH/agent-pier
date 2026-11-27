@@ -1,7 +1,7 @@
 import http from "node:http";
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { writeGuardRuntimes } from "./native-capabilities.js";
+import { recallRefused, writeGuardRuntimes } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
@@ -286,7 +286,11 @@ export class TeamBridge {
       textValue(input.agentId, 4096);
       // A memory step runs none of them but a Code Mode cell, whose own tool calls meet
       // the step hook and this guard one by one (memory-step-tools.js codeModeControl).
-      const locked = lockedCall(this.agentOf(input.agentId), input.toolName);
+      // Likewise earlier chats, for an agent that may not recall them (recallRefused).
+      const agent = this.agentOf(input.agentId);
+      const locked =
+        lockedCall(agent, input.toolName) ||
+        recallRefused(agent, input.toolName, this.assistants.config?.senderFacing);
       const hook = hooks.hookLockedTool(this, input);
       if (hook !== null) return { allow: hook && !locked };
       return {

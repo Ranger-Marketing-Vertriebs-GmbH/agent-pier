@@ -13,6 +13,7 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   memberTeamTools,
+  recallTools,
   usedCapabilities,
 } from "../../server/features/assistants/native-capabilities.js";
 
@@ -125,6 +126,9 @@ const nativeAllow = [
   "read",
   "write",
   "edit",
+  "sessions_list",
+  "sessions_history",
+  "sessions_search",
   "agentpier_reminder",
   "agentpier_routine",
   "agentpier_workspace",
@@ -379,6 +383,8 @@ test("a temporary member uses its lead's web tools without widening the global s
         "agentpier_card",
         // A member reports to its lead and never asks the owner.
         "ask_user",
+        // Its lead's earlier chats are the lead's: a temporary member reads none.
+        ...recallTools,
       ].includes(tool),
   );
   assert.deepEqual(agentAllow(config, "ap-m2"), [status, ...memberTeamTools, ...rest]);

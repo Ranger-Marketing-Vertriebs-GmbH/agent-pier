@@ -10,9 +10,8 @@ import {
 } from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
-import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
-import { ownProcessInputs } from "./own-process-guidance.js";
+import { gatewayGuidance, ownProcessInputs } from "./own-process-guidance.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { needsSettings, ownCopy } from "./agent-skills.js";
 import {
@@ -379,30 +378,13 @@ export class AssistantConfig {
     ];
     let skills = assigned.filter((name) => !shadowed.includes(name));
     let gatewayDropped = false;
-    const guidance = {
-      memoryWritable: !!this.writeGuard?.(),
-      // Its granted project folders, resolved now (agent-project-files.js).
-      projectFolders: (nativeReady && this.projectFolders?.(assistant)) || [],
-      // Its GitHub access: profile, level and the server's tool prefix.
-      github: (nativeReady && this.github?.(assistant)) || null,
-      // Its trusted hosts' plain ssh aliases, by catalog name (agent-ssh-shell.js).
-      plainSsh: plainSsh || null,
-      // The image tool this start can serve (web-tools.js availability).
-      images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
-      // Whether it receives a secrets file; names the file, never its contents.
-      secrets: !!this.secretsGranted?.(assistant),
-      // The projects it may start coding sessions on (AgentCodingSessions.projects).
-      codingSessions: (nativeReady && this.codingSessions?.(assistant)) || [],
-      // The projects whose coding sessions may talk to it (talk-reach.js).
-      talkProjectIds: (nativeReady && this.talkProjectIds?.(assistant)) || [],
-      // Its granted email accounts (AgentMail.accounts), by name and id only.
-      mailAccounts: (nativeReady && this.mailAccounts?.(assistant)) || [],
-      // Whether it holds agentpier_project (profileTools without senderLockedTools).
-      projectCreation: nativeReady && mayCreateProjects(assistant, senderFacing),
-      // Whether it holds agentpier_craft as well.
-      craft: craft && nativeReady && mayCreateProjects(assistant, senderFacing),
-      previews: nativeReady && mayOpenPreviews(assistant, senderFacing),
-    };
+    const guidance = gatewayGuidance(this, assistant, {
+      nativeReady,
+      senderFacing,
+      craft,
+      plainSsh,
+      images: available.createImages === true,
+    });
     // A lead's "Your team" section names its members as they are now. It changes
     // with every busy member, so it stays out of the fingerprint: verifyBootstrap
     // writes the new AGENTS.md without applying the whole configuration again.

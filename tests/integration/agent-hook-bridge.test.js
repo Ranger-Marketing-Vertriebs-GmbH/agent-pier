@@ -285,7 +285,14 @@ test("exec in a hook run follows the hook's shell level", async (t) => {
     assert.equal(f.policy(full.sessionKey, tool), true, tool);
   }
   // Session tools other than session_status never serve a hook run.
-  for (const tool of ["sessions_list", "sessions_history", "sessions_send"])
+  // Not the read-only ones of an agent with memory either: a hook's run works on an
+  // outside event and reads no earlier chat.
+  for (const tool of [
+    "sessions_list",
+    "sessions_history",
+    "sessions_search",
+    "sessions_send",
+  ])
     assert.equal(f.policy(full.sessionKey, tool), false, tool);
   assert.equal(f.policy(off.sessionKey, "session_status"), true);
   // The agent lowered to Off: the running hook loses its shell at once.

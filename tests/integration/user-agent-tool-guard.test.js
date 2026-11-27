@@ -7,6 +7,8 @@ import {
   delegationTools,
   lockedTools,
   memberTeamTools,
+  recallsChats,
+  recallTools,
 } from "../../server/features/assistants/native-capabilities.js";
 import { lockedCall } from "../../server/features/users/user-agent-lock.js";
 import { bridgeTool } from "../../server/features/assistants/team-bridge-actions.js";
@@ -57,8 +59,11 @@ test("the plugin refuses a user agent's exec and session tools at run time", asy
   const f = await workflowFixture(t);
   const guard = await nativeWriteGuard(t, f);
   assert.deepEqual(guard.locked.options.matcher, lockedCoreTools);
-  // An owner agent keeps its tools.
-  for (const tool of lockedCoreTools) assert.equal(await guard.tool(tool), true, tool);
+  // An owner agent keeps its tools; the ones that read its earlier chats only while
+  // its memory is on (native-capabilities.js recallsChats).
+  const recalls = recallsChats(f.store.getAssistant(f.id));
+  for (const tool of lockedCoreTools)
+    assert.equal(await guard.tool(tool), !recallTools.includes(tool) || recalls, tool);
   // A forged body makes it a user agent, whatever its compiled entry holds.
   const body = { ...f.store.storedAssistant(f.id), userAccess, shell: "full" };
   f.store.db
