@@ -4,7 +4,7 @@
 // that do not embed theirs, and the JavaScript image decoders, are copied to
 // /assets/pdfjs/ by vite.config.js. WebAssembly stays off: the app CSP has no
 // 'wasm-unsafe-eval'. Scripts in a PDF never run (no scripting, no eval).
-import workerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+import workerSrc from "pdfjs-dist-browser/legacy/build/pdf.worker.min.mjs?url";
 
 const assets = `${import.meta.env.BASE_URL}assets/pdfjs/`;
 
@@ -14,7 +14,7 @@ const assets = `${import.meta.env.BASE_URL}assets/pdfjs/`;
  * rejects as well.
  */
 export async function loadPdf(data, signal) {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs = await import("pdfjs-dist-browser/legacy/build/pdf.mjs");
   signal?.throwIfAborted();
   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
   const task = pdfjs.getDocument({
@@ -26,11 +26,14 @@ export async function loadPdf(data, signal) {
     standardFontDataUrl: `${assets}standard_fonts/`,
   });
   const destroy = () => task.destroy().catch(() => {});
+  // Only while it loads: once open, the caller destroys the document itself.
   signal?.addEventListener("abort", destroy, { once: true });
   try {
     return { document: await task.promise, destroy };
   } catch (error) {
     destroy();
     throw error;
+  } finally {
+    signal?.removeEventListener("abort", destroy);
   }
 }

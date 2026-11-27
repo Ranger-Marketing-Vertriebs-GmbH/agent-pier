@@ -27,11 +27,15 @@ export function devServer(env = process.env) {
 // PDFs that do not embed theirs, and the JavaScript image decoders that replace the
 // WebAssembly ones the app CSP does not allow. Their licenses travel with them.
 const pdfjsRoot = path.dirname(
-  createRequire(import.meta.url).resolve("pdfjs-dist/package.json"),
+  createRequire(import.meta.url).resolve("pdfjs-dist-browser/package.json"),
 );
 const pdfjsFiles = {
   standard_fonts: () => true,
-  wasm: (name) => name.endsWith("_nowasm_fallback.js") || name.startsWith("LICENSE"),
+  // Only the openjpeg and jbig2 decoders ship, with their licenses.
+  wasm: (name) =>
+    /^(?:(?:openjpeg|jbig2)_nowasm_fallback\.js|LICENSE_(?:PDFJS_)?(?:OPENJPEG|JBIG2))$/.test(
+      name,
+    ),
 };
 export function pdfjsAssets() {
   const files = Object.entries(pdfjsFiles).flatMap(([folder, wanted]) =>
