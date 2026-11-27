@@ -97,9 +97,9 @@ Foundation, <https://github.com/mozilla/pdf.js/tree/v6.4.299>) in
 `node_modules/unpdf/dist/pdfjs.mjs`; the bundle carries no license header of its own,
 and the Apache-2.0 text is AgentPier's `LICENSE`. `unpdf` is pinned to that exact
 version, has no runtime dependencies and no install scripts. Its optional
-`@napi-rs/canvas` peer (MIT, <https://github.com/Brooooooklyn/canvas>) 1.2.1, with
-the prebuilt binary for the platform, is installed because the browser build's
-`pdfjs-dist` (see "PDF preview" below) lists it as an optional dependency; unpdf
+`@napi-rs/canvas` peer is not shipped in installation or update packages: a
+development checkout gets it with the browser build's `pdfjs-dist` (see "PDF preview"
+below), and the release builder removes it and its platform binaries, because unpdf
 loads it only for page rendering, which AgentPier never asks for. AgentPier passes PDF.js no `wasmUrl`, so the
 WebAssembly decoders PDF.js can load (`openjpeg.wasm`, `jbig2.wasm` and the QCMS colour
 module) are neither shipped nor used. Extraction runs in a separate process with time
