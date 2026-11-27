@@ -75,7 +75,15 @@
     "tests/integration/assistant-model-fallback-contract.test.js",
     "tests/integration/assistant-runtime-patch-contract.test.js",
     "tests/integration/assistant-ask-user-contract.test.js",
-    "tests/integration/assistant-image-contract.test.js"
+    "tests/integration/assistant-image-contract.test.js",
+    "tests/integration/assistant-browser-snapshot-contract.test.js",
+    "tests/integration/assistant-chat-title-contract.test.js",
+    "tests/integration/assistant-manual-compact-contract.test.js",
+    "tests/integration/assistant-patch-paths-contract.test.js",
+    "tests/integration/assistant-project-files-contract.test.js",
+    "tests/integration/assistant-routine-restart-contract.test.js",
+    "tests/integration/assistant-shopping-skill-contract.test.js",
+    "tests/integration/assistant-write-guard-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -152,6 +160,14 @@
     "tests/integration/assistant-model-fallback-contract.test.js": 25,
     "tests/integration/assistant-runtime-patch-contract.test.js": 1,
     "tests/integration/assistant-ask-user-contract.test.js": 65,
-    "tests/integration/assistant-image-contract.test.js": 25
+    "tests/integration/assistant-image-contract.test.js": 25,
+    "tests/integration/assistant-browser-snapshot-contract.test.js": 15,
+    "tests/integration/assistant-chat-title-contract.test.js": 15,
+    "tests/integration/assistant-manual-compact-contract.test.js": 12,
+    "tests/integration/assistant-patch-paths-contract.test.js": 2,
+    "tests/integration/assistant-project-files-contract.test.js": 14,
+    "tests/integration/assistant-routine-restart-contract.test.js": 50,
+    "tests/integration/assistant-shopping-skill-contract.test.js": 30,
+    "tests/integration/assistant-write-guard-contract.test.js": 20
   }
 }

@@ -4,7 +4,10 @@ import { isMainModule } from "../server/lib/is-main-module.js";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-provisioning.js";
 import { selectedAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
 
-const runtimeVariables = [
+// Every variable an opt-in native contract reads for the installed runtime; a test
+// that reads one must be listed in assistant-contract-shards.json
+// (tests/unit/assistant-contract-shards.test.js).
+export const runtimeVariables = [
   "AGENTPIER_ASSISTANT_PROVIDER_RUNTIME",
   "AGENTPIER_ASSISTANT_ROUTINE_RUNTIME",
   "AGENTPIER_ASSISTANT_MEMORY_RUNTIME",

@@ -6,6 +6,7 @@ import {
   splitShards,
   weightOf,
 } from "../../scripts/assistant-contract-shards.mjs";
+import { runtimeVariables } from "../../scripts/provision-assistant-contracts.mjs";
 
 const root = new URL("../../", import.meta.url);
 
@@ -16,35 +17,44 @@ test("every listed native contract exists and every weight belongs to one", () =
     assert.ok(contractShards.files.includes(file), `stale weight ${file}`);
 });
 
-test("every contract gated on the installed runtime runs in the native-contracts job", () => {
-  // Such a contract skips in `npm test`; only the listed files run where it is set.
+// The variables the native-contracts job sets to the provisioned runtime
+// (scripts/provision-assistant-contracts.mjs). A test that reads one skips in
+// `npm test` and runs only where it is listed, so an unlisted one runs nowhere: the
+// image contract and the patch paths contract broke unnoticed that way when OpenClaw
+// 2026.11.6 was pinned.
+const outsideTheJob = {
+  // Needs the runtime of an earlier release too: the nightly cross-version job.
+  crossVersion: (source) => source.includes("AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME"),
+  // Needs real provider credentials: run by hand.
+  liveProvider: (source) => source.includes("AGENTPIER_ASSISTANT_LIVE"),
+};
+
+test("every contract gated on a runtime variable runs in the native-contracts job", () => {
   const dir = new URL("tests/integration/", root);
-  for (const name of fs.readdirSync(dir)) {
+  const workflow = fs.readFileSync(
+    new URL(".github/workflows/assistant-runtime.yml", root),
+    "utf8",
+  );
+  const gated = [];
+  for (const name of fs.readdirSync(dir).filter((entry) => entry.endsWith(".test.js"))) {
     const source = fs.readFileSync(new URL(name, dir), "utf8");
-    // A live contract needs real provider credentials and runs only by hand.
-    if (
-      !source.includes("AGENTPIER_ASSISTANT_PROVIDER_RUNTIME") ||
-      source.includes("AGENTPIER_ASSISTANT_LIVE")
-    )
+    if (!runtimeVariables.some((variable) => source.includes(variable))) continue;
+    gated.push(name);
+    if (outsideTheJob.liveProvider(source)) continue;
+    if (outsideTheJob.crossVersion(source)) {
+      assert.ok(workflow.includes(`tests/integration/${name}`), `cross-version: ${name}`);
       continue;
+    }
     assert.ok(contractShards.files.includes(`tests/integration/${name}`), name);
   }
-});
-
-test("every image contract of the installed runtime runs in the native-contracts job", () => {
-  // The image contract pins a known limit of the pinned OpenClaw; a runtime bump once
-  // broke it unnoticed while no job ran it.
-  const dir = new URL("tests/integration/", root);
-  const gated = fs
-    .readdirSync(dir)
-    .filter((name) =>
-      fs
-        .readFileSync(new URL(name, dir), "utf8")
-        .includes("process.env.AGENTPIER_IMAGE_CONTRACT_RUNTIME"),
-    );
-  assert.ok(gated.includes("assistant-image-contract.test.js"));
-  for (const name of gated)
-    assert.ok(contractShards.files.includes(`tests/integration/${name}`), name);
+  // The scan finds them: a renamed variable must not empty the check.
+  for (const name of [
+    "assistant-provider-contract.test.js",
+    "assistant-image-contract.test.js",
+    "assistant-patch-paths-contract.test.js",
+    "assistant-runtime-cross-version.test.js",
+  ])
+    assert.ok(gated.includes(name), name);
 });
 
 test("shards partition the contracts deterministically for every total", () => {
