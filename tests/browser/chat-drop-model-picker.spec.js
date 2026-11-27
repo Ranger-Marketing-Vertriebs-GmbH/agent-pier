@@ -125,7 +125,8 @@ for (const language of ["en", "de"]) {
     await expect(
       page.getByRole("listitem").filter({ hasText: "screenshot.png" }),
     ).toBeVisible();
-    expect(state.uploads).toEqual(["screenshot.png"]);
+    // The row shows while the file is still on its way: the upload follows.
+    await expect.poll(() => state.uploads).toEqual(["screenshot.png"]);
     await expect(panel).not.toHaveAttribute("data-dropping", "true");
     // Sending still waits for the picker; the drop sent nothing to the terminal.
     await expect(
