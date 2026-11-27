@@ -98,7 +98,8 @@ export default function ReaDialog({ request, refresh, close }) {
     if (previous.current === "running" && status !== "running") void refresh?.();
     previous.current = status;
   }, [status, refresh]);
-  const running = status === "running";
+  // Also while a started change waits for its answer, which brings "running".
+  const running = status === "running" || rea.pending;
   const fresh = !!state && !state.serverId;
   const ready = !!state && !!chosen && state.available;
   const apply = () =>
