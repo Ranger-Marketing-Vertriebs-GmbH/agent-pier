@@ -292,6 +292,29 @@ export const goldenScenarios = {
       sshAgents: new Set(["temp", "lead"]),
       dreaming: { enabled: true, hour: 3, timeZone: "Europe/Berlin" },
     }),
+  // Each agent's thinking level and fast mode (runtimeOptions.openclaw): a temporary
+  // member takes its lead's, and what an earlier start wrote for an agent that sets
+  // none any more is removed.
+  "model-options": () => {
+    const profiles = [
+      agent("lead", {
+        runtimeOptions: { openclaw: { thinking: "high", fastMode: true } },
+      }),
+      agent("temp", {
+        teamMemberId: "tm-1",
+        lifetime: "task",
+        parentAssistantId: "lead",
+        inherited: { capabilities: {}, skills: [], shell: "off", ssh: false },
+      }),
+      agent("a3", {
+        runtimeOptions: { openclaw: { thinking: "off", fastMode: false } },
+      }),
+      agent("a4"),
+    ];
+    const existing = roster(profiles);
+    existing.agents.entries["ap-a4"] = { thinkingDefault: "max", fastModeDefault: true };
+    return base({ profiles }, { existing });
+  },
   // A restored file with legacy roster shapes, foreign keys and a TLS listener.
   "existing-legacy": () =>
     base(

@@ -9,7 +9,7 @@ import {
   memoryTools,
   questionTools,
 } from "../../native-capabilities.js";
-import { agentEntry } from "./openclaw-config/agent-entry.js";
+import { agentEntry, modelDefaultKeys } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults, heartbeatDefault } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
@@ -351,6 +351,9 @@ export function compileOpenClawConfig({
       if (!profile && (entry.id || key) === "main")
         entry.tools = { ...entry.tools, allow: ["session_status"] };
       if (!profile) continue;
+      // Assigning keeps a key the compiled entry leaves out: a thinking level or fast
+      // mode the agent no longer sets goes here.
+      for (const name of modelDefaultKeys) delete entry[name];
       Object.assign(
         entry,
         agentEntry(entry, profile, {

@@ -56,14 +56,27 @@ export function surfaceSearchEntries(
   });
 }
 
+// The agent tab each agent slot renders in, and its label.
+const agentSlots = {
+  "agent.identity": { tab: "identity", label: () => assistantSettingsCopy.tabs.identity },
+  "agent.capabilities": {
+    tab: "capabilities",
+    label: () => assistantSettingsCopy.tabs.capabilities,
+  },
+  "agent.page": {
+    tab: "capabilities",
+    label: () => assistantSettingsCopy.tabs.capabilities,
+  },
+};
+
 /**
- * The entries of the surfaces in an agent's Capabilities tab (slot
- * `agent.capabilities`): for each agent that is not archived and has the tab, one
- * entry per surface its runtime's list entry in `runtimes` shows there, labelled
- * "<agent> · <surface>" and opening the tab; and one per page of its runtime the
- * agent's view names (`runtimePages`, slot `agent.page`), opening that page below the
- * tab. `bilingual` and `join` are search-entries.js' builders. Only the owner's index
- * lists them.
+ * The entries of the surfaces in an agent's tabs (slot `agent.identity` on Identity,
+ * `agent.capabilities` on Capabilities): for each agent that is not archived and has
+ * the tab, one entry per surface its runtime's list entry in `runtimes` shows there,
+ * labelled "<agent> · <surface>" and opening the tab; and one per page of its runtime
+ * the agent's view names (`runtimePages`, slot `agent.page`), opening that page below
+ * the Capabilities tab. `bilingual` and `join` are search-entries.js' builders. Only
+ * the owner's index lists them.
  */
 export function agentSurfaceEntries(
   agents,
@@ -72,14 +85,9 @@ export function agentSurfaceEntries(
   searchOf = runtimeSearch,
 ) {
   const root = bilingual(() => assistantCopy.title);
-  const tab = bilingual(() => assistantSettingsCopy.tabs.capabilities);
   return (agents || []).flatMap((agent) => {
-    if (
-      !agent?.id ||
-      agent.archivedAt ||
-      !visibleAgentTabs(agent).includes("capabilities")
-    )
-      return [];
+    if (!agent?.id || agent.archivedAt) return [];
+    const tabs = visibleAgentTabs(agent);
     const runtimeId = agent.runtimeInfo?.id ?? agent.runtime;
     const runtime = (Array.isArray(runtimes) ? runtimes : []).find(
       (entry) => entry?.id === runtimeId,
@@ -92,23 +100,25 @@ export function agentSurfaceEntries(
     });
     const pages = Array.isArray(agent.runtimePages) ? agent.runtimePages : [];
     const shown = [
+      ...slotSurfaces([runtime], "agent.identity"),
       ...slotSurfaces([runtime], "agent.capabilities"),
       ...slotSurfaces([runtime], "agent.page").filter(({ surface }) =>
         pages.includes(surface.id),
       ),
-    ];
+    ].filter(({ surface }) => tabs.includes(agentSlots[surface.slot].tab));
     return shown.flatMap(({ surface }) =>
       searchOf(runtime.id)
         .filter((entry) => entry.surface === surface.id)
         .map((entry) => {
           const label = bilingual(entry.label);
           const page = surface.slot === "agent.page" ? surface.id : "";
+          const place = agentSlots[surface.slot];
           return {
             id: `agent:${agent.id}:${runtime.id}-${surface.id}`,
             group: "agents",
             label: named(label),
-            path: join(root, name, tab, label),
-            target: { route: agentRoute(agent.id, "capabilities", page) },
+            path: join(root, name, bilingual(place.label), label),
+            target: { route: agentRoute(agent.id, place.tab, page) },
             agentsOnly: true,
             aliases: (entry.aliases || []).map((alias) => named(bilingual(alias))),
           };

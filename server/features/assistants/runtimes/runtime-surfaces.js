@@ -11,6 +11,9 @@
  * with the first surface that needs it.
  * - `hub.runtime`: a group of Agents › Runtime.
  * - `hub.runtime.advanced`: the runtime's own rows in Agents › Runtime › Advanced.
+ * - `agent.identity`: groups below the model on an agent's Identity tab, for the
+ *   agents of that runtime only, inside the tab's draft: the runtime's per-agent
+ *   options about how the model works, saved with the tab's PATCH.
  * - `agent.capabilities`: groups at the end of an agent's Capabilities tab, for the
  *   agents of that runtime only, inside the tab's draft: the runtime's per-agent
  *   options (runtime-options.js), saved with the tab's PATCH.
@@ -21,6 +24,7 @@
 export const RUNTIME_SLOTS = Object.freeze([
   "hub.runtime",
   "hub.runtime.advanced",
+  "agent.identity",
   "agent.capabilities",
   "agent.page",
 ]);

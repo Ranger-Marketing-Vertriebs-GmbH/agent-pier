@@ -21,7 +21,7 @@ import {
   pluginSkillReported,
 } from "./built-in-skills.js";
 import { compilerFor, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
-import { desiredAgent } from "./agent-desired-state.js";
+import { desiredAgent, leadOf } from "./agent-desired-state.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -240,9 +240,7 @@ export class AssistantConfig {
         craft: own.craft,
         shellPath: own.shellPath,
         // A temporary member's browser window follows its lead's setting.
-        lead: assistant.parentAssistantId
-          ? this.store.listAssistants().find((p) => p.id === assistant.parentAssistantId)
-          : null,
+        lead: leadOf(this.store.listAssistants(), assistant),
         mcp: mcp.servers,
         stdio: mcp.servers.some(
           (id) =>
@@ -426,6 +424,7 @@ export class AssistantConfig {
       ssh,
       craft,
       shellPath,
+      lead: leadOf(grants.profiles || [], assistant),
       instructions: bootstrap,
       model: {
         ref: lease.modelRef,
@@ -453,6 +452,7 @@ export class AssistantConfig {
           configured,
           senderFacing,
           ssh,
+          desired.runtimeOptions,
         ]),
       )
       .digest("hex");

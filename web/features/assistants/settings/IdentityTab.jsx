@@ -7,8 +7,10 @@ import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js"
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import useAssistants from "../useAssistants.js";
 import { assistantApi } from "../assistant-api.js";
-import { followsLeadModel, profileServer } from "./agent-settings-fields.js";
-import { profileStep } from "./agent-settings-steps.js";
+import RuntimeSlot from "../RuntimeSlot.jsx";
+import { followsLeadModel } from "./agent-settings-fields.js";
+import { identityStep } from "./agent-settings-steps.js";
+import { identityServer } from "./identity-fields.js";
 import useModelSwitchChoice from "./useModelSwitchChoice.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
@@ -23,16 +25,19 @@ const conflictLabels = {
   modelId: () => copy.model,
   followLead: () => copy.team.followLeadModelChoice,
   freshChats: () => settingsCopy.freshChats.label,
+  runtimeOptions: () => settingsCopy.runtimeOptions,
 };
 
 /**
- * Identity (former Profile): name, instructions, model, template and revision; one
- * PATCH per save. The member card, users and attachments live in Overview and Access.
+ * Identity (former Profile): name, instructions, model, template and revision, and
+ * what the agent's runtime registers below the model (slot `agent.identity`, its own
+ * options in the same draft); one PATCH per save. The member card, users and
+ * attachments live in Overview and Access.
  */
 export default function IdentityTab({ assistant, navigate }) {
   const { assistants, models, refresh } = useAssistants();
   const draft = useTabDraft({
-    server: profileServer(assistant),
+    server: identityServer(assistant),
     revisions: { assistant: assistant.revision },
   });
   useModelSwitchChoice(draft, assistant.id);
@@ -41,7 +46,7 @@ export default function IdentityTab({ assistant, navigate }) {
   const leadModel = member
     ? assistants.find((a) => a.id === assistant.parentAssistantId)?.model
     : undefined;
-  const steps = [profileStep({ assistantId: assistant.id, label })];
+  const steps = [identityStep({ assistant, label })];
   const after = async (result) => {
     if (result.status === "saved") await refresh();
     return result;
@@ -111,6 +116,15 @@ export default function IdentityTab({ assistant, navigate }) {
           member={member}
           leadModel={leadModel}
           assistant={assistant}
+        />
+        <RuntimeSlot
+          name="agent.identity"
+          runtime={assistant.runtimeInfo?.id ?? assistant.runtime}
+          context={{
+            assistant,
+            options: draft.values.runtimeOptions,
+            setOptions: (value) => draft.set("runtimeOptions", value),
+          }}
         />
         <p className="agent-revision">
           {copy.revisions(assistant.revision, assistant.effectiveRevision)}

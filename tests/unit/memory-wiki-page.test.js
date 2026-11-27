@@ -81,7 +81,7 @@ test("the wiki is a capability of its own, and its page a slot of an agent", () 
     available: false,
     reason: "memoryWikiUnsupported",
   });
-  assert.deepEqual(openClawDescriptor.surfaces, [
+  assert.deepEqual(openClawDescriptor.surfaces.slice(1), [
     {
       id: "memoryWiki",
       slot: "agent.capabilities",

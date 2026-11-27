@@ -1,4 +1,5 @@
 import { assistantMemoryWikiCopy as copy } from "../../../../lib/i18n/messages/assistant-memory-wiki.js";
+import { assistantModelOptionsCopy as modelCopy } from "../../../../lib/i18n/messages/assistant-model-options.js";
 
 /**
  * OpenClaw's id and its ⌘K search entries: one per surface, `label` and `aliases`
@@ -15,6 +16,16 @@ export const openClawSearch = Object.freeze({
       surface: "memoryWiki",
       label: () => copy.title,
       aliases: Object.freeze([() => copy.search.wiki, () => copy.search.knowledge]),
+    }),
+    // An agent's Identity tab › Thinking and speed, for each OpenClaw agent.
+    Object.freeze({
+      surface: "modelOptions",
+      label: () => modelCopy.title,
+      aliases: Object.freeze([
+        () => modelCopy.search.thinking,
+        () => modelCopy.search.fast,
+        () => modelCopy.search.effort,
+      ]),
     }),
     // The agent's wiki, read only, for each agent that keeps one.
     Object.freeze({

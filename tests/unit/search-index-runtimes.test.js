@@ -146,3 +146,84 @@ test("it shows while Hermes may run agents, for agents that are not archived", (
     false,
   );
 });
+
+// An OpenClaw agent's "Thinking and speed" (slot agent.identity): found per agent on
+// its Identity tab, never for a Hermes agent or in a user's search.
+test("an OpenClaw agent's thinking level and fast mode are found on its Identity tab", () => {
+  const openclaw = {
+    id: "openclaw",
+    name: "OpenClaw",
+    ready: true,
+    surfaces: [
+      {
+        id: "modelOptions",
+        slot: "agent.identity",
+        kind: "built",
+        shows: "whileEnabled",
+      },
+      {
+        id: "memoryWiki",
+        slot: "agent.capabilities",
+        kind: "built",
+        shows: "whileEnabled",
+      },
+    ],
+  };
+  const owl = { id: "owl", name: "Owl", runtimeInfo: { id: "openclaw" } };
+  const entries = indexOf([owl, heron], [openclaw, hermes()]);
+  const own = "agent:owl:openclaw-modelOptions";
+  const entry = entries.find((item) => item.id === own);
+  assert.deepEqual(entry.label, {
+    de: "Owl · Denken und Tempo",
+    en: "Owl · Thinking and speed",
+  });
+  assert.deepEqual(entry.path, {
+    de: "Agenten › Owl › Identität › Denken und Tempo",
+    en: "Agents › Owl › Identity › Thinking and speed",
+  });
+  assert.equal(routePath(entry.target.route), "/agents/owl/settings?tab=identity");
+  for (const query of [
+    "Owl Denken und Tempo",
+    "Owl Thinking and speed",
+    "Owl Denkstufe",
+    "Owl Thinking level",
+    "Owl Schnellmodus",
+    "Owl Fast mode",
+    "Owl Denkaufwand",
+    "Owl Reasoning effort",
+  ])
+    assert.ok(
+      results(query, entries).some((item) => item.id === own),
+      query,
+    );
+  // The wiki's entry still opens the Capabilities tab.
+  assert.equal(
+    routePath(
+      entries.find((item) => item.id === "agent:owl:openclaw-memoryWiki").target.route,
+    ),
+    "/agents/owl/settings?tab=capabilities",
+  );
+  // A Hermes agent has no such group, an archived agent no entry at all.
+  assert.equal(
+    entries.some((item) => item.id.startsWith("agent:her:openclaw")),
+    false,
+  );
+  const archived = indexOf([{ ...owl, archivedAt: "2026-01-01T00:00:00Z" }], [openclaw]);
+  assert.equal(
+    archived.some((item) => item.id === own),
+    false,
+  );
+  // A temporary member has the Identity tab and shows that it follows its lead.
+  const member = { ...owl, id: "m1", teamMemberId: "tm-1", lifetime: "task" };
+  assert.ok(
+    indexOf([member], [openclaw]).some(
+      (item) => item.id === "agent:m1:openclaw-modelOptions",
+    ),
+  );
+  const ids = entries.map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+  // The users' own search never lists the owner's settings.
+  const users = buildUserSearchIndex({ agents: [owl] });
+  for (const query of ["Denkstufe", "Thinking level", "Fast mode", "Schnellmodus"])
+    assert.equal(results(query, users).length, 0, query);
+});

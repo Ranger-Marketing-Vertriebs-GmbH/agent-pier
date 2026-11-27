@@ -13,7 +13,7 @@ import {
 import { compiledSkillNames } from "./built-in-skills.js";
 import { learnsSkills } from "./skill-learning.js";
 import { runtimeIdOf } from "./runtimes/runtime-descriptors.js";
-import { runtimeOptionsOf } from "./runtimes/runtime-options.js";
+import { memberOptionsOf, runtimeOptionsOf } from "./runtimes/runtime-options.js";
 import { agentProfileName } from "./browser-profile-names.js";
 import { isShared, isUserAgent } from "../users/user-access.js";
 import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
@@ -47,7 +47,8 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * a runtime that runs the agent's own Telegram bot in the agent's own process set
  * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
  * reads it, null for none, left out when unknown; `lead`, a temporary member's lead's
- * record, whose window setting its borrowed browser follows; `craft`, Craft Anything
+ * record, whose window setting its borrowed browser and whose model options it
+ * follows; `craft`, Craft Anything
  * rebuilds are available (native-capabilities.js toolGrants); `optionConnections`, for
  * a live apply, the model connections its runtime options name as the apply resolved
  * them (`[{ connectionId, modelId, ref, providerId, provider, display }]`, or `{
@@ -130,8 +131,9 @@ export function desiredAgent(
     },
     ssh: !!ssh,
     // Its options for the runtime it runs on (runtimes/runtime-options.js); another
-    // runtime's stored options never reach a compiler.
-    runtimeOptions: runtimeOptionsOf(profile),
+    // runtime's stored options never reach a compiler. A temporary member takes over
+    // what its runtime names of its lead's (how the model works).
+    runtimeOptions: inherits ? memberOptionsOf(profile, lead) : runtimeOptionsOf(profile),
   });
   // The model connection's provider stays the caller's object: frozen only here.
   const desired = Object.freeze({
@@ -150,6 +152,12 @@ export function desiredAgent(
   built.add(desired);
   return desired;
 }
+
+/** The record of `profile`'s lead among `profiles`, or null (no member, unknown). */
+export const leadOf = (profiles, profile) =>
+  (profile.parentAssistantId &&
+    profiles.find((p) => p.id === profile.parentAssistantId)) ||
+  null;
 
 /**
  * The desired state of every agent and of the host, from what a Gateway start (or a
@@ -194,9 +202,7 @@ export function desiredState(inputs = {}) {
       ],
       mcp: bindings[profile.id] || [],
       stdio: stdio.has(profile.id),
-      lead: profile.parentAssistantId
-        ? profiles.find((p) => p.id === profile.parentAssistantId) || null
-        : null,
+      lead: leadOf(profiles, profile),
     }),
   );
   const { bindings: _bindings, ...servers } = mcp || {};

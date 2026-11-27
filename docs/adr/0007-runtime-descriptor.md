@@ -155,11 +155,15 @@ name on the built-in runtime's host page.
 
 A **slot** is a named place on a page AgentPier owns. AgentPier owns the list
 (`RUNTIME_SLOTS`, `runtimes/runtime-surfaces.js`, exported from the port) and adds a
-slot with the first surface that needs it. Today there are four: `hub.runtime`, a
+slot with the first surface that needs it. Today there are five: `hub.runtime`, a
 group of Agents › Runtime, `hub.runtime.advanced`, the runtime's own rows in
 Agents › Runtime › Advanced (decision 5), `agent.capabilities`, groups at the end
-of an agent's Capabilities tab (decision 9), and `agent.page`, a page of the runtime's
-own below that tab (decision 10).
+of an agent's Capabilities tab (decision 9), `agent.page`, a page of the runtime's
+own below that tab (decision 10), and `agent.identity`, groups below the model on an
+agent's Identity tab, in that tab's draft (since 2026-11-27: OpenClaw's
+`modelOptions`, an agent's thinking level and fast mode, which are per-agent options
+like the wiki; the Identity and the Capabilities draft each send the agent's whole
+`runtimeOptions` for its runtime, and the PATCH's revision refuses a stale one).
 
 A descriptor states its surfaces as `surfaces: [{ id, slot, kind, shows }]`. `kind`
 is `built` or `described` (decision 5). `shows` says

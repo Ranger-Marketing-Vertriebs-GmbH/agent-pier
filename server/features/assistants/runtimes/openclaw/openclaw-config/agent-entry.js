@@ -14,6 +14,23 @@ import { agentWikiTools } from "./memory-wiki.js";
 // `mcpTools` are the agent's MCP globs the Gateway was started with (mcpSections).
 // `pathPrepend` is the owner's login PATH for an agent with shell (see shell.js); the
 // exec override accompanies exec in the tool list, so both follow native readiness.
+
+/**
+ * How the agent's model works, as its entry holds it: OpenClaw's `thinkingDefault`
+ * and `fastModeDefault` from the agent's options (openclaw-options.js; a temporary
+ * member's are its lead's). A key the agent leaves unset is absent, so OpenClaw's own
+ * order decides: the model's parameters, then agents.defaults, then the provider.
+ */
+export function modelDefaults(agent) {
+  const { thinking, fastMode } = asDesired(agent).runtimeOptions;
+  return {
+    ...(typeof thinking === "string" && { thinkingDefault: thinking }),
+    ...(typeof fastMode === "boolean" && { fastModeDefault: fastMode }),
+  };
+}
+/** The entry keys modelDefaults manages; a live apply removes the ones left out. */
+export const modelDefaultKeys = Object.freeze(["thinkingDefault", "fastModeDefault"]);
+
 export function agentEntry(
   entry,
   assistant,
@@ -57,6 +74,10 @@ export function agentEntry(
       ],
       ...(exec && { exec }),
     };
+  if (toolsManaged) {
+    for (const key of modelDefaultKeys) delete next[key];
+    Object.assign(next, modelDefaults(agent));
+  }
   // The agent's final skill list (agents.defaults.skills is []): the bundled and
   // catalog skills the owner switched on, plus AgentPier's built-in skills the agent
   // gets (built-in-skills.js), and only once native tools are ready.

@@ -24,6 +24,8 @@ export const runtimeOptions = Object.freeze({
     "A user's own agent cannot keep a memory wiki. Only your own agents can.",
   memoryWikiTaskMember:
     "A temporary team member cannot keep a memory wiki. Only your own agents can.",
+  modelOptionsTaskMember:
+    "A temporary team member works with its lead's thinking level and fast mode. Set them on the lead.",
   memoryWikiNotLoaded:
     "The memory wiki is available after the pending restart of the agent service.",
   runtimeOptionsRestartRequired:

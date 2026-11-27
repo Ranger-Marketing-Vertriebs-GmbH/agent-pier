@@ -1,4 +1,5 @@
 import MemoryWikiSurface from "./MemoryWikiSurface.jsx";
+import ModelOptionsSurface from "./ModelOptionsSurface.jsx";
 import WikiPage from "./WikiPage.jsx";
 import { openClawSearch } from "./search.js";
 
@@ -9,6 +10,10 @@ import { openClawSearch } from "./search.js";
  */
 export default Object.freeze({
   id: openClawSearch.id,
-  surfaces: Object.freeze({ memoryWiki: MemoryWikiSurface, wiki: WikiPage }),
+  surfaces: Object.freeze({
+    memoryWiki: MemoryWikiSurface,
+    modelOptions: ModelOptionsSurface,
+    wiki: WikiPage,
+  }),
   search: openClawSearch.entries,
 });
