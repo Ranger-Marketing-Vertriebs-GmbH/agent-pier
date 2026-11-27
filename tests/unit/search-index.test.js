@@ -13,6 +13,8 @@ import {
   termsOf,
 } from "../../web/app/search-index.js";
 import { getLanguage, setLanguage } from "../../web/lib/i18n/index.js";
+import { buildUserSearchIndex } from "../../web/features/users/user-search-entries.js";
+import { hermesDescriptor } from "../../server/features/assistants/runtimes/hermes/descriptor.js";
 
 const agents = [
   { id: "ops", name: "Ops-Wache", capabilities: { memory: true } },
@@ -597,4 +599,308 @@ test("an OpenClaw agent's memory wiki and its wiki page are found", () => {
 test("Email accounts and its add action are indexed (AGENTPIER-418, 388)", () => {
   assert.equal(pathOf(first("E-Mail-Zugänge")), "/connections?section=mail");
   assert.equal(first("Add email account").target.pending, "mail-add");
+});
+
+// ⌘K entries found missing in feature test W8 (B15): services for agents, Free up
+// space, Restore backup, and German names people type.
+const serviceIndex = buildSearchIndex({ agentsEnabled: true });
+const firstService = (query) => searchEntries(serviceIndex, query)[0]?.items[0];
+
+test("each service for agents opens its own detail in both languages", () => {
+  for (const [queries, item] of [
+    [["Web search", "Websuche"], "web-search"],
+    [["PDF reading", "PDF-Lesen"], "pdf-model"],
+    [["Speech recognition", "Spracherkennung"], "speech"],
+  ])
+    for (const query of queries)
+      assert.equal(
+        pathOf(firstService(query)),
+        `/connections?section=services&item=${item}`,
+        query,
+      );
+  // They need agents, like their category.
+  const off = buildSearchIndex({ agentsEnabled: false });
+  assert.equal(
+    off.some((entry) => entry.id === "page:connections-services-web-search"),
+    false,
+  );
+});
+
+test("Free up space opens the storage cleanup in both languages", () => {
+  for (const query of ["Free up space", "Speicher freigeben", "Speicher aufräumen"]) {
+    const item = firstService(query);
+    assert.equal(item.id, "page:settings-free-space", query);
+    assert.equal(item.target.pending, "storage-cleanup", query);
+  }
+});
+
+test("Restore backup and Create backup open their dialogs on the backups page", () => {
+  for (const [query, pending] of [
+    ["Restore backup", "backup-restore"],
+    ["Sicherung wiederherstellen", "backup-restore"],
+    ["Inspect and restore backup", "backup-restore"],
+    ["Create backup", "backup-create"],
+    ["Sicherung erstellen", "backup-create"],
+  ]) {
+    const item = firstService(query);
+    assert.equal(pathOf(item), "/settings/backups", query);
+    assert.equal(item.target.pending, pending, query);
+  }
+});
+
+test("German names people type find their place", () => {
+  for (const [query, path] of [
+    ["E-Mail-Konten", "/connections?section=mail"],
+    ["E-Mail-Konto", "/connections?section=mail"],
+    ["Plane-Verbindung", "/connections?section=tickets"],
+    ["Standardordner", "/settings"],
+    ["Email accounts", "/connections?section=mail"],
+  ])
+    assert.equal(pathOf(firstService(query)), path, query);
+  assert.equal(firstService("E-Mail-Konto hinzufügen").target.pending, "mail-add");
+  assert.equal(firstService("Plane-Verbindung hinzufügen").target.pending, "plane-add");
+});
+
+// ⌘K search index, the runtimes' part (ADR 0007): a surface a runtime registers is
+// found while it shows, the Hermes group of Agents › Runtime and the surfaces of an
+// agent's Capabilities tab (slot agent.capabilities) per agent of that runtime.
+const runtimeAgents = [{ id: "ops", name: "Ops-Wache", capabilities: { memory: true } }];
+const runtimeConnections = {
+  models: [{ id: "pc-1", name: "OpenRouter privat", words: [] }],
+};
+const runtimeIndex = buildSearchIndex({
+  agents: runtimeAgents,
+  connections: runtimeConnections,
+  agentsEnabled: true,
+});
+// ADR 0007, step 3: a runtime's surface is found while it shows.
+const hermesListed = (ready, surfaces) => ({
+  id: "hermes",
+  name: "Hermes Agent",
+  ready,
+  surfaces: surfaces ?? [
+    { id: "install", slot: "hub.runtime", kind: "built", shows: "always" },
+  ],
+});
+const withRuntimes = (runtimes, agentsEnabled = true) =>
+  buildSearchIndex({
+    agents: runtimeAgents,
+    connections: runtimeConnections,
+    agentsEnabled,
+    runtimes,
+  });
+
+test("the Hermes group of Runtime is found in both languages and lands on it", () => {
+  const entries = withRuntimes([{ id: "openclaw", surfaces: [] }, hermesListed(false)]);
+  const id = "page:runtime-hermes-install";
+  const entry = entries.find((item) => item.id === id);
+  assert.deepEqual(entry.label, { de: "Hermes Agent", en: "Hermes Agent" });
+  assert.deepEqual(entry.path, {
+    de: "Agenten › Laufzeit › Hermes Agent",
+    en: "Agents › Runtime › Hermes Agent",
+  });
+  assert.equal(pathOf(entry), "/agents?tab=runtime&section=runtimes");
+  for (const query of ["Hermes", "Hermes Agent", "hermes agent laufzeit"])
+    assert.equal(first(query, entries).id, id, query);
+  for (const query of [
+    "Second runtime",
+    "Zweite Laufzeit",
+    "Install Hermes Agent",
+    "Hermes Agent installieren",
+    "Update Hermes Agent",
+    "Hermes Agent aktualisieren",
+  ]) {
+    const hit = results(query, entries).find((item) => item.id === id);
+    assert.ok(hit, query);
+    assert.ok(hit.alias, `${query} is an alias`);
+  }
+  const ids = entries.map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("a surface's search entry shows when the surface shows", () => {
+  const id = "page:runtime-hermes-install";
+  const has = (entries) => entries.some((item) => item.id === id);
+  // An install group shows before the runtime is installed, and after.
+  assert.equal(has(withRuntimes([hermesListed(false)])), true);
+  assert.equal(has(withRuntimes([hermesListed(true)])), true);
+  // One that shows only while the runtime is enabled follows `ready`.
+  const whileEnabled = [
+    { id: "install", slot: "hub.runtime", kind: "built", shows: "whileEnabled" },
+  ];
+  assert.equal(has(withRuntimes([hermesListed(false, whileEnabled)])), false);
+  assert.equal(has(withRuntimes([hermesListed(true, whileEnabled)])), true);
+  // No list (not read yet, or a server without it), no surface, or agents off.
+  assert.equal(has(runtimeIndex), false);
+  assert.equal(has(withRuntimes([])), false);
+  assert.equal(has(withRuntimes([hermesListed(true, [])])), false);
+  assert.equal(has(withRuntimes([hermesListed(true)], false)), false);
+  assert.equal(results("Hermes", runtimeIndex).length, 0);
+});
+
+const hermes = (ready = true) => ({
+  id: "hermes",
+  name: "Hermes Agent",
+  ready,
+  surfaces: hermesDescriptor.surfaces,
+});
+const heron = {
+  id: "her",
+  name: "Heron",
+  runtime: "hermes",
+  runtimeInfo: { id: "hermes" },
+};
+const ops = { id: "ops", name: "Ops-Wache", capabilities: { memory: true } };
+const indexOf = (agents, runtimes = [{ id: "openclaw", surfaces: [] }, hermes()]) =>
+  buildSearchIndex({ agents, agentsEnabled: true, runtimes });
+const id = "agent:her:hermes-mixture";
+
+test("a Hermes agent's Mixture of Agents is found by its names in both languages", () => {
+  const entries = indexOf([heron, ops]);
+  const entry = entries.find((item) => item.id === id);
+  assert.deepEqual(entry.label, {
+    de: "Heron · Mixture of Agents",
+    en: "Heron · Mixture of Agents",
+  });
+  assert.deepEqual(entry.path, {
+    de: "Agenten › Heron › Fähigkeiten › Mixture of Agents",
+    en: "Agents › Heron › Capabilities › Mixture of Agents",
+  });
+  assert.equal(routePath(entry.target.route), "/agents/her/settings?tab=capabilities");
+  for (const query of [
+    "Heron Mixture of Agents",
+    "Heron MoA",
+    "Heron Beratermodelle",
+    "Heron advisor models",
+    "Heron mehrere Modelle",
+    "Heron several models",
+  ])
+    assert.ok(
+      results(query, entries).some((item) => item.id === id),
+      query,
+    );
+  // An agent of another runtime has none.
+  assert.equal(
+    entries.some((item) => item.id.startsWith("agent:ops:hermes")),
+    false,
+  );
+  const ids = entries.map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("it shows while Hermes may run agents, for agents that are not archived", () => {
+  const has = (entries) => entries.some((item) => item.id === id);
+  assert.equal(has(indexOf([heron], [hermes(false)])), false);
+  assert.equal(has(indexOf([heron], [])), false);
+  assert.equal(has(indexOf([{ ...heron, archivedAt: "2026-01-01T00:00:00Z" }])), false);
+  assert.equal(
+    has(
+      buildSearchIndex({ agents: [heron], agentsEnabled: false, runtimes: [hermes()] }),
+    ),
+    false,
+  );
+  // Users never see the setting: their own index holds no such entry.
+  assert.equal(
+    buildUserSearchIndex({ agents: [heron] }).some((item) => /mixture/.test(item.id)),
+    false,
+  );
+});
+
+// An OpenClaw agent's "Model behaviour" (slot agent.identity): found per agent on
+// its Identity tab, never for a Hermes agent or in a user's search.
+test("an OpenClaw agent's model behaviour is found on its Identity tab", () => {
+  const openclaw = {
+    id: "openclaw",
+    name: "OpenClaw",
+    ready: true,
+    surfaces: [
+      {
+        id: "modelOptions",
+        slot: "agent.identity",
+        kind: "built",
+        shows: "whileEnabled",
+      },
+      {
+        id: "memoryWiki",
+        slot: "agent.capabilities",
+        kind: "built",
+        shows: "whileEnabled",
+      },
+    ],
+  };
+  const owl = { id: "owl", name: "Owl", runtimeInfo: { id: "openclaw" } };
+  const entries = indexOf([owl, heron], [openclaw, hermes()]);
+  const own = "agent:owl:openclaw-modelOptions";
+  const entry = entries.find((item) => item.id === own);
+  assert.deepEqual(entry.label, {
+    de: "Owl · Modellverhalten",
+    en: "Owl · Model behaviour",
+  });
+  assert.deepEqual(entry.path, {
+    de: "Agenten › Owl › Identität › Modellverhalten",
+    en: "Agents › Owl › Identity › Model behaviour",
+  });
+  assert.equal(routePath(entry.target.route), "/agents/owl/settings?tab=identity");
+  for (const query of [
+    "Owl Modellverhalten",
+    "Owl Model behaviour",
+    "Owl Schleifenschutz",
+    "Owl Loop protection",
+    "Owl Denkstufe",
+    "Owl Thinking level",
+    "Owl Schnellmodus",
+    "Owl Fast mode",
+    "Owl Denkaufwand",
+    "Owl Reasoning effort",
+    // Its fallback models are rows of the same group.
+    "Owl Ersatzmodelle",
+    "Owl Fallback models",
+    "Owl Ausweichmodell",
+    "Owl Failover",
+    "Owl Reservemodell",
+    "Owl Backup model",
+  ])
+    assert.ok(
+      results(query, entries).some((item) => item.id === own),
+      query,
+    );
+  // The wiki's entry still opens the Capabilities tab.
+  assert.equal(
+    routePath(
+      entries.find((item) => item.id === "agent:owl:openclaw-memoryWiki").target.route,
+    ),
+    "/agents/owl/settings?tab=capabilities",
+  );
+  // A Hermes agent has no such group, an archived agent no entry at all.
+  assert.equal(
+    entries.some((item) => item.id.startsWith("agent:her:openclaw")),
+    false,
+  );
+  const archived = indexOf([{ ...owl, archivedAt: "2026-01-01T00:00:00Z" }], [openclaw]);
+  assert.equal(
+    archived.some((item) => item.id === own),
+    false,
+  );
+  // A temporary member has the Identity tab and shows that it follows its lead.
+  const member = { ...owl, id: "m1", teamMemberId: "tm-1", lifetime: "task" };
+  assert.ok(
+    indexOf([member], [openclaw]).some(
+      (item) => item.id === "agent:m1:openclaw-modelOptions",
+    ),
+  );
+  const ids = entries.map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+  // The users' own search never lists the owner's settings.
+  const users = buildUserSearchIndex({ agents: [owl] });
+  for (const query of [
+    "Denkstufe",
+    "Thinking level",
+    "Fast mode",
+    "Schnellmodus",
+    "Loop protection",
+    "Schleifenschutz",
+    "Fallback models",
+    "Ersatzmodelle",
+  ])
+    assert.equal(results(query, users).length, 0, query);
 });
