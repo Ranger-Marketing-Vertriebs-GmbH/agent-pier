@@ -25,7 +25,7 @@ export const runtimeOptions = Object.freeze({
   memoryWikiTaskMember:
     "Ein temporäres Teammitglied kann kein Memory-Wiki führen. Das können nur deine eigenen Agenten.",
   modelOptionsTaskMember:
-    "Ein temporäres Teammitglied arbeitet mit der Denkstufe und dem Schnellmodus seines leitenden Agenten. Stelle sie dort ein.",
+    "Ein temporäres Teammitglied arbeitet mit der Denkstufe, dem Schnellmodus und dem Schleifenschutz seines leitenden Agenten. Stelle sie dort ein.",
   memoryWikiNotLoaded:
     "Das Memory-Wiki ist nach dem ausstehenden Neustart des Agentendienstes verfügbar.",
   runtimeOptionsRestartRequired:

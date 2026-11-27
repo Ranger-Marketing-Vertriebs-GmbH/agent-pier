@@ -1,7 +1,7 @@
 // Wie das Modell eines OpenClaw-Agenten arbeitet (Reiter Identität, unter dem Modell):
 // die eigene Fläche der Laufzeit (web/features/assistants/runtimes/openclaw/).
 export const assistantModelOptionsCopy = {
-  title: "Denken und Tempo",
+  title: "Modellverhalten",
   hint: "Wie das Modell dieses Agenten arbeitet. Steht eine Einstellung auf „Standard“, gelten die Einstellung für alle Agenten und der Standard des Modells.",
   inherit: "Standard",
   thinking: {
@@ -14,13 +14,18 @@ export const assistantModelOptionsCopy = {
     on: "An",
     off: "Aus",
   },
+  loop: {
+    label: "Schleifenschutz",
+    sub: "Beendet einen Auftrag, in dem das Modell denselben Tool-Aufruf immer wieder wiederholt, ohne voranzukommen. Standardmäßig an bei einem Modell deines eigenen Endpunkts, das oft ein kleines oder lokales Modell ist.",
+  },
   member: {
     label: "Folgt dem leitenden Agenten",
-    sub: "Ein temporäres Teammitglied arbeitet mit der Denkstufe und dem Schnellmodus seines leitenden Agenten.",
+    sub: "Ein temporäres Teammitglied arbeitet mit der Denkstufe, dem Schnellmodus und dem Schleifenschutz seines leitenden Agenten.",
   },
   search: {
     thinking: "Denkstufe",
     fast: "Schnellmodus",
     effort: "Denkaufwand",
+    loop: "Schleifenschutz",
   },
 };

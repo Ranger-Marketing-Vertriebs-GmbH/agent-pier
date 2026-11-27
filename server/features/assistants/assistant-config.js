@@ -431,6 +431,7 @@ export class AssistantConfig {
         providerId: lease.providerId,
         provider: lease.provider,
         agentRuntime: lease.agentRuntime,
+        kind: lease.kind,
       },
     });
     const fingerprint = createHash("sha256")

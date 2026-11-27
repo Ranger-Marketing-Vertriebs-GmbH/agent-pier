@@ -147,9 +147,9 @@ test("it shows while Hermes may run agents, for agents that are not archived", (
   );
 });
 
-// An OpenClaw agent's "Thinking and speed" (slot agent.identity): found per agent on
+// An OpenClaw agent's "Model behaviour" (slot agent.identity): found per agent on
 // its Identity tab, never for a Hermes agent or in a user's search.
-test("an OpenClaw agent's thinking level and fast mode are found on its Identity tab", () => {
+test("an OpenClaw agent's model behaviour is found on its Identity tab", () => {
   const openclaw = {
     id: "openclaw",
     name: "OpenClaw",
@@ -174,17 +174,19 @@ test("an OpenClaw agent's thinking level and fast mode are found on its Identity
   const own = "agent:owl:openclaw-modelOptions";
   const entry = entries.find((item) => item.id === own);
   assert.deepEqual(entry.label, {
-    de: "Owl · Denken und Tempo",
-    en: "Owl · Thinking and speed",
+    de: "Owl · Modellverhalten",
+    en: "Owl · Model behaviour",
   });
   assert.deepEqual(entry.path, {
-    de: "Agenten › Owl › Identität › Denken und Tempo",
-    en: "Agents › Owl › Identity › Thinking and speed",
+    de: "Agenten › Owl › Identität › Modellverhalten",
+    en: "Agents › Owl › Identity › Model behaviour",
   });
   assert.equal(routePath(entry.target.route), "/agents/owl/settings?tab=identity");
   for (const query of [
-    "Owl Denken und Tempo",
-    "Owl Thinking and speed",
+    "Owl Modellverhalten",
+    "Owl Model behaviour",
+    "Owl Schleifenschutz",
+    "Owl Loop protection",
     "Owl Denkstufe",
     "Owl Thinking level",
     "Owl Schnellmodus",
@@ -224,6 +226,13 @@ test("an OpenClaw agent's thinking level and fast mode are found on its Identity
   assert.equal(new Set(ids).size, ids.length);
   // The users' own search never lists the owner's settings.
   const users = buildUserSearchIndex({ agents: [owl] });
-  for (const query of ["Denkstufe", "Thinking level", "Fast mode", "Schnellmodus"])
+  for (const query of [
+    "Denkstufe",
+    "Thinking level",
+    "Fast mode",
+    "Schnellmodus",
+    "Loop protection",
+    "Schleifenschutz",
+  ])
     assert.equal(results(query, users).length, 0, query);
 });

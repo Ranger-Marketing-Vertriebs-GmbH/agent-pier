@@ -39,8 +39,17 @@
             "agentpier_coding_session",
             "agentpier_mail",
             "agentpier_project",
-            "agentpier_preview"
-          ]
+            "agentpier_preview",
+            "exec",
+            "process"
+          ],
+          "exec": {
+            "mode": "ask",
+            "strictInlineEval": true
+          },
+          "loopDetection": {
+            "enabled": true
+          }
         },
         "thinkingDefault": "high",
         "fastModeDefault": true,
@@ -65,7 +74,10 @@
             "agentpier_workspace",
             "agentpier_share_file",
             "agentpier_pinboard"
-          ]
+          ],
+          "loopDetection": {
+            "enabled": true
+          }
         },
         "thinkingDefault": "high",
         "fastModeDefault": true,
@@ -151,7 +163,10 @@
             "agentpier_mail",
             "agentpier_project",
             "agentpier_preview"
-          ]
+          ],
+          "loopDetection": {
+            "enabled": true
+          }
         },
         "memory": {
           "search": {
@@ -251,7 +266,9 @@
       "agentpier_craft",
       "ask_user",
       "web_fetch",
-      "view_image"
+      "view_image",
+      "exec",
+      "process"
     ],
     "toolSearch": {
       "mode": "directory"

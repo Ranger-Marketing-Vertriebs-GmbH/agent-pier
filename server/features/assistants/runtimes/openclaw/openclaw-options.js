@@ -16,6 +16,15 @@ import { isShared, isUserAgent } from "../../../users/user-access.js";
 // own agents, a shared one and a user's agent may hold them; only the owner sets them
 // (user-agent-settings.js locks runtimeOptions for users). A temporary team member
 // stores none: it runs with its lead's (`inherited`).
+//
+// `loopDetection`: loop protection, OpenClaw's rolling loop detectors
+// (`agents.entries.*.tools.loopDetection.enabled`, the pinned runtime's
+// docs/tools/loop-detection.md), which are off by default. Unset is automatic: on
+// while the agent's model comes from an endpoint connection (the owner's own, often
+// a small or local model, which OpenClaw recommends them for), else off. `true` and
+// `false` are the owner's choice against that rule. Held and inherited as the two
+// above. Off never reaches OpenClaw as `false`, which would also switch off its
+// guard after a compaction: agent-entry.js leaves the key out.
 
 /**
  * The thinking levels OpenClaw accepts (`agents.entries.*.thinkingDefault`). A level
@@ -34,12 +43,13 @@ export const thinkingLevels = Object.freeze([
   "ultra",
 ]);
 
-const optionKeys = new Set(["memoryWiki", "thinking", "fastMode"]);
+const optionKeys = new Set(["memoryWiki", "thinking", "fastMode", "loopDetection"]);
 // How the model works: what a temporary member takes over from its lead.
-const modelKeys = ["thinking", "fastMode"];
+const modelKeys = ["thinking", "fastMode", "loopDetection"];
 const validModelOption = {
   thinking: (value) => thinkingLevels.includes(value),
   fastMode: (value) => typeof value === "boolean",
+  loopDetection: (value) => typeof value === "boolean",
 };
 const isRecord = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 

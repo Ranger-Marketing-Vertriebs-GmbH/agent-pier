@@ -118,6 +118,9 @@ export class AssistantModels {
       const providerId = transport.id;
       return {
         providerId,
+        // The connection's kind ("endpoint": the owner's own, often a small or local
+        // model, which a runtime may treat with more care; "openrouter").
+        kind: connection.providerId,
         modelRef: `${providerId}/${modelId}`,
         provider,
         // What the owner sees; the agent names these instead of the opaque provider.

@@ -17,7 +17,7 @@ export const openClawSearch = Object.freeze({
       label: () => copy.title,
       aliases: Object.freeze([() => copy.search.wiki, () => copy.search.knowledge]),
     }),
-    // An agent's Identity tab › Thinking and speed, for each OpenClaw agent.
+    // An agent's Identity tab › Model behaviour, for each OpenClaw agent.
     Object.freeze({
       surface: "modelOptions",
       label: () => modelCopy.title,
@@ -25,6 +25,7 @@ export const openClawSearch = Object.freeze({
         () => modelCopy.search.thinking,
         () => modelCopy.search.fast,
         () => modelCopy.search.effort,
+        () => modelCopy.search.loop,
       ]),
     }),
     // The agent's wiki, read only, for each agent that keeps one.

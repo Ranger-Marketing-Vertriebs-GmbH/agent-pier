@@ -122,6 +122,8 @@ export default function IdentityTab({ assistant, navigate }) {
           runtime={assistant.runtimeInfo?.id ?? assistant.runtime}
           context={{
             assistant,
+            // The drafted model's connection: a runtime's defaults may follow its kind.
+            connection: models.find((m) => m.id === draft.values.connectionId),
             options: draft.values.runtimeOptions,
             setOptions: (value) => draft.set("runtimeOptions", value),
           }}

@@ -115,7 +115,7 @@ test("an OpenClaw agent takes no Hermes options and users never set any", async 
   );
 });
 
-test("the owner sets an OpenClaw agent's thinking level and fast mode", async (t) => {
+test("the owner sets an OpenClaw agent's thinking, fast mode and loop protection", async (t) => {
   const f = await applicationFixture(t, enabledAssistants);
   const store = f.application.assistants.store;
   const created = await json(
@@ -128,7 +128,7 @@ test("the owner sets an OpenClaw agent's thinking level and fast mode", async (t
     runtimeOptions: { openclaw: { thinking: "high", fastMode: false } },
   });
   assert.equal(saved.status, 200, await saved.clone().text());
-  const record = await json(saved);
+  let record = await json(saved);
   assert.deepEqual(record.runtimeOptions, {
     openclaw: { thinking: "high", fastMode: false },
   });
@@ -159,7 +159,21 @@ test("the owner sets an OpenClaw agent's thinking level and fast mode", async (t
     409,
     "modelOptionsTaskMember",
   );
-  // "Default" for both stores no options at all.
+  // Loop protection is a choice in both directions; off is stored, not dropped.
+  const loop = await patch(f, record, {
+    runtimeOptions: { openclaw: { thinking: "high", loopDetection: false } },
+  });
+  assert.equal(loop.status, 200, await loop.clone().text());
+  record = await json(loop);
+  assert.deepEqual(store.storedAssistant(created.id).runtimeOptions, {
+    openclaw: { thinking: "high", loopDetection: false },
+  });
+  await refused(
+    await patch(f, record, { runtimeOptions: { openclaw: { loopDetection: "auto" } } }),
+    400,
+    "optionsInvalid",
+  );
+  // "Default" for all of them stores no options at all.
   const cleared = await patch(f, record, { runtimeOptions: {} });
   assert.equal(cleared.status, 200, await cleared.clone().text());
   assert.equal("runtimeOptions" in store.storedAssistant(created.id), false);
