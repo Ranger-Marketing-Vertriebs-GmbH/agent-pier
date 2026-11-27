@@ -3,7 +3,6 @@ import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import { SelectRow, ToggleRow } from "../../../components/ListRow.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
-import { assistantChannelCopy } from "../../../lib/i18n/messages/assistant-channel.js";
 import { assistantProactivityCopy as proactivity } from "../../../lib/i18n/messages/assistant-proactivity.js";
 import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
@@ -65,12 +64,12 @@ export default function StepChannels({ d, set }) {
     <>
       <p className="field-description">{copy().intro}</p>
       <section aria-labelledby={`${id}-telegram`}>
-        <GroupLabel id={`${id}-telegram`} hint={assistantChannelCopy.botHint}>
+        <GroupLabel id={`${id}-telegram`} hint={assistantCopy.channel.botHint}>
           {copy().telegram}
         </GroupLabel>
         <div className="list-card agent-fields">
           <label className="agent-field">
-            {assistantChannelCopy.token}
+            {assistantCopy.channel.token}
             <input
               type="password"
               autoComplete="off"

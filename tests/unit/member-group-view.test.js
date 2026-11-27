@@ -6,8 +6,11 @@ import {
   memberMenuItems,
 } from "../../web/features/assistants/settings/member-group-menu.js";
 import { internalTurnText } from "../../web/features/assistants/internal-turn-text.js";
-import { assistantTeamCopy as en } from "../../web/lib/i18n/en/assistant-team.js";
-import { assistantTeamCopy as de } from "../../web/lib/i18n/de/assistant-team.js";
+import { assistantCopy as englishCopy } from "../../web/lib/i18n/en/assistants.js";
+import { assistantCopy as germanCopy } from "../../web/lib/i18n/de/assistants.js";
+
+const en = englishCopy.team;
+const de = germanCopy.team;
 
 const agent = (id) => ({ id, name: id.toUpperCase() });
 const permanent = [agent("a"), agent("b"), agent("c")];

@@ -7,7 +7,7 @@ import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import { agentsHubCopy as copy } from "../../../lib/i18n/messages/agents-hub.js";
 import { assistantAdvancedCopy } from "../../../lib/i18n/messages/assistant-advanced.js";
-import { assistantTeamCopy as teamCopy } from "../../../lib/i18n/messages/assistant-team.js";
+import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { settingsPageCopy } from "../../../lib/i18n/messages/settings.js";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { CleanupGroup } from "../../dashboard/StorageCleanup.jsx";
@@ -37,6 +37,8 @@ import {
 import "../../dashboard/storage-cleanup.css";
 
 import { useRuntimeGuard } from "./RuntimeOff.jsx";
+
+const teamCopy = assistantCopy.team;
 
 // The groups a `section=` link scrolls to.
 const sectionIds = {
