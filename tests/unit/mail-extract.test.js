@@ -277,18 +277,22 @@ test("exactly two extractors run at once and the queue is bounded", async (t) =>
   assert.equal(most, 2);
 
   // Two running and 16 waiting fill the queue; the next caller is refused at once.
+  let ended = 0;
   const queued = Array.from({ length: 18 }, () =>
     extractText(pdfWith("x"), "pdf", {
       scriptUrl: hangUrl,
       limits: { ...extractLimits, timeoutMs: 100 },
-    }).catch((error) => error),
+    }).catch((error) => {
+      ended += 1;
+      return error;
+    }),
   );
-  const refusedAt = Date.now();
   await assert.rejects(extractText(pdfWith("x"), "pdf"), {
     code: "MAIL_TEXT_FAILED",
     busy: true,
   });
-  assert.ok(Date.now() - refusedAt < 100);
+  // At once: before any of the queue ended and a place came free.
+  assert.equal(ended, 0);
   for (const error of await Promise.all(queued)) {
     assert.equal(error.code, "MAIL_TEXT_FAILED");
     // A document that ran and failed is no busy queue.
@@ -486,20 +490,24 @@ test("a running extractor dies with the server process", async (t) => {
 
 test("a caller that gives up leaves the queue at once", async () => {
   const limits = { ...extractLimits, timeoutMs: 600 };
+  let ended = 0;
   const held = Array.from({ length: extractLimits.concurrency }, () =>
-    extractText(pdfWith("x"), "pdf", { scriptUrl: hangUrl, limits }).catch((e) => e),
+    extractText(pdfWith("x"), "pdf", { scriptUrl: hangUrl, limits }).catch((e) => {
+      ended += 1;
+      return e;
+    }),
   );
   const stop = new AbortController();
   const waiting = extractText(pdfWith("x"), "pdf", { signal: stop.signal });
   assert.equal(extractionQueues().document.waiting, 1);
-  const startedAt = Date.now();
   stop.abort();
   await assert.rejects(waiting, {
     code: "MAIL_TEXT_FAILED",
     busy: true,
     cancelled: true,
   });
-  assert.ok(Date.now() - startedAt < 300);
+  // At once: while the running ones still hold their places.
+  assert.equal(ended, 0);
   assert.equal(extractionQueues().document.waiting, 0);
   // An aborted caller never takes a place.
   await assert.rejects(extractText(pdfWith("x"), "pdf", { signal: stop.signal }), {

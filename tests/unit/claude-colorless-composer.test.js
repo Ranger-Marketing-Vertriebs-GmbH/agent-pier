@@ -256,10 +256,9 @@ test("an inert colorless placeholder is probed once per message", async () => {
   });
   const prepared = await input.prepare(await snapshot());
   assert.equal(prepared.inert, true);
-  // Right before the paste the unchanged placeholder needs no second round.
-  const started = performance.now();
+  // Right before the paste the unchanged placeholder needs no second round: a round
+  // sends its editing keys again, so the keys of the first one are all there are.
   await input.beforePaste(await snapshot());
-  assert.ok(performance.now() - started < 30);
   assert.deepEqual(keys, ["C-e C-u", "BSpace", "DC"]);
   assert.deepEqual(notices, []);
   assert.equal(input.pastePrefix(), "");
