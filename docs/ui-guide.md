@@ -584,6 +584,13 @@ accent. Never encode a state by colour alone: add text or an icon.
   that should come into view with its field as `data-keyboard-reveal` (`SearchSelect`
   reveals its search with the results, `AnchoredSelect` its field). A dialog that
   places itself uses the same variables, never its own `visualViewport` listener.
+- A button right below a text field answers a tap even when iOS swallows its click.
+  While the field has focus, iOS hands a tap close to the text cursor to its own text
+  interaction, so a send button under the last line gets the finger down and up but no
+  click. Spread `useTouchTap` (`web/lib/useTouchTap.js`) onto such a button: when no
+  click follows a tap within 350 ms it runs the action itself, and where clicks work
+  nothing changes. The session and agent composers use it for send, send later and
+  stop.
 - Search and filter fields set `autoComplete="off"` and `autoCorrect="off"` (with
   `autoCapitalize="none"` and `spellCheck={false}`), so iOS does not offer contact
   autofill (`SearchSelect`, `AnchoredSelect`, `AddPicker`, `CommandPalette`, and every
