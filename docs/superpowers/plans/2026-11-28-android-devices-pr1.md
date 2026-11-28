@@ -734,7 +734,190 @@ UI decisions:
 
 ## Task 1 findings
 
-(Filled in by Task 1: config.ini key set, zip top folders and sizes, redirect hosts, adb server mode, port decision, screen decision, Chrome first-run decision, Linux package set, KVM on GitHub runners.)
+Run on 2026-11-28 on the owner's Mac (Apple Silicon, macOS 26, 16 cores) and on the Linux test VM (Ubuntu 24.04.5, kernel 6.8, 4 vCPU, 7 GB, KVM). **Every "must" passed on both hosts**; the candidate `config.ini` needed four more keys to pass the `hardware-qemu.ini` check. No Java was involved anywhere: `curl`, `unzip`, two hand-written files.
+
+### Archives
+
+All six were served by `dl.google.com` directly with `HTTP/2 200`, `accept-ranges: bytes` and an `etag`; `curl -v -L` showed **no redirect** on either host. Sizes and SHA-1 match the repository XML. SHA-256 computed locally:
+
+| Archive                                    | Bytes      | SHA-256                                                            |
+| ------------------------------------------ | ---------- | ------------------------------------------------------------------ |
+| `emulator-darwin_aarch64-16970787.zip`     | 420629851  | `9824ef77c4319fe123e6446d9a8b88e49c51eea458ef85986f7fc309499ee3ac` |
+| `emulator-linux_x64-16970787.zip`          | 350068887  | `a4405349d8a9c52136ab7861e5331dc40e85574bd91cb8889a298a2ff4c52e26` |
+| `platform-tools_r37.0.3-darwin.zip`        | 16597626   | `df21339b9371fef9b19264404338dc686f59a88a1dce634b963da344909001d6` |
+| `platform-tools_r37.0.3-linux.zip`         | 9571024    | `214548146cadb2ca3508143d8a1d4be4c59de5bb837253e3ede89ed74cf450d1` |
+| `sys-img/google_apis/arm64-v8a-36_r07.zip` | 1872691175 | `fb47d861d6f87230ee0fe70f610d579935ca77f41a0eefbf391595d3dc4b5ee2` |
+| `sys-img/google_apis/x86_64-36_r07.zip`    | 1895447397 | `b1bb0769d0bed7698e61f203d7dc9bf6e7c37cd01a39d0d8788a11186bc78160` |
+
+The image SHA-1 values are `5a99183b6d924da606260e45fd41a3eb8eca6eb7` (arm64-v8a) and `c6bf44bdcd885bb902b4ba752d111a073ad7a817` (x86_64). Revision 7 is listed identically in `sys-img2-3.xml`, `sys-img2-4.xml` and `sys-img2-5.xml`.
+
+| Archive                | Top-level folder  | Zip entries | Files | Folders                           | Expanded bytes |
+| ---------------------- | ----------------- | ----------- | ----- | --------------------------------- | -------------- |
+| emulator, darwin       | `emulator/`       | 404         | 354   | 50                                | 1324524957     |
+| emulator, linux        | `emulator/`       | 451         | 398   | 53                                | 892942977      |
+| platform-tools, darwin | `platform-tools/` | 14          | 12    | 2                                 | 40235542       |
+| platform-tools, linux  | `platform-tools/` | 12          | 12    | 2 (no folder entries in the zip)  | 22869813       |
+| image, arm64-v8a       | `arm64-v8a/`      | 28          | 28    | 15 (no folder entries in the zip) | 4575096761     |
+| image, x86_64          | `x86_64/`         | 28          | 28    | 15 (no folder entries in the zip) | 4585389445     |
+
+- Each zip has exactly one top-level folder and no symbolic links. Executable bits come from the zip's Unix mode (`unzip` keeps them); the extractor must do the same. Two zips carry no directory entries, so the extractor must create parent folders itself.
+- The image unpacked into `sdk/system-images/android-36-google_apis-r7/<abi>/` works; the emulator needs no `package.xml` and no `licenses/` folder.
+- Installed SDK on disk: 5.5 GB (macOS), 5.2 GB (Linux). Zips: 2.2 GB per host.
+- The image's `source.properties` says `Pkg.Dependencies=emulator#35.4.9`. `com.android.vending` is present on this `google_apis` image; Chrome is 133.0.6943.137. Build: `google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.F3/13894323:userdebug/dev-keys`.
+
+### AVD files
+
+`avd/<id>.ini` (three keys, as avdmanager writes it):
+
+```ini
+avd.ini.encoding=UTF-8
+path=<data>/devices/avd/<id>.avd
+target=android-36
+```
+
+Final `avd/<id>.avd/config.ini` (24 keys; `<abi>` is `arm64-v8a` with `hw.cpu.arch=arm64` on macOS, `x86_64` with `hw.cpu.arch=x86_64` on Linux):
+
+```ini
+avd.ini.encoding=UTF-8
+abi.type=<abi>
+hw.cpu.arch=<arch>
+hw.cpu.ncore=4
+hw.ramSize=2048
+hw.lcd.width=720
+hw.lcd.height=1600
+hw.lcd.density=320
+hw.gpu.enabled=yes
+hw.gpu.mode=swiftshader_indirect
+hw.keyboard=no
+hw.keyboard.lid=yes
+hw.dPad=no
+hw.mainKeys=no
+hw.trackBall=no
+hw.sdCard=no
+image.sysdir.1=system-images/android-36-google_apis-r7/<abi>/
+tag.id=google_apis
+tag.display=Google APIs
+target=android-36
+PlayStore.enabled=no
+disk.dataPartition.size=6G
+fastboot.forceFastBoot=yes
+vm.heapSize=228M
+```
+
+- The candidate set of the task booted, but its resolved `hardware-qemu.ini` differed from the avdmanager AVD in four defaults: `hw.dPad`, `hw.mainKeys` and `hw.trackBall` resolved to `true` and `hw.keyboard.lid` to `false`. Adding `hw.keyboard.lid=yes`, `hw.dPad=no`, `hw.mainKeys=no`, `hw.trackBall=no` removes them.
+- With the final set, `hardware-qemu.ini` differs from the reference on both hosts only in: `avd.id` and `avd.name`; the paths (`disk.cachePartition.path`, `disk.dataPartition.path`, `disk.encryptionKeyPartition.path`, `disk.ramdisk.path`, `disk.systemPartition.initPath`, `disk.vendorPartition.initPath`, `kernel.path`); `hw.lcd.width`, `hw.lcd.height`, `hw.lcd.density`; `hw.sdCard` (`false`, on purpose); and `hw.device.name` (absent, on purpose: no device profile).
+- The emulator does not rewrite `config.ini`. It creates everything else in the `.avd` folder on the first boot. One AVD is 3.7 to 4.3 GB after the first boot and one saved snapshot (`snapshots/default_boot/ram.bin` alone is 2.6 GB).
+- On Linux the emulator creates its files with the process umask (0664/0775 under umask 002). AgentPier must start it with umask 077 to get 0600/0700.
+
+### Boot and stop times
+
+Seconds from spawning `emulator` until `sys.boot_completed` is `1`, polled every 0.5 s.
+
+| Start                                     | macOS arm64            | Linux x64 VM       |
+| ----------------------------------------- | ---------------------- | ------------------ |
+| Cold, freshly written AVD                 | 37.4, 32.4, 30.4, 32.3 | 52.2, 53.5, 54.7   |
+| From the quick-boot snapshot              | 3.0, 2.4, 3.1          | 3.2, 3.1           |
+| After `kill -9`, plain start              | 3.1 (old snapshot)     | 3.5 (old snapshot) |
+| After `kill -9`, with `-no-snapshot-load` | 24.7                   | 29.9               |
+| `adb emu kill` until the process is gone  | 1.8 to 3.8             | 3.0 to 6.5         |
+
+- `adb -s emulator-47602 emu kill` saves `default_boot` (log: `Saving snapshot 'default_boot' took 957 ms`) and the next start logs `Successfully loaded snapshot 'default_boot'`.
+- **Surprise, affects Task 5:** after `kill -9` a plain start loads the _last saved_ snapshot and silently drops everything written since (a marker file written and synced before the kill was gone). Started with `-no-snapshot-load` instead, the device cold boots and the marker file is there. So after an unclean exit (reclaimed orphan, crash, forced kill) the next start should pass `-no-snapshot-load` once.
+- After `kill -9`, `netsimd` and `crashpad_handler` exit on their own; `hardware-qemu.ini.lock` and `multiinstance.lock` stay behind and do not block the next start.
+- Linux VM, first cold boot used the candidate key set, the other two the final set.
+
+### adb server mode
+
+**Decision: AgentPier's own child**, started as
+
+```
+ADB_MDNS=0 adb -L tcp:localhost:47600 server nodaemon
+```
+
+with the environment of Global Constraints.
+
+- platform-tools 37.0.3 accepts it on both hosts. It listens on `127.0.0.1:47600` only, stays in the foreground, and stops on SIGTERM.
+- The emulator registers by itself: it reads `ANDROID_ADB_SERVER_PORT` and the server lists `emulator-47602` without any `adb connect`.
+- Without `ADB_MDNS=0` the server also opens UDP `*:5353` (mDNS discovery). With it there is no UDP socket at all. Verified on both hosts.
+- **Surprise, affects Task 5:** the emulator runs `adb` itself (for example `adb -s emulator-47602 shell settings put system screen_off_timeout …`). When our server is gone while an emulator runs, that client starts a _daemonized_ server (`adb -L tcp:47600 fork-server server --reply-fd 4`, parent 1) on our port and in our environment. Starting our `nodaemon` server then aborts with `could not install *smartsocket* listener: Address already in use` (core dump on Linux). That daemon ignores SIGTERM on Linux; `adb kill-server` on port 47600 stops it. So before starting its own server, AgentPier must run `adb kill-server` against its port (or find the port busy and do so), and must not assume the listener on 47600 is the pid it recorded.
+- After a server restart the running emulator is listed again within about 3 s without `adb connect`. Do not use `adb connect localhost:47603`: it adds a second transport `localhost:47603` beside `emulator-47602`.
+- The server writes `adbkey`, `adbkey.pub` and `adb.<port>` into `<home>/.android`.
+
+### Ports
+
+**Decision: keep 47600 for the server and `-ports <console>,<console+1>` from 47602.**
+
+- `-ports 47602,47603` is accepted. The emulator logs one warning: `Requested adb port (47603) is outside the recommended range [5555,5586]. ADB may not function properly for the emulator.` Everything worked regardless; the serial is `emulator-47602`.
+- A second adb server does not see the device: on Linux a server on **5037** (isolated `HOME`) started while the emulator ran listed nothing; on macOS the same check was made with a second server on 47650 instead of 5037, to keep the user's default port untouched. Not verified on macOS with 5037 itself.
+- Only 47602/47603 were tried. Higher pairs of the range and two emulators at once were not tested (one emulator at a time per host).
+
+### Isolation
+
+- macOS: `~/.android` did not exist before and does not exist after. Linux: the listing of `~/.android`, and the sizes and modification times of its files, are identical before and after. Nothing listened on 5037 at any time except the deliberate check on Linux.
+- TCP listeners, all on `127.0.0.1` or `::1` on both hosts: adb `127.0.0.1:47600`; qemu `47602` and `47603` (IPv4 and IPv6) plus three ephemeral ports (two on `::1`, one on both); `netsimd` two ephemeral ports and **`127.0.0.1:6402`** (fixed Bluetooth HCI port).
+- No gRPC: without `-grpc` the log has no `Started GRPC server` line (the spike's `-grpc 8564` run logged `Started GRPC server at [::]:8564, security: Insecure`, on all interfaces), and none of the ephemeral qemu ports answered an HTTP/2 connection.
+- Not loopback: qemu and `netsimd` hold unbound-address UDP sockets (`*:<ephemeral>`, about 30) for the guest's outbound traffic. They are not listeners for a service, but they are not bound to loopback either.
+- Not verified: whether the fixed `netsimd` port 6402 collides with an emulator the user runs themselves, and how two AgentPier emulators share one `netsimd`.
+- `crashpad_handler` is started by the emulator with an upload URL (`--url=https://clients2.go…`) despite `-no-metrics`. Whether it would upload a crash was not tested; the databases stayed empty.
+
+### Written outside the data folder
+
+| What                                                    | macOS                             | Linux                                   | Redirectable                                     |
+| ------------------------------------------------------- | --------------------------------- | --------------------------------------- | ------------------------------------------------ |
+| Crash database `emu-crash-37.3.10.db/`                  | `/tmp/android-<user>/`            | `/tmp/android-<user>/`                  | No (macOS ignores `TMPDIR` here; Linux untested) |
+| `netsim.ini`, `netsim.ini.lock`, `netsim.ini.init.lock` | `$TMPDIR/`                        | `$XDG_RUNTIME_DIR/` (`/run/user/<uid>`) | Yes                                              |
+| `netsimd/netsim_*.log`, `netsim_session_stats.json`     | `$TMPDIR/android-<user>/netsimd/` | `/tmp/android-<user>/netsimd/`          | Yes on macOS with `TMPDIR`; Linux untested       |
+
+- Everything else lands in `<home>` (`.emulator_console_auth_token`), `<home>/.android` (`emu-last-feature-flags.protobuf`, `emu-update-last-check.ini`, `modem-nv-ram-<console>`, `userid`, adb files) and the `.avd` folder.
+- Verified on macOS: with `TMPDIR=<data>/devices/run/tmp` the netsim files move there; the crash database stays in `/tmp/android-<user>/`. Recommended: set `TMPDIR` and `XDG_RUNTIME_DIR` to a folder under `<data>/devices/` for emulator and adb. The emulator hands its children `ANDROID_EMULATOR_DISCOVERY_DIR`; setting it ourselves was not tested.
+- `netsim.ini` in a shared temp folder is how emulators find a running `netsimd`, so leaving it in the user's `$TMPDIR` would let the user's own emulator and ours share one. Redirecting it avoids that.
+
+### Screen
+
+**Decision: 720x1600 at 320 dpi.** `wm size` reports `720x1600`, `wm density` 320. Screenshots of Settings and of Chrome with a page in Latin, Arabic, Chinese and Cyrillic text are sharp and correctly laid out on both hosts, with gesture navigation. No fallback to 1080x2400 needed.
+
+### Chrome first run
+
+**Yes, with documented means.** The image is `userdebug` (`ro.debuggable=1`), so Chrome reads its command-line file (Chromium's documented way to set flags on Android), and `pm grant` is plain adb:
+
+```
+adb -s <serial> shell "echo 'chrome --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line"
+adb -s <serial> shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS
+```
+
+- Without them, a first start opens `FirstRunActivity` ("Make Chrome your own").
+- With the file alone, Chrome opens the page but shows the "Chrome notifications make things easier" sheet.
+- With both, after `pm clear com.android.chrome`, `am start -n com.android.chrome/com.google.android.apps.chrome.Main -d <url>` shows the page with nothing on top. Verified on both hosts.
+- The file lives in `/data`, so it survives restarts and is gone after a device reset; write it in the first-boot step.
+
+### Linux packages
+
+**Smallest set that boots: `libx11-6 libx11-xcb1`.**
+
+- `ldd` on `emulator` and `qemu/linux-x86_64/qemu-system-x86_64-headless` (with the bundled `lib64`) needs from the system only glibc, `libgcc_s`, `libX11.so.6` and `libxcb.so.1` (with `libbsd`, `libmd`, `libXau`, `libXdmcp`, which `libx11-6` pulls in). `netsimd`, `crashpad_handler` and `adb` need glibc only.
+- Verified in fresh `ubuntu:24.04` and `debian:12` containers on the VM (`--device /dev/kvm`, SDK mounted read-only, `apt-get install --no-install-recommends`):
+  - no packages: `error while loading shared libraries: libX11.so.6`;
+  - `libx11-6`: `ldd` is clean, but the emulator segfaults after `Could not open libX11-xcb.so.1, give up` (loaded with `dlopen`, invisible to `ldd`);
+  - `libx11-6 libx11-xcb1`: boots (55 s on Ubuntu, 57 s on Debian), `screencap` returns an image, `adb emu kill` stops it.
+- `libpulse0 libnss3 libxkbfile1 libxcb-cursor0 libgl1` are **not** needed for the headless binary with `-no-window -no-audio -gpu swiftshader_indirect`.
+- Limits of the verification: containers ran as root on the VM's kernel; Chrome and a snapshot restart were not exercised inside them; no bare-metal minimal install was tried.
+
+### KVM on GitHub-hosted runners
+
+Not tested (decision 8: no throwaway workflow). GitHub documents that Linux x64 runners expose `/dev/kvm` and that it becomes usable for the runner user after a udev rule:
+
+```
+echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger --name-match=kvm
+```
+
+Task 5 adds this to the job; the pull request's CI run is the check. The job also needs `libx11-6 libx11-xcb1`.
+
+### Left in place for the next tasks
+
+- Mac: `/private/tmp/claude-501/-Users-d-kaulig-Projects-agent-pier/d673da4e-e4d0-40a4-a8b9-f41e258c6512/scratchpad/avd-proof/` with `dl/zips` (2.2 GB), `sdk` (5.5 GB), `avd/proof1` (3.8 GB), `scripts`, `out` (logs, screenshots). The scratchpad can be cleared by a reboot.
+- VM 190 (stopped): `~/avd-proof/` with `dl/zips` (2.2 GB), `sdk` (5.2 GB), `avd/proof1` (3.7 GB), `scripts`, `out`. `docker.io` and the images `ubuntu:24.04` and `debian:12` were installed in the VM for the package check.
 
 ## Decisions on the planner's open questions (orchestrator, 2026-11-28)
 
