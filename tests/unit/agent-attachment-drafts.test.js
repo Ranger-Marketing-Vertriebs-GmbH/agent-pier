@@ -109,9 +109,15 @@ test("an upload running when the chat is left finishes into its draft", async ()
   const chat = server("chat");
   chat.hold();
   const draft = registry.entry("chat", () => new AttachmentDraft(chat.transport));
-  const unsubscribe = draft.subscribe(() => {});
+  // The upload has reached the server once the draft shows its progress (the fake
+  // reports 50 and then holds the answer); no fixed wait for that.
+  let started;
+  const uploading = new Promise((resolve) => (started = resolve));
+  const running = () => draft.items[0]?.progress === 50 && started();
+  const unsubscribe = draft.subscribe(running);
   draft.add([photo()]);
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  running();
+  await uploading;
   assert.equal(draft.items[0].status, "uploading");
   unsubscribe();
   registry.release("chat");
