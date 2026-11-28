@@ -94,6 +94,20 @@ test("the status of a host without the SDK names what would be installed", async
     sources: ["dl.google.com"],
     licences: sdk.manifest.licences,
   });
+  // A licence that applies to another platform only is not among the terms shown.
+  const arm = { id: "arm-terms", name: "Arm terms", url: "https://example.test/arm" };
+  const everywhere = { id: "sdk", name: "SDK terms", url: "https://example.test/sdk" };
+  const manifest = {
+    ...sdk.manifest,
+    licences: [everywhere, { ...arm, platforms: ["darwin-arm64"] }],
+  };
+  assert.deepEqual(create({ manifest }).status().licences, [everywhere]);
+  assert.deepEqual(
+    create({
+      manifest: { ...manifest, licences: [{ ...arm, platforms: ["linux-x64"] }] },
+    }).status().licences,
+    [arm],
+  );
   assert.equal(android.available(), "DEVICES_NOT_INSTALLED");
   // Reading the status writes nothing.
   assert.equal(fs.existsSync(sdk.paths.root), false);

@@ -72,6 +72,20 @@ test("the flag stores the request and the terms, and says what is downloaded und
     assert.ok(text.includes(licence.name), licence.name);
     assert.ok(text.includes(licence.url), licence.url);
   }
+  // The Arm terms belong to the arm64 image: a Linux x64 host is not shown them.
+  const onLinux = printer();
+  await provisionAndroidDevices({
+    dataDir: folder(t),
+    enable: true,
+    ...linux,
+    problem: () => null,
+    ...onLinux,
+  });
+  const [general, arm] = androidManifest.licences;
+  assert.deepEqual(arm.platforms, ["darwin-arm64"]);
+  assert.ok(onLinux.text().includes(general.url));
+  assert.equal(onLinux.text().includes(arm.name), false);
+  assert.equal(onLinux.text().includes(arm.url), false);
   assert.match(text, /dl\.google\.com/);
   // The download size of this host, in gigabytes.
   assert.match(text, /\b[1-9](?:\.\d)? GB\b/);

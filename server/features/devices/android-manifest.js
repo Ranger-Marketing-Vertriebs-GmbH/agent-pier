@@ -128,6 +128,17 @@ const total = (manifest, key, field) =>
     0,
   );
 
+/**
+ * The licences of the components installed on platform `key`, as `{ id, name, url }`:
+ * one whose `platforms` does not name the host does not apply there (the Arm terms
+ * belong to the arm64 system image only).
+ */
+export function licencesFor(manifest, key) {
+  return (manifest.licences ?? [])
+    .filter((licence) => !licence.platforms || licence.platforms.includes(key))
+    .map(({ id, name, url }) => ({ id, name, url }));
+}
+
 /** The bytes a complete installation downloads on platform `key`. */
 export function downloadBytes(manifest, key) {
   return total(manifest, key, "size");
