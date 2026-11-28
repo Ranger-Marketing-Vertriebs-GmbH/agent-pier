@@ -24,6 +24,7 @@ test("a device is created within the limit of devices and shown in the view", as
     state: "stopped",
     operation: null,
     failure: null,
+    live: false,
     creator: { kind: "owner", id: "owner", name: "Owner", gone: false },
     assignments: [],
     image: { id: image, current: true },
