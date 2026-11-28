@@ -87,10 +87,8 @@ test("Summarize now waits for a first message and fits a phone", async ({ browse
   await chatFixture(page, { history: { messages: [], requests: [], stale: false } });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await synced(page);
-  await page
-    .locator(".agent-chat-switch")
-    .getByRole("button", { name: "Chats", exact: true })
-    .click();
+  // On a phone the chat's title in the header opens the Chats sheet.
+  await page.locator(".assistant-header .agent-chat-title-button").click();
   await expect(button(page)).toBeDisabled();
   await expect(button(page)).toHaveAccessibleDescription("Nothing to summarise yet.");
   // Stacked under New chat, inside the sheet.

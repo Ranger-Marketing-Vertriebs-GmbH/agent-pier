@@ -135,12 +135,10 @@ test("dialog selects match the text inputs", async ({ page }) => {
 
 test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // Every host assigned: the stacked GrantPicker's allowed list alone overflows.
+  // Every host assigned: the phone checklist alone overflows.
   const state = await fixture(page, { assignedIds: hosts.map((host) => host.id) });
   const dialog = await openDialog(page, "SSH accesses");
-  await expect(dialog.getByRole("button", { name: /^Remove host-/ })).toHaveCount(
-    hosts.length,
-  );
+  await expect(dialog.getByRole("checkbox", { checked: true })).toHaveCount(hosts.length);
   const save = dialog.getByRole("button", { name: "Save", exact: true });
   await expect(save).toBeInViewport({ ratio: 1 });
   expect(await dialog.evaluate((element) => element.scrollTop)).toBe(0);
@@ -223,17 +221,16 @@ test.describe("touch", () => {
     await expect(rename.getByRole("textbox", { name: "New name" })).not.toBeFocused();
     await expect(rename.getByRole("button", { name: "Close dialog" })).not.toBeFocused();
   });
-  test("tapping anywhere on an add field option toggles it", async ({ page }) => {
+  test("tapping anywhere on a checklist row toggles it", async ({ page }) => {
     await fixture(page);
     const dialog = await openDialog(page, "SSH accesses");
-    // On a phone the rows are the options of the stacked GrantPicker's add field.
-    await dialog.getByRole("combobox", { name: "Add SSH access" }).tap();
-    const list = dialog.getByRole("listbox");
-    const option = list.getByRole("option").filter({ hasText: "deploy@10.0.0.1:22" });
-    await expect(option).toHaveAttribute("aria-selected", "false");
-    await list.getByText("deploy@10.0.0.1:22", { exact: true }).tap();
-    await expect(option).toHaveAttribute("aria-selected", "true");
-    await list.getByText("host-1", { exact: true }).tap();
-    await expect(option).toHaveAttribute("aria-selected", "false");
+    // On a phone the GrantPicker is one checklist: no add field, no second step.
+    await expect(dialog.getByRole("combobox")).toHaveCount(0);
+    const box = dialog.getByRole("checkbox", { name: "host-1", exact: true });
+    await expect(box).not.toBeChecked();
+    await dialog.getByText("deploy@10.0.0.1:22", { exact: true }).tap();
+    await expect(box).toBeChecked();
+    await dialog.getByText("host-1", { exact: true }).tap();
+    await expect(box).not.toBeChecked();
   });
 });
