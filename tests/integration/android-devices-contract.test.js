@@ -12,6 +12,7 @@ import { hasAvd, hasSnapshot } from "../../server/features/devices/avd-files.js"
 import { hostProblem } from "../../server/features/devices/device-availability.js";
 import { DEVICE_PORTS } from "../../server/features/devices/device-paths.js";
 import { EmulatorSource } from "../../server/features/devices/emulator-source.js";
+import { tcpListeners } from "../../server/lib/tcp-listeners.js";
 
 // The one test with Google's real emulator and adb: a device is created, booted
 // cold, stopped, booted from its snapshot, killed, booted cold again, reset and
@@ -86,32 +87,7 @@ const sdkProcesses = (sdk) =>
     .filter((line) => line.includes(fs.realpathSync(sdk) + path.sep));
 
 // The TCP sockets processes `pids` listen on: `[{ pid, address, port }]`.
-function listeners(pids) {
-  const rows =
-    process.platform === "linux"
-      ? run("ss", ["-H", "-ltnp"])
-          .split("\n")
-          .flatMap((line) => {
-            const local = line.trim().split(/\s+/)[3] || "";
-            return [...line.matchAll(/pid=(\d+)/g)].map((match) => ({
-              pid: Number(match[1]),
-              local,
-            }));
-          })
-      : run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"])
-          .split("\n")
-          .slice(1)
-          .map((line) => line.trim().split(/\s+/))
-          .filter((columns) => columns.length >= 9)
-          .map((columns) => ({ pid: Number(columns[1]), local: columns.at(-2) }));
-  return rows
-    .filter((row) => pids.includes(row.pid))
-    .map(({ pid, local }) => ({
-      pid,
-      address: local.slice(0, local.lastIndexOf(":")).replace(/^\[|\]$/g, ""),
-      port: Number(local.slice(local.lastIndexOf(":") + 1)),
-    }));
-}
+const listeners = (pids) => tcpListeners().filter((row) => pids.includes(row.pid));
 
 // What the user's own Android folder holds: names, sizes and modification times.
 function userAndroid() {

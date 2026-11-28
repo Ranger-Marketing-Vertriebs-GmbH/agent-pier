@@ -177,6 +177,8 @@ export const devicesCopy = {
       "The device did not stop. Stop it again; if it stays, restart AgentPier, which ends what is left of it.",
     DEVICE_ADB_FAILED:
       "AgentPier could not reach the device through adb. Stop the device and start it again.",
+    DEVICE_ADB_PORT_IN_USE:
+      "AgentPier's adb port (47600 on this computer) is used by another program, for example a second AgentPier. Close that program, then start the device again.",
     DEVICE_ADB_TIMEOUT:
       "The device did not answer in time. Stop the device and start it again.",
     DEVICE_ADB_CANCELLED: "The call to the device was cancelled.",
