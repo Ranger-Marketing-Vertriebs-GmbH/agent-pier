@@ -87,25 +87,56 @@ export async function waitUntil(
   throw Error(`Gave up waiting for ${describe}.`);
 }
 
-// Each test process takes its ports from its own part of a range that holds neither
-// adb's default port, nor adb's emulator scan range, nor AgentPier's device ports.
-let nextPort = 48000 + (process.pid % 450) * 32;
-const bindable = (port) =>
+/**
+ * Where the device tests take their loopback ports: below the ports the system hands
+ * out by itself (Linux from 32768, macOS from 49152), and clear of AgentPier's device
+ * ports (47600 to 47621), adb's default port and emulator scan range (5037, 5555 to
+ * 5585), the preview ranges of tests/helpers/preview-ports.js (22000 to 32000) and
+ * the pipeline ports (20100 to 20999). Every test process has one slot of `slot`
+ * ports to itself, enough for the largest test file several times over.
+ */
+export const devicePortRange = Object.freeze({ first: 10240, slot: 128, slots: 60 });
+const listen = (port, keep) =>
   new Promise((resolve) => {
     const probe = net.createServer();
-    probe.once("error", () => resolve(false));
-    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+    probe.once("error", () => resolve(null));
+    probe.listen(port, "127.0.0.1", () =>
+      keep ? resolve(probe) : probe.close(() => resolve(probe)),
+    );
   });
+const bindable = async (port) => !!(await listen(port, false));
+// The slot of this process. Its first port stays bound as long as the process lives:
+// a bind is the one claim two test processes cannot both win, whatever their pids.
+let claim = null;
+async function claimSlot() {
+  const { first, slot, slots } = devicePortRange;
+  for (let step = 0; step < slots; step++) {
+    const base = first + ((process.pid + step) % slots) * slot;
+    const holder = await listen(base, true);
+    if (!holder) continue;
+    holder.unref();
+    return { base, next: 2 };
+  }
+  throw Error("Every slot of device test ports is taken.");
+}
 
 /**
  * Loopback ports for one test, all free now: `adbPort` for the adb server and
  * `pairs` console ports from `first` to `last` (even steps; a device's adb port is
- * its console port plus one), as `consolePorts` of EmulatorSource.
+ * its console port plus one), as `consolePorts` of EmulatorSource. They come from
+ * this process's own slot of devicePortRange, which is used again from its start
+ * once it is through, and each is bound once to prove that it is free.
  */
 export async function freeDevicePorts(pairs = 1) {
-  for (;;) {
-    const adbPort = nextPort;
-    nextPort += 2 + pairs * 2;
+  claim ??= claimSlot();
+  const slot = await claim;
+  const width = 2 + pairs * 2;
+  const { slot: size } = devicePortRange;
+  if (width > size - 2) throw RangeError("Too many device ports for one test.");
+  for (let attempt = 0; attempt < size; attempt++) {
+    if (slot.next + width > size) slot.next = 2;
+    const adbPort = slot.base + slot.next;
+    slot.next += width;
     const wanted = Array.from({ length: 1 + pairs * 2 }, (_, index) =>
       index ? adbPort + 1 + index : adbPort,
     );
@@ -115,6 +146,7 @@ export async function freeDevicePorts(pairs = 1) {
         consolePorts: { first: adbPort + 2, last: adbPort + pairs * 2 },
       };
   }
+  throw Error("No free device test ports in this process's slot.");
 }
 
 // A launcher: the fixture runs with the state folder and the version it reports.
