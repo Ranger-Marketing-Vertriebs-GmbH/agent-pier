@@ -522,6 +522,29 @@ test("a file comes from the device into the area, bounded", async (t) => {
   assert.deepEqual(fs.readdirSync(f.area).sort(), ["build"]);
 });
 
+test("a caller whose folder may be read-only for it pulls nothing", async (t) => {
+  const f = actionsFixture(t);
+  await f.owned("Pixel");
+  f.answers(() => ({ stdout: "regular file|5\n" }));
+  await assert.rejects(
+    f.run(
+      "pull",
+      { device: "Pixel", devicePath: "/sdcard/x", path: "x.txt" },
+      { areaWritable: () => false },
+    ),
+    refused("DEVICE_PULL_SANDBOXED", 403),
+  );
+  assert.deepEqual(f.adb, []);
+  assert.deepEqual(f.source.calls("start"), []);
+  // Reading from the folder stays possible.
+  f.answers(() => ({ stdout: "Performing Streamed Install\nSuccess\n" }));
+  await f.run(
+    "install",
+    { device: "Pixel", path: "build/app.apk" },
+    { areaWritable: () => false },
+  );
+});
+
 test("a file that keeps growing while it is pulled ends the copy", async (t) => {
   const f = actionsFixture(t, { limits: { pullBytes: 30 } });
   await f.owned("Pixel");

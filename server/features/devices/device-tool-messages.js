@@ -37,6 +37,8 @@ const messages = {
     "This element number is not from a current overview of this device: none was taken yet, the number is not in it, or the device was restarted or reset since. Call device_ui again and use a number from its result.",
   DEVICE_PATH_OUTSIDE:
     "The path on the host must lie inside your own working folder (a session's project folder or worktree), and must not be a link out of it or a file with several names.",
+  DEVICE_PULL_SANDBOXED:
+    "A sandboxed session cannot copy files from a device into its working folder: AgentPier runs outside the sandbox and cannot tell whether the sandbox lets this session write there. Read the content with device_shell (cat) and write the file yourself.",
   DEVICE_FILE_NOT_FOUND: "There is no regular file at that path.",
   DEVICE_FILE_TOO_LARGE: "The file is larger than the limit for this action.",
   DEVICE_COMMAND_FAILED: "The device refused this.",

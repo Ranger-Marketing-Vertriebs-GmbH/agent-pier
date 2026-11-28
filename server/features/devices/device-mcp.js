@@ -259,6 +259,8 @@ export async function callDeviceTool(services, name, input, context) {
       caller: { kind: "session", id: session.id, name: session.name ?? "" },
       canCreate: () => grants.canCreate(session.id),
       area: () => session.cwd,
+      // Its nono profile may give a sandboxed session this folder read-only.
+      areaWritable: () => !session.sandbox?.profile,
       signal: context.signal,
     });
     if (!Buffer.isBuffer(result?.image)) return result;

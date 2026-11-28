@@ -841,9 +841,11 @@ personal workspace, not an isolation boundary for mutually untrusted users.
     (nono's default) a sandboxed session can connect to it and operate every running
     device, whatever was assigned to it; a profile that blocks the network
     (`network.block`) blocks that too. The device tools work under both, because they
-    go to AgentPier over the session's granted socket. Files a session copies to or
-    from a device through the tools stay inside its working folder, so the tools do
-    not widen what the sandbox lets it read or write
+    go to AgentPier over the session's granted socket. Files a session installs or
+    pushes come from its working folder only, and copying a file from a device into
+    that folder is refused in a sandboxed session, because the profile may give it
+    the folder read-only. A file the profile denies inside the working folder is
+    still read by AgentPier for an install or a push
     ([Android devices](devices.md#what-a-device-can-reach)).
 
 ## Tools that do not run sandboxed

@@ -157,7 +157,16 @@ must lie inside the session's working folder (its project folder or worktree):
   folder below `<data dir>/devices/run/transfers` and removes that copy afterwards.
 
 A session in a [sandbox](sandbox.md) therefore cannot make AgentPier, which runs
-outside it, read or write files the session itself could not.
+outside it, read files beyond its working folder. Two things follow from AgentPier
+not knowing what a nono profile allows:
+
+- **`device_pull` is refused in a sandboxed session** (`DEVICE_PULL_SANDBOXED`). nono
+  gives the working folder read-only unless the profile says otherwise, and a file
+  written there by AgentPier would get around that. The session can read a file's
+  content with `device_shell` and write it itself, where its sandbox lets it.
+- **`device_install` and `device_push` read any file of the working folder**, also
+  one that the profile denies inside that folder, and the session can read it back
+  from the device. Artifacts published by a session behave the same.
 
 ### The shell runs in the device
 

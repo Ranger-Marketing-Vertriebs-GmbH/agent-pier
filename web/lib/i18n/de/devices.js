@@ -210,6 +210,8 @@ export const devicesCopy = {
       "Die Elementnummer stammt aus einer Übersicht des Bildschirms, die nicht mehr aktuell ist.",
     DEVICE_PATH_OUTSIDE:
       "Die Datei liegt außerhalb des Arbeitsordners der Session und wurde deshalb weder gelesen noch geschrieben.",
+    DEVICE_PULL_SANDBOXED:
+      "Eine Session in der Sandbox kann keine Dateien von einem Gerät in ihren Arbeitsordner kopieren, weil ihre Sandbox ihr dort vielleicht nur das Lesen erlaubt.",
     DEVICE_FILE_NOT_FOUND: "Unter diesem Pfad gibt es keine reguläre Datei.",
     DEVICE_FILE_TOO_LARGE:
       "Die Datei ist zu groß: Bis zu 200 MB gehen auf ein Gerät und bis zu 50 MB kommen von ihm.",

@@ -261,7 +261,8 @@ assigned later needs no reload. `device` is a device's id or its name.
   `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`, `DEVICE_NAME_INVALID`, `DEVICE_NAME_TAKEN`,
   `DEVICE_INPUT_INVALID` (400), `DEVICE_TEXT_UNSUPPORTED` (400, text beyond ASCII),
   `DEVICE_ELEMENT_STALE` (an element number without a current overview),
-  `DEVICE_PATH_OUTSIDE` (403), `DEVICE_FILE_NOT_FOUND` (404), `DEVICE_FILE_TOO_LARGE`,
+  `DEVICE_PATH_OUTSIDE` (403), `DEVICE_PULL_SANDBOXED` (403, `device_pull` in a sandboxed
+  session), `DEVICE_FILE_NOT_FOUND` (404), `DEVICE_FILE_TOO_LARGE`,
   `DEVICE_COMMAND_FAILED` (with what the device said, shortened),
   `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` (a call ends after 140 s),
   `DEVICE_SESSION_INELIGIBLE` (403), and the device's own failures such as

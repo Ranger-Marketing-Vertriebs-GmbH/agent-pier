@@ -434,6 +434,28 @@ test("files travel only inside the session's working folder", { timeout }, async
   assert.match(failed.error, /Detail: path/);
 });
 
+test("a sandboxed session pulls no file into its folder", { timeout }, async (t) => {
+  const f = await fixture(t, { session: { sandbox: { profile: "strict" } } });
+  fs.writeFileSync(path.join(f.f.project, "notes.txt"), "from the host");
+  await f.ok("device_push", {
+    device: "Pixel",
+    path: "notes.txt",
+    devicePath: "/sdcard/notes.txt",
+  });
+  const error = await f.refused(
+    "device_pull",
+    { device: "Pixel", devicePath: "/sdcard/notes.txt", path: "back.txt" },
+    "DEVICE_PULL_SANDBOXED",
+    403,
+  );
+  assert.match(error.error, /Read the content with device_shell/);
+  assert.equal(fs.existsSync(path.join(f.f.project, "back.txt")), false);
+  assert.equal(
+    f.adb().some(([command]) => command === "pull"),
+    false,
+  );
+});
+
 test(
   "creating needs the owner's word; reset and delete need it per device",
   { timeout },
