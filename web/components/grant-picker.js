@@ -37,3 +37,16 @@ export const grantCandidates = (entries) =>
     sub,
     group: group ?? badge,
   }));
+
+/**
+ * `entries` with those whose id is in `ids` first; both parts keep their order. The
+ * phone checklist shows what is allowed at the top.
+ */
+export function pinnedFirst(entries, ids) {
+  const pinned = new Set(ids);
+  if (!pinned.size) return entries;
+  return [
+    ...entries.filter((entry) => pinned.has(entry.id)),
+    ...entries.filter((entry) => !pinned.has(entry.id)),
+  ];
+}

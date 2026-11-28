@@ -62,7 +62,13 @@
   background: var(--popover-bg);
 }
 .add-picker-options {
-  max-height: min(352px, 50dvh);
+  /* Half the screen, and with the on-screen keyboard open (web/lib/keyboard-inset.js)
+     what it leaves below the field and the dialog's bars, never less than three rows. */
+  max-height: min(
+    352px,
+    50dvh,
+    max(132px, calc(var(--visual-viewport-height, 100dvh) - 220px))
+  );
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;

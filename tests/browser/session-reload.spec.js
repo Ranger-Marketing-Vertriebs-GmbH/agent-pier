@@ -2,7 +2,6 @@ import { test, expect } from "../helpers/browser-test.js";
 import { sessionAction } from "../helpers/session-actions.js";
 import { baseURL } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
-import { addGrant } from "../helpers/grant-picker.js";
 import { recordApiRequests } from "../helpers/visibility.js";
 
 async function fixture(page, language = "en", configure = () => {}) {
@@ -311,9 +310,9 @@ test("SSH readiness updates without losing unsaved choices", async ({
   const requests = recordApiRequests(page);
   await sessionAction(page, "SSH-Zugänge");
   await expect(dialog(page)).toContainText("Warte auf die Verbindung der CLI");
-  // On a phone the dialog stacks: the allowed list ends in the add field.
-  await addGrant(dialog(page), "SSH-Zugang hinzufügen", "Build server");
-  const allowed = dialog(page).getByRole("group", { name: /^Erlaubt in dieser Session/ });
+  // On a phone the dialog is one checklist.
+  const choice = dialog(page).getByRole("checkbox", { name: "Build server" });
+  await choice.check();
   // Starting tools follow the sampled job.ssh-tools topic; the page reads them once.
   await liveStub.waitForSubscribe("job.ssh-tools:reload");
   state.tools.state = "ready";
@@ -322,7 +321,7 @@ test("SSH readiness updates without losing unsaved choices", async ({
   expect(
     requests.list().filter((request) => request.path.endsWith("/ssh-accesses")),
   ).toHaveLength(1);
-  await expect(allowed.getByText("Build server", { exact: true })).toBeVisible();
+  await expect(choice).toBeChecked();
   await page.screenshot({ path: docScreenshot("docs/screenshots/ssh-tools-mobile.png") });
   expect(state.assignedIds).toEqual([]);
 });

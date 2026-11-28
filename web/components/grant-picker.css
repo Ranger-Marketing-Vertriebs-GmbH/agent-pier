@@ -120,6 +120,10 @@ label.grant-picker-row input[type="checkbox"] {
   font-size: var(--font-size-xs);
   text-overflow: ellipsis;
 }
+/* Beside the allowed list name and connection sit in one line. */
+.grant-picker-text {
+  display: contents;
+}
 .grant-picker-row .badge {
   flex: none;
   margin-left: auto;
@@ -203,6 +207,58 @@ label.grant-picker-row + .grant-picker-note {
 .grant-picker-action:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Phones: the picker is one checklist. A row shows name, connection and notes below
+   each other, a tap grants or revokes, and the list is as long as its rows, so the
+   dialog is the only thing that scrolls. */
+.grant-picker[data-arrangement="list"] .grant-picker-column {
+  max-height: none;
+}
+.grant-picker[data-arrangement="list"] .group-label {
+  margin-top: 0;
+}
+.grant-picker[data-arrangement="list"] .grant-picker-list {
+  flex: none;
+  overflow: visible;
+}
+.grant-picker[data-arrangement="list"] label.grant-picker-row {
+  height: auto;
+  min-height: 56px;
+  padding: var(--space-2) var(--space-3);
+  white-space: normal;
+}
+.grant-picker[data-arrangement="list"] .grant-picker-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.grant-picker[data-arrangement="list"] .grant-picker-name {
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+.grant-picker[data-arrangement="list"] .grant-picker-sub {
+  white-space: nowrap;
+}
+.grant-picker-notes {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.grant-picker[data-arrangement="list"] .grant-picker-search input {
+  height: var(--touch-target);
+}
+/* Below the checkbox's text, as in the allowed list. */
+.grant-picker-list .grant-picker-action {
+  margin: 0 0 var(--space-2) 44px;
+}
+/* In a grant dialog the search stays below the dialog's sticky heading (78px high on
+   a phone) while the rows scroll; tests/browser/grant-picker.spec.js checks the place. */
+dialog.grant-dialog .grant-picker[data-arrangement="list"] .grant-picker-search {
+  position: sticky;
+  top: 78px;
+  z-index: 1;
+  background: var(--neutral-05);
 }
 
 /* In a grant dialog the dialog takes the split width and a fixed height, 760px or the

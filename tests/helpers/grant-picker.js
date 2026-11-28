@@ -1,5 +1,6 @@
 // Drives the stacked GrantPicker (docs/ui-guide.md#choosing-what-a-session-may-use):
-// its last row is an AddPicker combobox whose listbox offers the entries.
+// its last row is an AddPicker combobox whose listbox offers the entries, and a click
+// on an option adds it at once.
 
 /**
  * Opens the combobox `fieldName` inside `scope`, types `optionName` and returns the
@@ -16,5 +17,4 @@ export async function grantOption(scope, fieldName, optionName) {
 export async function addGrant(scope, fieldName, optionName) {
   const option = await grantOption(scope, fieldName, optionName);
   await option.click();
-  await scope.getByRole("button", { name: /^(Add 1|1 hinzufügen)$/ }).click();
 }
