@@ -251,3 +251,27 @@ test("a failure keeps the reason its refusal carried", async (t) => {
   await assert.rejects(service.startDevice(a.id, { caller: owner }));
   assert.deepEqual(service.device(a.id).failure, { code: "DEVICE_EXITED", at: 0 });
 });
+
+test("a device shows as stopped only when its stop has nothing left to do", async (t) => {
+  const { service, source, clock, create, state, settled } = fixture(t);
+  const a = await create("A");
+  await service.startDevice(a.id, { caller: owner });
+  // The size is measured after the stop; here that takes a while.
+  const measuring = deferred();
+  source.diskBytes = async () => {
+    await measuring.promise;
+    return 4096;
+  };
+  const stopping = service.stopDevice(a.id, { caller: owner });
+  assert.equal(await settled(stopping), false);
+  // Whoever sees "stopped" may uninstall at once; until then the device is in use.
+  assert.equal(state(a.id), "stopping");
+  await assert.rejects(service.removeAll(), refused("DEVICES_IN_USE"));
+  measuring.resolve();
+  await clock.settle();
+  assert.equal(state(a.id), "stopped");
+  assert.equal(service.device(a.id).diskBytes, 4096);
+  await service.removeAll();
+  await stopping.catch(() => {});
+  assert.deepEqual(service.view().devices, []);
+});
