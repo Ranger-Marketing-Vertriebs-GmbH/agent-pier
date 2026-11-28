@@ -87,15 +87,15 @@ export class DeviceActions {
     for (const key of this.overviews.keys())
       if (key.endsWith(`:${deviceId}`)) this.overviews.delete(key);
   }
-  // An overview is of the screen of one run of a device.
+  // An overview is of the screen of one run of a device. Heard on every change of
+  // the device view, so it reads what the service knows in memory and builds no view.
   #expire() {
-    for (const id of new Set([...this.overviews.keys()].map((key) => key.split(":")[2])))
-      try {
-        const { state, operation } = this.devices.device(id);
-        if (state !== "running" || operation) this.#forget(id);
-      } catch {
-        this.#forget(id);
-      }
+    for (const id of new Set(
+      [...this.overviews.keys()].map((key) => key.split(":")[2]),
+    )) {
+      const status = this.devices.status(id);
+      if (status?.state !== "running" || status.operation) this.#forget(id);
+    }
   }
   #key(caller, deviceId) {
     return `${caller.kind}:${caller.id}:${deviceId}`;
