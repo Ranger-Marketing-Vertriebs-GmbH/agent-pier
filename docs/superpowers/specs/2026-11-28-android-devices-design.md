@@ -854,11 +854,12 @@ sections above say changed as follows:
 
 Known and not verified after it:
 
-- The run id of a turn's own tool calls is taken from the code and the existing
-  contracts (the attempt id as the send's idempotency key, or the acknowledged run
-  id; `assistant-owner-run-contract.test.js` pins that a completion run has a run id
-  of its own). No new contract on the pinned OpenClaw exercises a device call of a
-  completion run while a turn is bound.
+- The run a turn's own device call names is pinned on OpenClaw 2026.11.6
+  (`assistant-device-tool-contract.test.js`: it maps to the turn's attempt; there it
+  is the attempt's id, which the Gateway also acknowledges the send with), and
+  `assistant-owner-run-contract.test.js` pins that a completion run has a run id of
+  its own. No contract exercises a device call of a completion run while a turn is
+  bound; that case is covered on the shared bridge only.
 - A `member-result` turn also carries a member's report from a hook's or a routine's
   run; it uses devices like any member result, as decided.
 - The web app sends the devices only when their draft changed, so the repair of a
