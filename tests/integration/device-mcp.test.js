@@ -434,6 +434,77 @@ test("files travel only inside the session's working folder", { timeout }, async
   assert.match(failed.error, /Detail: path/);
 });
 
+test(
+  "a working folder that was replaced since the session started gives no file",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t);
+    const project = f.f.project;
+    fs.writeFileSync(path.join(project, "notes.txt"), "from the host");
+    const push = (file) => ({ device: "Pixel", path: file, devicePath: "/sdcard/n.txt" });
+    await f.ok("device_push", push("notes.txt"));
+    // The session can write the folder above its own: it moves its folder away and
+    // puts a link to another place there.
+    const secrets = path.join(f.f.root, "secrets");
+    fs.mkdirSync(secrets);
+    fs.writeFileSync(path.join(secrets, "key.apk"), "fake-apk:com.example.secret\n");
+    const moved = path.join(f.f.root, "moved-project");
+    fs.renameSync(project, moved);
+    fs.symlinkSync(secrets, project);
+    const before = f.adb().length;
+    const refusedAll = async () => {
+      const error = await f.refused(
+        "device_install",
+        { device: "Pixel", path: "key.apk" },
+        "DEVICE_PATH_OUTSIDE",
+        403,
+      );
+      assert.match(error.error, /moved or replaced.*reload the session/);
+      await f.refused("device_push", push("key.apk"), "DEVICE_PATH_OUTSIDE", 403);
+      await f.refused(
+        "device_push",
+        push(path.join(project, "key.apk")),
+        "DEVICE_PATH_OUTSIDE",
+      );
+      await f.refused(
+        "device_pull",
+        { device: "Pixel", devicePath: "/sdcard/n.txt", path: "authorized_keys" },
+        "DEVICE_PATH_OUTSIDE",
+        403,
+      );
+    };
+    await refusedAll();
+    assert.deepEqual(fs.readdirSync(secrets), ["key.apk"]);
+    // Another folder under the old name is not the session's folder either.
+    fs.rmSync(project);
+    fs.mkdirSync(project);
+    fs.writeFileSync(path.join(project, "key.apk"), "fake-apk:com.example.other\n");
+    await refusedAll();
+    assert.deepEqual(fs.readdirSync(project), ["key.apk"]);
+    assert.equal(f.adb().length, before, "the device was not asked");
+    // Back in its place, the folder is the session's again.
+    fs.rmSync(project, { recursive: true });
+    fs.renameSync(moved, project);
+    await f.ok("device_push", push("notes.txt"));
+    // The folder was recorded when the session started. A session from before that
+    // was recorded has none, and no file travels until it is reloaded.
+    const file = path.join(f.f.dataDir, "sessions", `${f.issued.session.id}.json`);
+    const { cwdIdentity, ...earlier } = JSON.parse(fs.readFileSync(file, "utf8"));
+    const real = fs.realpathSync(project);
+    const { dev, ino } = fs.statSync(real, { bigint: true });
+    assert.deepEqual(cwdIdentity, { path: real, dev: String(dev), ino: String(ino) });
+    fs.writeFileSync(file, JSON.stringify(earlier));
+    const unknown = await f.refused(
+      "device_push",
+      push("notes.txt"),
+      "DEVICE_PATH_OUTSIDE",
+      403,
+    );
+    assert.match(unknown.error, /no record of the folder.*Reload the session/);
+    assert.equal((await f.ok("devices_list")).devices.length, 1);
+  },
+);
+
 test("a sandboxed session pulls no file into its folder", { timeout }, async (t) => {
   const f = await fixture(t, { session: { sandbox: { profile: "strict" } } });
   fs.writeFileSync(path.join(f.f.project, "notes.txt"), "from the host");

@@ -172,6 +172,13 @@ Limits of this version, each said to the session when it runs into one:
 A file a session installs, pushes or pulls is named by a path on the host. That path
 must lie inside the session's working folder (its project folder or worktree):
 
+- The working folder is the folder itself, not its path. AgentPier records the
+  folder's real path and its device and inode numbers when the session's CLI starts,
+  and a file travels only while the folder at that path is still that folder. A
+  session that can write the folder above its own could otherwise move its folder
+  away and put a link to another place there. A folder that was moved, replaced by a
+  link or by another folder, or deleted and created again is refused
+  (`DEVICE_PATH_OUTSIDE`, with the hint to reload); see below for what to do.
 - AgentPier resolves the real path, following every link. A link that leads to
   another place inside the folder is fine; a real path outside is refused
   (`DEVICE_PATH_OUTSIDE`), and so is anything in AgentPier's own data folder and a file
@@ -182,6 +189,22 @@ must lie inside the session's working folder (its project folder or worktree):
   place is refused, never followed.
 - adb never gets a path of the folder: AgentPier copies the file to or from a private
   folder below `<data dir>/devices/run/transfers` and removes that copy afterwards.
+
+When the working folder itself changed:
+
+- **A worktree, a checkout, a build, `git init`** change what is in the folder, not
+  the folder: nothing to do.
+- **The folder was deleted and created again** (a worktree removed and added at the
+  same path, a fresh clone over the old one) or moved away: `device_install`,
+  `device_push` and `device_pull` are refused until you **reload the session**. A
+  reload starts the CLI in the folder its path names at that moment, and that folder
+  is the working folder from then on. Putting the original folder back works too.
+- **A session started before AgentPier recorded the folder** (before this version) has
+  none on record: its file tools are refused until its first reload. The other device
+  tools work as before.
+
+Reload a session only when you know what its path names now: a reload is your word
+that the session works in that folder, for the device tools as for the CLI itself.
 
 A session in a [sandbox](sandbox.md) therefore cannot make AgentPier, which runs
 outside it, read files beyond its working folder. Two things follow from AgentPier

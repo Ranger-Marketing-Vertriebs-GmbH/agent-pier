@@ -51,6 +51,32 @@ test("a replacement prepares the new launch only after the old CLI exited", asyn
   assert.equal(exitedAtPrepare, true);
 });
 
+test("a replacement records the folder the new CLI starts in", async (t) => {
+  const m = manager(t, null);
+  const real = fs.realpathSync(m.directory);
+  const identity = (folder) => {
+    const { dev, ino } = fs.statSync(folder, { bigint: true });
+    return { path: fs.realpathSync(folder), dev: String(dev), ino: String(ino) };
+  };
+  const launch = async () => ({ command: process.execPath, args: [], env: {} });
+  // A session from before the folder was recorded gets it with its next reload.
+  await replaceSession(m, m.session.id, launch);
+  assert.deepEqual(m.session.cwdIdentity, identity(real));
+  // Its path names another folder by the next reload: that is where the CLI starts.
+  const work = path.join(m.directory, "work");
+  const other = path.join(m.directory, "other");
+  for (const folder of [work, other]) fs.mkdirSync(folder);
+  m.session.cwd = work;
+  m.session.status = "running";
+  await replaceSession(m, m.session.id, launch);
+  assert.deepEqual(m.session.cwdIdentity, identity(work));
+  fs.rmdirSync(work);
+  fs.symlinkSync(other, work);
+  m.session.status = "running";
+  await replaceSession(m, m.session.id, launch);
+  assert.deepEqual(m.session.cwdIdentity, identity(other));
+});
+
 test("a pane that never exits delays the replacement only up to its limit", async (t) => {
   const pane = spawn(process.execPath, ["-e", "setTimeout(() => {}, 10000)"]);
   t.after(() => pane.kill());

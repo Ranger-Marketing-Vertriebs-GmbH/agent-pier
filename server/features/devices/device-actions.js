@@ -20,7 +20,8 @@ import { screenActions } from "./device-screen-actions.js";
  *   one the owner holds DEVICE_HELD.
  * - `canCreate()`: whether the caller may create devices (DEVICE_CREATE_FORBIDDEN).
  * - `area()`: resolves the caller's own folder on the host, for files that travel
- *   to or from a device (host-area.js); null when it has none.
+ *   to or from a device: `{ path, dev, ino }` as it was when the caller got the
+ *   folder (`areaOf`, host-area.js), never a bare path; null when it has none.
  * - `areaWritable()`: false when AgentPier must not write into that folder for the
  *   caller: a sandboxed session, whose sandbox may give it the folder read-only
  *   (`pull` answers DEVICE_PULL_SANDBOXED then).

@@ -4,6 +4,7 @@ import {
   ACTION_LIMITS,
   DeviceActions,
 } from "../../server/features/devices/device-actions.js";
+import { areaOf } from "../../server/features/devices/host-area.js";
 import { fixture, owner, session } from "./device-service-fixture.js";
 
 /** A PNG header of `width` by `height`, as `screencap -p` begins. */
@@ -22,7 +23,7 @@ export function pngHeader(width, height) {
  * memory), for the session `s1`:
  *
  * - `actions`, and `run(action, input, context)` as session `s1`, which may create
- *   devices when `allow.create` is true and whose area is `area` (a folder with
+ *   devices when `allow.create` is true and whose area is the folder `area` (with
  *   `build/app.apk`)
  * - `grant(sessionId, deviceId, manage)`: what the owner assigned
  * - `owned(name)`: a device of the owner's, assigned to `s1`
@@ -44,6 +45,8 @@ export function actionsFixture(t, { limits, callTimeoutMs, ...options } = {}) {
   fs.mkdirSync(path.join(area, "build"), { recursive: true });
   fs.writeFileSync(path.join(area, "build", "app.apk"), "apk bytes");
   t.after(() => fs.rmSync(area, { recursive: true, force: true }));
+  // The folder as the caller got it (host-area.js).
+  const pinned = areaOf(area);
   const adb = [];
   let handler = () => undefined;
   f.source.answer = (record, args, options) => {
@@ -55,7 +58,7 @@ export function actionsFixture(t, { limits, callTimeoutMs, ...options } = {}) {
   const context = (extra = {}) => ({
     caller,
     canCreate: () => allow.create,
-    area: () => area,
+    area: () => pinned,
     ...extra,
   });
   return {
