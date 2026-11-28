@@ -8,17 +8,22 @@ import { agentPinboardCopy as copy } from "../../../lib/i18n/messages/agent-pinb
 import { assistantAttachmentsCopy as attachmentCopy } from "../../../lib/i18n/messages/assistant-attachments.js";
 import { fileSize } from "../AgentMessageAttachments.jsx";
 import { MARKDOWN_PREVIEW_MAX_BYTES } from "../agent-markdown-preview.js";
+import { PDF_PREVIEW_MAX_BYTES, isPdfAttachment } from "../agent-pdf-preview.js";
+import { PdfPages } from "../AgentPdfPreview.jsx";
+import usePdfDocument from "../usePdfDocument.js";
 import useMarkdownFile from "../useMarkdownFile.js";
 import { pinboardApi, pinboardFileUrl } from "./pinboard-api.js";
 import { neighbours } from "./pinboard-view.js";
 import "./pinboard-reader.css";
 
+// A download saves the file's own name (`fileName`, else the server's): the entry's
+// name is a title the agent chose, without an extension.
 function DownloadLink({ entry, href }) {
   return (
     <FileLink
       className="button primary"
       href={href}
-      name={entry.name}
+      name={entry.fileName}
       aria-label={attachmentCopy.download(entry.name)}
     >
       {copy.reader.download}
@@ -80,7 +85,7 @@ function ImageBody({ entry, src, loaded }) {
           src={src}
           alt={entry.name}
           title={entry.name}
-          name={entry.name}
+          name={entry.fileName || entry.name}
           opener={viewer}
           close={() => setViewer(null)}
         />
@@ -176,6 +181,40 @@ function PageBody({ entry, assistantId, download, loaded }) {
   );
 }
 
+// A PDF page by page, as in the chat's preview (pdf.js on canvases, at most 10 MiB;
+// its scripts never run). Seen once it is open (or known to be too large to show).
+function PdfBody({ entry, src, download, loaded }) {
+  const state = usePdfDocument(src, entry);
+  const done = Boolean(state.document || state.tooLarge);
+  useEffect(() => {
+    if (done) loaded();
+  }, [done, loaded]);
+  if (state.loading)
+    return (
+      <p className="loading" role="status">
+        {attachmentCopy.previewLoading}
+      </p>
+    );
+  if (state.document)
+    return (
+      <div className="pinboard-reader-pdf">
+        <PdfPages document={state.document} />
+      </div>
+    );
+  return (
+    <>
+      {state.tooLarge ? (
+        <p className="agent-markdown-notice" role="status">
+          {attachmentCopy.previewTooLarge(fileSize(PDF_PREVIEW_MAX_BYTES))}
+        </p>
+      ) : (
+        <ErrorMessage error={attachmentCopy.previewFailed} />
+      )}
+      <DownloadLink entry={entry} href={download} />
+    </>
+  );
+}
+
 function FileBody({ entry, download, loaded }) {
   useEffect(() => {
     loaded();
@@ -241,7 +280,9 @@ export default function PinboardReader({
       marked.current.delete(shown);
     });
   }, [fresh, loadedKey, shown, entryId, markSeen]);
-  const Body = available ? bodies[entry.kind] || FileBody : null;
+  // A PDF is a plain file to the server; its own name tells (the entry's is a title).
+  const pdf = available && isPdfAttachment({ ...entry, name: entry.fileName });
+  const Body = available ? bodies[entry.kind] || (pdf ? PdfBody : FileBody) : null;
   const src = available
     ? pinboardFileUrl(assistant.id, entry.id, { version: entry.version })
     : "";
@@ -272,7 +313,7 @@ export default function PinboardReader({
           <FileLink
             className="icon-button pinboard-reader-download"
             href={download}
-            name={entry.name}
+            name={entry.fileName}
             aria-label={copy.reader.download}
             title={copy.reader.download}
           >

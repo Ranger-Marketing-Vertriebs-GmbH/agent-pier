@@ -2540,8 +2540,9 @@ pinboard; its pins stay there.
   **Done**. An entry marked **NEW** is a file whose content changed since you last
   opened it. Select an entry to read it: Markdown rendered as in the chat (at most
   512 KB; a larger text offers the download), videos and audio played inline, images in
-  the image viewer, HTML pages as described below, every other file as a download;
-  **Download** in the reader's bar saves any file. In the reader **Previous** and **Next** walk through the list one
+  the image viewer, PDFs page by page with zoom as in the chat (at most 10 MiB; a
+  larger one offers the download), HTML pages as described below, every other file as
+  a download; **Download** in the reader's bar saves any file under its own file name. In the reader **Previous** and **Next** walk through the list one
   file after another and **Back to the lists** returns to where you were in the list.
   On a phone the file opens full screen, with its own bar (Back, the file, its list
   and place) instead of the chat's header and message field; on a computer it opens in

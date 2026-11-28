@@ -26,6 +26,16 @@ function handlesOf(f) {
   return handles;
 }
 
+test("the view names the file a download saves beside the entry's title", async (t) => {
+  const f = await pinboardFixture(t);
+  f.file("out/ep6.md", "# Episode 6\n");
+  const listId = (await f.call({ action: "create_list", title: "Episodes" })).list.id;
+  await f.call({ action: "pin", listId, path: "out/ep6.md", name: "Episode 6 · Draft" });
+  const [entry] = (await f.pinboard.view(f.id)).lists[0].entries;
+  assert.equal(entry.name, "Episode 6 · Draft");
+  assert.equal(entry.fileName, "ep6.md");
+});
+
 test("a store error after the file opened closes its descriptor", async (t) => {
   const f = await pinboardFixture(t);
   const { entryId } = await pinned(f);
