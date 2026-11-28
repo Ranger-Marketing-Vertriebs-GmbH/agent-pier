@@ -21,7 +21,8 @@ import { refusal } from "./device-registry.js";
  * view are synchronous), so the store reads a session's own file
  * (`<data>/sessions/<id>.json`) itself: an entry counts only while that file exists
  * and names the same `createdAt`. A removed session therefore has no grant from the
- * moment its file is gone, and `discard` only tidies the entry away. Entries stay
+ * moment its file is gone, and `discard` only tidies the entry away. A change is
+ * written to the file before it counts in memory, so the two never differ. Entries stay
  * through a stop and a reload of their session; whether a session may use devices
  * at that moment is the caller's question (`eligible`).
  *
@@ -87,19 +88,28 @@ export class SessionDeviceGrants {
     }
     return entries;
   }
-  #write() {
-    if (this.entries.size) {
+  // The file first, then what is known in memory: a change that cannot be stored
+  // is no change, so nothing is taken away (or given) until the next start only.
+  #store(entries) {
+    if (entries.size) {
       fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 });
-      writePrivate(this.file, {
-        version: 1,
-        sessions: Object.fromEntries(this.entries),
-      });
+      writePrivate(this.file, { version: 1, sessions: Object.fromEntries(entries) });
     } else fs.rmSync(this.file, { force: true });
+    this.entries = entries;
+  }
+  #announce() {
     try {
       this.onChange?.();
     } catch {
       console.error("AgentPier could not announce a session's device access.");
     }
+  }
+  // Applies `change(entries)` to a copy of the entries, stores it and announces it.
+  #commit(change) {
+    const next = new Map(this.entries);
+    change(next);
+    this.#store(next);
+    this.#announce();
   }
   /**
    * `{ devices: [{ deviceId, manage }], create }` as given, or
@@ -187,36 +197,53 @@ export class SessionDeviceGrants {
     const { devices, create } = this.validate(access);
     if (!sessionId.test(String(session?.id))) throw invalid();
     if (!devices.length && !create) {
-      if (this.entries.delete(session.id)) this.#write();
+      if (this.entries.has(session.id))
+        this.#commit((entries) => entries.delete(session.id));
       return none();
     }
-    this.entries.set(session.id, {
-      createdAt: session.createdAt,
-      name: typeof session.name === "string" ? session.name.slice(0, 200) : "",
-      devices,
-      create,
-    });
-    this.#write();
+    this.#commit((entries) =>
+      entries.set(session.id, {
+        createdAt: session.createdAt,
+        name: typeof session.name === "string" ? session.name.slice(0, 200) : "",
+        devices,
+        create,
+      }),
+    );
     return this.get(session);
   }
   /**
    * Session `id` was removed. Always announced: a device it created shows from now
-   * on that its creator is gone.
+   * on that its creator is gone. Never throws, because a session's removal and the
+   * cleanup of a failed launch go on after it: without an entry nothing is written,
+   * and an entry that cannot be removed from the file is logged and stays, where it
+   * grants nothing (its session is gone).
    */
   discard(id) {
-    this.entries.delete(id);
-    this.#write();
+    if (this.entries.has(id))
+      try {
+        const next = new Map(this.entries);
+        next.delete(id);
+        this.#store(next);
+      } catch (error) {
+        console.error(
+          `AgentPier could not remove a session's device access: ${error?.code || "unknown error"}`,
+        );
+      }
+    this.#announce();
   }
   /** Device `deviceId` was removed: no session keeps a grant for it. */
   dropDevice(deviceId) {
+    const next = new Map(this.entries);
     let changed = false;
     for (const [id, entry] of this.entries) {
       const devices = entry.devices.filter((item) => item.deviceId !== deviceId);
       if (devices.length === entry.devices.length) continue;
       changed = true;
-      if (devices.length || entry.create) this.entries.set(id, { ...entry, devices });
-      else this.entries.delete(id);
+      if (devices.length || entry.create) next.set(id, { ...entry, devices });
+      else next.delete(id);
     }
-    if (changed) this.#write();
+    if (!changed) return;
+    this.#store(next);
+    this.#announce();
   }
 }

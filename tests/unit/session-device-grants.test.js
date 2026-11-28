@@ -238,6 +238,76 @@ test("a removed device and a removed session leave no entry", (t) => {
   );
 });
 
+// Nothing can be written or removed any more, as on a full or read-only disk.
+function fullDisk(t) {
+  const fail = () => {
+    throw Object.assign(Error("ENOSPC: no space left on device"), { code: "ENOSPC" });
+  };
+  const mocks = ["openSync", "renameSync", "rmSync", "unlinkSync"].map((name) =>
+    t.mock.method(fs, name, fail),
+  );
+  return { free: () => mocks.forEach((mock) => mock.mock.restore()) };
+}
+
+test("a change that cannot be stored changes nothing", (t) => {
+  const { grants, changes, save, open, dataDir } = fixture(t);
+  const session = save(running());
+  const other = save(running({ id: "session-2" }));
+  const given = { devices: [{ deviceId: A, manage: true }], create: true };
+  grants.set(session, given);
+  const file = path.join(dataDir, "devices", "session-grants.json");
+  const stored = fs.readFileSync(file, "utf8");
+  const disk = fullDisk(t);
+  changes.count = 0;
+  // Taking the access away fails as a whole: it is not gone in memory only, to come
+  // back with the next start.
+  assert.throws(() => grants.set(session, { devices: [], create: false }));
+  assert.throws(() => grants.set(session, { devices: [], create: true }));
+  assert.throws(() => grants.set(other, given));
+  assert.throws(() => grants.dropDevice(A));
+  assert.deepEqual(grants.get(session), given);
+  assert.deepEqual(grants.grantsOf("session-1"), given.devices);
+  assert.equal(grants.canCreate("session-1"), true);
+  assert.deepEqual(grants.get(other), { devices: [], create: false });
+  assert.equal(changes.count, 0);
+  disk.free();
+  assert.equal(fs.readFileSync(file, "utf8"), stored);
+  assert.deepEqual(open().grants.get(session), given);
+});
+
+test("a removed session never fails on its entry", (t) => {
+  const { grants, changes, save, remove, dataDir } = fixture(t);
+  const session = save(running());
+  const file = path.join(dataDir, "devices", "session-grants.json");
+  // Without an entry nothing is written: not even the folder is made.
+  grants.discard("session-1");
+  grants.discard("session-9");
+  assert.equal(fs.existsSync(path.dirname(file)), false);
+  assert.equal(changes.count, 2, "announced all the same");
+  grants.set(session, { devices: [{ deviceId: A, manage: false }], create: false });
+  const stored = fs.readFileSync(file, "utf8");
+  remove("session-1");
+  const disk = fullDisk(t);
+  const logged = t.mock.method(console, "error", () => {});
+  changes.count = 0;
+  // The session's removal and a failed launch's cleanup go on after this call.
+  assert.doesNotThrow(() => grants.discard("session-1"));
+  assert.doesNotThrow(() => grants.discard("session-9"));
+  assert.equal(logged.mock.callCount(), 1);
+  assert.doesNotMatch(String(logged.mock.calls[0].arguments[0]), /session-1/);
+  assert.equal(changes.count, 2);
+  disk.free();
+  // What could not be tidied away grants nothing: its session is gone.
+  assert.equal(fs.readFileSync(file, "utf8"), stored);
+  assert.deepEqual(grants.grantsOf("session-1"), []);
+  assert.deepEqual(grants.assignmentsOf(A), []);
+  // A listener that fails does not make it throw either.
+  grants.onChange = () => {
+    throw Error("topic gone");
+  };
+  assert.doesNotThrow(() => grants.discard("session-1"));
+});
+
 test("a listener that fails does not undo the change", (t) => {
   const { grants, save } = fixture(t);
   const session = save(running());
