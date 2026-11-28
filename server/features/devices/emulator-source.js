@@ -5,12 +5,12 @@ import { spawn as nodeSpawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { processIdentity } from "../../lib/process-identity.js";
 import { closeConnection } from "../../lib/socket-errors.js";
-import { readJSON, writePrivate, writePrivateText } from "../../lib/storage.js";
+import { writePrivate, writePrivateText } from "../../lib/storage.js";
 import { SyncQueue } from "../../lib/sync-queue.js";
 import { requireSpace } from "../tools/pinned-download.js";
-import { AdbClient, ownProcess, within } from "./adb-client.js";
+import { AdbClient, within } from "./adb-client.js";
 import { androidManifest, androidPlatform } from "./android-manifest.js";
-import { avdBytes, hasAvd, isDeviceId, removeAvd, writeAvd } from "./avd-files.js";
+import { avdBytes, hasAvd, removeAvd, writeAvd } from "./avd-files.js";
 import {
   DEVICE_PORTS,
   deviceEnvironment,
@@ -19,6 +19,7 @@ import {
   receiptFile,
 } from "./device-paths.js";
 import { deviceError } from "./device-source.js";
+import { reclaimLeftovers } from "./emulator-leftovers.js";
 
 /*
  * The device source for Google's Android Emulator (the contract is in
@@ -35,9 +36,9 @@ import { deviceError } from "./device-source.js";
  *                     the last snapshot and lose everything written since.
  *   logs/<id>.log     the emulator output of the last start
  *
- * The source signals only processes it started or reclaimed by their run record; it
- * never decides by `adb devices` what to stop, so an emulator the user runs
- * themselves is never touched.
+ * The source signals only processes it started or reclaimed by their run record
+ * (emulator-leftovers.js); it never decides by `adb devices` what to stop, so an
+ * emulator the user runs themselves is never touched.
  */
 const shell = "/bin/sh";
 const wrapper = ["-c", 'umask 077; exec "$@"', "sh"];
@@ -52,15 +53,6 @@ const firstBootSteps = [
   ],
   ["shell", "pm", "grant", "com.android.chrome", "android.permission.POST_NOTIFICATIONS"],
 ];
-
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-};
 
 // Whether loopback port `port` can be bound now.
 const free = (port) =>
@@ -293,22 +285,32 @@ export class EmulatorSource {
    * boot as complete, with `provisioned: true` when the first-boot steps of a record
    * with `provisioned: false` ran. Rejects with DEVICE_EXITED (with `exitCode`) as
    * soon as the process ends, DEVICE_BOOT_TIMEOUT after `bootTimeoutMs` (the process
-   * group is killed), DEVICE_START_CANCELLED when `signal` aborts or a stop arrives,
-   * DEVICE_PORTS_BUSY, DEVICE_ADB_FAILED, DEVICE_UNAVAILABLE or DEVICE_IMAGE_MISSING.
+   * group is killed), DEVICE_START_CANCELLED when `signal` aborts, a stop arrives or
+   * the source closes, DEVICE_PORTS_BUSY, DEVICE_ADB_FAILED, DEVICE_UNAVAILABLE or
+   * DEVICE_IMAGE_MISSING.
+   *
+   * A shutdown may come while the start waits (for the adb server, for its ports):
+   * it is looked for after every wait, so no emulator is spawned once close() ran.
+   * From the spawn on the process is in `processes`, where close() finds it.
    */
   async start(record, { signal } = {}) {
     const running = this.processes.get(record.id);
     if (running?.state === "running") return { serial: running.serial };
     if (running) throw deviceError("DEVICE_BUSY");
     this.#usable(record.image);
-    if (signal?.aborted) throw deviceError("DEVICE_START_CANCELLED");
+    const proceed = () => {
+      if (this.closed || signal?.aborted) throw deviceError("DEVICE_START_CANCELLED");
+    };
+    proceed();
     ensureDeviceFolders(this.paths);
     if (!hasAvd(this.paths, record.id)) this.#write(record, record.image);
     let entry;
     try {
       await this.#acquireServer();
+      proceed();
       const consolePort = await this.#ports();
       try {
+        proceed();
         const coldBoot = fs.existsSync(this.uncleanFile(record.id));
         writePrivateText(this.uncleanFile(record.id), "");
         entry = this.#track(
@@ -339,11 +341,23 @@ export class EmulatorSource {
       });
     await this.#boot(entry, signal);
     let provisioned;
-    if (record.provisioned === false) provisioned = await this.#provision(entry);
-    if (entry.done || entry.state !== "starting") throw this.#ended(entry);
+    if (record.provisioned === false) provisioned = await this.#provision(entry, signal);
+    if (!this.#starting(entry)) throw this.#ended(entry);
     entry.booted = true;
     entry.state = "running";
     return { serial: entry.serial, ...(provisioned && { provisioned }) };
+  }
+  // The process is there and nothing has asked for its end: only then is adb called
+  // for it. A call for a dead device would start the adb server again for nobody.
+  #starting(entry) {
+    return !entry.done && !entry.cancelled && !this.closed && entry.state === "starting";
+  }
+  // Ends a start that was cancelled while its process runs.
+  async #cancel(entry) {
+    entry.cancelled = true;
+    this.#signal(entry, "SIGKILL");
+    await entry.exited;
+    throw deviceError("DEVICE_START_CANCELLED");
   }
   #ended(entry) {
     return entry.cancelled
@@ -355,6 +369,8 @@ export class EmulatorSource {
   }
   async #boot(entry, signal) {
     let timer, abort;
+    // Ends the wait between two checks, so no timer outlives the boot.
+    const waiting = new AbortController();
     const interrupted = Promise.race([
       entry.exited.then(() => "exit"),
       new Promise((resolve) => {
@@ -374,31 +390,41 @@ export class EmulatorSource {
         .catch(() => null);
       return answer?.code === 0 && answer.stdout.trim() === "1";
     };
+    const pause = () =>
+      delay(this.pollMs, null, { signal: waiting.signal }).catch(() => null);
     try {
-      for (;;) {
-        const outcome = await Promise.race([interrupted, booted()]);
+      // What interrupted the wait or the check, if anything did: a device that died
+      // meanwhile is not asked again.
+      for (let outcome = null; ; outcome = await Promise.race([interrupted, pause()])) {
+        if (!outcome && !this.#starting(entry)) outcome = "exit";
+        outcome ??= await Promise.race([interrupted, booted()]);
         if (outcome === true) return;
-        if (outcome === "exit") throw this.#ended(entry);
-        if (outcome === "timeout" || outcome === "abort") {
-          entry.cancelled = outcome === "abort";
+        if (outcome === "exit") {
+          await entry.exited;
+          throw this.#ended(entry);
+        }
+        if (outcome === "abort") await this.#cancel(entry);
+        if (outcome === "timeout") {
           this.#signal(entry, "SIGKILL");
           await entry.exited;
-          throw outcome === "abort"
-            ? deviceError("DEVICE_START_CANCELLED")
-            : deviceError("DEVICE_BOOT_TIMEOUT");
+          throw deviceError("DEVICE_BOOT_TIMEOUT");
         }
-        await Promise.race([interrupted, delay(this.pollMs)]);
       }
     } finally {
       clearTimeout(timer);
+      waiting.abort();
       signal?.removeEventListener("abort", abort);
     }
   }
-  async #provision(entry) {
+  // The first-boot steps: true when all ran. None is sent to a device that is gone.
+  async #provision(entry, signal) {
     for (const args of firstBootSteps) {
+      if (signal?.aborted) await this.#cancel(entry);
+      if (!this.#starting(entry)) return false;
       const answer = await this.adb
-        .exec(entry.serial, args, { timeoutMs: 30000 })
+        .exec(entry.serial, args, { timeoutMs: 30000, signal })
         .catch(() => null);
+      if (signal?.aborted) await this.#cancel(entry);
       if (answer?.code !== 0) return false;
     }
     return true;
@@ -407,12 +433,19 @@ export class EmulatorSource {
    * Stops the device of `record`: `emu kill` (which saves the quick-boot snapshot),
    * SIGTERM to the process group after `stopGraceMs`, SIGKILL after `killGraceMs`.
    * A device that is still booting has nothing to save and is killed at once.
-   * Rejects with DEVICE_STOP_FAILED when the process survives all of it.
+   * Rejects with DEVICE_STOP_FAILED when the process survives all of it; the next
+   * call tries again (and so do reset and remove, which stop first).
    */
   stop(record) {
     const entry = this.processes.get(record.id);
     if (!entry) return Promise.resolve();
-    entry.stopping ??= this.#stop(entry, this.stopGraceMs);
+    if (!entry.stopping) {
+      const attempt = this.#stop(entry, this.stopGraceMs);
+      entry.stopping = attempt;
+      attempt.catch(() => {
+        if (entry.stopping === attempt) entry.stopping = null;
+      });
+    }
     return entry.stopping;
   }
   async #stop(entry, graceMs) {
@@ -472,55 +505,21 @@ export class EmulatorSource {
     return avdBytes(this.paths, record.id);
   }
   /**
-   * Stops what an earlier AgentPier process left running. A run record's process is
-   * signalled only when it is alive, has the recorded start time and runs an
-   * executable below the SDK; any other pid is left alone and only the record is
-   * removed. The adb server that process left is ended too. Resolves the ids whose
-   * process was stopped; their next start is a cold boot.
+   * Stops what an earlier AgentPier process left running (emulator-leftovers.js) and
+   * the adb server it left. Resolves the ids whose process was stopped; their next
+   * start is a cold boot.
    */
   async reclaim() {
-    let names = [];
-    try {
-      names = fs.readdirSync(this.paths.run);
-    } catch {
-      // No run folder: nothing was ever started.
-    }
-    const stopped = [];
-    for (const name of names) {
-      const id = name.endsWith(".json") ? name.slice(0, -5) : null;
-      if (!isDeviceId(id) || this.processes.has(id)) continue;
-      let stored = null;
-      try {
-        stored = readJSON(this.runFile(id), null);
-      } catch {
-        // A damaged record names nothing.
-      }
-      if (stored && (await this.#reclaim(stored))) stopped.push(id);
-      fs.rmSync(this.runFile(id), { force: true });
-    }
+    const stopped = await reclaimLeftovers({
+      run: this.paths.run,
+      sdk: this.paths.sdk,
+      graceMs: this.killGraceMs,
+      identity: this.identity,
+      live: (id) => this.processes.has(id),
+    });
     if (!this.processes.size && !this.users)
       await this.serverQueue.run(() => this.adb.reclaimServer()).catch(() => {});
     return stopped;
-  }
-  async #reclaim(stored) {
-    const own = () => ownProcess(stored, this.paths.sdk, this.identity);
-    if (!own()) return false;
-    const signal = (name) => {
-      try {
-        process.kill(-stored.pid, name);
-      } catch {
-        try {
-          process.kill(stored.pid, name);
-        } catch {
-          // Gone meanwhile.
-        }
-      }
-    };
-    signal("SIGTERM");
-    if (!(await within(this.killGraceMs, () => !alive(stored.pid))) && own())
-      signal("SIGKILL");
-    await within(this.killGraceMs, () => !alive(stored.pid));
-    return true;
   }
   /**
    * Stops every device and the adb server for a shutdown, within about `graceMs`:
