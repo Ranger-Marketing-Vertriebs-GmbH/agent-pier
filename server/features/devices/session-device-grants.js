@@ -66,7 +66,7 @@ export class SessionDeviceGrants {
     this.sessions = path.join(path.resolve(dataDir), "sessions");
     this.onChange = null;
     // A damaged file, and an entry of another shape, grant nothing; the file is
-    // kept aside and logged before the next change writes a sound one.
+    // kept aside and logged, and the file is written anew from what counts.
     this.entries = readGrants(
       this.file,
       "sessions",
@@ -78,7 +78,7 @@ export class SessionDeviceGrants {
               ...this.validate({ devices: entry.devices, create: entry.create }),
             }
           : null,
-      { now, log },
+      { now, log, rewrite: (entries) => this.#store(entries) },
     );
   }
   // The file first, then what is known in memory: a change that cannot be stored

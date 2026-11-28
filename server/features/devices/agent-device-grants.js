@@ -58,7 +58,7 @@ export class AgentDeviceGrants {
     this.eligibleAgent = eligible;
     this.onChange = null;
     // A damaged file, and an entry of another shape, grant nothing; the file is
-    // kept aside and logged before the next change writes a sound one.
+    // kept aside and logged, and the file is written anew from what counts.
     this.entries = readGrants(
       this.file,
       "agents",
@@ -69,7 +69,7 @@ export class AgentDeviceGrants {
               area: areaShape(entry.area),
             }
           : null,
-      { now, log },
+      { now, log, rewrite: (entries) => this.#store(entries) },
     );
   }
   // The file first, then what is known in memory: a change that cannot be stored

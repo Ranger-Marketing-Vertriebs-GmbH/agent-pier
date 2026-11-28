@@ -11,7 +11,10 @@ import { readJSON } from "../../lib/storage.js";
  * change writes the file anew from what counts, so before that the file as it was
  * found is copied aside as `<file>.damaged-<time>` (for the owner only, never over
  * an earlier copy) and one line in the server log names the copy. The line never
- * holds anything the file said. A missing file is no damage.
+ * holds anything the file said. Once the copy exists the file is written anew from
+ * what counts (`rewrite`), so the next start finds a sound file and keeps no second
+ * copy; a file that could not be copied stays as it was found. A missing file is no
+ * damage.
  */
 const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -33,14 +36,14 @@ function keepAside(file, now) {
 /**
  * The entries of grants file `file` below `key`: a Map of id to `entry(id, value)`,
  * which returns the entry as it counts, or null (or throws) for one that does not.
- * `now()` names the copy of a damaged file and `log(line)` hears of it; tests
- * replace them.
+ * `rewrite(entries)` writes the file anew after a damaged one was kept aside;
+ * `now()` names the copy and `log(line)` hears of it (tests replace both).
  */
 export function readGrants(
   file,
   key,
   entry,
-  { now = Date.now, log = console.warn } = {},
+  { rewrite = null, now = Date.now, log = console.warn } = {},
 ) {
   const entries = new Map();
   let stored = null;
@@ -69,12 +72,18 @@ export function readGrants(
     ? "cannot be read"
     : `holds ${dropped} ${dropped === 1 ? "entry" : "entries"} AgentPier cannot read`;
   const kept = keepAside(file, now);
+  if (kept)
+    try {
+      rewrite?.(entries);
+    } catch {
+      // The file stays as it was found; its copy exists.
+    }
   try {
     log(
       `Android devices: ${path.basename(file)} ${what}; what it assigned there counts for nothing. ${
         kept
-          ? `The file is kept as ${kept} before the next change replaces it.`
-          : "The file could not be kept aside; the next change replaces it."
+          ? `The file as it was is kept as ${kept}.`
+          : "The file could not be kept aside; the next change of an assignment replaces it."
       }`,
     );
   } catch {
