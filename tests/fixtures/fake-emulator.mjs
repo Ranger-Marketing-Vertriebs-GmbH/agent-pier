@@ -33,6 +33,17 @@ const readJson = (file, fallback) => {
 if (!state) stop("fake emulator: FAKE_ANDROID_STATE is not set", 70);
 
 if (args.includes("-version")) {
+  // On Linux a bare `-version` starts the windowed qemu binary, which needs X
+  // libraries AgentPier does not install; only the headless one (`-no-window`) runs.
+  if (
+    process.env.FAKE_ANDROID_PLATFORM?.startsWith("linux") &&
+    !args.includes("-no-window")
+  )
+    stop(
+      "qemu-system-x86_64: error while loading shared libraries: libXi.so.6: " +
+        "cannot open shared object file: No such file or directory",
+      127,
+    );
   const [version, build] = (process.env.FAKE_ANDROID_EMULATOR || "0.0.0 0").split(" ");
   console.log(`Android emulator version ${version}.0 (build_id ${build}) (CL:N/A)`);
   process.exit(0);

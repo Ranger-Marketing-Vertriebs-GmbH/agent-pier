@@ -346,11 +346,17 @@ test("a component that does not run or is another version is unusable", async (t
     version: "Android Debug Bridge version 1.0.41\nVersion 37.0.3-1\n",
     "-version": "Android emulator version 37.3.10.0 (build_id 16970787) (CL:N/A)\n",
   };
+  const calls = [];
   const run =
     (answers, ldd = "") =>
     async (command, args) => {
-      if (command === "ldd") return ldd;
-      const answer = answers[args[0]];
+      calls.push([path.basename(command), ...args]);
+      if (command === "ldd")
+        return typeof ldd === "string" ? ldd : (ldd[path.basename(args[0])] ?? "");
+      // The emulator is asked without a window: only that binary runs on a server.
+      if (path.basename(command) === "emulator")
+        assert.deepEqual(args, ["-no-window", "-version"]);
+      const answer = answers[args.at(-1)];
       if (answer instanceof Error) throw answer;
       return answer;
     };
@@ -382,6 +388,31 @@ test("a component that does not run or is another version is unusable", async (t
     assert.deepEqual(error.detail, { missing: ["libX11.so.6", "libxcb.so.1"] });
     return true;
   });
+  // Both the launcher and the headless binary it starts are looked at; what only
+  // the headless one lacks is named too.
+  const looked = calls.filter(([command]) => command === "ldd").map(([, file]) => file);
+  assert.deepEqual(
+    [...new Set(looked.map((file) => path.basename(file)))],
+    ["emulator", "qemu-system-x86_64-headless"],
+  );
+  assert.match(
+    looked.find((file) => file.endsWith("-headless")),
+    /[/]qemu[/]linux-x86_64[/]qemu-system-x86_64-headless$/,
+  );
+  await assert.rejects(
+    install({
+      run: run(outputs, {
+        emulator: "\tlibc.so.6 => /lib/libc.so.6 (0x2)\n",
+        "qemu-system-x86_64-headless":
+          "\tlibX11.so.6 => not found\n\tlibc.so.6 => /lib/libc.so.6 (0x2)\n",
+      }),
+    }),
+    (error) => {
+      assert.equal(error.code, "DEVICES_SDK_UNUSABLE");
+      assert.deepEqual(error.detail, { missing: ["libX11.so.6"] });
+      return true;
+    },
+  );
   assert.deepEqual(installedSdk(paths, sdk.manifest, sdk.key), {
     emulator: null,
     platformTools: "37.0.3",

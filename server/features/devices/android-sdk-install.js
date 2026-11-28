@@ -133,26 +133,48 @@ export async function removeSdk(paths) {
     await fsp.rm(directory, { recursive: true, force: true });
 }
 
+// The binaries that run a device without a window (`<emulator>/qemu/<host>/*-headless`):
+// the launcher starts one of them, and its libraries are the ones that matter.
+function headlessBinaries(directory) {
+  const qemu = path.join(directory, "qemu");
+  try {
+    return fs
+      .readdirSync(qemu)
+      .flatMap((host) =>
+        fs
+          .readdirSync(path.join(qemu, host))
+          .filter((name) => name.endsWith("-headless"))
+          .map((name) => path.join(qemu, host, name)),
+      )
+      .filter(regularFile);
+  } catch {
+    return [];
+  }
+}
+
 // The component runs and is the pinned version. On Linux, `ldd` names libraries the
-// host lacks; one the emulator only loads later (libX11-xcb) shows as a start that
-// fails, which is the same code without the names.
+// host lacks, for the launcher and for the headless binary it starts; one the
+// emulator only loads later (libX11-xcb) shows as a start that fails, which is the
+// same code without the names. The emulator is asked with `-no-window`: a bare
+// `-version` starts the windowed binary on Linux, which needs X libraries a server
+// does not have and AgentPier never uses.
 async function check(part, directory, { manifest, key, run, env, signal }) {
   const executable = path.join(directory, path.basename(part.executable));
   if (!regularFile(executable)) throw failure("DEVICES_ARCHIVE_INVALID");
   if (key.startsWith("linux") && part.name === "emulator") {
-    const listed = await run("ldd", [executable], env, directory, signal, 60000).catch(
-      () => "",
-    );
-    const missing = [
-      ...new Set(
-        [...listed.matchAll(/^\s*(\S+)\s+=>\s+not found/gm)].map((match) => match[1]),
-      ),
-    ];
-    if (missing.length) throw failure("DEVICES_SDK_UNUSABLE", { missing });
+    const missing = new Set();
+    for (const binary of [executable, ...headlessBinaries(directory)]) {
+      const listed = await run("ldd", [binary], env, directory, signal, 60000).catch(
+        () => "",
+      );
+      for (const match of listed.matchAll(/^\s*(\S+)\s+=>\s+not found/gm))
+        missing.add(match[1]);
+    }
+    if (missing.size) throw failure("DEVICES_SDK_UNUSABLE", { missing: [...missing] });
   }
   const output = await run(
     executable,
-    [part.name === "emulator" ? "-version" : "version"],
+    part.name === "emulator" ? ["-no-window", "-version"] : ["version"],
     env,
     directory,
     signal,

@@ -164,9 +164,14 @@ test("the fake SDK is an installed SDK with receipts and working version calls",
   );
   assert.ok(fs.existsSync(path.join(paths.image(), "system.img")));
   assert.equal(
-    (await output(paths.emulatorBin, ["-version"], env)).stdout,
+    (await output(paths.emulatorBin, ["-no-window", "-version"], env)).stdout,
     "Android emulator version 37.3.10.0 (build_id 16970787) (CL:N/A)\n",
   );
+  // On Linux a bare `-version` starts the windowed binary, which lacks its libraries.
+  const windowed = await output(paths.emulatorBin, ["-version"], env);
+  assert.equal(windowed.code, 127);
+  assert.equal(windowed.stdout, "");
+  assert.match(windowed.stderr, /error while loading shared libraries: libXi\.so\.6/);
   const version = await output(paths.adbBin, ["version"], env);
   assert.match(
     version.stdout,
