@@ -311,16 +311,16 @@ and counts again when it no longer does.
 Whether a call is served depends on the run it belongs to, as AgentPier recorded it,
 never on what the agent says:
 
-| Run                                                                                                                           | Use a device                         | Create, reset, delete     |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------- |
-| A turn you started with your own message, in the web chat or your paired Telegram chat                                        | yes                                  | yes, with your permission |
-| A goal continuation, a reminder, and the follow-ups AgentPier sends into your chat (a member's result, a coding run's result) | yes                                  | no                        |
-| A routine's run                                                                                                               | yes                                  | no                        |
-| A hook's run, while its event runs                                                                                            | yes                                  | no                        |
-| A run of your chat without a turn (the follow-up after a background command, a check-in)                                      | yes                                  | no                        |
-| A member's turn on a task of its lead                                                                                         | what the lead passed on, and its own | no                        |
-| A turn on a forwarded message, on what a restricted user, a team member or a remote host (SSH, SFTP) sent, and a memory step  | no                                   | no                        |
-| A run whose origin AgentPier does not know                                                                                    | no                                   | no                        |
+| Run                                                                                                                                                    | Use a device                         | Create, reset, delete     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------------- |
+| A turn you started with your own message, in the web chat or your paired Telegram chat                                                                 | yes                                  | yes, with your permission |
+| A goal continuation, a reminder, and the follow-ups AgentPier sends into your chat (a member's result, a coding run's result)                          | yes                                  | no                        |
+| A routine's run                                                                                                                                        | yes                                  | no                        |
+| A hook's run, while its event runs                                                                                                                     | yes                                  | no                        |
+| A run of your chat without a turn (the follow-up after a background command, a check-in), while the chat's latest turn was one that could use a device | yes                                  | no                        |
+| A member's turn on a task of its lead                                                                                                                  | what the lead passed on, and its own | no                        |
+| A turn on a forwarded message, on what a restricted user, a team member or a remote host (SSH, SFTP) sent, and a memory step                           | no                                   | no                        |
+| A run whose origin AgentPier does not know                                                                                                             | no                                   | no                        |
 
 An agent that tries to create, reset or delete elsewhere is told to ask you
 (`DEVICE_OWNER_TURN_REQUIRED`); a run that gets no device is told so

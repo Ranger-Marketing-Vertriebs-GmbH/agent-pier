@@ -186,8 +186,16 @@ function locate(w, inv, store) {
   }
   if (!inv.attemptId) {
     if (!inv.ownerRun) throw forbidden();
+    const conversation = store.getConversation(inv.ownerRun.conversationId);
+    // What such a run works on is what the chat's latest turn left there: it gets a
+    // device only when that turn could have used one (the bridge itself refuses
+    // the run only after someone else's content, owner-runs.js ownerRun). A chat
+    // without any turn holds nothing the owner did not write.
+    const latest = w.a.ledger.latestRequest(conversation.id);
+    if (latest && !deviceOrigin(w.a.teams?.store?.context?.(latest.id)))
+      throw forbidden();
     return {
-      ...chat(store.getConversation(inv.ownerRun.conversationId)),
+      ...chat(conversation),
       kind: "owner-run",
       manage: false,
       writable: true,
