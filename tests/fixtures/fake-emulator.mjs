@@ -8,7 +8,8 @@
 //   mode "boot"     (default) booted `bootMs` (50) after the launch
 //   mode "hang"     never boots
 //   mode "die"      exits 1 after `dieMs` (20), before the boot
-//   mode "crash"    exits 1 `crashMs` (50) after the boot, without a snapshot
+//   mode "crash"    exits 1 `crashMs` (50) after the boot, without a snapshot; with
+//                   `crashWhen: "asked"` it runs until the behaviour says `crashNow`
 //   mode "stubborn" boots, then ignores the kill request and SIGTERM
 //
 // It records every launch in `<state>/launches.jsonl` and, while it runs, its state
@@ -169,8 +170,14 @@ if (boots)
         ? "INFO    | Successfully loaded snapshot 'default_boot'"
         : "INFO    | Boot completed",
     );
-    if (mode === "crash")
-      setTimeout(() => stop("emulator: fake crash"), behaviour.crashMs ?? 50);
+    const crash = () => stop("emulator: fake crash");
+    // A test that needs the device running first asks for the crash itself: a delay
+    // would race with whoever waits for the boot.
+    if (mode === "crash" && behaviour.crashWhen === "asked")
+      setInterval(() => {
+        if (readJson(path.join(state, "behaviour.json"), {}).crashNow) crash();
+      }, 5);
+    else if (mode === "crash") setTimeout(crash, behaviour.crashMs ?? 50);
   }, bootMs);
 if (mode === "die")
   setTimeout(
