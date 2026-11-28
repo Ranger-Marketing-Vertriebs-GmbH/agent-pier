@@ -5999,6 +5999,7 @@ when its turn on the device's queue comes (`DeviceService` calls the caller's
 | Turn with origin `owner` or `telegram`, not `forwarded`, no goal marker (`directOwnerTurn`)          | yes                            | yes                   |
 | Turn with any other known origin that is not foreign (`foreignOrigin`) and no memory step            | yes                            | no                    |
 | Routine run, hook run, owner run without a turn                                                      | yes                            | no                    |
+| Routine a lead set up on its member (`createdBy: "lead"`), the lead no device agent or a member      | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
 | Member's turn with origin `lead-request`, its task open, the task's own origin usable, lead eligible | the task's pass and its own    | no                    |
 | Forwarded or foreign origin, `memory-step`, `unknown`, no record, a temporary member's other turns   | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
 | Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's  | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
