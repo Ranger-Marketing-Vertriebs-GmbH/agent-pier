@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { contractTimeout } from "../helpers/contract-timeout.js";
+import { isLoopbackAddress } from "../helpers/loopback-address.js";
 import { AndroidSdk } from "../../server/features/devices/android-sdk.js";
 import { hasAvd, hasSnapshot } from "../../server/features/devices/avd-files.js";
 import { hostProblem } from "../../server/features/devices/device-availability.js";
@@ -217,7 +218,7 @@ test(
         `port ${port} is listed`,
       );
     for (const entry of open) {
-      assert.ok(["127.0.0.1", "::1"].includes(entry.address), JSON.stringify(entry));
+      assert.ok(isLoopbackAddress(entry.address), JSON.stringify(entry));
       assert.notEqual(entry.port, 5037);
     }
     // Files the emulator and adb created are the owner's only.
