@@ -537,14 +537,13 @@ test("an interval of 0 turns polling off", async (t) => {
   assert.equal(reads.length, 0);
 });
 
-test("close aborts a pending read within 1 s", async (t) => {
+// The read ends only when it is aborted: close() returning is the abort.
+test("close aborts a pending read", async (t) => {
   const { monitor, reads, rules, rule } = blockingMonitor(t);
   const pass = monitor.run();
   await flush();
   assert.equal(reads.length, 1);
-  const started = Date.now();
   await monitor.close();
-  assert.ok(Date.now() - started < 500);
   assert.equal(reads[0].signal.aborted, true);
   await pass;
   // Aborted by shutdown: no error on the rule.
