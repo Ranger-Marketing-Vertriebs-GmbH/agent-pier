@@ -299,10 +299,16 @@ test("a damaged file is kept aside and logged once, before a change replaces it"
     assert.match(f.logged[0], new RegExp(kept.replaceAll(".", "\\.")));
     // Nothing of what the file held reaches the log.
     assert.doesNotMatch(f.logged[0], /not json|d-0000/);
-    // The sound entries count; the next change writes a sound file beside the copy.
+    // The sound entries count, and the file is written anew from them, so the next
+    // start finds nothing damaged.
     assert.equal(grants.entries.size, index === 3 ? 1 : 0, content);
+    assert.equal(fs.existsSync(file), index === 3, content);
+    f.logged.length = 0;
+    assert.equal(f.open().grants.entries.size, index === 3 ? 1 : 0);
+    assert.deepEqual(f.logged, []);
+    assert.equal(asides(file).at(-1), kept);
   }
-  // A second start on the same damaged file keeps a second copy, never over the first.
+  // Another damaged file at the same moment is kept as a copy of its own.
   fs.writeFileSync(file, "{ not json");
   f.clock.now = 7000;
   f.open();
@@ -318,4 +324,6 @@ test("a damaged file is kept aside and logged once, before a change replaces it"
   assert.equal(grants.entries.size, 0);
   assert.equal(f.logged.length, 1);
   assert.match(f.logged[0], /could not be kept/);
+  // Nothing was written over the file that has no copy.
+  assert.equal(fs.readFileSync(file, "utf8"), "{ again");
 });
