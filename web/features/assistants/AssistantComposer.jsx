@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import Icon from "../../components/Icon.jsx";
 import ChatScrollToBottom from "../chat/ChatScrollToBottom.jsx";
 import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "../chat/enter-submit.js";
+import useTouchTap, { submitForm as submitByTap } from "../../lib/useTouchTap.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -62,6 +63,10 @@ export default function AssistantComposer({
   const ready = attachments.ids.join();
   const member = Boolean(assistant.teamMemberId);
   const hint = sendHint(touchInput);
+  // These buttons sit right below the text: iOS swallows clicks next to the cursor.
+  const sendTap = useTouchTap(submitByTap);
+  const laterTap = useTouchTap(submitByTap);
+  const stopTap = useTouchTap(() => onStop());
   const reported = useRef(ready);
   const change = (value) => {
     setText(value);
@@ -117,7 +122,7 @@ export default function AssistantComposer({
   const queueing = active || Boolean(queued);
   const canQueue = Boolean(queueing && (text.trim() || ready) && !attachments.blocked);
   const later = canQueue && (
-    <button key="later" className="assistant-later">
+    <button key="later" {...laterTap} className="assistant-later">
       <Icon name="history" size={14} />
       {copy.queued.send}
     </button>
@@ -130,7 +135,11 @@ export default function AssistantComposer({
         type="button"
         className="assistant-stop"
         aria-label={copy.stop}
-        onClick={onStop}
+        {...stopTap}
+        onClick={(event) => {
+          stopTap.onClick(event);
+          if (!event.defaultPrevented) onStop(event);
+        }}
       >
         <Icon name="stop" size={12} fill />
         {copy.stopShort}
@@ -138,6 +147,7 @@ export default function AssistantComposer({
     ) : (
       <button
         key="send"
+        {...sendTap}
         className="assistant-send"
         aria-label={copy.send}
         aria-busy={busy || undefined}

@@ -7,6 +7,7 @@ import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
 import DictationButton from "../dictation/DictationButton.jsx";
 import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "./enter-submit.js";
+import useTouchTap, { submitForm as submitByTap } from "../../lib/useTouchTap.js";
 import useNarrow from "../../lib/useNarrow.js";
 import { breakpoints, mediaQueries } from "../../lib/breakpoints.js";
 export default function ChatComposer({
@@ -29,6 +30,8 @@ export default function ChatComposer({
   const input = useRef(null);
   const sendButton = useRef(null);
   const restoreFocus = useRef(false);
+  // The button sits right below the text: iOS swallows clicks next to the cursor.
+  const sendTap = useTouchTap(submitByTap);
   const locked = busy || deliveryLocked;
   // Phone layout: the window's width, or the pane's inside a split view.
   const phone = useNarrow(mediaQueries.phone, breakpoints.phone);
@@ -149,6 +152,7 @@ export default function ChatComposer({
         />
         <button
           ref={sendButton}
+          {...sendTap}
           className="button primary chat-send"
           aria-label={busy ? commonCopy.sending : commonCopy.send}
           disabled={
