@@ -37,6 +37,7 @@ import { readDeviceSettings, writeDeviceSettings } from "./device-settings.js";
  */
 const failure = (code, status = 409, detail) =>
   Object.assign(Error(code), { code, status, ...(detail && { detail }) });
+const diskFull = (error) => ["ENOSPC", "EDQUOT"].includes(error?.code);
 
 export class AndroidSdk {
   /**
@@ -71,6 +72,23 @@ export class AndroidSdk {
   }
   save(patch) {
     return writeDeviceSettings(this.dataDir, patch);
+  }
+  // Writes what a job begins with, before anything in memory says that it runs. A
+  // write that fails (a full disk) begins nothing: it is the job's failure, recorded
+  // when the disk takes that much, and the next attempt is free to run.
+  #open(patch) {
+    try {
+      this.save(patch);
+    } catch (error) {
+      const code = diskFull(error) ? "DEVICES_DISK_SPACE" : "DEVICES_INSTALL_FAILED";
+      try {
+        this.save({ failure: { code, at: this.now() } });
+      } catch {
+        // Not even that fits; the refusal below still says it.
+      }
+      this.notify();
+      throw failure(code);
+    }
   }
   installed() {
     return installedSdk(this.paths, this.manifest, this.key);
@@ -164,8 +182,9 @@ export class AndroidSdk {
    * Starts installing the pinned components (or updating installed ones) and answers
    * status() at once; the work continues in the background and reports through
    * `changed()`. Throws a host code, DEVICES_TERMS_REQUIRED (400) unless
-   * `acceptTerms` is true, DEVICES_OPERATION_RUNNING, or DEVICES_IN_USE when an
-   * update would replace the emulator under a running device.
+   * `acceptTerms` is true, DEVICES_OPERATION_RUNNING, DEVICES_IN_USE when an update
+   * would replace the emulator under a running device, or DEVICES_DISK_SPACE or
+   * DEVICES_INSTALL_FAILED when the settings cannot be written (no job runs then).
    */
   install({ acceptTerms, by = "owner" } = {}) {
     const reason = this.problem();
@@ -182,12 +201,12 @@ export class AndroidSdk {
       },
     };
     if (this.installed().current) {
-      this.save({ requested: true, terms, failure: null });
+      this.#open({ requested: true, terms, failure: null });
       this.notify();
       return this.status();
     }
     if (this.inUse()) throw failure("DEVICES_IN_USE");
-    this.save({ requested: true, terms });
+    this.#open({ requested: true, terms });
     return this.begin();
   }
   // The background installation; the caller made sure nothing else runs.
@@ -201,8 +220,8 @@ export class AndroidSdk {
       controller,
       shutdown: false,
     };
+    this.#open({ failure: null, operation: { kind: "install", startedAt: this.now() } });
     this.operation = operation;
-    this.save({ failure: null, operation: { kind: "install", startedAt: this.now() } });
     let step = "";
     const onProgress = ({ component, phase, received, total }) => {
       operation.phase = phase;
@@ -256,8 +275,9 @@ export class AndroidSdk {
   }
   /**
    * Removes the SDK in the background and answers status() at once. Throws
-   * DEVICES_OPERATION_RUNNING, or DEVICES_IN_USE while a device runs. The caller
-   * removes the devices first.
+   * DEVICES_OPERATION_RUNNING, DEVICES_IN_USE while a device runs, or
+   * DEVICES_DISK_SPACE or DEVICES_INSTALL_FAILED when the settings cannot be written
+   * (nothing is removed then). The caller removes the devices first.
    */
   remove() {
     if (this.operation || this.closed) throw failure("DEVICES_OPERATION_RUNNING");
@@ -268,8 +288,8 @@ export class AndroidSdk {
       progress: null,
       updating: false,
     };
+    this.#open({ operation: { kind: "remove", startedAt: this.now() } });
     this.operation = operation;
-    this.save({ operation: { kind: "remove", startedAt: this.now() } });
     operation.promise = removeSdk(this.paths)
       .then(
         () =>

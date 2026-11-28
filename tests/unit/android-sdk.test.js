@@ -496,3 +496,59 @@ test("a shutdown stops the download and the next start continues it", async (t) 
   await state(next, "installed");
   assert.equal(sdk.fetchImpl.requests[0].range, "bytes=30-");
 });
+
+// A settings write that fails `times` times with `code`, as a full disk makes it.
+function failingSave(android, code, times = Infinity) {
+  const save = android.save.bind(android);
+  let left = times;
+  android.save = (patch) => {
+    if (left-- > 0) throw Object.assign(Error(`${code}: write failed`), { code });
+    return save(patch);
+  };
+  return () => (left = 0);
+}
+
+test("an installation whose first settings write fails leaves no job behind", async (t) => {
+  const { sdk, create, state } = await fixture(t);
+  writeDeviceSettings(sdk.dataDir, { requested: true, terms: terms("installer") });
+  const android = create();
+  // The disk is full for the marker and has room again for the failure.
+  failingSave(android, "ENOSPC", 1);
+  assert.throws(() => android.resume(), refusal("DEVICES_DISK_SPACE"));
+  assert.equal(android.operation, null);
+  assert.equal(android.status().state, "failed");
+  assert.equal(android.status().failure.code, "DEVICES_DISK_SPACE");
+  assert.equal(readDeviceSettings(sdk.dataDir).operation, null);
+  // Nothing is stuck: the owner's next attempt runs, and so does a cancel.
+  assert.equal(android.install({ acceptTerms: true }).state, "downloading");
+  assert.equal(android.cancel().state, "downloading");
+  await state(android, "absent");
+
+  // While no write works at all the failure cannot be recorded, but nothing hangs.
+  const other = create();
+  const heal = failingSave(other, "EACCES");
+  assert.throws(
+    () => other.install({ acceptTerms: true }),
+    refusal("DEVICES_INSTALL_FAILED"),
+  );
+  assert.equal(other.operation, null);
+  assert.equal(other.status().state, "absent");
+  heal();
+  assert.equal(other.install({ acceptTerms: true }).state, "downloading");
+  await state(other, "installed");
+});
+
+test("a removal whose settings write fails removes nothing and leaves no job behind", async (t) => {
+  const { sdk, create, state } = await fixture(t);
+  await installFakeSdk(sdk.dataDir, sdk.manifest);
+  const android = create();
+  failingSave(android, "ENOSPC", 1);
+  assert.throws(() => android.remove(), refusal("DEVICES_DISK_SPACE"));
+  assert.equal(android.operation, null);
+  assert.equal(android.available(), null);
+  assert.equal(android.status().state, "installed");
+  assert.equal(android.status().failure.code, "DEVICES_DISK_SPACE");
+  assert.equal(fs.existsSync(sdk.paths.emulatorBin), true);
+  assert.equal(android.remove().state, "removing");
+  await state(android, "absent");
+});
