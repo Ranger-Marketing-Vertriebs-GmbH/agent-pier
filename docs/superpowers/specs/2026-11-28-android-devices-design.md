@@ -746,7 +746,7 @@ manage: false, passedBy: { id, name } }`. A pass that ended with its task leaves
 fields flat beside it (`device`, `name`, `element`, `x`, `y`, `longPress`, `scroll`,
 `x1`, `y1`, `x2`, `y2`, `durationMs`, `key`, `count`, `text`, `path`, `devicePath`,
 `package`, `activity`, `all`, `url`, `lines`, `tag`, `priority`, `command`,
-`timeoutMs`), the same on OpenClaw and Hermes. `agentpier_team_delegate` gained
+`timeoutMs`), the same on OpenClaw and Hermes. An agent's call ends after 110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`; a session's after 140), and the plugins wait 125. `agentpier_team_delegate` gained
 `access.devices` (1 to 20 ids or names). The run rules are the table in
 `docs/assistant-gateway.md` (Android devices).
 
@@ -793,12 +793,17 @@ Nothing built here stands in its way. What it needs:
 
 ### Known and not verified (pull request 3, backend)
 
-- The pinned runtimes' contracts (`AGENTPIER_TEAM_CONTRACT_RUNTIME`,
-  `AGENTPIER_HERMES_CONTRACT_RUNTIME`) were not run with the device tool on this
-  machine: no contract installation is provisioned here. The plugins' handling of
-  the answer is tested against the plugin code itself (the OpenClaw plugin's
-  `execute`, the compiled Hermes plugin in Python), not against a model request of
-  a running runtime.
+- The pinned runtimes run the tool in two contracts, both run on macOS (Apple
+  silicon) only so far: `tests/integration/assistant-device-tool-contract.test.js`
+  (OpenClaw 2026.11.6; the device on a source in memory) and
+  `tests/integration/hermes-device-tool-contract.test.js` (the pinned Hermes; the
+  devices on the fake SDK). In both the model's request after the tool call carries
+  the screenshot as an image part: on OpenClaw in a user message after the tool
+  result ("Image(s) from tool result #1 (agentpier_device):", how OpenClaw hands a
+  tool result's image to a chat-completions model), on Hermes inside the tool
+  message. Their Linux runs are the workflow's (`assistant-runtime.yml`). Neither
+  contract boots Google's emulator; the native emulator contract still exercises
+  the device actions through a session only.
 - The run gate is tested once, on the shared bridge; the Hermes side of it is the
   session key its plugin sends (tested) and the same bridge.
 - On Hermes a call's HTTP request is not aborted when its turn is stopped; such a
