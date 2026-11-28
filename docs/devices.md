@@ -265,7 +265,8 @@ default. The tool does what a coding session's tools do (the table under
 `tap`, `swipe`, `key`, `type`, `install`, `push`, `pull`, `app_launch`, `app_stop`,
 `apps`, `open_url`, `logs` and `shell`, with the same arguments and sizes. An
 agent's call ends after 110 seconds as a whole (a session's after 140), also while a
-device is still booting, which then goes on. A screenshot reaches the agent's model as an image.
+device is still booting, which then goes on; so an agent's `shell` takes a `timeoutMs`
+of at most 100000 (a session's 120000). A screenshot reaches the agent's model as an image.
 
 You assign devices in the agent's settings, **Agents › <agent> › Access › Android
 devices**, at the end of the tab's groups (in the search, ⌘K / Ctrl+K, as "<agent> ·
