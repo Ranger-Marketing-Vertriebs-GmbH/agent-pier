@@ -1,5 +1,5 @@
 import { refusal } from "../devices/device-registry.js";
-import { deviceAgent, deviceOrigin, deviceRun } from "./agent-device-origin.js";
+import { deviceAgent, deviceRun, taskOrigin } from "./agent-device-origin.js";
 import { callerOf, requestKind, requestTerminal } from "./lead-request-store.js";
 
 /*
@@ -61,7 +61,7 @@ export function taskDevices(s, request) {
     requestTerminal.has(request.phase) ||
     request.fromMemberId ||
     !Array.isArray(request.devices) ||
-    !deviceOrigin(request.origin)
+    !taskOrigin(request.origin)
   )
     return [];
   const lead = passingLead(s, request);

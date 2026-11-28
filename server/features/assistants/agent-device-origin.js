@@ -1,9 +1,9 @@
 import { refusal } from "../devices/device-registry.js";
 import { isUserAgent } from "../users/user-access.js";
-import { directOwnerTurn } from "./goal-turns.js";
+import { directOwnerTurn, goalTurn } from "./goal-turns.js";
 import { requestKind, requestTerminal, taskWritable } from "./lead-request-store.js";
 import { isLeadRoutine } from "./lead-routines.js";
-import { foreignOrigin, ownerChat } from "./owner-runs.js";
+import { ownerChat } from "./owner-runs.js";
 
 /*
  * Which runs of an agent get Android devices, decided by the owner (AGENTPIER-508).
@@ -14,13 +14,16 @@ import { foreignOrigin, ownerChat } from "./owner-runs.js";
  * - Only the owner's own agents: never an archived agent, an agent of restricted
  *   users or an agent with its own Telegram bot for other people
  *   (DEVICE_AGENT_INELIGIBLE), and only in the owner's own chat with the agent.
- * - A run that works on content the owner did not write gets no device at all
- *   (DEVICE_RUN_FORBIDDEN): a forwarded message, what a restricted user, a team
- *   member or a remote host sent (owner-runs.js foreignOrigin), a memory step, and
- *   every run whose origin AgentPier does not know.
- * - Every other run uses the agent's devices: the owner's turns, the follow-ups
- *   AgentPier sends into their chat, goal continuations, routines, hook runs and
- *   the runs of the owner's chat without a turn.
+ * - A turn uses the agent's devices only when its recorded origin is one the owner
+ *   decided on (`deviceOriginKinds`, an allow-list): their own message, a goal
+ *   continuation and what their own agents and coding sessions report into the
+ *   chat. Every other turn gets no device at all (DEVICE_RUN_FORBIDDEN): a
+ *   forwarded message, what a restricted user, a team member or a remote host
+ *   sent, the outcome of a mail, an SSH access or a memory proposal, a memory
+ *   step, a kind nobody decided on yet, and every run whose origin AgentPier does
+ *   not know.
+ * - Routines, hook runs and the runs of the owner's chat without a turn use the
+ *   agent's devices too.
  * - Creating, resetting and deleting (`manage`) is for a turn the owner started
  *   with a message of their own (goal-turns.js directOwnerTurn): never a routine, a
  *   hook, a goal continuation, a follow-up or a run without a turn.
@@ -61,16 +64,55 @@ export function deviceAgent(services, agent) {
 }
 
 /**
- * Whether a turn's recorded origin lets the turn use devices: a known origin that is
- * neither someone else's content nor a memory step. No record is no permission.
+ * The origin kinds whose turns use devices, each decided by the owner
+ * (AGENTPIER-508); every other kind, a new one too, gets none until it is decided
+ * and listed here (tests/integration/agent-device-origins.test.js pins the list
+ * against the kinds the server records):
+ *
+ * - `owner`, `telegram`: the owner's own message, which also manages unless it is
+ *   a goal continuation (goal-turns.js directOwnerTurn).
+ * - `reminder`, `member-result`, `team-result`, `coding-result`, `session-talk`,
+ *   `coding-session`, `member-long-chat`: what the owner's own agents and coding
+ *   sessions report into their chat. Use only.
+ *
+ * Not listed, so without a device: `mail-result`, `ssh-access-result`,
+ * `memory-result` and `coding-start` (outcomes of the owner's approvals; no need
+ * for a device showed), `memory-step`, everything foreign (owner-runs.js
+ * foreignKinds), `unknown` and a turn without a record.
  */
-export const deviceOrigin = (origin) =>
-  !!origin &&
-  typeof origin === "object" &&
-  typeof origin.kind === "string" &&
-  origin.kind !== "unknown" &&
-  origin.kind !== "memory-step" &&
-  !foreignOrigin(origin);
+export const deviceOriginKinds = Object.freeze([
+  "owner",
+  "telegram",
+  "reminder",
+  "member-result",
+  "team-result",
+  "coding-result",
+  "session-talk",
+  "coding-session",
+  "member-long-chat",
+]);
+
+const usingKinds = new Set(deviceOriginKinds);
+
+/**
+ * Whether a turn's recorded origin lets the turn use devices: one of
+ * `deviceOriginKinds` that is not forwarded. A goal turn that hands a result over
+ * (lead-request-delivery.js goalResult) is judged by that result as well. No record
+ * is no permission.
+ */
+export function deviceOrigin(origin) {
+  if (!origin || typeof origin !== "object" || origin.forwarded) return false;
+  if (!usingKinds.has(origin.kind)) return false;
+  const result = goalTurn(origin) ? origin.result : null;
+  return !result || (usingKinds.has(result?.kind) && !result.forwarded);
+}
+
+/**
+ * Whether the run that started a task could have used devices: a turn of such an
+ * origin, or a routine's run, which records `{ kind: "routine" }` as the task's
+ * origin (lead-request-store.js).
+ */
+export const taskOrigin = (origin) => origin?.kind === "routine" || deviceOrigin(origin);
 
 // A routine of the owner's own (never a lead's on its member) writes unless they
 // switched "May write" off; a lead's routine as AgentPier decides for it.
@@ -95,7 +137,7 @@ function memberTask(w, agent, origin) {
     requestTerminal.has(request.phase) ||
     // A colleague's request is the colleague's content, not the lead's.
     request.fromMemberId ||
-    !deviceOrigin(request.origin)
+    !taskOrigin(request.origin)
   )
     throw forbidden();
   return { request, lead: workingLead(w, request.parentAssistantId) };

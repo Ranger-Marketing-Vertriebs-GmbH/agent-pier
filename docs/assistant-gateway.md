@@ -5994,16 +5994,23 @@ devices' own gate, `agent-device-origin.js`, asked when the call arrives and aga
 when its turn on the device's queue comes (`DeviceService` calls the caller's
 `admit`):
 
-| Run (the bridge's ticket, and the turn's recorded origin)                                                     | Use                            | Create, reset, delete |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- |
-| Turn with origin `owner` or `telegram`, not `forwarded`, no goal marker (`directOwnerTurn`)                   | yes                            | yes                   |
-| Turn with any other known origin that is not foreign (`foreignOrigin`) and no memory step                     | yes                            | no                    |
-| Routine run, hook run                                                                                         | yes                            | no                    |
-| Owner run without a turn, the chat's latest request has an origin that may use devices (or the chat has none) | yes                            | no                    |
-| Routine a lead set up on its member (`createdBy: "lead"`), the lead no device agent or a member               | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
-| Member's turn with origin `lead-request`, its task open, the task's own origin usable, lead eligible          | the task's pass and its own    | no                    |
-| Forwarded or foreign origin, `memory-step`, `unknown`, no record, a temporary member's other turns            | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
-| Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's           | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
+| Run (the bridge's ticket, and the turn's recorded origin)                                                                                                                                                            | Use                            | Create, reset, delete |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- |
+| Turn with origin `owner` or `telegram`, not `forwarded`, no goal marker (`directOwnerTurn`)                                                                                                                          | yes                            | yes                   |
+| Turn with origin `owner` or `telegram` and a goal marker; `reminder`, `member-result`, `team-result`, `coding-result`, `session-talk`, `coding-session`, `member-long-chat`; none of them `forwarded`                | yes                            | no                    |
+| Routine run, hook run                                                                                                                                                                                                | yes                            | no                    |
+| Owner run without a turn, the chat's latest request has an origin that may use devices (or the chat has none)                                                                                                        | yes                            | no                    |
+| Routine a lead set up on its member (`createdBy: "lead"`), the lead no device agent or a member                                                                                                                      | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
+| Member's turn with origin `lead-request`, its task open, the task's own origin usable, lead eligible                                                                                                                 | the task's pass and its own    | no                    |
+| Any other origin: forwarded, foreign (`foreignKinds`), `mail-result`, `ssh-access-result`, `memory-result`, `coding-start`, `memory-step`, `unknown`, no record, a kind not listed; a temporary member's other turns | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
+| Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's                                                                                                                  | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
+
+The origins are an allow-list (`deviceOriginKinds`), decided by the owner per kind:
+a kind that is not listed, a new one too, gets no device.
+`tests/integration/agent-device-origins.test.js` scans the server for the kinds it
+records as a turn's trusted context and fails for one without a decision. A goal
+turn that hands a result over (`goalResult`) needs that result's kind listed as well,
+and a task's origin may also be `routine` (`taskOrigin`).
 
 The bridge binds a call to the one live turn of its session whatever run the call
 names, so the gate compares the run itself (`agent-device-origin.js` `ownRun`): a
