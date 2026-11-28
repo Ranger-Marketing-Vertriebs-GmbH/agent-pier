@@ -360,7 +360,17 @@ test("after a restart the sources reclaim what was left and no device runs", asy
   t.mock.method(console, "warn", () => {});
   await third.service.start();
   assert.equal(third.service.view().counts.total, 2);
-  for (const { service } of [second, third]) await service.shutdown({ graceMs: 1 });
+  // Not even one that throws at once: the calls that waited for it go on.
+  const fourth = fixture(t, { dataDir: first.dataDir });
+  fourth.source.reclaim = () => {
+    throw Error("x");
+  };
+  const starting = fourth.service.start();
+  const booting = fourth.service.startDevice(a.id, { caller: owner });
+  await starting;
+  assert.equal((await booting).state, "running");
+  for (const { service } of [second, third, fourth])
+    await service.shutdown({ graceMs: 1 });
 });
 
 test("shutdown returns within its bound although a device never stops", async (t) => {

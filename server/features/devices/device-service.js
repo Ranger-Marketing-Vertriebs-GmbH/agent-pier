@@ -383,13 +383,12 @@ export class DeviceService extends DeviceRegistry {
       await earlier;
       const records = this.store.list();
       for (const [name, source] of Object.entries(this.sources))
-        await source
-          .reclaim(records.filter((record) => record.source === name))
-          .catch((error) =>
-            console.warn(
-              `Android devices: reclaim failed (${error?.code || "unknown"}).`,
-            ),
-          );
+        try {
+          await source.reclaim(records.filter((record) => record.source === name));
+        } catch (error) {
+          // The calls that wait go on all the same.
+          console.warn(`Android devices: reclaim failed (${error?.code || "unknown"}).`);
+        }
       return records;
     };
     const reclaimed = reclaim();
