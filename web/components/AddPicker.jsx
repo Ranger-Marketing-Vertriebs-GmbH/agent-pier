@@ -97,12 +97,31 @@ export default function AddPicker({
 
   useEffect(() => {
     if (!state.open || state.selected.length) return undefined;
-    // A click elsewhere closes an untouched list; checked items keep it open.
+    // A click elsewhere closes an untouched list; checked items keep it open. The
+    // list closes once the press has ended and its click is delivered: it lies in
+    // the page's flow, so closing it at once would move a control below it away
+    // from under the pointer and that click would be lost.
+    let timer = null;
+    const ended = () => {
+      release();
+      timer = setTimeout(() => dispatch({ type: "close" }), 0);
+    };
+    const release = () => {
+      document.removeEventListener("pointerup", ended, true);
+      document.removeEventListener("pointercancel", ended, true);
+    };
     const outside = (event) => {
-      if (!root.current?.contains(event.target)) dispatch({ type: "close" });
+      if (root.current?.contains(event.target)) return;
+      release();
+      document.addEventListener("pointerup", ended, true);
+      document.addEventListener("pointercancel", ended, true);
     };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      release();
+      clearTimeout(timer);
+    };
   }, [state.open, state.selected.length]);
 
   function finish(items) {
