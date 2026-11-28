@@ -65,16 +65,16 @@ Spike of 2026-11-28 (details in AGENTPIER-508): emulator 37.3.10, platform-tools
 image `android-36;google_apis`, headless (`-no-window -no-audio -no-boot-anim -gpu
 swiftshader_indirect -cores 4`).
 
-| | macOS arm64 (M4 Max) | Linux x64 VM with nested KVM |
-|---|---|---|
-| Cold boot | 24–37 s | 29 s (first ever 60 s) |
-| Boot from quick-boot snapshot | 3–4 s | 2.9 s |
-| Host memory per running device | 5–6 GB | 3.4 GB |
-| Download / on disk | 5.7 GB SDK | 5.3 GB SDK |
-| Per device on disk | 1.8 GB, 4.4–4.9 GB with snapshot | 3.4 GB with snapshot |
-| tap / text | 18–27 ms / 40 ms | 19 ms / 30 ms |
-| screenshot PNG (1080x2400) | 112–450 ms | 876 ms |
-| `uiautomator dump` | 2.0 s | 2.0 s |
+|                                | macOS arm64 (M4 Max)             | Linux x64 VM with nested KVM |
+| ------------------------------ | -------------------------------- | ---------------------------- |
+| Cold boot                      | 24–37 s                          | 29 s (first ever 60 s)       |
+| Boot from quick-boot snapshot  | 3–4 s                            | 2.9 s                        |
+| Host memory per running device | 5–6 GB                           | 3.4 GB                       |
+| Download / on disk             | 5.7 GB SDK                       | 5.3 GB SDK                   |
+| Per device on disk             | 1.8 GB, 4.4–4.9 GB with snapshot | 3.4 GB with snapshot         |
+| tap / text                     | 18–27 ms / 40 ms                 | 19 ms / 30 ms                |
+| screenshot PNG (1080x2400)     | 112–450 ms                       | 876 ms                       |
+| `uiautomator dump`             | 2.0 s                            | 2.0 s                        |
 
 - Supported hosts: macOS arm64, Linux x64 with `/dev/kvm` usable by the service user.
   There is no emulator build for Linux arm64. macOS x64 was not measured and is not
@@ -109,7 +109,7 @@ How comparable features are built today (verified in the code at 2dfcf5716):
 create, reset and delete):
 
 1. Named devices the owner assigns, like SSH accesses. State (apps, logins) persists,
-   several agents can use one device after another, memory stays bounded. *Picked.*
+   several agents can use one device after another, memory stays bounded. _Picked._
 2. One automatic device per agent and session. No setup, clean separation, but gigabytes
    of disk per agent and quickly a lot of memory.
 3. Throwaway devices per task. Always fresh, but logins are lost each time. Covered
@@ -122,8 +122,8 @@ later.
 
 **The owner's view** (owner picked 1, then 2):
 
-1. Screenshots a few times per second plus takeover. No extra software. *First version.*
-2. H.264 video stream through a helper on the device. *Next, AGENTPIER-514.*
+1. Screenshots a few times per second plus takeover. No extra software. _First version._
+2. H.264 video stream through a helper on the device. _Next, AGENTPIER-514._
 3. No view. Rejected: the owner could not log in on a device.
 
 ## Design
@@ -163,7 +163,7 @@ a source whose devices also end up as adb serials.
   agreed.)
 - Linux: the system libraries the emulator needs go into `scripts/install-dependencies.mjs`
   as optional packages. The spike installed `libpulse0 libnss3 libxkbfile1 libxcb-cursor0
-  libgl1` up front; find the minimal set.
+libgl1` up front; find the minimal set.
 - Unavailable reasons, each with its own text: unsupported platform or architecture, no
   `/dev/kvm`, `/dev/kvm` not usable by the service user (the text names the `kvm` group),
   not installed.
