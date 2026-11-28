@@ -22,9 +22,13 @@ function fixture(t) {
     [TWO, { id: TWO, name: "Ada" }],
   ]);
   const state = { readable: true };
+  const logged = [];
+  const clock = { now: 1000 };
   const open = () => {
     const grants = new AgentDeviceGrants({
       dataDir,
+      now: () => clock.now,
+      log: (line) => logged.push(line),
       agent: (id) => {
         if (!state.readable) throw Error("store closed");
         return agents.get(id) ?? null;
@@ -36,7 +40,7 @@ function fixture(t) {
     return { grants, changes };
   };
   const file = path.join(dataDir, "devices", "agent-grants.json");
-  return { dataDir, agents, state, file, open, ...open() };
+  return { dataDir, agents, state, file, logged, clock, open, ...open() };
 }
 // Nothing can be written or removed any more, as on a full or read-only disk.
 function fullDisk(t) {
@@ -248,4 +252,70 @@ test("a listener that fails does not undo the change", (t) => {
   t.mock.method(console, "error", () => {});
   grants.set(ONE, { devices: [], create: true });
   assert.equal(grants.canCreate(ONE), true);
+});
+
+const asides = (file) =>
+  fs
+    .readdirSync(path.dirname(file))
+    .filter((name) => name.startsWith(`${path.basename(file)}.damaged-`))
+    .sort();
+
+test("a damaged file is kept aside and logged once, before a change replaces it", (t) => {
+  const f = fixture(t);
+  const file = path.join(f.dataDir, "devices", "agent-grants.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  // A missing file is no damage.
+  f.logged.length = 0;
+  f.open();
+  assert.deepEqual([f.logged, asides(file)], [[], []]);
+  const contents = [
+    "{ not json",
+    "[]",
+    JSON.stringify({ version: 1, agents: [] }),
+    // One entry of another shape beside a sound one: nothing of it is lost either.
+    JSON.stringify({
+      version: 1,
+      agents: {
+        "11111111-1111-4111-8111-111111111111": {
+          devices: [{ deviceId: A, manage: true }],
+          create: false,
+          area: null,
+        },
+        "../x": { devices: [], create: true },
+      },
+    }),
+  ];
+  for (const [index, content] of contents.entries()) {
+    fs.writeFileSync(file, content);
+    f.logged.length = 0;
+    f.clock.now = 7000 + index;
+    const { grants } = f.open();
+    const kept = `${path.basename(file)}.damaged-${7000 + index}`;
+    assert.equal(asides(file).at(-1), kept, content);
+    const aside = path.join(path.dirname(file), kept);
+    assert.equal(fs.readFileSync(aside, "utf8"), content);
+    assert.equal(fs.statSync(aside).mode & 0o77, 0);
+    assert.equal(f.logged.length, 1, content);
+    assert.match(f.logged[0], new RegExp(kept.replaceAll(".", "\\.")));
+    // Nothing of what the file held reaches the log.
+    assert.doesNotMatch(f.logged[0], /not json|d-0000/);
+    // The sound entries count; the next change writes a sound file beside the copy.
+    assert.equal(grants.entries.size, index === 3 ? 1 : 0, content);
+  }
+  // A second start on the same damaged file keeps a second copy, never over the first.
+  fs.writeFileSync(file, "{ not json");
+  f.clock.now = 7000;
+  f.open();
+  assert.equal(asides(file).length, contents.length + 1);
+  // A file that cannot be kept aside is still reported, and grants nothing.
+  fs.writeFileSync(file, "{ again");
+  f.logged.length = 0;
+  const copy = t.mock.method(fs, "copyFileSync", () => {
+    throw Object.assign(Error("ENOSPC"), { code: "ENOSPC" });
+  });
+  const { grants } = f.open();
+  copy.mock.restore();
+  assert.equal(grants.entries.size, 0);
+  assert.equal(f.logged.length, 1);
+  assert.match(f.logged[0], /could not be kept/);
 });
