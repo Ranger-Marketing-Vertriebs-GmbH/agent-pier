@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { fakeAndroidSdk, installFakeSdk } from "../helpers/fake-android-sdk.js";
+import {
+  bundledLibraries,
+  fakeAndroidSdk,
+  fakeLdd,
+  installFakeSdk,
+} from "../helpers/fake-android-sdk.js";
 import {
   ensureSdk,
   installedSdk,
@@ -29,6 +34,7 @@ async function fixture(t, options) {
       manifest: sdk.manifest,
       key: sdk.key,
       fetchImpl: sdk.fetchImpl,
+      run: sdk.run,
       ...overrides,
     });
   return { sdk, paths: sdk.paths, install };
@@ -388,12 +394,32 @@ test("a component that does not run or is another version is unusable", async (t
     assert.deepEqual(error.detail, { missing: ["libX11.so.6", "libxcb.so.1"] });
     return true;
   });
-  // Both the launcher and the headless binary it starts are looked at; what only
-  // the headless one lacks is named too.
+  // The launcher and the headless binary of this host are looked at, not the ones
+  // that emulate other architectures; what only the headless one lacks is named too.
   const looked = calls.filter(([command]) => command === "ldd").map(([, file]) => file);
   assert.deepEqual(
     [...new Set(looked.map((file) => path.basename(file)))],
     ["emulator", "qemu-system-x86_64-headless"],
+  );
+  // A start that fails names the library the loader could not open (libX11-xcb is
+  // loaded late, so ldd does not list it).
+  const loader = (name) =>
+    `qemu-system-x86_64-headless: error while loading shared libraries: ${name}: ` +
+    "cannot open shared object file: No such file or directory\n";
+  await assert.rejects(
+    install({
+      run: run({
+        ...outputs,
+        "-version": Object.assign(Error("exit"), {
+          output: loader("libX11-xcb.so.1") + loader("libX11-xcb.so.1"),
+        }),
+      }),
+    }),
+    (error) => {
+      assert.equal(error.code, "DEVICES_SDK_UNUSABLE");
+      assert.deepEqual(error.detail, { missing: ["libX11-xcb.so.1"] });
+      return true;
+    },
   );
   assert.match(
     looked.find((file) => file.endsWith("-headless")),
@@ -426,6 +452,93 @@ test("a component that does not run or is another version is unusable", async (t
   assert.equal(
     sdk.fetchImpl.requests[0].range,
     `bytes=${sdk.manifest.emulator.archives[sdk.key].size}-`,
+  );
+});
+
+test("the emulator's bundled libraries do not count as missing on Linux", async (t) => {
+  // The headless qemu loads libc++ and its own libraries from <emulator>/lib64, which
+  // only the launcher puts on the library path: a plain ldd reports every one of them
+  // as not found on a host where the emulator runs (seen on Linux x64, 13 libraries).
+  const { sdk, paths, install } = await fixture(t);
+  const lookups = [];
+  const run = (command, args, env, ...rest) => {
+    if (command === "ldd")
+      lookups.push({ file: args[0], libraryPath: env.LD_LIBRARY_PATH ?? "" });
+    return sdk.run(command, args, env, ...rest);
+  };
+  const base = { ...process.env, LD_LIBRARY_PATH: "/opt/own/lib" };
+  assert.equal((await install({ run, env: base })).current, true);
+  const headless = lookups.filter(({ file }) => file.endsWith("-headless"));
+  assert.equal(headless.length, 1);
+  assert.match(headless[0].file, /[/]qemu[/]linux-x86_64[/]qemu-system-x86_64-headless$/);
+  // The staged emulator's lib64 comes first; what the environment had stays.
+  const [bundled, ...rest] = headless[0].libraryPath.split(":");
+  assert.equal(path.basename(bundled), "lib64");
+  assert.equal(path.dirname(bundled), path.dirname(lookups[0].file));
+  assert.deepEqual(rest, ["/opt/own/lib"]);
+  // The launcher is looked at as it is.
+  assert.equal(lookups[0].libraryPath, "/opt/own/lib");
+  assert.equal(path.basename(lookups[0].file), "emulator");
+
+  // The fake answers as the real ldd does: without the path every bundled library is
+  // missing, and the binary of another architecture never resolves.
+  const qemu = path.join(paths.emulator, "qemu/linux-x86_64/qemu-system-x86_64-headless");
+  const missing = (output) =>
+    [...output.matchAll(/^\s*(\S+) => not found/gm)].map((match) => match[1]);
+  assert.deepEqual(missing(fakeLdd(qemu)), bundledLibraries);
+  assert.deepEqual(
+    missing(fakeLdd(qemu, { LD_LIBRARY_PATH: path.join(paths.emulator, "lib64") })),
+    [],
+  );
+  assert.deepEqual(missing(fakeLdd(paths.emulatorBin)), []);
+  const foreign = path.join(
+    paths.emulator,
+    "qemu/linux-aarch64/qemu-system-aarch64-headless",
+  );
+  assert.ok(fs.existsSync(foreign));
+  assert.deepEqual(
+    missing(fakeLdd(foreign, { LD_LIBRARY_PATH: path.join(paths.emulator, "lib64") })),
+    ["libfake-foreign.so.1"],
+  );
+});
+
+test("a library the host lacks is still named beside the bundled ones", async (t) => {
+  const { sdk, install } = await fixture(t);
+  // libX11 is not bundled: it stays missing with the emulator's lib64 on the path.
+  const run = async (command, args, env, ...rest) => {
+    const output = await sdk.run(command, args, env, ...rest);
+    return command === "ldd" && args[0].endsWith("-headless")
+      ? output + "\tlibX11.so.6 => not found\n"
+      : output;
+  };
+  await assert.rejects(install({ run }), (error) => {
+    assert.equal(error.code, "DEVICES_SDK_UNUSABLE");
+    assert.deepEqual(error.detail, { missing: ["libX11.so.6"] });
+    return true;
+  });
+});
+
+test("a failed installer step keeps its output for the caller", async () => {
+  const { run } = await import("../../server/features/tools/tool-run.js");
+  const script =
+    "console.error('x: error while loading shared libraries: libQ.so.1: cannot open " +
+    "shared object file: No such file or directory'); process.exit(127)";
+  await assert.rejects(
+    run(
+      process.execPath,
+      ["-e", script],
+      process.env,
+      process.cwd(),
+      new AbortController().signal,
+      20000,
+    ),
+    (error) => {
+      assert.match(error.output, /libQ\.so\.1: cannot open shared object file/);
+      // The message and a copy of the error stay free of it.
+      assert.doesNotMatch(error.message, /libQ/);
+      assert.equal(Object.keys(error).includes("output"), false);
+      return true;
+    },
   );
 });
 
