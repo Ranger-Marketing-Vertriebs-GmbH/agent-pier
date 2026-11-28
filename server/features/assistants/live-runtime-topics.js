@@ -91,7 +91,9 @@ export function runtimesTopic(services) {
 // value GET /api/assistant-semantic-memory answers (off, downloading with its bytes,
 // rebuilding with its agents, on, or failed with its reason). The service signals
 // every change itself (runtimes/openclaw/semantic-memory.js `changed`: each step of
-// a download and of an index rebuild), so nothing is sampled. Owner only.
+// a download and of an index rebuild, and a search that answered without
+// embeddings), so nothing is sampled. A first watcher has the service check once per
+// Gateway process whether embeddings answer (`opened`). Owner only.
 export function semanticMemoryTopic(services) {
   return {
     name: "runtime.semantic-memory",
@@ -103,7 +105,12 @@ export function semanticMemoryTopic(services) {
         throw notRunning(Boolean(services.assistantFeature?.enabled));
       return services.assistantSemanticMemory.status();
     },
-    watch: ({ invalidate }) => followAgentSwitch(services, invalidate),
+    watch({ invalidate }) {
+      // The owner looks at it: asked once per Gateway process whether embeddings
+      // answer, in the background; its result is a change like any other.
+      services.assistantSemanticMemory?.opened?.();
+      return followAgentSwitch(services, invalidate);
+    },
   };
 }
 

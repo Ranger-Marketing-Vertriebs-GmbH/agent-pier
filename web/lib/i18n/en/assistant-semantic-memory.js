@@ -8,6 +8,7 @@ export const assistantSemanticMemoryCopy = {
     on: "On",
     downloading: "Downloading",
     rebuilding: "Rebuilding",
+    degraded: "Not working",
     failed: "Off",
   },
   turnOn: "Turn on …",
@@ -15,6 +16,24 @@ export const assistantSemanticMemoryCopy = {
   turnOff: "Turn off …",
   turnOffHint: "Restarts the agent service and goes back to keyword search.",
   running: "In progress",
+  repair: "Repair …",
+  repairHint:
+    "Installs the server and the model again, restarts the agent service and rebuilds the indexes.",
+  repairTitle: "Repair semantic memory search?",
+  repairBody: (size) =>
+    `AgentPier installs the llama.cpp server again, downloads the embedding model (${size}) if it is missing or changed, then restarts the agent service and rebuilds every agent's memory index. Running agent work is interrupted, and the agents are not available until the rebuild is done.`,
+  repairConfirm: "Repair",
+  degraded: (reason) =>
+    `Semantic search is on but not working: memory search answers by keyword only. ${reason}`,
+  degradedReasons: {
+    EMBEDDINGS_UNAVAILABLE: "The embedding server did not answer the last memory search.",
+    EMBEDDING_MODEL_MISSING: "The embedding model is no longer on this computer.",
+    EMBEDDING_SERVER_MISSING: "The llama.cpp server is no longer on this computer.",
+    EMBEDDING_SERVER_UNUSABLE:
+      "The llama.cpp server does not start on this computer. On Linux it needs glibc 2.34 or newer (2.38 on arm64), OpenMP and OpenSSL 3 (Debian and Ubuntu: libgomp1 and libssl3).",
+    RUNTIME_UPDATE_REQUIRED: "The OpenClaw runtime in use has no local embeddings.",
+  },
+  degradedReason: (code) => `Reason: ${code}.`,
   downloading: (received, total) =>
     `Downloading the embedding model: ${received} of ${total}`,
   phases: {
@@ -64,6 +83,8 @@ export const assistantSemanticMemoryCopy = {
       "The embedding model is no longer on this computer, so keyword search was restored. Turn it on again to download it.",
     EMBEDDING_SERVER_MISSING:
       "The llama.cpp server is no longer on this computer, so keyword search was restored. Turn it on again to install it.",
+    EMBEDDING_MODEL_CHANGED:
+      "The embedding model file on this computer had changed, so keyword search was restored. Turn it on again to download it.",
     RUNTIME_UPDATE_REQUIRED:
       "The OpenClaw runtime in use has no local embeddings, so keyword search was restored. Activate the current runtime, then turn it on again.",
     MEMORY_INDEX_FAILED:

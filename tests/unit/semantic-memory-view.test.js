@@ -36,12 +36,14 @@ test("off offers the switch on and says what it does", () => {
     progress: "",
     note: "",
     alert: "",
-    action: {
-      kind: "on",
-      label: "Turn on …",
-      hint: "Downloads the model, restarts the agent service and rebuilds the indexes.",
-      disabled: false,
-    },
+    actions: [
+      {
+        kind: "on",
+        label: "Turn on …",
+        hint: "Downloads the model, restarts the agent service and rebuilds the indexes.",
+        disabled: false,
+      },
+    ],
   });
 });
 
@@ -49,7 +51,7 @@ test("on offers the switch off; a rebuild still waiting for a start is said", ()
   const on = view({ enabled: true, state: "on" });
   assert.equal(on.tone, "ok");
   assert.equal(on.state, "On");
-  assert.deepEqual(on.action, {
+  assert.deepEqual(on.actions.at(-1), {
     kind: "off",
     label: "Turn off …",
     hint: "Restarts the agent service and goes back to keyword search.",
@@ -71,7 +73,7 @@ test("a running switch shows its step and locks the switch", () => {
   assert.equal(downloading.state, "Downloading");
   assert.equal(downloading.running, true);
   assert.equal(downloading.progress, "Downloading the embedding model: 100 MB of 313 MB");
-  assert.equal(downloading.action.disabled, true);
+  assert.equal(downloading.actions.at(-1).disabled, true);
   const step = (progress, enabled = true) =>
     view({ enabled, state: "rebuilding", progress }).progress;
   assert.equal(
@@ -95,7 +97,7 @@ test("a running switch shows its step and locks the switch", () => {
     progress: { phase: "indexing" },
   });
   assert.equal(rebuilding.state, "Rebuilding");
-  assert.equal(rebuilding.action.disabled, true);
+  assert.equal(rebuilding.actions.at(-1).disabled, true);
 });
 
 test("a failure reads as off with its reason and can be tried again", () => {
@@ -109,8 +111,8 @@ test("a failure reads as off with its reason and can be tried again", () => {
     failed.alert,
     "The memory indexes could not be rebuilt with the embedding model. Keyword search was restored.",
   );
-  assert.equal(failed.action.kind, "on");
-  assert.equal(failed.action.disabled, false);
+  assert.equal(failed.actions.at(-1).kind, "on");
+  assert.equal(failed.actions.at(-1).disabled, false);
   // Every failure the server can record has its own words in both languages.
   const codes = [
     "INTERRUPTED",
@@ -122,6 +124,7 @@ test("a failure reads as off with its reason and can be tried again", () => {
     "EMBEDDING_SERVER_UNUSABLE",
     "EMBEDDING_MODEL_MISSING",
     "EMBEDDING_SERVER_MISSING",
+    "EMBEDDING_MODEL_CHANGED",
     "RUNTIME_UPDATE_REQUIRED",
     "MEMORY_INDEX_FAILED",
     "MEMORY_INDEX_TIMEOUT",
@@ -139,6 +142,63 @@ test("a failure reads as off with its reason and can be tried again", () => {
   );
 });
 
+test("on but not working reads as degraded, with the reason and a repair before the switch", () => {
+  const degraded = view({
+    enabled: true,
+    state: "degraded",
+    degraded: { code: "EMBEDDINGS_UNAVAILABLE", at: 1 },
+  });
+  assert.equal(degraded.tone, "warn");
+  assert.equal(degraded.state, "Not working");
+  assert.equal(degraded.running, false);
+  assert.equal(
+    degraded.alert,
+    "Semantic search is on but not working: memory search answers by keyword only. The embedding server did not answer the last memory search.",
+  );
+  assert.deepEqual(degraded.actions, [
+    {
+      kind: "repair",
+      label: "Repair …",
+      hint: "Installs the server and the model again, restarts the agent service and rebuilds the indexes.",
+      disabled: false,
+    },
+    {
+      kind: "off",
+      label: "Turn off …",
+      hint: "Restarts the agent service and goes back to keyword search.",
+      disabled: false,
+    },
+  ]);
+  // Every reason the server can give has its words in both languages; one this
+  // build does not know is still named.
+  const codes = [
+    "EMBEDDINGS_UNAVAILABLE",
+    "EMBEDDING_MODEL_MISSING",
+    "EMBEDDING_SERVER_MISSING",
+    "EMBEDDING_SERVER_UNUSABLE",
+    "RUNTIME_UPDATE_REQUIRED",
+  ];
+  for (const catalog of [de, en])
+    assert.deepEqual(
+      Object.keys(catalog.assistantSemanticMemoryCopy.degradedReasons).sort(),
+      [...codes].sort(),
+    );
+  const text = (code) =>
+    view({ enabled: true, state: "degraded", degraded: code && { code } }).alert;
+  assert.match(
+    text("EMBEDDING_MODEL_MISSING"),
+    /The embedding model is no longer on this computer\.$/,
+  );
+  assert.match(text("EMBEDDING_DISK_SPACE"), /Reason: EMBEDDING_DISK_SPACE\.$/);
+  assert.match(text(null), /Reason: UNKNOWN\.$/);
+  // Any other state offers the switch alone.
+  assert.deepEqual(
+    view({ enabled: true, state: "on" }).actions.map((action) => action.kind),
+    ["off"],
+  );
+  assert.equal(validSemanticMemory(status({ state: "degraded" })), true);
+});
+
 test("where it cannot run the switch on is locked with the reason; off stays possible", () => {
   for (const [reason, text] of [
     [
@@ -152,12 +212,12 @@ test("where it cannot run the switch on is locked with the reason; off stays pos
     ["SERVICE_STOPPED", "Start the agent service first."],
   ]) {
     const blocked = view({ available: false, reason });
-    assert.equal(blocked.action.disabled, true, reason);
-    assert.equal(blocked.action.hint, text);
+    assert.equal(blocked.actions.at(-1).disabled, true, reason);
+    assert.equal(blocked.actions.at(-1).hint, text);
     // Already on (the service stopped meanwhile): switching off is never locked.
     const on = view({ available: false, reason, enabled: true, state: "on" });
-    assert.equal(on.action.kind, "off");
-    assert.equal(on.action.disabled, false);
+    assert.equal(on.actions.at(-1).kind, "off");
+    assert.equal(on.actions.at(-1).disabled, false);
   }
 });
 

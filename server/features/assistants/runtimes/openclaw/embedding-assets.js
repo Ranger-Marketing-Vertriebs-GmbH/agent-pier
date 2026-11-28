@@ -405,6 +405,12 @@ export function ensureEmbeddingModel({
   });
 }
 
+/** Removes the installed server, so the next ensureEmbeddingServer installs it anew. */
+export async function removeEmbeddingServer(root, manifest = runtimeManifest, host) {
+  const { serverDirectory } = embeddingPaths(root, manifest, host);
+  await fsp.rm(serverDirectory, { recursive: true, force: true });
+}
+
 /**
  * Removes the downloaded model, and a partial download unless `partial` is false;
  * the server stays.

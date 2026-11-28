@@ -40,12 +40,12 @@ export default function SemanticMemoryGroup() {
   const bytes = (value) => formatBytes(value, locale);
   const size = bytes(status.model?.size || 0);
   const view = semanticMemoryView(status, bytes);
-  const apply = async (enabled) => {
+  const apply = async (enabled, repair = false) => {
     try {
       await assistantApi.setSemanticMemory({
         enabled,
         revision: status.revision,
-        ...(enabled && { acceptTerms: true }),
+        ...(repair ? { repair: true } : enabled && { acceptTerms: true }),
       });
     } catch (error) {
       // A state that changed elsewhere shows before the refusal is read.
@@ -79,13 +79,26 @@ export default function SemanticMemoryGroup() {
             {view.alert}
           </p>
         )}
-        <ListRow
-          label={view.action.label}
-          sub={view.running ? copy.running : view.action.hint}
-          disabled={view.action.disabled}
-          onClick={() => setConfirming(view.action.kind)}
-        />
+        {view.actions.map((action) => (
+          <ListRow
+            key={action.kind}
+            label={action.label}
+            sub={view.running ? copy.running : action.hint}
+            disabled={action.disabled}
+            onClick={() => setConfirming(action.kind)}
+          />
+        ))}
       </ListCard>
+      {confirming === "repair" && (
+        <ConfirmDialog
+          title={copy.repairTitle}
+          body={[copy.repairBody(size), copy.onBodyFailure]}
+          confirmLabel={copy.repairConfirm}
+          focusCancel
+          onCancel={() => setConfirming("")}
+          onConfirm={() => apply(true, true)}
+        />
+      )}
       {confirming === "on" && (
         <ConfirmDialog
           title={copy.onTitle}

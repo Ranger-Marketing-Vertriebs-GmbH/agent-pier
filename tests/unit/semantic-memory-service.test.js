@@ -97,6 +97,10 @@ function fixture(t, { agents = ["ap-a1", "ap-a2"], installed = false, ...options
           f.have.model = f.have.verified = true;
         },
         verifyModel: async () => f.have.verified,
+        removeServer: async () => {
+          f.calls.push("removeServer");
+          f.have.server = false;
+        },
         removeModel: async (_root, _manifest, { partial = true } = {}) => {
           f.calls.push(partial ? "removeModel" : "removeModel:keepPartial");
           f.have.model = false;
@@ -584,4 +588,193 @@ test("every start stops an embedding server a killed Gateway left behind", async
   assert.equal(reclaims(), 1);
   await f.memory.retire();
   assert.equal(reclaims(), 2);
+});
+
+test("on is shown only while embeddings answer: a missing asset or a keyword answer degrades it", async (t) => {
+  const f = fixture(t);
+  await f.switch(true);
+  assert.equal(f.memory.status().state, "on");
+  assert.equal(f.memory.status().degraded, undefined);
+  // The model or the server is gone while the Gateway runs: every status read sees it.
+  f.have.model = false;
+  let status = f.memory.status();
+  assert.equal(status.state, "degraded");
+  assert.equal(status.enabled, true);
+  assert.deepEqual(status.degraded, { code: "EMBEDDING_MODEL_MISSING" });
+  // The same value at each read: nothing to push without a change.
+  assert.deepEqual(f.memory.status(), status);
+  f.have.model = true;
+  f.have.server = false;
+  assert.deepEqual(f.memory.status().degraded, { code: "EMBEDDING_SERVER_MISSING" });
+  f.have.server = true;
+  assert.equal(f.memory.status().state, "on");
+  // A memory search answered without embeddings (OpenClaw's own keyword fallback).
+  f.views.length = 0;
+  f.memory.observe({ provider: "none", results: [] });
+  status = f.memory.status();
+  assert.equal(status.state, "degraded");
+  assert.deepEqual(status.degraded, { code: "EMBEDDINGS_UNAVAILABLE", at: 1000 });
+  assert.equal(f.views.at(-1).state, "degraded", "the change is pushed");
+  // A search without hits proves nothing; one with vector hits proves it works.
+  f.memory.observe({ provider: "local", results: [] });
+  assert.equal(f.memory.status().state, "degraded");
+  f.memory.observe({ provider: "local", results: [{ path: "memory/a.md" }] });
+  assert.equal(f.memory.status().state, "on");
+  // Unchanged observations push nothing; answers of another runtime are ignored.
+  const pushed = f.views.length;
+  f.memory.observe({ provider: "local", results: [{ path: "memory/a.md" }] });
+  f.memory.observe({ results: [] });
+  f.memory.observe(undefined);
+  assert.equal(f.views.length, pushed);
+  // A new Gateway process starts without the previous one's evidence.
+  f.memory.observe({ provider: "none" });
+  assert.equal(await f.start(), "local");
+  assert.equal(f.memory.status().state, "on");
+});
+
+test("while it is off, or keyword indexes are in place, a keyword answer is the normal one", async (t) => {
+  const f = fixture(t);
+  f.memory.observe({ provider: "none", results: [] });
+  assert.equal(f.memory.status().state, "off");
+  let asked = 0;
+  await f.memory.check(async () => [++asked]);
+  assert.equal(asked, 0);
+  f.stopped = true;
+  await f.switch(true);
+  f.memory.observe({ provider: "none", results: [] });
+  assert.equal(f.memory.status().pending, true);
+  assert.equal(f.memory.status().state, "on");
+});
+
+test("a check asks the Gateway once per interval and never when it is already degraded", async (t) => {
+  const f = fixture(t, { now: () => f.clock });
+  f.clock = 1000;
+  await f.switch(true);
+  const asked = [];
+  const probe = (answers) => async () => {
+    asked.push(f.clock);
+    return answers;
+  };
+  const healthy = [{ provider: "local", results: [] }];
+  // Once per Gateway process for the owner's look at the tab.
+  await f.memory.check(probe(healthy), { everyMs: Infinity });
+  await f.memory.check(probe(healthy), { everyMs: Infinity });
+  assert.deepEqual(asked, [1000]);
+  assert.equal(f.memory.status().state, "on");
+  // After an agent's own search: at most once per interval.
+  f.clock += 60000;
+  await f.memory.check(probe(healthy), { everyMs: 600000 });
+  f.clock += 600000;
+  await f.memory.check(probe([...healthy, { provider: "none", results: [] }]), {
+    everyMs: 600000,
+  });
+  assert.deepEqual(asked, [1000, 661000]);
+  assert.deepEqual(f.memory.status().degraded, {
+    code: "EMBEDDINGS_UNAVAILABLE",
+    at: 661000,
+  });
+  // Degraded already: nothing more to learn until it is repaired.
+  f.clock += 6000000;
+  await f.memory.check(probe(healthy), { everyMs: 0 });
+  assert.equal(asked.length, 2);
+  // A probe that cannot ask is no evidence; a new process may check again.
+  await f.start();
+  await f.memory.check(async () => {
+    throw new Error("unavailable");
+  });
+  assert.equal(f.memory.status().state, "on");
+});
+
+test("repair installs the assets again, restarts and rebuilds; it needs no second consent", async (t) => {
+  const f = fixture(t);
+  await f.switch(true);
+  f.memory.observe({ provider: "none", results: [] });
+  f.calls.length = f.rebuilds.length = f.views.length = 0;
+  const answer = f.memory.set({
+    enabled: true,
+    repair: true,
+    revision: f.memory.status().revision,
+  });
+  assert.equal(answer.state, "downloading");
+  await f.memory.idle();
+  assert.deepEqual(
+    f.calls.filter((c) => c !== "reclaim"),
+    ["removeServer", "ensureServer", "ensureModel", "restart"],
+  );
+  // Every index is rebuilt for local embeddings and checked, whatever the marker said.
+  assert.deepEqual(f.rebuilds, [{ mode: "local", semantic: true }]);
+  assert.deepEqual(f.marker(), { mode: "local", model: sha });
+  const status = f.memory.status();
+  assert.equal(status.state, "on");
+  assert.equal(status.degraded, undefined);
+  assert.deepEqual(seen(f), [
+    "downloading",
+    "rebuilding:stopping",
+    "rebuilding:indexing",
+    "rebuilding:starting",
+    "on",
+  ]);
+  // Without repair, on while on changes nothing.
+  f.calls.length = 0;
+  assert.equal(f.memory.set({ enabled: true, revision: status.revision }).state, "on");
+  assert.deepEqual(f.calls, []);
+  // Repair is no way to switch it on without the terms.
+  const g = fixture(t);
+  assert.throws(() => g.memory.set({ enabled: true, repair: true, revision: 1 }), {
+    code: "TERMS_REQUIRED",
+  });
+});
+
+test("a repair that cannot fix it ends honestly: degraded with the reason, or off after the rebuild", async (t) => {
+  // The server cannot be installed again (a missing system library).
+  const f = fixture(t);
+  await f.switch(true);
+  f.fail.server = refusal("EMBEDDING_SERVER_UNUSABLE");
+  f.calls.length = 0;
+  await f.switch(true, { repair: true });
+  let status = f.memory.status();
+  assert.equal(status.state, "degraded");
+  assert.deepEqual(status.degraded, { code: "EMBEDDING_SERVER_UNUSABLE" });
+  assert.equal(f.calls.includes("restart"), false);
+  // The next Gateway start falls back to keyword search and rebuilds for it.
+  f.rebuilds.length = 0;
+  assert.equal(await f.start(), "none");
+  assert.deepEqual(f.rebuilds, [{ mode: "none", semantic: false }]);
+  status = f.memory.status();
+  assert.equal(status.state, "failed");
+  assert.equal(status.failure.code, "EMBEDDING_SERVER_MISSING");
+  // The rebuild's check still fails: off with the reason, keyword indexes in place.
+  const g = fixture(t);
+  await g.switch(true);
+  g.fail.local = refusal("MEMORY_INDEX_UNVERIFIED");
+  await g.switch(true, { repair: true });
+  status = g.memory.status();
+  assert.equal(status.state, "failed");
+  assert.equal(status.failure.code, "MEMORY_INDEX_UNVERIFIED");
+  assert.deepEqual(g.marker(), { mode: "keyword", model: null });
+  // A refused restart leaves it on and degraded as before.
+  const h = fixture(t);
+  await h.switch(true);
+  h.memory.observe({ provider: "none" });
+  h.fail.restart = Object.assign(Error("busy"), { status: 409, key: "active" });
+  await h.switch(true, { repair: true });
+  assert.equal(h.memory.status().enabled, true);
+  h.fail = {};
+  h.rebuilds.length = 0;
+  assert.equal(await h.start(), "local");
+  assert.deepEqual(h.rebuilds, [{ mode: "local", semantic: true }]);
+  assert.equal(h.memory.status().state, "on");
+});
+
+test("a start hashes the model once; changed bytes go back to keyword search", async (t) => {
+  const f = fixture(t);
+  await f.switch(true);
+  f.rebuilds.length = 0;
+  f.have.verified = false;
+  assert.equal(await f.start(), "none");
+  assert.deepEqual(f.rebuilds, [{ mode: "none", semantic: false }]);
+  const status = f.memory.status();
+  assert.equal(status.state, "failed");
+  assert.equal(status.failure.code, "EMBEDDING_MODEL_CHANGED");
+  assert.deepEqual(f.marker(), { mode: "keyword", model: null });
 });

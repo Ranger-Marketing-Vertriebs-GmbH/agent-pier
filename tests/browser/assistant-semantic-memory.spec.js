@@ -192,6 +192,42 @@ test("a failure shows as off with its reason and can be tried again", async ({
   await shoot(region, "failed");
 });
 
+test("on but not working shows as degraded with the reason and offers a repair", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page, { enabled: true, state: "on", revision: 6 });
+  await page.goto(baseURL + "/agents?tab=runtime");
+  const region = group(page);
+  await expect(region.locator(".list-row-status")).toHaveText("On");
+  await expect(region.getByRole("button", { name: "Repair …" })).toHaveCount(0);
+  // A memory search answered without embeddings: the server pushes the new state.
+  await push(liveStub, state, {
+    enabled: true,
+    state: "degraded",
+    degraded: { code: "EMBEDDINGS_UNAVAILABLE", at: 1 },
+    revision: 6,
+  });
+  await expect(region.locator(".list-row-status")).toHaveText("Not working");
+  await expect(region.getByRole("alert")).toHaveText(
+    "Semantic search is on but not working: memory search answers by keyword only. The embedding server did not answer the last memory search.",
+  );
+  // Turning it off stays possible beside the repair.
+  await expect(region.getByRole("button", { name: "Turn off …" })).toBeEnabled();
+  await shoot(region, "degraded");
+  await region.getByRole("button", { name: "Repair …" }).click();
+  const dialog = page.getByRole("dialog", { name: "Repair semantic memory search?" });
+  await expect(dialog).toContainText("installs the llama.cpp server again");
+  await expect(dialog).toContainText("Running agent work is interrupted");
+  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await dialog.getByRole("button", { name: "Repair", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  // No second consent to the model terms: it is on already.
+  expect(state.semanticPuts).toEqual([{ enabled: true, revision: 6, repair: true }]);
+  await expect(region.locator(".list-row-status")).toHaveText("Downloading");
+  await expect(region.getByRole("button", { name: "Repair …" })).toHaveCount(0);
+});
+
 test("where it cannot run the switch is locked with the reason", async ({ page }) => {
   await setup(page, { available: false, reason: "RUNTIME_UPDATE_REQUIRED" });
   await page.goto(baseURL + "/agents?tab=runtime");
@@ -272,6 +308,15 @@ test("an OpenClaw agent's memory page says when its search works by meaning", as
   await page.goto(baseURL + settingsPath("capabilities", "memory"));
   await expect(page.getByText(hint)).toBeVisible();
   await shoot(page.locator("main"), "agent-memory-hint");
+  // Not working: the hint would be untrue, so it goes.
+  await push(liveStub, state, {
+    enabled: true,
+    state: "degraded",
+    degraded: { code: "EMBEDDING_MODEL_MISSING" },
+  });
+  await expect(page.getByText(hint)).toHaveCount(0);
+  await push(liveStub, state, { enabled: true, state: "on" });
+  await expect(page.getByText(hint)).toBeVisible();
   // Off again: the hint goes without a reload.
   await push(liveStub, state, {});
   await expect(page.getByText(hint)).toHaveCount(0);

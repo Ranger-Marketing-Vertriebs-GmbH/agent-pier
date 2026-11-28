@@ -8,6 +8,7 @@ export const assistantSemanticMemoryCopy = {
     on: "An",
     downloading: "Download läuft",
     rebuilding: "Neuaufbau läuft",
+    degraded: "Funktioniert nicht",
     failed: "Aus",
   },
   turnOn: "Einschalten …",
@@ -16,6 +17,26 @@ export const assistantSemanticMemoryCopy = {
   turnOff: "Ausschalten …",
   turnOffHint: "Startet den Agentendienst neu und kehrt zur Stichwortsuche zurück.",
   running: "Läuft",
+  repair: "Reparieren …",
+  repairHint:
+    "Installiert Server und Modell neu, startet den Agentendienst neu und baut die Indizes neu auf.",
+  repairTitle: "Semantische Gedächtnissuche reparieren?",
+  repairBody: (size) =>
+    `AgentPier installiert den llama.cpp-Server neu, lädt das Embedding-Modell (${size}) herunter, falls es fehlt oder verändert ist, startet dann den Agentendienst neu und baut den Gedächtnisindex jedes Agenten neu auf. Laufende Agentenarbeit wird unterbrochen, und die Agenten sind erst wieder erreichbar, wenn der Neuaufbau fertig ist.`,
+  repairConfirm: "Reparieren",
+  degraded: (reason) =>
+    `Die semantische Suche ist an, funktioniert aber nicht: Die Gedächtnissuche antwortet nur mit Stichwörtern. ${reason}`,
+  degradedReasons: {
+    EMBEDDINGS_UNAVAILABLE:
+      "Der Embedding-Server hat bei der letzten Gedächtnissuche nicht geantwortet.",
+    EMBEDDING_MODEL_MISSING: "Das Embedding-Modell ist nicht mehr auf diesem Computer.",
+    EMBEDDING_SERVER_MISSING: "Der llama.cpp-Server ist nicht mehr auf diesem Computer.",
+    EMBEDDING_SERVER_UNUSABLE:
+      "Der llama.cpp-Server startet auf diesem Computer nicht. Unter Linux braucht er glibc 2.34 oder neuer (2.38 auf arm64), OpenMP und OpenSSL 3 (Debian und Ubuntu: libgomp1 und libssl3).",
+    RUNTIME_UPDATE_REQUIRED:
+      "Die verwendete OpenClaw-Laufzeit hat keine lokalen Embeddings.",
+  },
+  degradedReason: (code) => `Grund: ${code}.`,
   downloading: (received, total) =>
     `Embedding-Modell wird heruntergeladen: ${received} von ${total}`,
   phases: {
@@ -67,6 +88,8 @@ export const assistantSemanticMemoryCopy = {
       "Das Embedding-Modell ist nicht mehr auf diesem Computer, daher wurde die Stichwortsuche wiederhergestellt. Schalte erneut ein, um es herunterzuladen.",
     EMBEDDING_SERVER_MISSING:
       "Der llama.cpp-Server ist nicht mehr auf diesem Computer, daher wurde die Stichwortsuche wiederhergestellt. Schalte erneut ein, um ihn zu installieren.",
+    EMBEDDING_MODEL_CHANGED:
+      "Die Datei des Embedding-Modells auf diesem Computer war verändert, daher wurde die Stichwortsuche wiederhergestellt. Schalte erneut ein, um es herunterzuladen.",
     RUNTIME_UPDATE_REQUIRED:
       "Die verwendete OpenClaw-Laufzeit hat keine lokalen Embeddings, daher wurde die Stichwortsuche wiederhergestellt. Aktiviere die aktuelle Laufzeit und schalte dann erneut ein.",
     MEMORY_INDEX_FAILED:
