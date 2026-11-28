@@ -14,10 +14,8 @@ import { assertOwnerRun, ownerRunBinding, ownerRunWrite } from "./owner-runs.js"
 import { assertOwnerShare, turnlessBinding } from "./owner-shares.js";
 import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
-import { invokeHook } from "./agent-hook-proposals.js";
-import { invokeSshAccess } from "./agent-ssh-proposals.js";
-import { invokePreview } from "./agent-previews.js";
 import * as hooks from "./agent-hook-bridge.js";
+import { dispatch } from "./team-bridge-dispatch.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
@@ -26,11 +24,11 @@ import { browserUploadDone } from "./agent-browser-uploads.js";
 import { toolPolicy, toolPolicyRoutes } from "./bridge-tool-policies.js";
 import {
   actions,
+  anyMemberActions,
   bridgeTool,
   inheritedAction,
   memberActions,
   ownerFileActions,
-  peerActions,
   personalActions,
   routineActions,
 } from "./team-bridge-actions.js";
@@ -156,6 +154,7 @@ export class TeamBridge {
           record.action === "workspace" ||
           ownerFileActions.has(record.action) ||
           memberActions.has(record.action) ||
+          anyMemberActions.has(record.action) ||
           (personalActions.has(record.action) && parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
         )) ||
@@ -454,7 +453,11 @@ export class TeamBridge {
       confirmFromCall(this.assistants, record.sessionKey, record.runId);
     this.valid(record);
     record.hash = hash;
+    const gone = new AbortController();
+    record.abandon = () => gone.abort();
     const invocation = {
+      // Aborts once nobody waits for the call's answer any more (awaited).
+      gone: gone.signal,
       attemptId: record.attemptId,
       toolCallId: record.toolCallId,
       // Waits (an ask) count from here, the moment the call reached AgentPier.
@@ -470,35 +473,7 @@ export class TeamBridge {
     record.invocation = invocation;
     record.promise = Promise.resolve().then(() => {
       invocation.assertCurrent();
-      if (action === "ssh")
-        return this.assistants.workflows.ssh.invoke(invocation, input);
-      if (action === "workspace")
-        return this.assistants.workflows.invoke(invocation, input);
-      if (action === "share_file")
-        return this.assistants.shares.invoke(invocation, input);
-      if (action === "pinboard")
-        return this.assistants.pinboard.invoke(invocation, input);
-      if (action === "card") return this.assistants.cards.invoke(invocation, input);
-      if (action === "routine") return this.assistants.routines.invoke(invocation, input);
-      if (action === "hook")
-        return invokeHook(this.assistants.routines?.hooks, invocation, input);
-      if (action === "ssh_access")
-        return invokeSshAccess(this.assistants.workflows, invocation, input);
-      if (action === "coding_session")
-        return this.assistants.workflows.sessions.invoke(invocation, input);
-      if (action === "mail")
-        return this.assistants.workflows.mail.invoke(invocation, input);
-      if (action === "project")
-        return this.assistants.workflows.projects.invoke(invocation, input);
-      if (action === "craft")
-        return this.assistants.workflows.craft.invoke(invocation, input);
-      if (action === "preview")
-        return invokePreview(this.assistants.workflows, invocation, input);
-      if (action === "report") return this.teams.reports.report(invocation, input);
-      if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
-      return action === "reminder"
-        ? this.assistants.reminders.invoke(invocation, input)
-        : this.teams[action](invocation, input);
+      return dispatch(this, action, invocation, input);
     });
     record.promise
       .finally(() => {
@@ -507,8 +482,22 @@ export class TeamBridge {
       .catch(() => {});
     return record.promise;
   }
+  // An invoke and what its caller does when it leaves before the answer: once the
+  // last connection waiting for a running call has closed, the call's `gone` signal
+  // aborts. A device call ends there (agent-devices.js); no other action reads it,
+  // and `undelivered` still hears of a lost answer only once there is one (handle).
+  awaited(input) {
+    const promise = this.invoke(input);
+    const record = this.tickets.get(input.ticket);
+    record.callers = (record.callers ?? 0) + 1;
+    return {
+      promise,
+      left: () => --record.callers || record.settled || record.abandon(),
+    };
+  }
   async handle(req, res) {
     let lost = false,
+      call = null,
       invocation = null;
     try {
       if (req.headers.origin || req.headers["sec-fetch-site"])
@@ -552,8 +541,10 @@ export class TeamBridge {
         if (!res.writableFinished) {
           lost = true;
           invocation?.undelivered?.();
+          call?.left();
         }
       });
+      if (req.url === "/invoke") call = this.awaited(input);
       const result = await (req.url === "/prepare"
         ? this.prepare(input)
         : req.url === "/tool-policy"
@@ -572,7 +563,7 @@ export class TeamBridge {
                       ? hooks.secretsPolicy(this, input)
                       : req.url === "/guard"
                         ? this.registerGuard(input)
-                        : this.invoke(input));
+                        : call.promise);
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

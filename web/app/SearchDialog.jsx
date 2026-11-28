@@ -36,7 +36,8 @@ export default function SearchDialog({
   const language = getLanguage();
   const sources = useQuickOpenSources();
   const { runtimes } = useRuntimes(agentsEnabled);
-  // A session's Android devices are offered only while this host has devices.
+  // A session's and an agent's Android devices are offered only while this host has
+  // devices.
   const devicesAvailable = Boolean(useAssignableDevices());
   const offeredKey = offered.join();
   const index = useMemo(
@@ -49,6 +50,7 @@ export default function SearchDialog({
         runOpen,
         offered: offeredKey ? offeredKey.split(",") : [],
         runtimes,
+        devicesAvailable,
       }),
       ...workspaceEntries(
         {

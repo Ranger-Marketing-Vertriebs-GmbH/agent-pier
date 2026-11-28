@@ -2,6 +2,16 @@ import { craftAvailable } from "../features/craft/agent-craft.js";
 import { talkAgent } from "../features/assistants/session-talk/talk-reach.js";
 
 /**
+ * Which of AgentPier's optional tools the host offers right now, for the desired
+ * state of a start (agent-desired-state.js): `craft`, Craft Anything rebuilds
+ * (agentpier_craft), and `devices`, Android devices (agentpier_device).
+ */
+export const hostTools = (configuration) => ({
+  craft: !!configuration.craftAvailable?.(),
+  devices: !!configuration.devicesAvailable?.(),
+});
+
+/**
  * The configuration inputs AssistantWorkflows answers for an agent's instructions
  * and shell: its SSH grant, project folders, GitHub access, coding-session projects
  * and email accounts, and whether Craft Anything rebuilds are available.
@@ -37,5 +47,8 @@ export function workflowInstructionWiring(workflows) {
     // agentpier_craft (craft/agent-craft.js), read late: the supervisor is made after
     // the assistants (services.js).
     craftAvailable: () => craftAvailable(workflows.s),
+    // agentpier_device (agent-devices.js), read late for the same reason: while the
+    // Android components are installed and this host can run devices.
+    devicesAvailable: () => !!workflows.s.devices && !workflows.s.devices.availability(),
   };
 }

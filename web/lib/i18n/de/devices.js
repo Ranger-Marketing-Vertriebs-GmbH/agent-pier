@@ -107,7 +107,15 @@ export const devicesCopy = {
     creatorAgent: (name) => `Von Agent ${name} angelegt`,
     creatorSession: (name) => `Von Session ${name} angelegt`,
     creatorGone: "Ersteller existiert nicht mehr",
+    creatorAgentGone: "Von einem Agenten angelegt, den es nicht mehr gibt",
+    creatorSessionGone: "Von einer Session angelegt, die es nicht mehr gibt",
     assigned: (names) => `Zugewiesen an ${names}`,
+    assignedAgent: (name) => `Agent ${name}`,
+    assignedSession: (name) => `Session ${name}`,
+    assignedPassed: (name, lead) =>
+      `${name} (von ${lead} für eine Aufgabe weitergegeben)`,
+    assignedPassedUnnamed: (name) =>
+      `${name} (vom leitenden Agenten für eine Aufgabe weitergegeben)`,
     assignedMore: (names, more) => `Zugewiesen an ${names} und ${more} weitere`,
     assignedManage: (name) => `${name} (darf zurücksetzen und löschen)`,
     assignedNone: "Nicht zugewiesen",
@@ -201,6 +209,16 @@ export const devicesCopy = {
       "Diese Session darf keine Geräte anlegen. Erlaube es bei den Geräten der Session.",
     DEVICE_SESSION_INELIGIBLE:
       "Geräte bekommen nur deine eigenen laufenden Coding-Sessions, keine Anmelde-, Pipeline- oder importierten Sessions und keine Sessions des Agenten eines eingeschränkten Nutzers.",
+    DEVICE_AGENT_INELIGIBLE:
+      "Geräte bekommen nur deine eigenen Agenten, kein archivierter Agent, kein Agent eingeschränkter Nutzer und kein Agent mit eigenem Telegram-Bot für andere Personen.",
+    DEVICE_RUN_FORBIDDEN:
+      "Der Agent bekommt in diesem Lauf kein Gerät, weil er Inhalte verarbeitet, die nicht von dir stammen, oder weil die Herkunft des Laufs unbekannt ist.",
+    DEVICE_OWNER_TURN_REQUIRED:
+      "Ein Agent legt Geräte nur in einem Turn an, setzt sie nur dort zurück und löscht sie nur dort, den du mit einer eigenen Nachricht gestartet hast.",
+    DEVICE_PULL_READONLY:
+      "Dieser Lauf darf im Workspace des Agenten keine Dateien ändern, deshalb wurde keine Datei vom Gerät kopiert.",
+    DEVICE_PASS_INVALID:
+      "Ein Agent kann an ein Teammitglied nur Geräte weitergeben, die er selbst hat.",
     DEVICE_ASSIGNMENT_INVALID:
       "Diese Zuweisung ist nicht gültig. Vielleicht gibt es ein Gerät darin nicht mehr; lade neu und versuche es erneut.",
     DEVICE_INPUT_INVALID:
@@ -293,6 +311,23 @@ export const devicesCopy = {
       toolsOff:
         "Ohne AgentPier-Tools bekommt die Session keine Geräte-Tools. Schalte oben die AgentPier-Tools ein.",
     },
+  },
+  // Die Android-Geräte eines Agenten: die Gruppe im Tab Zugriffe des Agenten.
+  agent: {
+    hint: "Der Agent bedient ein zugewiesenes Gerät mit seinem Tool agentpier_device: Er startet und stoppt es, sieht und tippt auf seinen Bildschirm, installiert Apps und führt Befehle darauf aus. Ein Gerät erreicht das Netzwerk und die lokalen Dienste dieses Rechners; ein Gerät zuzuweisen ist deshalb ein Vertrauensschritt wie eine Shell zuzuweisen.",
+    allowed: (count) => `Für diesen Agenten erlaubt · ${count}`,
+    own: "von diesem Agenten angelegt",
+    createSub:
+      "Geräte, die der Agent anlegt, gehören ihm und zählen zum Limit der Geräte insgesamt.",
+    runs: "Der Agent nutzt seine Geräte in jedem Lauf, auch in Routinen und Hooks. Geräte anlegen, zurücksetzen und löschen kann er nur in einem Turn, den du mit einer eigenen Nachricht gestartet hast. Ein Lauf mit Inhalten anderer Personen, etwa einer weitergeleiteten Nachricht, bekommt kein Gerät.",
+    member:
+      "Sein leitender Agent kann diesem Mitglied außerdem ein Gerät für eine Aufgabe weitergeben. Das Mitglied nutzt dieses Gerät, solange es an der Aufgabe arbeitet, und setzt es nie zurück und löscht es nie.",
+    passed: "Für eine Aufgabe weitergegeben",
+    passedSub:
+      "Vom leitenden Agenten für eine Aufgabe weitergegeben, die gerade offen ist. Nur nutzen.",
+    kept: "Deine Zuweisung bleibt gespeichert und zählt wieder, sobald das nicht mehr zutrifft.",
+    manage: "Android-Geräte verwalten",
+    saveLabel: "Geräte speichern",
   },
   search: {
     newDevice: "Neues Gerät",

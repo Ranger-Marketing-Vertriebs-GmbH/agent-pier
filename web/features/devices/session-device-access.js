@@ -84,14 +84,15 @@ export const grantsAnything = (draft) => draft.create || draft.devices.length > 
 
 /**
  * `devices` (`[{ id, name, own? }]`) as GrantPicker entries. A device the session
- * created is its own: always allowed, with the reason as its note.
+ * created is its own: always allowed, with the reason as its note (`ownNote`, which
+ * an agent's settings word for the agent).
  */
-export const deviceGrantEntries = (devices) =>
+export const deviceGrantEntries = (devices, ownNote = copy.access.own) =>
   devices.map((device) => ({
     id: device.id,
     name: device.name,
     locked: device.own === true,
-    notes: device.own ? [copy.access.own] : [],
+    notes: device.own ? [ownNote] : [],
   }));
 
 /**

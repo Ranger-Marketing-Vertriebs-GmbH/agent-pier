@@ -125,9 +125,15 @@ test("stacked: a click in the add field grants and the row's button removes", as
   const list = card.getByRole("listbox", { name: "SSH access: options" });
   const option = list.getByRole("option", { name: /stage-db-07/ });
   await option.click();
-  // Added at once, without a second button; the list stays open for the next one.
+  // Added at once, without a second button; the typed name is cleared and the list
+  // stays open for the next one.
   await expect(card.getByRole("button", { name: "Remove stage-db-07" })).toBeVisible();
   await expect(card.getByRole("button", { name: /^Add/ })).toHaveCount(0);
+  await expect(field).toHaveValue("");
+  await expect(field).toBeFocused();
+  await expect(list).toBeVisible();
+  // Looked for again, the entry shows as allowed and cannot be added twice.
+  await field.fill("stage-db-07");
   await expect(option).toHaveAttribute("aria-disabled", "true");
   await expect(option).toContainText("allowed");
   await page.keyboard.press("Escape");

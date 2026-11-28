@@ -287,6 +287,8 @@ test(
       [...job.payload.toolsAllow].sort(),
       [
         "agentpier_card",
+        // The cap of every hook run; the agent holds it only while devices can run.
+        "agentpier_device",
         "agentpier_pinboard",
         "agentpier_share_file",
         "edit",

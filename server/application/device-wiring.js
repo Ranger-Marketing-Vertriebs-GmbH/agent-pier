@@ -1,6 +1,12 @@
 // Android devices on `services`: the SDK installation, the emulator source and the
-// device service, the sessions' grants and the device actions, their live topics,
-// audit rows, routes, start and shutdown.
+// device service, the sessions' and the agents' grants and the device actions, their
+// live topics, audit rows, routes, start and shutdown.
+import { deviceAgent } from "../features/assistants/agent-device-origin.js";
+import {
+  passAssignments,
+  passedDevices,
+} from "../features/assistants/member-device-passes.js";
+import { AgentDeviceGrants } from "../features/devices/agent-device-grants.js";
 import { AndroidSdk } from "../features/devices/android-sdk.js";
 import { DeviceActions } from "../features/devices/device-actions.js";
 import { DeviceService } from "../features/devices/device-service.js";
@@ -10,6 +16,7 @@ import {
   devicesChanged,
 } from "../features/devices/live-topics.js";
 import { SessionDeviceGrants } from "../features/devices/session-device-grants.js";
+import { agentDevicesRoutes } from "../http/routes/agent-devices.js";
 import { devicesRoutes } from "../http/routes/devices.js";
 import { sessionDevicesRoutes } from "../http/routes/session-devices.js";
 
@@ -87,9 +94,22 @@ function auditInstallation(audit, sdk, operation) {
  * Also returned: `grants`, the devices the owner assigned to coding sessions
  * (session-device-grants.js), which answer the service's permission checks, fill the
  * assignments of its view and say whether a session that created a device still
- * exists; and `actions`, what a session or agent does with a device
- * (device-actions.js).
+ * exists; `agentGrants`, the same for the owner's agents (agent-device-grants.js),
+ * beside what a lead passes on to a member with a task
+ * (assistants/member-device-passes.js); and `actions`, what a session or agent does
+ * with a device (device-actions.js).
  */
+// The stored agent `id`: null once it is deleted, undefined while the agents
+// cannot be read (the feature is off, or its store failed).
+function storedAgent(services, id) {
+  const store = services.assistants?.store;
+  if (!store) return undefined;
+  try {
+    return store.getAssistant(id);
+  } catch (error) {
+    return error?.status === 404 ? null : undefined;
+  }
+}
 export function createDevices(services) {
   const { config } = services;
   const { source = {}, service = {}, ...shared } = config.androidDevices ?? {};
@@ -118,23 +138,42 @@ export function createDevices(services) {
     ...source,
   });
   const grants = new SessionDeviceGrants({ dataDir: config.dataDir });
+  const agentGrants = new AgentDeviceGrants({
+    dataDir: config.dataDir,
+    agent: (id) => storedAgent(services, id),
+    eligible: (agent) => deviceAgent(services, agent),
+  });
   devices = new DeviceService({
     dataDir: config.dataDir,
     sdk,
     sources: { emulator },
     changed: () => devicesChanged(services.live),
     audit: (entry) => auditDevice(services.audit, entry),
-    // An agent that created a device is looked up with the agent tools.
-    creatorExists: (creator) => creator.kind !== "session" || grants.exists(creator.id),
+    creatorExists: (creator) =>
+      creator.kind === "session"
+        ? grants.exists(creator.id)
+        : creator.kind !== "agent" || agentGrants.exists(creator.id),
     ...service,
   });
   devices.registerGrants("session", (id) => grants.grantsOf(id));
   devices.registerAssignments("session", (id) => grants.assignmentsOf(id));
   devices.onRemoved((id) => grants.dropDevice(id));
+  // An agent's devices: what the owner assigned to it, and what its lead passes on
+  // to it with a task that is open right now.
+  devices.registerGrants("agent", (id) => [
+    ...agentGrants.grantsOf(id),
+    ...passedDevices(services, id),
+  ]);
+  devices.registerAssignments("agent", (id) => [
+    ...agentGrants.assignmentsOf(id),
+    ...passAssignments(services, id),
+  ]);
+  devices.onRemoved((id) => agentGrants.dropDevice(id));
   // Who a device is assigned to is part of the device view.
   grants.onChange = () => devices.signal();
+  agentGrants.onChange = () => devices.signal();
   const actions = new DeviceActions({ devices, dataDir: config.dataDir });
-  return { devices, sdk, grants, actions };
+  return { devices, sdk, grants, agentGrants, actions };
 }
 
 /**
@@ -158,18 +197,20 @@ export async function startDevices({ devices, androidSdk: sdk }) {
 }
 
 /**
- * Sets `services.devices`, `services.androidSdk`, `services.sessionDeviceGrants`
- * and `services.deviceActions`, mounts the routes and, once the server listens, runs
+ * Sets `services.devices`, `services.androidSdk`, `services.sessionDeviceGrants`,
+ * `services.agentDeviceGrants` and `services.deviceActions`, mounts the routes and, once the server listens, runs
  * startDevices.
  */
 export function connectDevices(services, { mount, whenListening }) {
-  const { devices, sdk, grants, actions } = createDevices(services);
+  const { devices, sdk, grants, agentGrants, actions } = createDevices(services);
   services.devices = devices;
   services.androidSdk = sdk;
   services.sessionDeviceGrants = grants;
+  services.agentDeviceGrants = agentGrants;
   services.deviceActions = actions;
   mount(devicesRoutes(services));
   mount(sessionDevicesRoutes(services));
+  mount(agentDevicesRoutes(services));
   whenListening.push(() => startDevices(services));
 }
 

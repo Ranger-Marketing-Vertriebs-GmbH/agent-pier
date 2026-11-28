@@ -6,6 +6,7 @@ import { reportLimits } from "./member-reports.js";
 import { loopGuardCaps } from "./agent-loop-guard.js";
 import { agentText } from "../../lib/i18n/agent-text.js";
 import { PINBOARD_LIMITS } from "./agent-pinboard-store.js";
+import { deviceCode, deviceToolMessage } from "../devices/device-tool-messages.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -462,6 +463,10 @@ const craftCode = (error) =>
 // reads their catalog message in English, which names the failing part of a card.
 const cardCode = (error) =>
   !error?.key && /^CARD_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
+// Device refusals (devices/device-registry.js refusal) carry a DEVICE_ code; the model
+// reads the sentence a coding session reads for it, in an agent's words.
+const deviceToolCode = (error) =>
+  !error?.key && deviceCode(error?.code) ? error.code : null;
 // Who answered a coding session's prompt first (coding-sessions/session-requests.js).
 const answerers = ["owner", "agent", "telegram", "session"];
 export function toolError(error) {
@@ -472,6 +477,7 @@ export function toolError(error) {
     previewCode(error) ||
     craftCode(error) ||
     cardCode(error) ||
+    deviceToolCode(error) ||
     byStatus[status] ||
     (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {
@@ -480,10 +486,12 @@ export function toolError(error) {
     reason:
       code === "PROMPT_ANSWERED" && answerers.includes(error.answeredBy)
         ? `${reasons[code]} Answered by: ${error.answeredBy}.`
-        : code === previewCode(error) ||
-            code === cardCode(error) ||
-            (code === craftCode(error) && !reasons[code])
-          ? agentText(error.message)
-          : reasons[code],
+        : code === deviceToolCode(error)
+          ? deviceToolMessage(error, "agent")
+          : code === previewCode(error) ||
+              code === cardCode(error) ||
+              (code === craftCode(error) && !reasons[code])
+            ? agentText(error.message)
+            : reasons[code],
   };
 }

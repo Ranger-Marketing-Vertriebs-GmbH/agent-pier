@@ -112,7 +112,8 @@ export const questionTools = ["ask_user"];
 // What an agent with its own Telegram bot for other people never holds: the session
 // tools, questions to the owner (questionTools), email (its grants are refused too,
 // mail/agent-mail-grants.js), project creation and rebuilds (goal-turns.js
-// mayCreateProjects) and previews (mayOpenPreviews).
+// mayCreateProjects), previews (mayOpenPreviews) and Android devices
+// (agent-device-origin.js deviceAgent).
 export const senderLockedTools = [
   ...sessionTools,
   ...questionTools,
@@ -120,6 +121,7 @@ export const senderLockedTools = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  "agentpier_device",
 ];
 /**
  * What an agent of restricted users never holds, whatever its stored settings say:
@@ -139,6 +141,7 @@ export const lockedTools = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  "agentpier_device",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -179,6 +182,8 @@ export const routineTools = [
   "agentpier_coding_session",
   // Email on the agent's grants; a send without a matching rule waits for the owner.
   "agentpier_mail",
+  // The agent's Android devices; a routine never creates, resets or deletes one.
+  "agentpier_device",
   ...routineTeamTools,
   ...memberTeamTools,
   "*__*",
@@ -327,7 +332,10 @@ export function usedCapabilities(profiles = []) {
  * rebuilds are available (installed, with their supervisor). A user agent's grants
  * never name a locked tool. grantedTools resolves them.
  */
-export function toolGrants(assistant, { ssh = false, craft = false } = {}) {
+export function toolGrants(
+  assistant,
+  { ssh = false, craft = false, devices = false } = {},
+) {
   const capabilities = personalCapabilities(assistant);
   // A temporary member has its own memory beside the read-only copy of its lead's,
   // and gets no routines (standing jobs with tools that would outlive the team).
@@ -395,6 +403,12 @@ export function toolGrants(assistant, { ssh = false, craft = false } = {}) {
     // Previews: own agents and permanent members (agent-previews.js); an agent with
     // its own bot for other people loses it with senderLockedTools.
     ...(mayOpenPreviews(assistant) ? [grant(["agentpier_preview"])] : []),
+    // Android devices (agent-devices.js), while they are installed and can run on
+    // this host: every agent of the owner's, members too, so a device assigned or
+    // passed on later needs no new tools; what a call reaches is decided per run. An
+    // agent of restricted users loses it with lockedTools, one with its own bot for
+    // other people with senderLockedTools.
+    ...(devices && live ? [grant(["agentpier_device"])] : []),
     // A tool whose browser or search provider the runtime lacks is withheld; the
     // browser, images and PDFs also wait for the proven tool guard.
     ...Object.entries(capabilityTools).flatMap(([key, tools]) =>
@@ -462,8 +476,10 @@ export function profileTools(
   ssh = false,
   // Craft Anything rebuilds are available (toolGrants).
   craft = false,
+  // Android devices are installed and can run on this host (toolGrants).
+  devices = false,
 ) {
-  return grantedTools(toolGrants(assistant, { ssh, craft }), {
+  return grantedTools(toolGrants(assistant, { ssh, craft, devices }), {
     teamsReady,
     nativeReady,
     writeGuard,

@@ -5969,6 +5969,102 @@ is deleted. The owner's Telegram chat gets a text message with the link, except 
 `127.0.0.1` address. Errors carry the stable `PREVIEW_*` codes. See
 [Session previews](previews.md).
 
+## Android devices (2026-11-28, AGENTPIER-508)
+
+`agentpier_device` is one tool with an `action` (`list`, `create`, `start`, `stop`,
+`reset`, `delete`, `screenshot`, `ui`, `tap`, `swipe`, `key`, `type`, `install`,
+`push`, `pull`, `app_launch`, `app_stop`, `apps`, `open_url`, `logs`, `shell`) and the
+arguments of the session tools of the same names
+([MCP](mcp.md#android-devices-from-sessions)): `device-tool-schemas.js` holds the
+fields once, the plugin's flat JSON schema (`team-plugin/device-tool.js`) is checked
+against it, and `agent-devices.js` validates each call with the strict schema of its
+action before it runs the shared device action (`devices/device-actions.js`). One
+tool rather than 21, like AgentPier's other agent tools: every tool is compiled into
+each agent's allow list, the Gateway's global list, the routine and hook caps and the
+plugin manifest, and its schema is sent with every model request.
+
+It is compiled for every agent of the owner's that is not archived, members
+included, while Android devices are installed and can run on the host
+(`toolGrants` `devices`, read at every apply like `craft`); never for an agent of
+restricted users (`lockedTools`) or one with its own bot for other people
+(`senderLockedTools`). Routines and hook runs keep it in their caps. The bridge
+admits the action `device` for a turn of any agent or member, a routine's run, a
+hook's run and a run of the owner's chat without a turn; what a call may do is the
+devices' own gate, `agent-device-origin.js`, asked when the call arrives and again
+when its turn on the device's queue comes (`DeviceService` calls the caller's
+`admit`):
+
+| Run (the bridge's ticket, and the turn's recorded origin)                                                                                                                                                                                                                  | Use                            | Create, reset, delete |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- |
+| Turn with origin `owner` or `telegram`, not `forwarded`, no goal marker (`directOwnerTurn`)                                                                                                                                                                                | yes                            | yes                   |
+| Turn with origin `owner` or `telegram` and a goal marker; `reminder`, `member-result`, `team-result`, `coding-result`, `session-talk`, `coding-session`, `member-long-chat`, `mail-result`, `ssh-access-result`, `memory-result`, `coding-start`; none of them `forwarded` | yes                            | no                    |
+| Routine run, hook run                                                                                                                                                                                                                                                      | yes                            | no                    |
+| Owner run without a turn, the chat's latest request has an origin that may use devices (or the chat has none)                                                                                                                                                              | yes                            | no                    |
+| Routine a lead set up on its member (`createdBy: "lead"`), the lead no device agent or a member                                                                                                                                                                            | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
+| Member's turn with origin `lead-request`, its task open, the task's own origin usable, lead eligible                                                                                                                                                                       | the task's pass and its own    | no                    |
+| Any other origin: forwarded, foreign (`foreignKinds`), `memory-step`, `unknown`, no record, a kind not listed; a temporary member's other turns                                                                                                                            | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
+| Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's                                                                                                                                                                        | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
+
+The origins are an allow-list (`deviceOriginKinds`), decided by the owner per kind:
+a kind that is not listed, a new one too, gets no device.
+`tests/integration/agent-device-origins.test.js` scans the server for the kinds it
+records as a turn's trusted context and fails for one without a decision. A goal
+turn that hands a result over (`goalResult`) needs that result's kind listed as well,
+and a task's origin may also be `routine` (`taskOrigin`).
+
+The bridge binds a call to the one live turn of its session whatever run the call
+names, so the gate compares the run itself (`agent-device-origin.js` `ownRun`): a
+turn's own calls name the attempt's id (the send's idempotency key) or the run id the
+Gateway acknowledged the send with, and both map to the attempt
+(`RequestLedger#attemptForRun`). A call whose `runId` maps to another attempt is
+refused (`DEVICE_RUN_FORBIDDEN`). A `runId` that maps to no attempt is a run AgentPier
+sent no turn for (the completion run after a background command and a heartbeat run
+in the chat's session under run ids of their own,
+`assistant-owner-run-contract.test.js`): it is served like an owner run without a
+turn, uses devices when the bound turn may, and never manages. A call without a
+`runId` (Hermes) counts as the bound turn's.
+
+A lead passes devices on with `agentpier_team_delegate` `access.devices`
+(`member-device-passes.js`): checked against what the lead has and against the
+lead's own run, written onto the task's record (`devices`), counted live while the
+task is open and the lead still has the device, never with `manage`. Files travel
+between a device and the agent's workspace only, recorded as one folder in
+`devices/agent-grants.json` (`area`), never `.agentpier/`. Only the workspace folder
+itself is recorded (`AgentDeviceGrants` `#workspaceArea`): a folder, no link, whose
+real path is exactly its name below the real path of the runtime's workspaces folder
+(`runtime.paths.workspaces/<agent id>`; on Hermes what `workspaceOf` answers), and
+neither AgentPier's data folder, a folder above it nor the devices' folder. At every
+use the record must still be that folder (same real path, device and inode), else
+`DEVICE_PATH_OUTSIDE` with `AREA_CHANGED`; with nothing recorded and something else
+at the workspace's place, `WORKSPACE_MISPLACED`. The owner's `PUT` records anew only
+when none is recorded or the recorded folder is no longer the one there, and only a
+folder that passes the check: that is the repair after a restore; `pull` needs a run that may
+write (`DEVICE_PULL_READONLY`). A screenshot answers `{ image: { data, mimeType },
+width, height, bytes, device, note }`, which the plugin returns as a text block and
+an `image` block (`deviceImageResult`), as it does for `agentpier_workspace`
+`image_view`. Refusals carry their `DEVICE_*` code with an English sentence
+(`tool-errors.js`, `device-tool-messages.js` audience `agent`). A call ends after
+110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`, below the two minutes after which a
+runtime counts a tool call as stuck), and the plugins wait 125 seconds
+(`toolTimeouts.device`). An agent's `shell` therefore takes a `timeoutMs` of at most
+100000 (`AGENT_SHELL_TIMEOUT_MAX_MS`; the plugin's schema and description name it,
+and a larger one answers `DEVICE_INPUT_INVALID`), where a session's takes 120000. A call the runtime gave up ends too: when the last
+connection waiting for a running `/invoke` closes before its answer, the bridge
+aborts the invocation's `gone` signal (`TeamBridge#awaited`), which is the device
+call's signal, so what runs on the device is aborted and a call still waiting for
+its turn there never runs (`DEVICE_ADB_CANCELLED`). Only the device action reads
+`gone`; the other actions hear of a lost answer through `undelivered` as before,
+once there is an answer. See
+[Android devices](devices.md#devices-for-agents).
+
+A release that ships this needs **Upgrade notes**: on a host where Android devices
+are installed and can run, every compiled `openclaw.json` gains `agentpier_device`
+in the tool allow list of each of the owner's agents, in the Gateway's global list
+and in the routine and hook caps, with the next apply after the update; an agent
+without an assigned device has the tool and an empty list. Nothing changes on a host
+without the Android components, and no agent has a device until the owner assigns
+one under **Agents › <agent> › Access › Android devices**.
+
 ## SSH access proposals (2026-10-26, AGENTPIER-249)
 
 `agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and

@@ -238,6 +238,7 @@ export class AssistantConfig {
       const desired = desiredAgent(assistant, {
         ssh: own.ssh,
         craft: own.craft,
+        devices: own.devices,
         shellPath: own.shellPath,
         // A temporary member's browser window follows its lead's setting.
         lead: leadOf(this.store.listAssistants(), assistant),
@@ -324,6 +325,8 @@ export class AssistantConfig {
     const ssh = !!this.sshGranted?.(assistant);
     // Craft Anything rebuilds are available (agentpier_craft), read at every apply.
     const craft = !!this.craftAvailable?.();
+    // Android devices are installed and can run here (agentpier_device), likewise.
+    const devices = !!this.devicesAvailable?.();
     // "Learns its own skills" (skill-learning.js) and the memory wiki's tools, each
     // with whether some agent has it (the global tools); never with a bot for others.
     const grants = { nativeReady, senderFacing: this.senderFacing };
@@ -331,7 +334,7 @@ export class AssistantConfig {
     const learning = this.compiler.learning(assistant, grants);
     const wiki = this.compiler.wiki?.(assistant, grants);
     // The tools with or without the proven write guard, which may report meanwhile.
-    const rest = [available, mcpTools, ssh, craft];
+    const rest = [available, mcpTools, ssh, craft, devices];
     const toolsFor = (guard) =>
       profileTools(assistant, this.teamReady?.(), nativeReady, guard, ...rest)
         .filter((tool) => !senderFacing || !senderLockedTools.includes(tool))
@@ -414,6 +417,7 @@ export class AssistantConfig {
     const desired = desiredAgent(assistant, {
       ssh,
       craft,
+      devices,
       shellPath,
       lead,
       optionConnections,

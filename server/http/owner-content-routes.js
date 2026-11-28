@@ -125,6 +125,10 @@ export const ownerMetadataRoutes = new Set([
   "PUT /api/assistants/:id/group",
   "GET /api/assistants/:id/access",
   "PUT /api/assistants/:id/access",
+  // Which Android devices the agent may use (devices/agent-device-access.js): the
+  // owner's devices and his grant, nothing a user wrote.
+  "GET /api/assistants/:id/devices",
+  "PUT /api/assistants/:id/devices",
   "PUT /api/assistants/:id/team-policy",
   // A lead's groups of permanent members: names only (member-groups.js).
   "POST /api/assistants/:id/member-groups",

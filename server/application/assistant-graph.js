@@ -15,7 +15,7 @@ import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { AgentLifecycle } from "../features/assistants/agent-lifecycle.js";
 import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
 import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
-import { workflowInstructionWiring } from "./workflow-instruction-wiring.js";
+import { hostTools, workflowInstructionWiring } from "./workflow-instruction-wiring.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { stdioAgents } from "../features/assistant-channels/telegram-inputs.js";
@@ -538,9 +538,9 @@ export function connectAssistantServices(graph) {
         native: await reminders.start(),
         // Agents on hosts of their own are never compiled into the shared host.
         profiles: shared,
-        // SSH grants (assistant-access.js sshAgents), rebuilds (craft/agent-craft.js).
+        // SSH grants (assistant-access.js sshAgents); rebuilds and Android devices.
         sshAgents: workflows.access.sshAgents(),
-        craft: !!configuration.craftAvailable?.(),
+        ...hostTools(configuration),
         // Read at each start; secrets reach only the compiled openclaw.json.
         mcp: readMcpInputs(mcpServers, {
           redirectUrl: mcpChanges.redirectUrl(),

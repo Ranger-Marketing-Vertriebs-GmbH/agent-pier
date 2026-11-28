@@ -30,7 +30,7 @@ export function ownerChat(agent, conversation) {
 // Turn origins whose text the owner did not write: forwarded content, what members,
 // restricted users or other agents send, and a remote host's output (SSH and SFTP
 // results keep their own origin rules, agent-ssh-origin.js).
-const foreignKinds = new Set([
+export const foreignKinds = new Set([
   "ssh-result",
   "sftp-result",
   "user",
@@ -97,6 +97,9 @@ export const ownerRunActions = new Set([
   "preview",
   // A rebuild for the owner (craft/agent-craft.js).
   "craft",
+  // The agent's Android devices, never creating, resetting or deleting one
+  // (agent-device-origin.js).
+  "device",
 ]);
 
 /**

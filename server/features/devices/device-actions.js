@@ -13,7 +13,8 @@ import { screenActions } from "./device-screen-actions.js";
  * (device-mcp.js) call it today, the agent tools will. An action is a name, an
  * input object and a context:
  *
- *   run(action, input, { caller, canCreate, area, areaWritable, signal })
+ *   run(action, input, { caller, canCreate, area, areaWritable, scope,
+ *                        protectedRoots, signal })
  *
  * - `caller`: `{ kind: "session" | "agent", id, name }`. Who may use, reset or
  *   delete which device is the device service's rule (device-access.js); every
@@ -26,6 +27,16 @@ import { screenActions } from "./device-screen-actions.js";
  * - `areaWritable()`: false when AgentPier must not write into that folder for the
  *   caller: a sandboxed session, whose sandbox may give it the folder read-only
  *   (`pull` answers DEVICE_PULL_SANDBOXED then).
+ * - `scope(device)`: narrows the caller's devices for this one call, for a caller
+ *   whose runs differ in what they may use (an agent's delegated task,
+ *   assistants/agent-device-origin.js). A device outside it answers
+ *   DEVICE_FORBIDDEN and is not listed. It only ever narrows: the device service
+ *   still decides for every device.
+ * - `protectedRoots()`: the folders no host path may lie in or below, for a caller
+ *   whose area is inside AgentPier's data folder (an agent's workspace); without
+ *   it, the data folder itself.
+ * - `callTimeoutMs`: an earlier deadline for the whole call than the actions' own,
+ *   for a caller whose tool call must answer sooner (an agent's).
  * - `signal`: aborts the call when the caller is gone (DEVICE_ADB_CANCELLED); a
  *   call that still waits for its turn on the device then starts and runs nothing.
  *
@@ -121,15 +132,26 @@ export class DeviceActions {
       throw refusal("DEVICE_ELEMENT_STALE");
     return { x: found.x, y: found.y };
   }
+  /** The deadline of one call: the actions' own, or an earlier one a caller asks for. */
+  deadline(asked) {
+    return Number.isFinite(asked) && asked > 0
+      ? Math.min(asked, this.callTimeoutMs)
+      : this.callTimeoutMs;
+  }
+  /** The devices `caller` may use, within `scope` when the call has one. */
+  devicesFor(caller, scope = null) {
+    const mine = this.devices.devicesFor(caller);
+    return scope ? mine.filter((device) => scope(device) === true) : mine;
+  }
   /**
    * The device `reference` (its id or its name) among those `caller` may use.
    * Throws DEVICE_FORBIDDEN (403) for a device that exists without a grant, and
    * DEVICE_NOT_FOUND (404).
    */
-  device(caller, reference) {
+  device(caller, reference, scope = null) {
     if (typeof reference !== "string" || !reference || reference.length > 100)
       throw refusal("DEVICE_NOT_FOUND", 404);
-    const mine = this.devices.devicesFor(caller);
+    const mine = this.devicesFor(caller, scope);
     const found =
       mine.find((device) => device.id === reference) ??
       mine.find((device) => device.name === reference);
@@ -172,22 +194,24 @@ export class DeviceActions {
       timer = setTimeout(() => {
         reject(refusal("DEVICE_CALL_TIMEOUT"));
         abort();
-      }, this.callTimeoutMs);
+      }, this.deadline(context.callTimeoutMs));
     });
     const { signal } = controller;
     const adb = (id, args, options = {}) =>
       this.devices.adb(id, args, { caller, signal, ...options });
+    const scope = typeof context.scope === "function" ? context.scope : null;
     const call = {
       actions: this,
       devices: this.devices,
       limits: this.limits,
-      protectedRoots: [this.dataDir],
+      protectedRoots: context.protectedRoots ? context.protectedRoots() : [this.dataDir],
+      devicesFor: () => this.devicesFor(caller, scope),
       caller,
       signal,
       canCreate: () => !!context.canCreate?.(),
       area: async () => (await context.area?.()) || null,
       areaWritable: () => context.areaWritable?.() !== false,
-      device: (reference) => this.device(caller, reference),
+      device: (reference) => this.device(caller, reference, scope),
       adb,
       shell: (id, command, options) => adb(id, ["shell", command], options),
     };

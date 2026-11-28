@@ -8,6 +8,7 @@ import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { assistantProactivityCopy } from "../lib/i18n/messages/assistant-proactivity.js";
 import { assistantShellCopy } from "../lib/i18n/messages/assistant-shell.js";
 import { assistantUsageCopy } from "../lib/i18n/messages/assistant-usage.js";
+import { devicesCopy } from "../lib/i18n/messages/devices.js";
 import { hookCopy } from "../lib/i18n/messages/assistant-hooks.js";
 import { leadRequestCopy } from "../lib/i18n/messages/lead-requests.js";
 import { routineCopy } from "../lib/i18n/messages/assistant-routines.js";
@@ -60,8 +61,9 @@ const pageTabs = {
 };
 
 // The groups inside an agent's tabs that people search by their own names
-// (AGENTPIER-445): [id, tab, label, applies(agent), old names]. Each opens its tab,
-// where the group shows under that name.
+// (AGENTPIER-445): [id, tab, label, applies(agent, host), old names, words]. Each
+// opens its tab, where the group shows under that name. `host` says what this host
+// offers (`devicesAvailable`); `words` are further words people type for the group.
 // The owner's own agents and permanent members: a temporary member's groups are its
 // lead's to set.
 const ownAgent = (agent) => !agent.userAccess && isPersonal(agent);
@@ -94,10 +96,30 @@ const agentGroups = [
     () => true,
     [() => leadRequestCopy.groups.title],
   ],
+  // The agent's Android devices on its Access tab (DevicesAccess.jsx): every agent
+  // of the owner's, also a member, while the host offers devices.
+  [
+    "devices",
+    "access",
+    () => devicesCopy.title,
+    (agent, host) => host.devicesAvailable === true && !agent.userAccess,
+    [],
+    [
+      "Android Emulator",
+      "Android phone",
+      "Android Handy",
+      "Android Telefon",
+      "assign device",
+      "Gerät zuweisen",
+    ],
+  ],
 ];
 
-/** "Ops-Wache · Zugriffe" and its subpages, for every agent that is not archived. */
-export function agentEntries(agents) {
+/**
+ * "Ops-Wache · Zugriffe" and its subpages, for every agent that is not archived.
+ * `host.devicesAvailable` adds each agent's Android devices.
+ */
+export function agentEntries(agents, host = {}) {
   const root = bilingual(text.agents);
   const tabLabels = Object.fromEntries(
     [
@@ -140,8 +162,8 @@ export function agentEntries(agents) {
         agentsOnly: true,
         aliases: (tabAliases[tab] || []).map((key) => named(oldTabs[key])),
       });
-    for (const [group, tab, label, applies, old = []] of agentGroups) {
-      if (!tabs.includes(tab) || !applies(agent)) continue;
+    for (const [group, tab, label, applies, old = [], words = []] of agentGroups) {
+      if (!tabs.includes(tab) || !applies(agent, host)) continue;
       const own = bilingual(label);
       entries.push({
         id: `agent:${agent.id}:group:${group}`,
@@ -151,6 +173,8 @@ export function agentEntries(agents) {
         target: { route: agentRoute(agent.id, tab) },
         agentsOnly: true,
         aliases: old.map((key) => named(bilingual(key))),
+        // Every word of a query must be in one term, so each word carries the name.
+        ...(words.length ? { extra: words.map((word) => `${name.en} ${word}`) } : {}),
       });
     }
     const pinboard = pinboardEntry(agent, name, root, { bilingual, join, named });

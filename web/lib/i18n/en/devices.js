@@ -107,7 +107,13 @@ export const devicesCopy = {
     creatorAgent: (name) => `Created by agent ${name}`,
     creatorSession: (name) => `Created by session ${name}`,
     creatorGone: "creator no longer exists",
+    creatorAgentGone: "Created by an agent that no longer exists",
+    creatorSessionGone: "Created by a session that no longer exists",
     assigned: (names) => `Assigned to ${names}`,
+    assignedAgent: (name) => `agent ${name}`,
+    assignedSession: (name) => `session ${name}`,
+    assignedPassed: (name, lead) => `${name} (passed on by ${lead} for a task)`,
+    assignedPassedUnnamed: (name) => `${name} (passed on by its lead agent for a task)`,
     assignedMore: (names, more) => `Assigned to ${names} and ${more} more`,
     assignedManage: (name) => `${name} (may reset and delete)`,
     assignedNone: "Not assigned",
@@ -199,6 +205,16 @@ export const devicesCopy = {
       "This session may not create devices. Allow it under the session's devices.",
     DEVICE_SESSION_INELIGIBLE:
       "Devices can be given to your own running coding sessions only, not to sign-in, pipeline or imported sessions or to sessions of a restricted user's agent.",
+    DEVICE_AGENT_INELIGIBLE:
+      "Devices can be given to your own agents only, not to an archived agent, an agent of restricted users or an agent with its own Telegram bot for other people.",
+    DEVICE_RUN_FORBIDDEN:
+      "The agent gets no device in this run, because it works on content that is not your own or its origin is unknown.",
+    DEVICE_OWNER_TURN_REQUIRED:
+      "An agent creates, resets and deletes devices only in a turn you started with a message of your own.",
+    DEVICE_PULL_READONLY:
+      "This run may not change files in the agent's workspace, so no file was copied from the device.",
+    DEVICE_PASS_INVALID:
+      "An agent can pass on to a team member only devices it has itself.",
     DEVICE_ASSIGNMENT_INVALID:
       "This assignment is not valid. A device in it may no longer exist; reload and try again.",
     DEVICE_INPUT_INVALID: "The call to the device had a missing or malformed argument.",
@@ -287,6 +303,22 @@ export const devicesCopy = {
       toolsOff:
         "Without AgentPier tools the session gets no device tools. Turn on AgentPier tools above.",
     },
+  },
+  // The Android devices of one agent: the group in the agent's Access tab.
+  agent: {
+    hint: "The agent operates an assigned device with its tool agentpier_device: it starts and stops it, sees and taps its screen, installs apps and runs commands on it. A device reaches the network and the local services of this computer, so assigning one is an act of trust like assigning a shell.",
+    allowed: (count) => `Allowed for this agent · ${count}`,
+    own: "created by this agent",
+    createSub:
+      "Devices the agent creates are its own and count towards the limit of devices in total.",
+    runs: "The agent uses its devices in every run, also in routines and hooks. It creates, resets and deletes devices only in a turn you started with a message of your own. A run on other people's content, such as a forwarded message, gets no device.",
+    member:
+      "Its lead agent can also pass a device on to this member for a task. The member uses that device while it works on the task and never resets or deletes it.",
+    passed: "Passed on for a task",
+    passedSub: "Passed on by the lead agent for a task that is open now. Use only.",
+    kept: "What you assigned stays saved and counts again once this no longer applies.",
+    manage: "Manage Android devices",
+    saveLabel: "Save devices",
   },
   search: {
     newDevice: "New device",

@@ -142,7 +142,7 @@ instead of building a one-off in a feature.
 | `AnchoredSelect`                                    | A select whose options open anchored below it (above when only there is room), optionally with search (`searchLabel`). The menu sits in a fixed layer, so no card, scroll container or sticky bar clips or covers it. Use for long or searchable option lists.                                                                                            | A native `select` with a listbox; keyboard and typeahead work.                                                  | `web/components/AnchoredSelect.jsx` |
 | `SearchSelect`                                      | A searchable picker with a trigger button and optional footer, for remote option lists. Its panel opens in the flow and scrolls clear of a sticky save bar.                                                                                                                                                                                               | Combobox with listbox.                                                                                          | `web/components/SearchSelect.jsx`   |
 | `AddPicker`                                         | The inline add field: the last row of a list card that grants several items from a long list (see [Adding from long lists](#adding-from-long-lists)). Not for picking one value (use `AnchoredSelect` or `SearchSelect`).                                                                                                                                 | ARIA 1.2 combobox with a multi-select listbox; arrows, Space, Enter, Escape.                                    | `web/components/AddPicker.jsx`      |
-| `GrantPicker`                                       | Chooses what a session may use from a long list in a dialog: search and compact rows beside the allowed list, or the allowed list ending in `AddPicker` (see [Choosing what a session may use](#choosing-what-a-session-may-use)). Not for options of one action (use `CheckRow`).                                                                        | Search field and native checkboxes in a labelled fieldset; the allowed list is a labelled group.                | `web/components/GrantPicker.jsx`    |
+| `GrantPicker`                                       | Chooses what a session or an agent may use from a long list, in a dialog or (stacked) as a group of a settings tab: search and compact rows beside the allowed list, or the allowed list ending in `AddPicker` (see [Choosing what a session may use](#choosing-what-a-session-may-use)). Not for options of one action (use `CheckRow`).                 | Search field and native checkboxes in a labelled fieldset; the allowed list is a labelled group.                | `web/components/GrantPicker.jsx`    |
 | `LanguageSelect`                                    | The language choice (login and general settings).                                                                                                                                                                                                                                                                                                         | Labelled native select.                                                                                         | `web/components/LanguageSelect.jsx` |
 | `Switch`                                            | A labelled binary setting outside a list card (`role="switch"`); `ToggleRow` is its row form.                                                                                                                                                                                                                                                             | The label names the switch; the whole label is the target.                                                      | `web/components/Switch.jsx`         |
 | `Checkbox`                                          | A labelled option of an action or one choice among several; `CheckboxRow` and `CheckRow` are the row forms.                                                                                                                                                                                                                                               | The label names the box; the whole label is the target.                                                         | `web/components/Checkbox.jsx`       |
@@ -181,8 +181,8 @@ identity stable; it returns items or `{ items, total }`). The field shows "n Tre
   and the list waits up to 350 ms for it); checked rows keep it open. Rows are 44px
   on phones and touch screens.
 - `direct` drops the checking step: a click, Space or Enter adds that row at once
-  through `onAdd`, the row then shows as granted and the list stays open; there is no
-  footer. For a picker whose surrounding dialog confirms with its own button
+  through `onAdd`, the text typed to find it is cleared and the list stays open on
+  every candidate, where the row shows as granted from then on; there is no footer. For a picker whose surrounding dialog confirms with its own button
   (`GrantPicker` with `stacked`); not together with `modes`.
 - With the on-screen keyboard open the list is as high as the space it leaves (at
   least three rows), and the field and the top of its list scroll into view.
@@ -204,6 +204,10 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
 to a granted entry go there as a list card of `ToggleRow`s, one per entry and named
 after it, as the **Berechtigungen** / **Permissions** of a session's Android devices
 (`web/features/devices/DeviceGrantFields.jsx`); the rows of the picker hold no switches.
+An agent's **Android devices** group on its Access tab is the same fields, stacked,
+with the heading "Für diesen Agenten erlaubt · n" / "Allowed for this agent · n"
+(`web/features/assistants/settings/access/DevicesAccess.jsx`); there the choice is a
+field of the tab's draft and saves with the tab's `SaveBar`.
 
 - **Split** (above the phone breakpoint): on the left a search field ("SSH-Zugänge
   durchsuchen" / "Search SSH accesses"), the count "n von m" / "n of m" and one 36px row
@@ -225,8 +229,8 @@ after it, as the **Berechtigungen** / **Permissions** of a session's Android dev
   below the dialog's heading. The keyboard opens only on a tap in the search field.
 - **Stacked** (with `stacked`, at every width, for a picker that is one section of a
   larger form such as the new-session dialog): the allowed list card ends in an
-  `AddPicker` with `direct`, so a click on an option adds it at once and the list stays
-  open for the next one; allowed entries show there as "erlaubt" / "allowed". An entry
+  `AddPicker` with `direct`, so a click on an option adds it at once, clears the field
+  and leaves the list open for the next one; allowed entries show there as "erlaubt" / "allowed". An entry
   without `group` shows its `badge` in the options instead, so "SFTP" stays visible and
   searchable.
 - `locked` marks an entry the session has anyway (from the project): it counts as

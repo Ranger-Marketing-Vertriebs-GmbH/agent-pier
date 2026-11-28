@@ -13,6 +13,7 @@ import { mailDefinition } from "./mail-tool.js";
 import { projectDefinition } from "./project-tool.js";
 import { craftDefinition } from "./craft-tool.js";
 import { previewDefinition } from "./preview-tool.js";
+import { deviceDefinition, deviceImageResult } from "./device-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { groupDefinitions } from "./group-tools.js";
 import { registerChatTitle } from "./chat-title.js";
@@ -58,6 +59,9 @@ export const toolTimeouts = {
   craft: 95000,
   // A preview open checks the server's port and binds a slot before it answers.
   preview: 15000,
+  // A device call may boot the device first and ends after 110 seconds at the latest
+  // (agent-devices.js AGENT_CALL_TIMEOUT_MS).
+  device: 125000,
 };
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;
@@ -78,6 +82,7 @@ export const ownTools = [
   "project",
   "preview",
   "craft",
+  "device",
 ];
 /** The tool name of bridge action `action` (shared with the Hermes adapter). */
 export const toolName = (action) =>
@@ -125,9 +130,14 @@ const accessSchema = {
     projects: grantsSchema.properties.projects,
     coding: { type: "array", maxItems: 20, items: text(100) },
     mcpServers: { type: "array", maxItems: 16, items: text(100) },
+    // Android devices for one task (member-device-passes.js); delegate only.
+    devices: { type: "array", minItems: 1, maxItems: 20, items: text(100) },
   },
   additionalProperties: false,
 };
+// What agentpier_team_delegate says about passing Android devices on.
+const deviceRule =
+  "access.devices (ids or names from agentpier_device, action list) passes Android devices on for this task only, to a permanent or a temporary member: only devices assigned to you or created by you, and only in a run in which you may use devices yourself (DEVICE_PASS_INVALID otherwise). The member can use them, never reset or delete them.";
 const shareRule =
   "With a permanent member you can share only your own access: projects (project folder access as {projectId: read or write}, at most your own level), coding (project IDs on which it may request coding runs with your pipelines; every run still waits for the owner's approval) mcpServers (names of MCP servers bound to you) and, standing only, grants.documents: true (Read images, so it can view images in its folders; only while your own Read images is on) and grants.skills (names of skills switched on for you, or true for all of them: the member has each skill only while you have it on, beside the skills the owner gave it; revoke with the names, or true for all you shared; a skill that cannot be on for the member is refused, and with true left out and named in skippedSkills). It applies at once and only while you hold it yourself; the owner sees and can remove every share.";
 const grantRule =
@@ -146,6 +156,7 @@ export const definitions = {
   ...projectDefinition,
   ...craftDefinition,
   ...previewDefinition,
+  ...deviceDefinition,
   ...memberDefinitions,
   ...groupDefinitions,
   reminder: {
@@ -230,7 +241,7 @@ export const definitions = {
     ]),
   },
   delegate: {
-    description: `Delegate a task to one of your own members, permanent or temporary (not archived), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. To have members agree among themselves, name in the task whom the member may involve and where the result goes (back to you, or into a project folder it may change); it can ask colleagues, hand tasks only to permanent ones, and report back to you. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only only when the owner switched 'May write' off for that routine. access passes your own access for this task only and ends with it: ${shareRule} Project folders you share with the member (standing or for this task) can be changed in any of your tasks up to the shared level, capped at your own; files in the member's own workspace change only when the task may change files (see below). ${ownerRule}`,
+    description: `Delegate a task to one of your own members, permanent or temporary (not archived), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. To have members agree among themselves, name in the task whom the member may involve and where the result goes (back to you, or into a project folder it may change); it can ask colleagues, hand tasks only to permanent ones, and report back to you. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only only when the owner switched 'May write' off for that routine. access passes your own access for this task only and ends with it: ${shareRule} ${deviceRule} Project folders you share with the member (standing or for this task) can be changed in any of your tasks up to the shared level, capped at your own; files in the member's own workspace change only when the task may change files (see below). ${ownerRule}`,
     parameters: schema(
       { memberId: text(100), task: text(8192), ...owner, access: accessSchema },
       ["memberId", "task"],
@@ -440,6 +451,9 @@ export default {
                     ],
                   };
                 }
+                // A device's screenshot reaches the model as an image block too.
+                const shown = action === "device" ? deviceImageResult(result) : null;
+                if (shown) return shown;
                 return { content: [{ type: "text", text: JSON.stringify(result) }] };
               },
             };

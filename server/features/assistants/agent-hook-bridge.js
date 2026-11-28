@@ -15,9 +15,12 @@ import { routineRunOf } from "./runtimes/runtime-for.js";
 // What a hook run may call through the bridge: project folders and coding
 // (agent-hook-workspace.js), SSH on its chosen hosts and, with its Coding tick,
 // coding sessions (coding-sessions/session-turns.js), with its Email tick, mail
-// (mail/agent-mail.js), and always files for the owner's chat (agent-shares.js).
+// (mail/agent-mail.js), the agent's Android devices without creating, resetting or
+// deleting one (agent-device-origin.js), and always files for the owner's chat
+// (agent-shares.js).
 export const hookActions = new Set([
   "workspace",
+  "device",
   "ssh",
   "coding_session",
   "mail",

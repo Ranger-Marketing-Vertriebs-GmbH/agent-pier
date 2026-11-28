@@ -53,6 +53,8 @@ export const actions = new Set([
   "preview",
   // Craft Anything rebuilds for the owner (craft/agent-craft.js); owner turns only.
   "craft",
+  // The agent's Android devices (agent-devices.js); its own gate decides per run.
+  "device",
   ...memberActions,
 ]);
 // File actions for the owner that also run in a session without a turn (owner-shares.js).
@@ -75,6 +77,7 @@ export const bridgeTool = (action) =>
     "project",
     "preview",
     "craft",
+    "device",
   ].includes(action)
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;
@@ -95,6 +98,9 @@ export const routineActions = new Set([
   "coding_session",
   // Email on the agent's grants (mail/agent-mail-origin.js).
   "mail",
+  // The agent's Android devices, never creating, resetting or deleting one
+  // (agent-device-origin.js).
+  "device",
   // A member's routine asks, hands over and reports; a lead's routine is refused by
   // the caller check (peer-request-rules.js peerCaller).
   ...memberActions,
@@ -113,6 +119,10 @@ export const personalActions = new Set([
   "mail",
   "preview",
 ]);
+// What every member reaches whatever its lifetime: the Android devices its lead
+// passed on with a task or the owner assigned to it (agent-device-origin.js decides
+// per run).
+export const anyMemberActions = new Set(["device"]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.
 export const inheritedAction = (a, action) =>

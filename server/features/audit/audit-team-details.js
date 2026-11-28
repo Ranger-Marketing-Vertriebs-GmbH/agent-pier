@@ -52,6 +52,9 @@ export function teamAuditDetails(details, event, auditId) {
       );
     if (Number.isSafeInteger(details.skills) && details.skills > 0)
       event.details.skills = Math.min(details.skills, 1000);
+    // Android devices passed on with a task (member-device-passes.js), as their number.
+    if (Number.isSafeInteger(details.devices) && details.devices > 0)
+      event.details.devices = Math.min(details.devices, 100);
     for (const key of ["memberId", "requestId"])
       if (id(details[key])) event.details[key] = details[key];
     // Project ids with their coding and folder levels; never a project's name.

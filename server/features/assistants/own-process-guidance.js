@@ -68,6 +68,7 @@ export async function ownProcessInputs(
   const senderFacing = !!config.senderFacing?.(assistant);
   const ssh = !!config.sshGranted?.(assistant);
   const craft = !!config.craftAvailable?.();
+  const devices = !!config.devicesAvailable?.();
   const shellPath = [
     ...(config.githubShellPath?.(assistant) || []),
     ...(config.sshShellPath?.(assistant) || []),
@@ -94,5 +95,5 @@ export async function ownProcessInputs(
     previews: tools && mayOpenPreviews(assistant, senderFacing),
   };
   const optionConnections = await resolveOptionConnections(config.models, assistant);
-  return { ssh, craft, shellPath, guidance, optionConnections };
+  return { ssh, craft, devices, shellPath, guidance, optionConnections };
 }

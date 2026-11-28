@@ -819,15 +819,27 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   (`native-capabilities.js` `toolGrants`): `agentpier_reminder`, `agentpier_routine`,
   `agentpier_hook`, `agentpier_workspace` (project folders, coding requests, browser
   upload staging), `agentpier_share_file`, `agentpier_pinboard`, `agentpier_card`, `agentpier_ssh`, `agentpier_ssh_access`,
-  `agentpier_goal`, `agentpier_coding_session`, `agentpier_mail`, `agentpier_project`
-  and `agentpier_preview`. A restricted user's agent holds what OpenClaw's holds (no
-  team, SSH, goal, mail, project or preview tools). The bridge serves and checks every
+  `agentpier_goal`, `agentpier_coding_session`, `agentpier_mail`, `agentpier_project`,
+  `agentpier_preview` and, while Android devices can run on the host,
+  `agentpier_device`. A restricted user's agent holds what OpenClaw's holds (no
+  team, SSH, goal, mail, project, preview or device tools). The bridge serves and checks every
   call as it does OpenClaw's. A project image (`agentpier_workspace` `image_view`)
   comes back as Hermes's multimodal tool result (`_multimodal` with `content` and
   `text_summary`, `tools/registry.py`): OpenClaw's line naming the image and the image
   as an image part, never as base64 text. A model Hermes does not know to see images
   gets the summary instead (`agent/vision_message_prep.py`), which names the image and
-  says it cannot be shown. A plugin tool's handler receives
+  says it cannot be shown. A device's screenshot (`agentpier_device` `screenshot`,
+  [Android devices](devices.md#devices-for-agents)) comes back the same way: the
+  note AgentPier wrote for it with its width, height and size, and the PNG as an
+  image part; the summary for a model without image input says to use action `ui`
+  (the screen as numbered elements) instead. The bridge judges a Hermes agent's
+  device call by its run exactly as an OpenClaw agent's (`agent-device-origin.js`):
+  the plugin names a chat's session, or a routine's or hook's run session
+  (`…:hermes:cron:<job>:<session>`), and a session AgentPier does not know (an
+  invisible subagent's own session) gets no ticket and so no device. Hermes's plugin
+  names no run with a call (OpenClaw's does), so a call counts for the turn its chat
+  session has when it arrives; the gate's comparison of a call's run with the bound
+  turn's (`ownRun`) has nothing to compare on Hermes. A plugin tool's handler receives
   the calling session's id, the stored session id the session keys carry, and runs
   under the tool call's id (`model_tools.py` `handle_function_call`,
   `tools/approval_context.py`); an MCP call carries neither (`tools/mcp_tool_handlers.py`
@@ -1587,6 +1599,9 @@ connection of the fake model declared with image input) an attached PNG and a pr
 folder image: the model's request carries the attachment as an image part after the
 turn's text, the chat shows the owner's words with the file, and the image the agent
 views with `agentpier_workspace` `image_view` reaches the model as an image part of the
-tool result, never as base64 text. The tests use a private
+tool result, never as base64 text. `hermes-device-tool-contract.test.js` gives such an
+agent an Android device on the fake SDK: `agentpier_device` is part of its plugin, a
+call without an assignment lists no device, and after the owner assigned one its
+screenshot reaches the model as an image part of the tool result. The tests use a private
 `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.

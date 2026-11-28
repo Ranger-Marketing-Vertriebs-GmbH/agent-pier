@@ -74,18 +74,27 @@ async function screenSize(call, id) {
 export const screenActions = {
   async list(_input, call) {
     return {
-      devices: call.devices
-        .devicesFor(call.caller)
-        .map((device) => summary(call.caller, device)),
+      devices: call.devicesFor().map((device) => summary(call.caller, device)),
       canCreate: call.canCreate(),
     };
   },
   async create(input, call) {
-    if (!call.canCreate()) throw refusal("DEVICE_CREATE_FORBIDDEN", 403);
+    const allowed = () => {
+      if (!call.canCreate()) throw refusal("DEVICE_CREATE_FORBIDDEN", 403);
+    };
+    allowed();
     const { kind, id, name } = call.caller;
     const created = await call.devices.create({
       name: input.name,
       creator: { kind, id, name: typeof name === "string" ? name : "" },
+      // The create may have waited: its caller's run and its permission are asked
+      // again at its turn, as for a call on a device.
+      admit: () => {
+        // A caller that is gone, or whose call ended at its deadline, creates nothing.
+        if (call.signal?.aborted) throw refusal("DEVICE_ADB_CANCELLED");
+        call.caller.admit?.();
+        allowed();
+      },
     });
     return { device: mine(call, created.id) };
   },

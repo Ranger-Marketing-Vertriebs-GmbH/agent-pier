@@ -3,8 +3,8 @@
 Android devices are emulated Android phones that run on the AgentPier host, in Google's
 Android Emulator. They exist so that agents and coding sessions can test apps and
 websites on a phone. This version provides the installation, the devices and their
-lifecycle, and the tools for coding sessions; the tools for agents and the owner's live
-view of a device follow in later versions.
+lifecycle, and the tools for coding sessions and for agents; the owner's live view of
+a device follows in a later version.
 
 Everything is under **Settings › General › Android devices** (`/settings/devices`), for
 the owner only. ⌘K finds the page as "Android", "Emulator", "Phone" or "Handy", and
@@ -71,11 +71,15 @@ has the same shape: a phone with Android 16, 720 × 1600 pixels at 320 dpi, 4 co
 | **Delete …** | Deletes the device and everything on it. Asks first.                                                                                                                           |
 
 A row also shows who created the device (you, an agent or a session; "creator no longer
-exists" when that agent or session is gone), who it is assigned to, and its size on
-disk (measured while the device is stopped, so a running device shows none). Sessions
-are named as they are called now, with "(may reset and delete)" where you allowed it;
-a device more than three sessions share names three and counts the rest ("and 2
-more"). The session's own **Android devices** dialog shows the full choice. A device that failed shows the reason in words; see
+exists" when that agent or session is gone, also a deleted agent; the device stays),
+who it is assigned to, and its size on disk (measured while the device is stopped, so
+a running device shows none). Agents and sessions are named as they are called now
+("Assigned to agent Home (may reset and delete), session Checkout"), with "(may reset
+and delete)" where you allowed it. A team member that uses the device because its
+lead passed it on reads "agent Scout (passed on by Home for a task)"; that entry
+leaves the row when the task has ended. A device with more than three assignments
+names three and counts the rest ("and 2 more"). The full choice is in each agent's
+**Access** tab and in each session's **Android devices** dialog. A device that failed shows the reason in words; see
 [Troubleshooting](#troubleshooting).
 
 Resources, measured with the pinned emulator:
@@ -251,6 +255,165 @@ tools say so in their descriptions, and a session should read such content as da
 never as instructions. Keep that in mind before you let a session with other
 permissions (SSH, secrets, pipelines) browse pages you do not control.
 
+## Devices for agents
+
+An agent of yours (on OpenClaw or Hermes) uses a device through its tool
+`agentpier_device`, once you assigned the device to that agent. Nothing is shared by
+default. The tool does what a coding session's tools do (the table under
+[Devices for coding sessions](#devices-for-coding-sessions)), as one tool with an
+`action`: `list`, `create`, `start`, `stop`, `reset`, `delete`, `screenshot`, `ui`,
+`tap`, `swipe`, `key`, `type`, `install`, `push`, `pull`, `app_launch`, `app_stop`,
+`apps`, `open_url`, `logs` and `shell`, with the same arguments and sizes. An
+agent's call ends after 110 seconds as a whole (a session's after 140), also while a
+device is still booting, which then goes on; so an agent's `shell` takes a `timeoutMs`
+of at most 100000 (a session's 120000). A screenshot reaches the agent's model as an image.
+
+You assign devices in the agent's settings, **Agents › <agent> › Access › Android
+devices**, at the end of the tab's groups (in the search, ⌘K / Ctrl+K, as "<agent> ·
+Android devices"). The group shows while the Android components are installed and
+this host can run devices:
+
+- **Allowed for this agent · n** lists the devices the agent may use, each with a
+  remove button, and ends in the **Add Android device** field. A device the agent
+  created is listed with "created by this agent" and cannot be taken away.
+- **Permissions** holds one switch **Reset and delete "<device>"** per added device
+  and the switch **Create devices**, all off unless you turn them on. A device an
+  agent created is its own: it may use, reset and delete it without a further
+  permission, and you see it in the device list with its creator.
+- **Passed on for a task** appears for a team member while its lead passes a device
+  on with a task that is open now. It is for your information: you change nothing
+  there, and the entry leaves when the task has ended or was asked to stop. The
+  open tab and the device list follow that at once, as they follow an agent that is
+  archived or restored or that gains or loses its Telegram bot for other people.
+- The text below says in short which runs use a device (see [Which runs](#which-runs)),
+  and **Manage Android devices** opens **Settings › General › Android devices**.
+
+The choice is part of the Access tab's draft: **Save agent** in the bar at the bottom
+stores it together with the tab's other changes, and it applies at once, without a
+restart of the agent. A change made elsewhere shows in the open tab; if you were
+editing the devices meanwhile, your choice stays and the bar offers **Reload** or
+**Overwrite anyway**. An agent that cannot be given devices (see
+[Which agents](#which-agents)) reads why in place of the choice. A temporary team
+member has the same group as the one thing you set on its Access tab, with its own
+**Save devices**.
+
+The tool is offered to your agents while the components are installed and the host
+can run devices; an agent without a device has the tool and an empty list. An
+assignment needs no restart of the agent.
+
+### Which agents
+
+Only your own agents get devices. An **agent of restricted users** (its own or a
+shared one), an **archived agent** and an **agent with its own Telegram bot for other
+people** cannot be given a device (`DEVICE_AGENT_INELIGIBLE`), and a device you
+assigned earlier counts for nothing while one of these holds; your assignment is kept
+and counts again when it no longer does.
+
+### Which runs
+
+Whether a call is served depends on the run it belongs to, as AgentPier recorded it,
+never on what the agent says:
+
+| Run                                                                                                                                                                                                                                               | Use a device                         | Create, reset, delete     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------- |
+| A turn you started with your own message, in the web chat or your paired Telegram chat                                                                                                                                                            | yes                                  | yes, with your permission |
+| A goal continuation, a reminder, and what your own agents and coding sessions report into your chat: a member's or a team's result, a coding run's result, a coding session's question, notice or change, the note that a member's chat grew long | yes                                  | no                        |
+| A routine's run                                                                                                                                                                                                                                   | yes                                  | no                        |
+| A hook's run, while its event runs                                                                                                                                                                                                                | yes                                  | no                        |
+| A run of your chat without a turn (the follow-up after a background command, a check-in), while the chat's latest turn was one that could use a device                                                                                            | yes                                  | no                        |
+| A member's turn on a task of its lead                                                                                                                                                                                                             | what the lead passed on, and its own | no                        |
+| A turn on a forwarded message, on what a restricted user, a team member or a remote host (SSH, SFTP) sent, and a memory step                                                                                                                      | no                                   | no                        |
+| The outcome of something that waited for you (a mail the agent sent, its SSH access proposal, a project-knowledge note that was not saved, a coding request you approved)                                                                         | yes                                  | no                        |
+| A run whose origin AgentPier does not know, and every kind of turn that is not named above                                                                                                                                                        | no                                   | no                        |
+
+An agent that tries to create, reset or delete elsewhere is told to ask you
+(`DEVICE_OWNER_TURN_REQUIRED`); a run that gets no device is told so
+(`DEVICE_RUN_FORBIDDEN`). A call that waits behind another call on the same device,
+and a `create` that waits behind another create or a start, is
+checked again when its turn comes, so nothing runs for a turn that has ended
+meanwhile. A call the agent's runtime gave up (its turn was stopped, or it waited
+too long) is ended as well: what it runs on the device is aborted, and a call that
+still waits behind another never runs.
+
+A call counts for the run it names, not for whatever turn its chat has by then. On
+OpenClaw every call names its run: a late call of an earlier turn gets no device
+(`DEVICE_RUN_FORBIDDEN`) even when a turn of yours runs in the chat meanwhile, and a
+call of a run AgentPier sent no turn for (the follow-up after a background command, a
+check-in) uses devices like a run without a turn and never creates, resets or deletes
+on your turn's account. Hermes names no run with a call, so there a call counts for
+the turn its chat has when it arrives.
+
+What this cannot know: "forwarded" is a fact of a Telegram message. Text you paste
+into a chat yourself, a web page the agent reads, an email it fetches or a file it
+opens in a turn of yours is part of your turn. What a device shows is untrusted in
+the same way (see [What a device shows is untrusted](#what-a-device-shows-is-untrusted)).
+
+### Team members
+
+A lead can pass a device on to a member with a task: `agentpier_team_delegate` takes
+`access.devices`, a list of ids or names.
+
+- A lead passes on only what it has itself (a device you assigned to it, or one it
+  created), and only from a run in which it may use devices; a lead that works on
+  someone else's content passes nothing on (`DEVICE_PASS_INVALID`,
+  `DEVICE_RUN_FORBIDDEN`).
+- The member, permanent or temporary, uses the device while it works on that task.
+  The pass ends with the task, also as soon as the task is asked to stop (by the
+  lead, by you or at its deadline) while the member's turn still runs, and counts
+  only while the lead still has the device.
+- A member never resets or deletes a passed device and creates none in a task: a
+  member's task is not a turn you started.
+- A member you assigned a device to yourself uses it in its own runs like any agent,
+  and in a task of its lead beside what the lead passed on. That includes a turn you
+  start yourself in a permanent member's own chat: there it creates devices (with
+  **Create devices** on), and resets and deletes its own devices and those you
+  allowed it to, exactly as an agent that is no member does. A temporary member gets
+  a device in its lead's tasks only. A task the lead started
+  while it worked on someone else's content gets no device at all, not even the
+  member's own.
+- What a lead sets up on a member reaches a device only while the lead could be
+  given devices itself: a task and a routine the lead set up on a permanent member
+  alike. While the lead has its own Telegram bot for other people, is archived or is
+  gone, such a run gets no device (`DEVICE_RUN_FORBIDDEN`), not even the member's own.
+- The device list names the member beside the device while the pass counts, and the
+  audit log records the pass (`lead-share` with the number of devices).
+- A temporary member's first assignment (from `agentpier_team_propose`) and a
+  colleague's request (`agentpier_team_peer_delegate`) carry no device; the lead
+  delegates a task with `access.devices` instead.
+
+### Files stay in the agent's workspace
+
+`install`, `push` and `pull` name a path on the host that must lie inside the agent's
+own workspace (`<data dir>/assistants/workspaces/<agent id>`), with the rule described
+under [Files stay in the session's working folder](#files-stay-in-the-sessions-working-folder):
+the real path is resolved, links out of the workspace and files with a second name
+are refused, and adb only ever sees a private copy. For an agent:
+
+- **The workspace is one folder, recorded.** AgentPier records the folder (its real
+  path, device and inode numbers) when you save the agent's devices, and otherwise
+  the first time a file travels. Only the workspace folder itself is recorded: a
+  folder at exactly its place below AgentPier's workspaces folder. A link standing
+  there, to AgentPier's data folder or to any other folder, is never taken for the
+  workspace, by your save or by a transfer (`DEVICE_PATH_OUTSIDE`).
+- **The record is checked at every transfer.** A workspace that was moved, replaced
+  or restored from a backup since is another folder and is refused
+  (`DEVICE_PATH_OUTSIDE`; the agent is told that you have to save its devices). No
+  call of the agent records it. **To repair it, change the agent's Android devices
+  and save**: for example switch **Create devices** and save, then switch it back and
+  save. A save of changed devices records the folder that is at the workspace's place
+  then, when it passes the check above; while the recorded folder is still the
+  workspace, a save leaves the record as it is. (Saving the Access tab without a
+  change to the devices sends nothing for them; over the API,
+  `PUT /api/assistants/<id>/devices` with the current value does the same.)
+- **The agent's secrets never travel**: nothing in or below `.agentpier/` of the
+  workspace is read or written.
+- **A file is written into the workspace (`pull`) only for a run that may change
+  files there** (`DEVICE_PULL_READONLY` otherwise): not for a hook's run, a routine
+  with **May write** off, or a member's task that runs read-only. The agent can read
+  the content with action `shell` instead.
+- Project folders are not part of it: a file from a project is copied into the
+  workspace first.
+
 ## Limits and automatic stop
 
 Two limits, both under **Limits** on the page:
@@ -365,8 +528,9 @@ Everything lives below `<data dir>/devices`, readable by the AgentPier account o
 `sdk` (the components), `avd` (the devices), `home` (adb keys and emulator state),
 `downloads`, `run` (with `run/transfers`, the private copies of files on their way
 to or from a device, removed after each call), `logs` (the emulator output of each
-device's last start), `settings.json`, `devices.json` and `session-grants.json`
-(which devices are assigned to which session). **System status › Storage** lists it as **Android
+device's last start), `settings.json`, `devices.json`, `session-grants.json`
+(which devices are assigned to which session) and `agent-grants.json` (which devices
+are assigned to which agent, and the workspace folder recorded for it). **System status › Storage** lists it as **Android
 devices**.
 
 If `devices.json` cannot be read at a start (cut off by a crash, edited by hand),
@@ -375,6 +539,12 @@ lists every device whose folder exists under `avd` again as **Recovered device 1
 **2** and so on, created by you. Their contents are untouched; names, creators and
 assignments are lost, so rename the devices or delete the ones you do not need. The
 kept file is yours to inspect and delete.
+
+The same holds for `session-grants.json` and `agent-grants.json`: a file that cannot
+be read, or that holds an entry AgentPier cannot read, assigns nothing there, is kept
+as `session-grants.json.damaged-<time>` or `agent-grants.json.damaged-<time>` and
+named in the server log; the file itself is then written anew from the entries that
+could be read. Assign the devices again; the kept file shows what was assigned.
 
 Two things the emulator writes elsewhere and AgentPier cannot redirect: its crash
 database under `/tmp/android-<account>/`, and on Linux `netsimd` logs in the same folder.
@@ -391,31 +561,33 @@ the components and create the devices again.
 The page shows each of these in words; the codes appear in the audit log, the server
 log and the installer's result.
 
-| Code                                                                        | Meaning and what to do                                                                                                                                                                                                                                        |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEVICES_PLATFORM_UNSUPPORTED`                                              | No emulator build for this host. Use macOS on Apple silicon or Linux x64.                                                                                                                                                                                     |
-| `DEVICES_KVM_MISSING`                                                       | Linux has no `/dev/kvm`. Turn on hardware virtualization in the firmware, or nested virtualization for a virtual machine.                                                                                                                                     |
-| `DEVICES_KVM_DENIED`                                                        | AgentPier may not open `/dev/kvm`. Add its account to the `kvm` group (`sudo usermod -aG kvm <name>`), sign that account in again and restart AgentPier.                                                                                                      |
-| `DEVICES_SDK_UNUSABLE`                                                      | The downloaded emulator does not start. On Linux install `libx11-6` and `libx11-xcb1`; the page names the missing libraries when the system reports them. Then **Try again …**.                                                                               |
-| `DEVICES_DOWNLOAD_FAILED`, `DEVICES_DOWNLOAD_STALLED`                       | The download broke off or stopped making progress. Check the connection to `dl.google.com` and **Try again …**; it continues.                                                                                                                                 |
-| `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID`                      | A downloaded archive was not the pinned one or could not be unpacked. It was discarded; **Try again …**.                                                                                                                                                      |
-| `DEVICES_DISK_SPACE`, `DEVICE_DISK_SPACE`                                   | Too little free space for the components or for another device. Free up space or delete a device.                                                                                                                                                             |
-| `DEVICES_INTERRUPTED`                                                       | AgentPier stopped during the installation. **Try again …** continues the download.                                                                                                                                                                            |
-| `DEVICES_INSTALL_FAILED`                                                    | The installation or removal failed for another reason. Try again; check the free space and the server log.                                                                                                                                                    |
-| `DEVICES_IN_USE`, `DEVICES_OPERATION_RUNNING`                               | A device runs, or the components are being installed, updated or removed. Stop the devices, or wait.                                                                                                                                                          |
-| `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`                                | A limit is reached. Delete or stop a device, or raise the limit.                                                                                                                                                                                              |
-| `DEVICE_BOOT_TIMEOUT`                                                       | The device did not finish booting within 3 minutes. Start it again; if it keeps failing, reset it.                                                                                                                                                            |
-| `DEVICE_EXITED`                                                             | The emulator ended by itself, during the boot or while running. Start the device again; `<data dir>/devices/logs/<id>.log` holds its last output.                                                                                                             |
-| `DEVICE_PORTS_BUSY`                                                         | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                                                     |
-| `DEVICE_IMAGE_MISSING`                                                      | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset.                             |
-| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`                                   | AgentPier could not reach the device through adb. Stop the device and start it again. When the page says that port 47600 is used by another program, see "A second AgentPier on the same machine" below.                                                      |
-| `DEVICE_FORBIDDEN`, `DEVICE_CREATE_FORBIDDEN`                               | A session used a device it was not given, tried to reset or delete without that permission, or to create a device without it. Assign the device or allow the action for the session.                                                                          |
-| `DEVICE_HELD`                                                               | You are holding the device, so a session's call on it was refused. It can go on when you hand the device back.                                                                                                                                                |
-| `DEVICE_PATH_OUTSIDE`, `DEVICE_FILE_NOT_FOUND`, `DEVICE_FILE_TOO_LARGE`     | A file for a device was outside the session's working folder, missing, or larger than 200 MB (to a device) or 50 MB (from it). `DEVICE_PATH_OUTSIDE` also when the working folder itself was moved or replaced since the session started: reload the session. |
-| `DEVICE_TEXT_UNSUPPORTED`, `DEVICE_ELEMENT_STALE`, `DEVICE_INPUT_INVALID`   | A session typed text beyond ASCII, used an element number of an outdated overview, or passed a malformed argument. The session is told what to do instead.                                                                                                    |
-| `DEVICE_COMMAND_FAILED`, `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` | The device refused an action (the session gets its words), did not deliver its screen, or a call took longer than 140 seconds.                                                                                                                                |
-| `DEVICE_ASSIGNMENT_INVALID`, `DEVICE_SESSION_INELIGIBLE`                    | An assignment named a device that no longer exists, or a session that cannot be given devices (see [Devices for coding sessions](#devices-for-coding-sessions)).                                                                                              |
-| `DEVICE_STOP_FAILED`                                                        | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                                                        |
+| Code                                                                            | Meaning and what to do                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEVICES_PLATFORM_UNSUPPORTED`                                                  | No emulator build for this host. Use macOS on Apple silicon or Linux x64.                                                                                                                                                                                     |
+| `DEVICES_KVM_MISSING`                                                           | Linux has no `/dev/kvm`. Turn on hardware virtualization in the firmware, or nested virtualization for a virtual machine.                                                                                                                                     |
+| `DEVICES_KVM_DENIED`                                                            | AgentPier may not open `/dev/kvm`. Add its account to the `kvm` group (`sudo usermod -aG kvm <name>`), sign that account in again and restart AgentPier.                                                                                                      |
+| `DEVICES_SDK_UNUSABLE`                                                          | The downloaded emulator does not start. On Linux install `libx11-6` and `libx11-xcb1`; the page names the missing libraries when the system reports them. Then **Try again …**.                                                                               |
+| `DEVICES_DOWNLOAD_FAILED`, `DEVICES_DOWNLOAD_STALLED`                           | The download broke off or stopped making progress. Check the connection to `dl.google.com` and **Try again …**; it continues.                                                                                                                                 |
+| `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID`                          | A downloaded archive was not the pinned one or could not be unpacked. It was discarded; **Try again …**.                                                                                                                                                      |
+| `DEVICES_DISK_SPACE`, `DEVICE_DISK_SPACE`                                       | Too little free space for the components or for another device. Free up space or delete a device.                                                                                                                                                             |
+| `DEVICES_INTERRUPTED`                                                           | AgentPier stopped during the installation. **Try again …** continues the download.                                                                                                                                                                            |
+| `DEVICES_INSTALL_FAILED`                                                        | The installation or removal failed for another reason. Try again; check the free space and the server log.                                                                                                                                                    |
+| `DEVICES_IN_USE`, `DEVICES_OPERATION_RUNNING`                                   | A device runs, or the components are being installed, updated or removed. Stop the devices, or wait.                                                                                                                                                          |
+| `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`                                    | A limit is reached. Delete or stop a device, or raise the limit.                                                                                                                                                                                              |
+| `DEVICE_BOOT_TIMEOUT`                                                           | The device did not finish booting within 3 minutes. Start it again; if it keeps failing, reset it.                                                                                                                                                            |
+| `DEVICE_EXITED`                                                                 | The emulator ended by itself, during the boot or while running. Start the device again; `<data dir>/devices/logs/<id>.log` holds its last output.                                                                                                             |
+| `DEVICE_PORTS_BUSY`                                                             | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                                                     |
+| `DEVICE_IMAGE_MISSING`                                                          | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset.                             |
+| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`                                       | AgentPier could not reach the device through adb. Stop the device and start it again. When the page says that port 47600 is used by another program, see "A second AgentPier on the same machine" below.                                                      |
+| `DEVICE_FORBIDDEN`, `DEVICE_CREATE_FORBIDDEN`                                   | A session used a device it was not given, tried to reset or delete without that permission, or to create a device without it. Assign the device or allow the action for the session.                                                                          |
+| `DEVICE_HELD`                                                                   | You are holding the device, so a session's call on it was refused. It can go on when you hand the device back.                                                                                                                                                |
+| `DEVICE_PATH_OUTSIDE`, `DEVICE_FILE_NOT_FOUND`, `DEVICE_FILE_TOO_LARGE`         | A file for a device was outside the session's working folder, missing, or larger than 200 MB (to a device) or 50 MB (from it). `DEVICE_PATH_OUTSIDE` also when the working folder itself was moved or replaced since the session started: reload the session. |
+| `DEVICE_TEXT_UNSUPPORTED`, `DEVICE_ELEMENT_STALE`, `DEVICE_INPUT_INVALID`       | A session typed text beyond ASCII, used an element number of an outdated overview, or passed a malformed argument. The session is told what to do instead.                                                                                                    |
+| `DEVICE_COMMAND_FAILED`, `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT`     | The device refused an action (the session gets its words), did not deliver its screen, or a call took longer than 140 seconds.                                                                                                                                |
+| `DEVICE_ASSIGNMENT_INVALID`, `DEVICE_SESSION_INELIGIBLE`                        | An assignment named a device that no longer exists, or a session that cannot be given devices (see [Devices for coding sessions](#devices-for-coding-sessions)).                                                                                              |
+| `DEVICE_AGENT_INELIGIBLE`, `DEVICE_RUN_FORBIDDEN`, `DEVICE_OWNER_TURN_REQUIRED` | An agent that cannot be given devices, a run that gets none, or a create, reset or delete outside a turn you started (see [Devices for agents](#devices-for-agents)).                                                                                         |
+| `DEVICE_PULL_READONLY`, `DEVICE_PASS_INVALID`                                   | An agent's run may not change files in its workspace, so nothing was copied from the device; or a lead tried to pass on a device it does not have.                                                                                                            |
+| `DEVICE_STOP_FAILED`                                                            | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                                                        |
 
 Also worth knowing:
 
