@@ -29,7 +29,9 @@ import { agentWorkspace } from "./runtimes/runtime-for.js";
  *
  * Files travel between a device and the agent's workspace only (`install`, `push`,
  * `pull`): the workspace as the one folder AgentPier recorded for the agent
- * (devices/agent-device-grants.js `area`), never its secrets folder `.agentpier`.
+ * (devices/agent-device-grants.js `area`: the workspace folder itself at its place
+ * below the runtime's workspaces folder, never a link and never a folder of
+ * AgentPier's data elsewhere), never its secrets folder `.agentpier`.
  * A file is written into the workspace (`pull`) only for a run that may change
  * files there (DEVICE_PULL_READONLY otherwise): never for a hook's run, a routine
  * with "May write" off or a task that runs read-only.
@@ -60,7 +62,7 @@ export const AGENT_SHELL_TIMEOUT_MAX_MS = 100000;
 
 /** What a caller reads when its workspace is no longer the recorded folder. */
 export const WORKSPACE_CHANGED =
-  "The workspace is no longer the folder AgentPier recorded for this agent: it was moved, replaced or restored. The owner has to save this agent's Android devices again in its settings.";
+  "The workspace is no longer the folder AgentPier recorded for this agent: it was moved, replaced or restored. The owner has to change this agent's Android devices in its settings (Access, Android devices) and save, which records the folder that is there now.";
 /** What a caller reads when the agent has no workspace folder. */
 export const WORKSPACE_UNKNOWN = "This agent has no workspace folder yet.";
 

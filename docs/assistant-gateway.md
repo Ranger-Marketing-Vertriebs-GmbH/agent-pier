@@ -6029,7 +6029,16 @@ A lead passes devices on with `agentpier_team_delegate` `access.devices`
 lead's own run, written onto the task's record (`devices`), counted live while the
 task is open and the lead still has the device, never with `manage`. Files travel
 between a device and the agent's workspace only, recorded as one folder in
-`devices/agent-grants.json` (`area`), never `.agentpier/`; `pull` needs a run that may
+`devices/agent-grants.json` (`area`), never `.agentpier/`. Only the workspace folder
+itself is recorded (`AgentDeviceGrants` `#workspaceArea`): a folder, no link, whose
+real path is exactly its name below the real path of the runtime's workspaces folder
+(`runtime.paths.workspaces/<agent id>`; on Hermes what `workspaceOf` answers), and
+neither AgentPier's data folder, a folder above it nor the devices' folder. At every
+use the record must still be that folder (same real path, device and inode), else
+`DEVICE_PATH_OUTSIDE` with `AREA_CHANGED`; with nothing recorded and something else
+at the workspace's place, `WORKSPACE_MISPLACED`. The owner's `PUT` records anew only
+when none is recorded or the recorded folder is no longer the one there, and only a
+folder that passes the check: that is the repair after a restore; `pull` needs a run that may
 write (`DEVICE_PULL_READONLY`). A screenshot answers `{ image: { data, mimeType },
 width, height, bytes, device, note }`, which the plugin returns as a text block and
 an `image` block (`deviceImageResult`), as it does for `agentpier_workspace`

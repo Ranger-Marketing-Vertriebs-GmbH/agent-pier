@@ -5,7 +5,7 @@ import { isDeviceId } from "./avd-files.js";
 import { devicePaths } from "./device-paths.js";
 import { refusal } from "./device-registry.js";
 import { readGrants } from "./grant-file.js";
-import { areaOf } from "./host-area.js";
+import { AREA_CHANGED, areaOf } from "./host-area.js";
 
 /*
  * Which devices the owner assigned to which agent, and which agents may create
@@ -22,9 +22,23 @@ import { areaOf } from "./host-area.js";
  * `area` is the agent's workspace as one folder (host-area.js): its real path with
  * its device and inode numbers, recorded when the owner saves the agent's devices
  * and otherwise the first time a file travels between the workspace and a device.
- * From then on files travel only while the folder at that path is that very folder;
- * a workspace that was moved or replaced (a restored backup too) is refused until
- * the owner saves the agent's devices again.
+ *
+ * Only the workspace folder itself is ever recorded (`#workspaceArea`): a folder,
+ * never a link, whose real path is exactly its name below the real path of the
+ * workspaces folder the agent's runtime names (OpenClaw: `<workspaces>/<agent id>`;
+ * Hermes: what its fleet's `workspaceOf` answers), and that is neither AgentPier's
+ * data folder, a folder above it, nor in the devices' own folder. A link to the data
+ * folder or to a folder elsewhere in the workspace's place is therefore no area, for
+ * the owner's save and for a first transfer alike (WORKSPACE_MISPLACED).
+ *
+ * At every use the recorded folder must still be that workspace folder: the same
+ * real path, the same device and inode numbers (`area`; host-area.js checks the
+ * numbers once more on the folder it opens). A workspace that was moved or replaced
+ * (a restored backup too), and a record of a folder elsewhere, are refused until the
+ * owner saves the agent's devices again. That save is the owner's repair: it records
+ * the folder anew when the recorded one is gone or is no longer the folder at the
+ * workspace's place, and only a folder that passes the check above. While the
+ * recorded folder is still the workspace, a save leaves the record as it is.
  *
  * The device service asks this store without waiting, so the store asks for an
  * agent through `agent(id)`: the stored agent, `null` once it is deleted, and
@@ -36,11 +50,29 @@ import { areaOf } from "./host-area.js";
  *
  * `onChange()` hears every change (the wiring signals the live topics).
  */
+/** What an agent reads when a link or a folder elsewhere stands for its workspace. */
+export const WORKSPACE_MISPLACED =
+  "The workspace of this agent is not a folder of its own at its place below AgentPier's workspaces folder (a link stands there, or it lies elsewhere), so no file travels to or from a device. Tell the owner.";
 const MAX_DEVICES = 20;
 const agentId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const invalid = () => refusal("DEVICE_ASSIGNMENT_INVALID", 400);
 const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 const none = () => ({ devices: [], create: false });
+const misplaced = () =>
+  refusal("DEVICE_PATH_OUTSIDE", 403, { detail: WORKSPACE_MISPLACED });
+const changed = () => refusal("DEVICE_PATH_OUTSIDE", 403, { detail: AREA_CHANGED });
+// Whether `target` is `root` or lies below it.
+const within = (root, target) => {
+  const relative = path.relative(root, target);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
+};
+const sameArea = (a, b) =>
+  !!a && !!b && a.path === b.path && a.dev === b.dev && a.ino === b.ino;
 const areaShape = (area) =>
   plain(area) &&
   typeof area.path === "string" &&
@@ -53,7 +85,9 @@ const areaShape = (area) =>
 export class AgentDeviceGrants {
   /** `now()` and `log(line)` are for a damaged file (grant-file.js); tests replace them. */
   constructor({ dataDir, agent, eligible = () => true, now, log }) {
-    this.file = path.join(devicePaths(dataDir).root, "agent-grants.json");
+    this.dataDir = path.resolve(dataDir);
+    this.root = devicePaths(dataDir).root;
+    this.file = path.join(this.root, "agent-grants.json");
     this.lookup = agent;
     this.eligibleAgent = eligible;
     this.onChange = null;
@@ -181,23 +215,46 @@ export class AgentDeviceGrants {
       ? { devices: entry.devices.map((item) => ({ ...item })), create: entry.create }
       : none();
   }
-  // The folder at `workspace` as an area, or null while there is none.
-  #pin(workspace) {
+  // Whether the real folder `real` is no place for a workspace: AgentPier's data
+  // folder, a folder above it, or the devices' own folder and what lies below it.
+  #reserved(real) {
     try {
-      return typeof workspace === "string" && workspace ? areaOf(workspace) : null;
+      return (
+        within(real, fs.realpathSync(this.dataDir)) ||
+        (fs.existsSync(this.root) && within(fs.realpathSync(this.root), real))
+      );
+    } catch {
+      return true;
+    }
+  }
+  // The folder at `workspace` as an area when it is the workspace folder itself: a
+  // folder and no link, at exactly its name below the real folder above it, and in
+  // no reserved place. Null otherwise, and while there is no folder.
+  #workspaceArea(workspace) {
+    try {
+      if (typeof workspace !== "string" || !path.isAbsolute(workspace)) return null;
+      if (!fs.lstatSync(workspace).isDirectory()) return null;
+      const area = areaOf(workspace);
+      const above = fs.realpathSync(path.dirname(workspace));
+      if (area.path !== path.join(above, path.basename(workspace))) return null;
+      return this.#reserved(area.path) ? null : area;
     } catch {
       return null;
     }
   }
   /**
-   * Replaces the access of agent `id` and records its workspace as its area anew
-   * (the owner's word that the folder there is the agent's). No device, no `create`
-   * and no workspace removes its entry.
+   * Replaces the access of agent `id`. With `workspace` (the owner saved something
+   * for the agent) its area is recorded anew when none is recorded or the recorded
+   * folder is no longer the folder at the workspace's place, and only when the
+   * folder there now is the workspace folder itself; otherwise the record stays as
+   * it is. No device, no `create` and no recorded area removes its entry.
    */
   set(id, access, { workspace = null } = {}) {
     const { devices, create } = this.validate(access);
     if (!agentId.test(String(id))) throw invalid();
-    const area = this.#pin(workspace) ?? this.entries.get(id)?.area ?? null;
+    const recorded = this.entries.get(id)?.area ?? null;
+    const there = workspace ? this.#workspaceArea(workspace) : null;
+    const area = there && !sameArea(there, recorded) ? there : recorded;
     if (!devices.length && !create && !area) {
       if (this.entries.has(id)) this.#commit((entries) => entries.delete(id));
       return none();
@@ -206,17 +263,32 @@ export class AgentDeviceGrants {
     return this.get(id);
   }
   /**
-   * The area of agent `id`: the one recorded for it, or, when none was recorded yet,
-   * the folder at `workspace` as it is now, recorded before it is returned. Null
-   * without a workspace folder. Whether the folder is still the recorded one is
-   * host-area.js's check at every use.
+   * The area of agent `id` for one use: the folder recorded for it while that is
+   * still the workspace folder at `workspace`, or, when none was recorded yet, that
+   * workspace folder, recorded before it is returned. Null without any folder at
+   * `workspace`. Throws DEVICE_PATH_OUTSIDE (403) with a `detail`: AREA_CHANGED when
+   * the recorded folder is gone, was replaced or is a folder elsewhere, and
+   * WORKSPACE_MISPLACED when what stands at `workspace` is not the workspace folder
+   * itself and nothing was recorded.
    */
   area(id, workspace) {
     if (!agentId.test(String(id))) return null;
     const known = this.entries.get(id)?.area;
-    if (known) return { ...known };
-    const area = this.#pin(workspace);
-    if (!area) return null;
+    const area = this.#workspaceArea(workspace);
+    if (known) {
+      if (!sameArea(area, known)) throw changed();
+      return { ...known };
+    }
+    if (!area) {
+      // Nothing at the workspace's place is no folder yet; anything else there (a
+      // link, also one that leads nowhere, a folder that fails the check) is refused.
+      try {
+        fs.lstatSync(workspace);
+      } catch {
+        return null;
+      }
+      throw misplaced();
+    }
     const entry = this.entries.get(id) ?? none();
     // Not announced: nothing the owner sees changed.
     const next = new Map(this.entries);
