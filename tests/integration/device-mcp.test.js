@@ -15,8 +15,8 @@ const names = Object.keys(deviceTools);
 
 // A session with AgentPier tools, a device of the owner's and the client of the
 // session's bridge. `assign` is what the owner gives the session.
-async function fixture(t, { assign = { manage: false }, session: extra } = {}) {
-  const a = await sessionDevicesApp(t);
+async function fixture(t, { assign = { manage: false }, session: extra, app } = {}) {
+  const a = await sessionDevicesApp(t, app);
   const pixel = await a.device("Pixel");
   const issued = await issue(a.f, { session: extra });
   if (assign) {
@@ -687,5 +687,84 @@ test(
       ),
       { code: "DEVICE_SESSION_INELIGIBLE" },
     );
+  },
+);
+
+test(
+  "a session an agent started gets devices when that agent is the owner's own",
+  { timeout },
+  async (t) => {
+    // Agents are on, and both agents exist: the owner's own and one that serves a
+    // restricted user (`userAccess`).
+    const f = await fixture(t, { assign: null, app: { assistants: true } });
+    const { store } = f.f.application.assistants;
+    const model = { connectionId: "c", modelId: "m" };
+    const own = store.createAssistant({ name: "Release agent", model });
+    const hers = store.createAssistant(
+      { name: "Her agent", model },
+      { userAccess: { mode: "own", members: [{ userId: "user-1", level: "chat" }] } },
+    );
+    assert.ok(store.getAssistant(hers.id).userAccess);
+    const started = (agent) =>
+      issue(f.f, {
+        session: {
+          startedBy: { kind: "agent", assistantId: agent.id, name: agent.name },
+        },
+      });
+    const access = { devices: [{ deviceId: f.pixel.id, manage: false }], create: false };
+    const context = (issued) => ({
+      sessionId: issued.session.id,
+      revalidateSession: () => {},
+    });
+    const offered = async (issued) =>
+      (await (await connect(t, f.f, issued)).listTools()).tools
+        .map((tool) => tool.name)
+        .filter((name) => names.includes(name));
+
+    // The owner's own agent: its session is eligible, takes a device and uses it.
+    const mine = await started(own);
+    assert.equal((await f.access(mine.session)).eligible, true);
+    assert.equal((await f.assign(mine.session, access)).status, 200);
+    assert.deepEqual(await offered(mine), names);
+    const listed = await callDeviceTool(
+      f.f.application,
+      "devices_list",
+      {},
+      context(mine),
+    );
+    assert.deepEqual(
+      listed.devices.map((device) => device.name),
+      ["Pixel"],
+    );
+
+    // A restricted user's agent: no tools, no assignment, no call.
+    const theirs = await started(hers);
+    assert.equal((await f.access(theirs.session)).eligible, false);
+    assert.equal((await f.assign(theirs.session, access)).status, 409);
+    assert.deepEqual(await offered(theirs), []);
+    await assert.rejects(
+      callDeviceTool(f.f.application, "devices_list", {}, context(theirs)),
+      { code: "DEVICE_SESSION_INELIGIBLE", status: 403 },
+    );
+
+    // The owner's agent is given to a user while its session runs: the session's
+    // calls end, although its assignment is still stored.
+    store.setUserAccess(
+      own.id,
+      { mode: "own", members: [{ userId: "user-1", level: "chat" }] },
+      store.getAssistant(own.id).revision,
+    );
+    assert.equal((await f.access(mine.session)).eligible, false);
+    await assert.rejects(
+      callDeviceTool(f.f.application, "devices_list", {}, context(mine)),
+      { code: "DEVICE_SESSION_INELIGIBLE", status: 403 },
+    );
+    // An agent that no longer exists counts as one for users.
+    const gone = await issue(f.f, {
+      session: {
+        startedBy: { kind: "agent", assistantId: "agent-unknown", name: "Gone" },
+      },
+    });
+    assert.equal((await f.access(gone.session)).eligible, false);
   },
 );

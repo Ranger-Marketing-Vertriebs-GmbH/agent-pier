@@ -173,6 +173,69 @@ test(
   },
 );
 
+test("a ticket start hands its session the chosen devices", { timeout }, async (t) => {
+  const a = await sessionDevicesApp(t);
+  const { tickets } = a.f.application;
+  const pixel = await a.device("Pixel");
+  // A tracker that knows one ticket; nothing of it is contacted or written back.
+  const ticket = {
+    source: "github",
+    key: "acme/app#7",
+    title: "Check the login on a phone",
+    url: "https://github.com/acme/app/issues/7",
+    body: "",
+    labels: [],
+  };
+  tickets.resolveProject = (id) => ({ id, path: a.f.project });
+  tickets.accesses = async () => ({
+    link: null,
+    github: { owner: "acme", repo: "app" },
+    plane: null,
+  });
+  tickets.sources = { ...tickets.sources, github: { get: async () => ticket } };
+  tickets.deliverTask = async () => {};
+  tickets.writeBack = async () => {};
+  const start = (session) =>
+    a.f.request("/api/tickets/projects/p1/start", {
+      method: "POST",
+      body: {
+        source: "github",
+        key: ticket.key,
+        kind: "session",
+        again: true,
+        session: { accountId: "local-codex", agentbus: false, ...session },
+      },
+    });
+  const access = { devices: [{ deviceId: pixel.id, manage: true }], create: false };
+  const response = await start({ deviceAccess: access });
+  const text = await response.text();
+  assert.ok(response.status < 300, text);
+  const { session } = JSON.parse(text);
+  assert.equal(session.ticket.key, ticket.key);
+  assert.deepEqual(a.f.application.sessionDeviceGrants.get(session), access);
+  assert.deepEqual(a.f.application.sessionDeviceGrants.grantsOf(session.id), [
+    { deviceId: pixel.id, manage: true },
+  ]);
+  assert.equal(
+    (await a.access(session)).devices.find((device) => device.id === pixel.id).assigned,
+    true,
+  );
+  // A malformed choice starts no session for the ticket.
+  const before = (await a.f.application.sessions.list()).length;
+  const refusedStart = await start({
+    deviceAccess: {
+      devices: [{ deviceId: "d-00000000ffff", manage: false }],
+      create: false,
+    },
+  });
+  assert.equal(refusedStart.status, 400);
+  assert.equal((await refusedStart.json()).code, "DEVICE_ASSIGNMENT_INVALID");
+  assert.equal((await a.f.application.sessions.list()).length, before);
+  // Without a choice the ticket's session has no device.
+  const plain = await (await start({})).json();
+  assert.deepEqual(a.f.application.sessionDeviceGrants.get(plain.session), none);
+});
+
 test(
   "a stopped session keeps its entry but can be given nothing new",
   { timeout },

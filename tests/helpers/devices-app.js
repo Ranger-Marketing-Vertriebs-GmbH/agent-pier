@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { applicationFixture } from "./application.js";
+import { applicationFixture, enabledAssistants } from "./application.js";
 import { fakeAndroidSdk, freeDevicePorts, installFakeSdk } from "./fake-android-sdk.js";
 
 const alive = (pid) => {
@@ -31,12 +31,15 @@ export const fakeDeviceOptions = (fake, ports, { source = {}, ...rest } = {}) =>
  * An application whose Android devices run on the fake SDK (fake-android-sdk.js) in
  * the application's own data folder, on loopback ports of the test's own. `installed`
  * puts the unpacked SDK there before the start; `options` are merged into
- * `config.androidDevices`. Returns `{ f, fake, ports, devices, sdk }`.
+ * `config.androidDevices`; `assistants` turns the agents on. Returns `{ f, fake, ports, devices, sdk }`.
  *
  * When the test ends the application closes, and every process a fake recorded must
  * be gone by then; one that is not is killed and fails the test.
  */
-export async function devicesApp(t, { installed = true, pairs = 2, options } = {}) {
+export async function devicesApp(
+  t,
+  { installed = true, pairs = 2, options, assistants = false } = {},
+) {
   let fake = null;
   let f = null;
   // Registered before the application's own disposal, which removes the folder the
@@ -56,6 +59,7 @@ export async function devicesApp(t, { installed = true, pairs = 2, options } = {
       fake = await fakeAndroidSdk({ root: path.dirname(dataDir) });
       assert.equal(fake.dataDir, dataDir);
       if (installed) await installFakeSdk(dataDir, fake.manifest);
+      if (assistants) await enabledAssistants.prepareDataDir(dataDir);
       Object.assign(android, fakeDeviceOptions(fake, ports, options));
     },
   });
