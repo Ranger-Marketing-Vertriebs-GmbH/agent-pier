@@ -32,6 +32,7 @@ import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import { sendRoute } from "./send-route.js";
+import useSendingMessage, { SendingMessage } from "./useSendingMessage.jsx";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
@@ -101,6 +102,8 @@ export default function AssistantChat({
   const [files, setFiles] = useState(0);
   const typed = useRef(text);
   typed.current = text;
+  const sendingOptions = { conversationId, drafts, setText, setTeamAllowed };
+  const { sending, sendAhead } = useSendingMessage(sendingOptions);
   // The submission being queued: one at a time, and a retry of the same content
   // keeps its appendId, so the server adds the text only once.
   const appending = useRef({ busy: false, last: null });
@@ -216,8 +219,8 @@ export default function AssistantChat({
     busy,
     notes,
   });
-  // One delivery of a message; `accepted` runs once the server has taken it.
-  async function deliver(submitted, ids, accepted) {
+  // One delivery of a message.
+  async function deliver(submitted, ids) {
     stick.current = true;
     setBusy(true);
     setError("");
@@ -226,7 +229,6 @@ export default function AssistantChat({
         conversationId,
         ids.length ? { ...submitted, attachments: ids } : submitted,
       );
-      accepted?.();
       // `/new` started a chat (chat-commands.js): it opens once the list knows it.
       const created = result?.created;
       await (created ? reloadList?.() : refresh());
@@ -293,13 +295,7 @@ export default function AssistantChat({
     if (route === "queue") return queue(ids);
     if (route === "sending") setError(copy.sendUnderway);
     if (route !== "send" || !canSend) return false;
-    const submitted = drafts.delivery(conversationId);
-    return deliver(submitted, ids, () => {
-      if (drafts.acknowledge(conversationId, submitted.clientRequestId)) {
-        setText("");
-        setTeamAllowed(false);
-      }
-    });
+    return sendAhead(deliver, ids);
   }
   // Edit: the server hands the message back, unless its delivery has begun.
   async function takeBackQueued() {
@@ -450,7 +446,7 @@ export default function AssistantChat({
                     {copy.earlier}
                   </button>
                 )}
-                {!history.messages.length && !latest && (
+                {!history.messages.length && !latest && !sending && (
                   <div className="assistant-empty">
                     <h2>{copy.emptyChat}</h2>
                   </div>
@@ -496,6 +492,7 @@ export default function AssistantChat({
                       mentions={mentions}
                     />
                   )}
+                <SendingMessage sending={sending} history={history} mentions={mentions} />
                 {delta?.text && !streamInHistory(delta, history) && (
                   <AssistantMessage
                     role="assistant"

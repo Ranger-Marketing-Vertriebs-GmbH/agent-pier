@@ -15,16 +15,24 @@ test("drafts and delivery keys stay separate per chat and survive uncertain deli
   assert.equal(drafts.get("one"), "");
   assert.equal(drafts.get("two"), "Network");
 });
-test("late acknowledgements only clear the submitted draft identity", () => {
+test("a failed delivery returns to an empty field with its delivery key", () => {
+  const drafts = new AssistantDrafts();
+  drafts.set("chat", "First");
+  drafts.allowTeam("chat", true);
+  const sent = drafts.delivery("chat");
+  drafts.clear("chat");
+  assert.equal(drafts.restore("chat", sent), "First");
+  assert.equal(drafts.teamAllowed("chat"), true);
+  assert.equal(drafts.delivery("chat").clientRequestId, sent.clientRequestId);
+});
+test("a failed delivery comes before what was typed since, as a new message", () => {
   const drafts = new AssistantDrafts();
   drafts.set("chat", "First");
   const sent = drafts.delivery("chat");
-  drafts.set("chat", "New unsent text");
-  assert.equal(drafts.acknowledge("chat", sent.clientRequestId), false);
-  assert.equal(drafts.get("chat"), "New unsent text");
-  const next = drafts.delivery("chat");
-  assert.equal(drafts.acknowledge("chat", next.clientRequestId), true);
-  assert.equal(drafts.get("chat"), "");
+  drafts.clear("chat");
+  drafts.set("chat", "Second");
+  assert.equal(drafts.restore("chat", sent), "First\nSecond");
+  assert.notEqual(drafts.delivery("chat").clientRequestId, sent.clientRequestId);
 });
 test("one-message team permission follows its draft identity and is cleared after acceptance", () => {
   const drafts = new AssistantDrafts();
@@ -35,9 +43,7 @@ test("one-message team permission follows its draft identity and is cleared afte
   drafts.set("chat", "Edited");
   assert.equal(drafts.teamAllowed("chat"), true);
   assert.notEqual(drafts.delivery("chat").clientRequestId, sent.clientRequestId);
-  assert.equal(drafts.acknowledge("chat", sent.clientRequestId), false);
-  const next = drafts.delivery("chat");
-  drafts.acknowledge("chat", next.clientRequestId);
+  drafts.clear("chat");
   assert.equal(drafts.teamAllowed("chat"), false);
 });
 test("other attachments give the same text a new delivery key", () => {
