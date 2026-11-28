@@ -192,14 +192,17 @@ The filter, selection and keyboard rules live in `web/components/add-picker.js`
 #### Choosing what a session may use
 
 `GrantPicker` grants a session items from a list of any length (SSH accesses, agents,
-secrets), in one look whether the list has 2 entries or 600. Its `entries` are
+secrets, Android devices), in one look whether the list has 2 entries or 600. Its `entries` are
 `{ id, name, sub, group, badge, locked, notes, action }`: `sub` is the monospace line,
 `group` is matched by the search, `badge` a short tag such as "SFTP", `notes` extra
 texts on the allowed row. `selected` holds the granted ids, and `onChange(ids)` hands
 the next ids to the caller's draft; nothing saves until the dialog's **Speichern** /
 **Save**. `typeLabel` is the singular as in `AddPicker` ("SSH access"), `listLabel` the
 plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Session · n" /
-"Allowed in this session · n"; `children` follow the allowed list.
+"Allowed in this session · n"; `children` follow the allowed list. Settings that belong
+to a granted entry go there as a list card of `ToggleRow`s, one per entry and named
+after it, as the **Berechtigungen** / **Permissions** of a session's Android devices
+(`web/features/devices/DeviceGrantFields.jsx`); the rows of the picker hold no switches.
 
 - **Split** (above the phone breakpoint): on the left a search field ("SSH-Zugänge
   durchsuchen" / "Search SSH accesses"), the count "n von m" / "n of m" and one 36px row
