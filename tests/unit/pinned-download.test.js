@@ -38,6 +38,9 @@ const serve =
     });
   };
 
+// The same address without TLS, which every download refuses.
+const plainHttp = (url) => Object.assign(new URL(url), { protocol: "http:" }).href;
+
 test("the embedding assets export the moved function itself", () => {
   assert.equal(embeddingDownload, downloadPinned);
 });
@@ -57,7 +60,7 @@ test("the codes carry the caller's prefix", async (t) => {
     { code: "DEVICES_DOWNLOAD_FAILED", upstreamStatus: 503 },
   );
   await assert.rejects(
-    downloadPinned({ ...devices, url: "http://dl.example/a.zip", fetchImpl: serve() }),
+    downloadPinned({ ...devices, url: plainHttp(devices.url), fetchImpl: serve() }),
     { code: "DEVICES_DOWNLOAD_FAILED" },
   );
   const controller = new AbortController();
