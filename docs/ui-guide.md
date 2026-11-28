@@ -177,6 +177,12 @@ identity stable; it returns items or `{ items, total }`). The field shows "n Tre
   one), Escape closes the list and keeps the focus in the field; a second Escape clears
   it. Clicking elsewhere closes an untouched list; checked rows keep it open. Rows are
   44px on phones and touch screens.
+- `direct` drops the checking step: a click, Space or Enter adds that row at once
+  through `onAdd`, the row then shows as granted and the list stays open; there is no
+  footer. For a picker whose surrounding dialog confirms with its own button
+  (`GrantPicker` with `stacked`); not together with `modes`.
+- With the on-screen keyboard open the list is as high as the space it leaves (at
+  least three rows), and the field and the top of its list scroll into view.
 
 The filter, selection and keyboard rules live in `web/components/add-picker.js`
 (`tests/unit/add-picker.test.js`).
@@ -203,9 +209,18 @@ plural ("SSH accesses"); `heading` replaces the default "Erlaubt in dieser Sessi
   the picker appears in an open dialog after loading. On touch screens the focus stays
   where it is, so no on-screen keyboard opens. Escape in the search field clears a query
   first; with an empty field it closes the dialog.
-- **Stacked** (phones, and at every width with `stacked`, for a picker that is one
-  section of a larger form such as the new-session dialog): the allowed list card ends
-  in an `AddPicker`; allowed entries show there as "erlaubt" / "allowed". An entry
+- **List** (phones): one checklist under the heading, with the same search and count.
+  A tap on a row grants or revokes at once; there is no allowed list and no second
+  step, the dialog's Save is the only confirmation. A row is at least 56px high and
+  shows name, `sub` and `notes` below each other, the `badge` beside them and the
+  `action` below the row. Allowed entries come first; a row keeps its place while the
+  owner ticks and the order is renewed with the next search. The list is as long as
+  its rows, so only the dialog scrolls, and in a grant dialog the search field stays
+  below the dialog's heading. The keyboard opens only on a tap in the search field.
+- **Stacked** (with `stacked`, at every width, for a picker that is one section of a
+  larger form such as the new-session dialog): the allowed list card ends in an
+  `AddPicker` with `direct`, so a click on an option adds it at once and the list stays
+  open for the next one; allowed entries show there as "erlaubt" / "allowed". An entry
   without `group` shows its `badge` in the options instead, so "SFTP" stays visible and
   searchable.
 - `locked` marks an entry the session has anyway (from the project): it counts as
@@ -441,15 +456,20 @@ The information architecture is recorded in
   status line, not the model id). On a phone the status there is the dot alone (its word
   is the dot's label and tooltip), so the title stays readable, and every header icon is
   a 44px touch target. The work goal (with **Stop**, in a sheet) and the events (with a
-  working dot while one runs) are header icons, beside **Talk**. While the agent's
-  browser capability is on, **Browser** (`globe` icon) sits left of them, labelled like
-  **Settings** on a computer and an icon on a phone (it fits at 320px), in ⋯ in a pane;
-  the live preview replaces it while the browser runs. **New chat** and
+  working dot while one runs) are header icons, beside the chat's usage and **Talk**.
+  While the agent's browser capability is on, **Browser** (`globe` icon) sits left of
+  them, labelled like **Settings** on a computer, in ⋯ in a pane; the live preview
+  replaces it while the browser runs. **New chat** and
   **Summarize this chat** (`summarise` icon) live in the Chats sheet, which the chat
-  title opens, and in ⌘K, never as loose icons. On a phone a segmented **Chat | Pinboard (n)**
-  switch replaces the former chat-selector row, so the chat gains no extra row; a
-  labelled **Chats** button (`chats` icon) beside it opens the sheet. A team member's
-  chat has no row, only a pin icon in the header. On a computer the header carries
+  title opens, and in ⌘K, never as loose icons. On a phone the header keeps only the
+  navigation button, the agent's name, the chat's title and **Settings**, so name and
+  title read in full. The one row under it is the header's second line: a segmented
+  **Chat | Pinboard** switch (Pinboard as the `pin` icon with its count, named
+  "Pinboard (n)") and, at its end, the work goal, the events, the usage, **Talk** and
+  **Browser** as icons; more than fit scroll sideways, and a row with nothing in it
+  hides. In a split view's pane the row holds the full **Chat | Pinboard (n)** switch
+  and a labelled **Chats** button (`chats` icon) that opens the sheet. A team member's
+  chat has no row, only its icons and a pin icon in the header. On a computer the header carries
   **Pinboard**, and the pinboard docks beside the chat as a resizable `DockedPanel`.
   Pinboard list titles are `h3` headings. A pinned file opens in the pinboard's reader;
   on a phone the reader is full screen with its own bar (Back, the file, its list and

@@ -6,7 +6,7 @@ import { usePane } from "../../lib/pane-context.js";
 import { agentPinboardCopy } from "../../lib/i18n/messages/agent-pinboard.js";
 import TalkButton from "../talk/TalkButton.jsx";
 import AgentEventsButton from "./AgentEventsButton.jsx";
-import AssistantHeader from "./AssistantHeader.jsx";
+import AssistantHeader, { BrowserEntryLink } from "./AssistantHeader.jsx";
 import ChatStrips from "./ChatStrips.jsx";
 import ChatSwitchRow from "./ChatSwitchRow.jsx";
 import SummariseConfirm from "./SummariseConfirm.jsx";
@@ -19,10 +19,13 @@ import "./agent-chat-top.css";
 /**
  * Everything above an owner's agent chat transcript: one header row (the chat's title
  * under the agent's name, which opens the Chats sheet, the work goal and the events as
- * icons, with the chat's token usage beside them) and, on phones and in split-view panes, one row with the Chat | Pinboard
- * switch and Chats (a team member's chat has no row: a header pin icon toggles its
- * pinboard). Wider, the header carries Pinboard itself; the pinboard docks beside the
- * chat. New chat, Summarize this chat and Archived chats live in the Chats sheet (and ⌘K). Then the
+ * icons, with the chat's token usage beside them) and, in split-view panes, one row
+ * with the Chat | Pinboard switch and Chats (a team member's chat has no row: a header
+ * pin icon toggles its pinboard). On phones the header keeps the agent's name, the
+ * chat's title and Settings, and the row under it holds the switch and every action:
+ * work goal, events, usage, Talk and Browser; the title opens the Chats sheet, so the
+ * row has no Chats there (a member's chat stays as it is, its few icons fit). Wider, the
+ * header carries Pinboard itself; the pinboard docks beside the chat. New chat, Summarize this chat and Archived chats live in the Chats sheet (and ⌘K). Then the
  * chat's strips.
  * `usage`: whether the chat shows its usage (the owner's own chats; ChatUsageButton).
  * `pinboard` is useChatPinboard's result; `talk` is `{ shown, talk, status }`;
@@ -131,7 +134,9 @@ export default function AgentChatTop({
     </>
   );
   // A team member's chat gets no row: it never had the chat selector row.
-  const row = compact && chatList && (pinboard.enabled || newChat);
+  // On a phone the row holds the actions, so the header keeps name and title readable.
+  const rowActions = phone && chatList;
+  const row = rowActions || (compact && chatList && (pinboard.enabled || newChat));
   return (
     <>
       <AssistantHeader
@@ -145,7 +150,8 @@ export default function AgentChatTop({
         compacting={compacting}
         disconnected={disconnected}
         pane={pane}
-        actions={actions}
+        actions={rowActions ? null : actions}
+        browserLink={!rowActions}
         statusExtra={
           chatList && (
             <OwnerChatSelector
@@ -164,7 +170,14 @@ export default function AgentChatTop({
           onTab={pinboard.enabled ? (tab) => pinboard.setOpen(tab === "pinboard") : null}
           fresh={pinboard.fresh}
           onChats={() => owner.setOpen(true)}
-        />
+        >
+          {rowActions ? (
+            <>
+              {actions}
+              <BrowserEntryLink assistant={assistant} navigate={navigate} />
+            </>
+          ) : undefined}
+        </ChatSwitchRow>
       )}
       <SummariseConfirm longChat={longChat} />
       <ChatStrips

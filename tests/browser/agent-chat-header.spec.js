@@ -146,31 +146,38 @@ test.describe("on a phone", () => {
     await expect(
       page.getByRole("dialog", { name: "Chats with Home assistant" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Close", exact: true }).click();
-    await switchRow(page).getByRole("button", { name: "Chats", exact: true }).click();
-    await expect(
-      page.getByRole("dialog", { name: "Chats with Home assistant" }),
-    ).toBeVisible();
+    // The title is the way to the chats: the row under the header has no Chats.
+    await expect(switchRow(page).getByRole("button", { name: "Chats" })).toHaveCount(0);
   });
 
-  test("the chat title reads in full beside the goal, the events and Talk", async ({
+  test("the row holds the goal, the events and Talk; name and title read in full", async ({
     page,
   }) => {
     await open(page, {
       history: { messages: [], requests: [], stale: false, goal, events },
     });
     const header = page.locator(".assistant-header");
-    await expect(header.locator(".talk-button")).toBeVisible();
+    const row = switchRow(page);
+    await expect(row.locator(".talk-button")).toBeVisible();
+    // The header keeps the navigation, the name, the title and Settings.
+    await expect(header.getByRole("button")).toHaveCount(3);
+    await expect(header.getByRole("button", { name: "Settings" })).toBeVisible();
     const title = header.locator(".agent-chat-title-button > span");
     await expect(title).toHaveText("Dinner plans");
     expect(await title.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    const name = header.locator("h1");
+    expect(await name.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    // The row fits the screen: nothing scrolls sideways.
+    expect(await row.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
     // The status is the dot alone, named and titled by its word.
     const status = header.locator(".assistant-header-status");
     await expect(status.locator(".assistant-header-label")).toHaveCount(0);
     const dot = status.getByRole("img", { name: "Ready" });
     await expect(dot).toHaveAttribute("title", "Ready");
     // Every header icon and the title are full touch targets.
-    for (const icon of await header.locator(".assistant-header-icon").all()) {
+    for (const icon of await page
+      .locator(":is(.assistant-header, .agent-chat-switch) .assistant-header-icon")
+      .all()) {
       const box = await icon.boundingBox();
       expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5);
     }
@@ -178,9 +185,11 @@ test.describe("on a phone", () => {
       .locator("..")
       .evaluate((e) => parseFloat(getComputedStyle(e, "::after").height));
     expect(area).toBeGreaterThanOrEqual(44);
-    // The row holds the switch and Chats only: New chat and Summarize this chat
-    // are in the Chats sheet.
-    await expect(switchRow(page).getByRole("button")).toHaveText(["Chats"]);
+    // The switch shows Pinboard as its pin and count and keeps its name.
+    await expect(pinboardTab(page)).toBeAttached();
+    await expect(row.locator(".agent-chat-switch-tabs .visually-hidden")).toHaveText(
+      "Pinboard (2)",
+    );
   });
 
   test("the work goal opens a sheet whose Stop ends it", async ({ page }) => {
@@ -192,9 +201,9 @@ test.describe("on a phone", () => {
       stops.push(route.request().method());
       return route.fulfill({ json: { goal: null } });
     });
-    const button = page
-      .locator(".assistant-header")
-      .getByRole("button", { name: "Working until done: Review cut" });
+    const button = switchRow(page).getByRole("button", {
+      name: "Working until done: Review cut",
+    });
     await button.click();
     const sheet = page.getByRole("dialog", { name: "Work goal" });
     await expect(sheet).toContainText("Working until done: Review cut");
@@ -207,9 +216,7 @@ test.describe("on a phone", () => {
 
   test("the events button counts, marks unread and opens the list", async ({ page }) => {
     await open(page, { history: { messages: [], requests: [], stale: false, events } });
-    const button = page
-      .locator(".assistant-header")
-      .getByRole("button", { name: "Events: 3" });
+    const button = switchRow(page).getByRole("button", { name: "Events: 3" });
     await expect(button).toContainText("3");
     await expect(button.getByRole("img", { name: "3 new" })).toBeVisible();
     await button.click();
@@ -314,7 +321,8 @@ test.describe("on a phone", () => {
     });
     await expect(page.locator(".assistant-header-status")).toContainText("Dinner plans");
     await expect(page.getByRole("radio", { name: /Pinboard/ })).toHaveCount(0);
-    await expect(switchRow(page)).toHaveCount(0);
+    // Nothing to show in it: the row hides.
+    await expect(switchRow(page)).toBeHidden();
   });
 });
 

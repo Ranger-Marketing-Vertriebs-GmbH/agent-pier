@@ -2523,9 +2523,11 @@ belongs to the agent, not to a chat: a new chat or a summary never hides a list,
 list names the chat it came from and links back to it. A team member has its own
 pinboard; its pins stay there.
 
-- **Where you see it.** On a phone, a **Chat | Pinboard (n)** switch under the chat
-  header (n counts files that are new or changed since you last looked) is the only row
-  below it; **Chats** beside it opens the chat list with **New chat**. A
+- **Where you see it.** On a phone, the row under the chat header starts with a
+  **Chat | Pinboard** switch: Pinboard shows as a pin with a number, which counts files
+  that are new or changed since you last looked. The same row holds the chat's work
+  goal, events, usage, **Talk** and **Browser**; tap the chat's title in the header for
+  the chat list with **New chat**. A
   team member's chat has no extra row but a pin button in its header. On a computer, the
   header's **Pinboard** button docks the pinboard as a side panel beside the chat; the
   chat stays usable. Drag the divider between chat and pinboard to widen the panel (or

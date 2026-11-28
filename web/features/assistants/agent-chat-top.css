@@ -23,10 +23,10 @@
   left: -6px;
   height: var(--touch-target);
 }
-.assistant-header .agent-chat-work,
-.assistant-header .agent-chat-events,
-.assistant-header .agent-chat-usage,
-.assistant-header .agent-chat-pin {
+:is(.assistant-header, .agent-chat-switch) .agent-chat-work,
+:is(.assistant-header, .agent-chat-switch) .agent-chat-events,
+:is(.assistant-header, .agent-chat-switch) .agent-chat-usage,
+:is(.assistant-header, .agent-chat-switch) .agent-chat-pin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -45,25 +45,25 @@
   .assistant-header.conversation .assistant-header-title {
     margin: 0 var(--space-1) 0 var(--space-2);
   }
-  .assistant-header .assistant-header-icon,
-  .assistant-header .assistant-header-settings {
+  :is(.assistant-header, .agent-chat-switch) .assistant-header-icon,
+  :is(.assistant-header, .agent-chat-switch) .assistant-header-settings {
     width: var(--touch-target);
     height: var(--touch-target);
   }
-  .assistant-header .agent-chat-work,
-  .assistant-header .agent-chat-events,
-  .assistant-header .agent-chat-usage,
-  .assistant-header .agent-chat-pin {
+  :is(.assistant-header, .agent-chat-switch) .agent-chat-work,
+  :is(.assistant-header, .agent-chat-switch) .agent-chat-events,
+  :is(.assistant-header, .agent-chat-switch) .agent-chat-usage,
+  :is(.assistant-header, .agent-chat-switch) .agent-chat-pin {
     width: auto;
     min-width: var(--touch-target);
     padding: 0 6px;
   }
 }
 /* Browser (AssistantHeader.jsx) is a link that looks like Settings beside it. */
-.assistant-header .agent-chat-browser {
+.agent-chat-browser {
   text-decoration: none;
 }
-.assistant-header .agent-chat-pin[aria-pressed="true"] {
+.agent-chat-pin[aria-pressed="true"] {
   background: var(--button-secondary-bg);
   color: var(--accent-text);
 }
@@ -121,6 +121,27 @@
   gap: var(--space-1);
 }
 .agent-chat-switch-chats {
+  margin-left: auto;
+}
+/* Phones: the row is the second line of the header and holds the chat's actions at
+   its end; too many for the width scroll sideways. Without a switch and without an
+   action there is no row. */
+.agent-chat-switch[data-actions] {
+  padding: 0 var(--space-1) var(--space-1) var(--space-3);
+  overflow-x: auto;
+  background: var(--header-bg);
+  scrollbar-width: none;
+}
+.agent-chat-switch[data-actions]:not(:has(button, a, input)) {
+  display: none;
+}
+.assistant-header:has(+ .agent-chat-switch[data-actions]:has(button, a, input)) {
+  border-bottom-color: transparent;
+}
+.agent-chat-switch-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
   margin-left: auto;
 }
 
