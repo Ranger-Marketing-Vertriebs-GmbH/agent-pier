@@ -180,6 +180,8 @@ export function auditEvent(input) {
       "sftp",
       "ssh-grants",
       "secret-grants",
+      // A session's Android devices changed by the owner (audit-http.js).
+      "device-grants",
       "project-rebind",
       "member-grant",
       "member-reminder",

@@ -344,3 +344,36 @@ test("a session's device access is the owner's alone", { timeout }, async (t) =>
   });
   live.ws.close();
 });
+
+test("a change of a session's devices is an audit row", { timeout }, async (t) => {
+  const a = await sessionDevicesApp(t);
+  const pixel = await a.device("Pixel checkout");
+  const session = await a.launch();
+  const rows = () =>
+    a.f.application.audit
+      .list({ action: "session.updated" })
+      .events.filter((event) => event.details.kind === "device-grants");
+  await a.f.request(a.route(session));
+  assert.equal(rows().length, 0, "reading is not audited");
+  const saved = await a.assign(session, {
+    devices: [{ deviceId: pixel.id, manage: true }],
+    create: true,
+  });
+  assert.equal(saved.status, 200);
+  const [row] = rows();
+  assert.equal(row.resourceType, "session");
+  assert.equal(row.resourceId, session.id);
+  assert.equal(row.sessionId, session.id);
+  assert.equal(row.source, "user");
+  assert.equal(row.outcome, "success");
+  assert.deepEqual(row.details, { statusCode: 200, kind: "device-grants" });
+  // A refused change is recorded as a failure; no row names a device.
+  const refusedChange = await a.assign(session, { devices: [], create: "yes" });
+  assert.equal(refusedChange.status, 400);
+  const failures = rows().filter((event) => event.outcome === "failure");
+  assert.equal(failures.length, 1);
+  assert.deepEqual(failures[0].details, { statusCode: 400, kind: "device-grants" });
+  const text = JSON.stringify(rows());
+  assert.equal(text.includes("Pixel"), false);
+  assert.equal(text.includes(pixel.id), false);
+});
