@@ -140,6 +140,13 @@ test(
       generation: () => runtime.generation,
       teams: {},
     });
+    // What the plugin names with each call (the devices' gate compares the run).
+    const prepared = [];
+    const prepare = bridge.prepare.bind(bridge);
+    bridge.prepare = (input) => {
+      prepared.push({ ...input });
+      return prepare(input);
+    };
     t.after(async () => {
       await runtime.close();
       await bridge.close();
@@ -227,6 +234,15 @@ test(
       adb.filter((command) => command.includes("screencap")),
       ["exec-out screencap -p"],
     );
+    // The call named its run, and that run is the turn's: the attempt the send's
+    // idempotency key names, or the run id the Gateway acknowledged the send with
+    // (agent-device-origin.js ownRun judges a call by exactly this).
+    const [call] = prepared.filter((input) => input.action === "device");
+    t.diagnostic(
+      `device call runId=${call.runId} attempt=${attempt.id} acknowledged=${sent.runId}`,
+    );
+    assert.equal(typeof call.runId, "string");
+    assert.equal(ledger.attemptForRun(call.runId)?.id, attempt.id);
     // What the model got back: the line that names the screenshot, and the image
     // itself as an image part, not as text.
     const last = requests.at(-1).messages;
