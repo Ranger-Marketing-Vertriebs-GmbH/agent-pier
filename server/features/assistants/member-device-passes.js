@@ -1,6 +1,6 @@
 import { refusal } from "../devices/device-registry.js";
-import { deviceAgent, deviceRun, taskOrigin } from "./agent-device-origin.js";
-import { callerOf, requestKind, requestTerminal } from "./lead-request-store.js";
+import { deviceAgent, deviceRun, taskEnded, taskOrigin } from "./agent-device-origin.js";
+import { callerOf, requestKind } from "./lead-request-store.js";
 
 /*
  * Android devices a lead passes on to a member with one task
@@ -15,7 +15,8 @@ import { callerOf, requestKind, requestTerminal } from "./lead-request-store.js"
  *   (agent-device-origin.js): a lead working on someone else's content passes
  *   nothing on.
  * - The pass lives on the task's own record (`devices`: device ids) and so ends
- *   with the task. It is only an upper bound: it counts while the task is open, the
+ *   with the task, also once the task was asked to stop. It is only an upper bound:
+ *   it counts while the task is open, the
  *   lead still has the device and lead and member are still the owner's own agents,
  *   read live at every call.
  * - Any member of the lead takes a pass, a permanent and a temporary one; a member
@@ -58,7 +59,7 @@ export function taskDevices(s, request) {
   if (
     !request ||
     request.kind !== requestKind ||
-    requestTerminal.has(request.phase) ||
+    taskEnded(request) ||
     request.fromMemberId ||
     !Array.isArray(request.devices) ||
     !taskOrigin(request.origin)

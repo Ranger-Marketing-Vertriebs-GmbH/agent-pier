@@ -354,7 +354,9 @@ A lead can pass a device on to a member with a task: `agentpier_team_delegate` t
   someone else's content passes nothing on (`DEVICE_PASS_INVALID`,
   `DEVICE_RUN_FORBIDDEN`).
 - The member, permanent or temporary, uses the device while it works on that task.
-  The pass ends with the task and counts only while the lead still has the device.
+  The pass ends with the task, also as soon as the task is asked to stop (by the
+  lead, by you or at its deadline) while the member's turn still runs, and counts
+  only while the lead still has the device.
 - A member never resets or deletes a passed device and creates none in a task: a
   member's task is not a turn you started.
 - A member you assigned a device to yourself uses it in its own runs like any agent,
