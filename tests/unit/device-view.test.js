@@ -513,7 +513,7 @@ test("creator, assignments, hold and viewers are part of the row", () => {
   });
   assert.deepEqual(agent.details, [
     "Created by agent Tester",
-    "Assigned to Tester (may reset and delete), web checkout",
+    "Assigned to agent Tester (may reset and delete), session web checkout",
     "3.8 GB on disk",
     "You are holding this device",
     "2 open views",
@@ -534,27 +534,96 @@ test("a row names three assignments and counts the rest", () => {
   assert.equal(assignmentText(undefined), "");
   assert.equal(
     assignmentText(sessions.slice(0, 3)),
-    "Assigned to Checkout, Login flow (may reset and delete), Settings",
+    "Assigned to session Checkout, session Login flow (may reset and delete), session Settings",
   );
   assert.equal(
     assignmentText(sessions),
-    "Assigned to Checkout, Login flow (may reset and delete), Settings and 2 more",
+    "Assigned to session Checkout, session Login flow (may reset and delete), session Settings and 2 more",
   );
   assert.equal(
     row({ assignments: sessions }).details[1],
-    "Assigned to Checkout, Login flow (may reset and delete), Settings and 2 more",
+    "Assigned to session Checkout, session Login flow (may reset and delete), session Settings and 2 more",
   );
   // A session without a name shows its id; an empty entry is skipped.
   assert.equal(
     assignmentText([null, { kind: "session", id: "s9", name: "", manage: false }]),
-    "Assigned to s9",
+    "Assigned to session s9",
   );
   withLanguage("de", () =>
     assert.equal(
       assignmentText(sessions),
-      "Zugewiesen an Checkout, Login flow (darf zurücksetzen und löschen), Settings und 2 weitere",
+      "Zugewiesen an Session Checkout, Session Login flow (darf zurücksetzen und löschen), Session Settings und 2 weitere",
     ),
   );
+});
+
+test("a row names agents and says when a lead passed the device on", () => {
+  const home = { kind: "agent", id: "home", name: "Home", manage: true };
+  const pass = {
+    kind: "agent",
+    id: "scout",
+    name: "Scout",
+    manage: false,
+    passedBy: { id: "home", name: "Home" },
+  };
+  const session = { kind: "session", id: "s1", name: "Checkout", manage: false };
+  assert.equal(
+    assignmentText([home, pass, session]),
+    "Assigned to agent Home (may reset and delete), agent Scout (passed on by Home for a task), session Checkout",
+  );
+  // A pass never resets or deletes, whatever the entry says, and a lead without a
+  // name is still called the lead.
+  assert.equal(
+    assignmentText([{ ...pass, manage: true, passedBy: { id: "home", name: "" } }]),
+    "Assigned to agent Scout (passed on by its lead agent for a task)",
+  );
+  // The cap of three names holds for agents and passes too.
+  assert.equal(
+    assignmentText([home, pass, session, { ...home, id: "ops", name: "Ops" }]),
+    "Assigned to agent Home (may reset and delete), agent Scout (passed on by Home for a task), session Checkout and 1 more",
+  );
+  // An entry of a kind this build does not know keeps its plain name.
+  assert.equal(
+    assignmentText([{ kind: "team", id: "t1", name: "Crew" }]),
+    "Assigned to Crew",
+  );
+  withLanguage("de", () => {
+    assert.equal(
+      assignmentText([home, pass]),
+      "Zugewiesen an Agent Home (darf zurücksetzen und löschen), Agent Scout (von Home für eine Aufgabe weitergegeben)",
+    );
+    assert.equal(
+      assignmentText([{ ...pass, passedBy: { id: "home", name: "" } }]),
+      "Zugewiesen an Agent Scout (vom leitenden Agenten für eine Aufgabe weitergegeben)",
+    );
+  });
+});
+
+test("a creator that is gone is named, or described when it left no name", () => {
+  const creator = (patch) =>
+    row({ creator: { kind: "agent", id: "a1", name: "Tester", gone: true, ...patch } })
+      .details[0];
+  assert.equal(creator({}), "Created by agent Tester (creator no longer exists)");
+  assert.equal(
+    creator({ name: "", id: "" }),
+    "Created by an agent that no longer exists",
+  );
+  assert.equal(
+    creator({ kind: "session", name: "", id: "" }),
+    "Created by a session that no longer exists",
+  );
+  // An agent that exists and has no name shows its id.
+  assert.equal(creator({ name: "", gone: false }), "Created by agent a1");
+  withLanguage("de", () => {
+    assert.equal(
+      creator({}),
+      "Von Agent Tester angelegt (Ersteller existiert nicht mehr)",
+    );
+    assert.equal(
+      creator({ name: "", id: "" }),
+      "Von einem Agenten angelegt, den es nicht mehr gibt",
+    );
+  });
 });
 
 test("without a usable installation a device neither starts nor resets", () => {

@@ -60,7 +60,51 @@ const sharedDevices = () => [
   }),
 ];
 const sharedText =
-  "Assigned to Checkout flow on the staging shop, Login regression (may reset and delete), Settings screen and 2 more";
+  "Assigned to session Checkout flow on the staging shop, session Login regression (may reset and delete), session Settings screen and 2 more";
+// Devices as agents use them: one a lead holds and passes on to its member for a
+// task beside a session and another agent, one an agent created, and one whose
+// creating agent was deleted.
+const agentDevices = () => [
+  device({
+    name: "Team Pixel",
+    state: "running",
+    assignments: [
+      { kind: "agent", id: "home", name: "Home", manage: true },
+      {
+        kind: "agent",
+        id: "scout",
+        name: "Scout",
+        manage: false,
+        passedBy: { id: "home", name: "Home" },
+      },
+      { kind: "session", id: "s1", name: sessionNames[0], manage: false },
+      { kind: "agent", id: "ops", name: "Ops watch", manage: false },
+    ],
+  }),
+  device({
+    id: "d-0000000000b2",
+    name: "Agent scratch",
+    creator: { kind: "agent", id: "home", name: "Home", gone: false },
+  }),
+  device({
+    id: "d-0000000000c3",
+    name: "Orphan",
+    creator: { kind: "agent", id: "gone", name: "Old tester", gone: true },
+    assignments: [
+      {
+        kind: "agent",
+        id: "scout",
+        name: "Scout",
+        manage: false,
+        passedBy: { id: "home", name: "Home" },
+      },
+    ],
+  }),
+];
+const agentText = {
+  en: "Assigned to agent Home (may reset and delete), agent Scout (passed on by Home for a task), session Checkout flow on the staging shop and 1 more",
+  de: "Zugewiesen an Agent Home (darf zurücksetzen und löschen), Agent Scout (von Home für eine Aufgabe weitergegeben), Session Checkout flow on the staging shop und 1 weitere",
+};
 
 // The routes as the server answers them (server/http/routes/devices.js). `state.next`
 // replaces one answer: `{ status, json }`, or a function that waits (a held request).
@@ -473,7 +517,7 @@ test("a failed device shows its reason; a refused start says why", async ({ page
   await expect(old).toContainText(
     "Created by session web checkout (creator no longer exists)",
   );
-  await expect(old).toContainText("Assigned to Tester (may reset and delete)");
+  await expect(old).toContainText("Assigned to agent Tester (may reset and delete)");
   await expect(old).toContainText(
     "This device uses an earlier system image. It still starts; a reset moves it to the current image.",
   );
@@ -498,7 +542,7 @@ test("a row names who a device is assigned to and a creator that is gone", async
   await expect(scratch).toContainText(
     "Created by session Checkout flow on the staging shop",
   );
-  await expect(scratch).toContainText("Assigned to Login regression");
+  await expect(scratch).toContainText("Assigned to session Login regression");
   await expect(scratch).not.toContainText("creator no longer exists");
   await shoot(page, "device-page-desktop", "devices-pr2-ui-");
   // An assignment taken away elsewhere shows with the push, without a request.
@@ -507,6 +551,32 @@ test("a row names who a device is assigned to and a creator that is gone", async
   await liveStub.pushRest("devices");
   await expect(scratch).not.toContainText("Assigned to");
   expect(seen).toEqual([]);
+});
+
+test("a row names agents, a lead's pass and an agent creator that is gone", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page, { devices: agentDevices() });
+  await open(page);
+  const team = row(page, "Team Pixel");
+  // Three by kind and name, the pass with its lead, the fourth as a count.
+  await expect(team).toContainText(agentText.en);
+  await expect(team).not.toContainText("Ops watch");
+  await expect(row(page, "Agent scratch")).toContainText("Created by agent Home");
+  await expect(row(page, "Agent scratch")).not.toContainText("Assigned to");
+  const orphan = row(page, "Orphan");
+  await expect(orphan).toContainText(
+    "Created by agent Old tester (creator no longer exists)",
+  );
+  await expect(orphan).toContainText(
+    "Assigned to agent Scout (passed on by Home for a task)",
+  );
+  await shoot(page, "device-page-agents-desktop", "devices-pr3-ui-");
+  // The task ends: the pass leaves the row with the push.
+  state.change("d-0000000000c3", { assignments: [] });
+  await liveStub.pushRest("devices");
+  await expect(orphan).not.toContainText("Assigned to");
 });
 
 test("reset and delete ask first and wait for the server", async ({ page }) => {
@@ -715,6 +785,19 @@ test.describe("in German", () => {
     await expect(group(page, "Limits")).toContainText("Gleichzeitig laufende Geräte");
     await expect(group(page, "Geräte")).toContainText("1 von 5 Geräten, 0 von 2 laufen");
   });
+  test("a row names agents and a lead's pass in German", async ({ page }) => {
+    await setup(page, { devices: agentDevices() });
+    await open(page);
+    await expect(row(page, "Team Pixel")).toContainText(agentText.de);
+    await expect(row(page, "Agent scratch")).toContainText("Von Agent Home angelegt");
+    await expect(row(page, "Orphan")).toContainText(
+      "Von Agent Old tester angelegt (Ersteller existiert nicht mehr)",
+    );
+    await expect(row(page, "Orphan")).toContainText(
+      "Zugewiesen an Agent Scout (von Home für eine Aufgabe weitergegeben)",
+    );
+    await shoot(page, "device-page-agents-desktop-de", "devices-pr3-ui-");
+  });
 });
 
 test.describe("on a phone", () => {
@@ -742,6 +825,30 @@ test.describe("on a phone", () => {
     await page.evaluate(() => window.scrollTo(0, 0));
     await shared.scrollIntoViewIfNeeded();
     await shoot(page, "device-page-phone", "devices-pr2-ui-");
+  });
+  test("agents and a lead's pass stay inside the row", async ({ page }) => {
+    await setup(page, { devices: agentDevices() });
+    await open(page);
+    const team = row(page, "Team Pixel");
+    await expect(team).toContainText(agentText.en);
+    await expect(team.locator(".list-row-status")).toHaveText("Running");
+    await expect(row(page, "Orphan")).toContainText("creator no longer exists");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBe(0);
+    for (const name of ["Team Pixel", "Orphan"])
+      for (const part of await row(page, name)
+        .locator(".list-row-label, .list-row-sub, .list-row-status")
+        .all()) {
+        const box = await part.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(390);
+      }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await team.scrollIntoViewIfNeeded();
+    await shoot(page, "device-page-agents-phone", "devices-pr3-ui-");
   });
   test("rows wrap, actions are reachable and dialogs are sheets", async ({ page }) => {
     await setup(page, {
