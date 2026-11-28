@@ -111,7 +111,9 @@ test("split: a disabled picker cannot be changed", async ({ page }) => {
   await expect(box.getByRole("status")).toHaveText("1 of 600");
 });
 
-test("stacked: the add field grants and the row's button removes", async ({ page }) => {
+test("stacked: a click in the add field grants and the row's button removes", async ({
+  page,
+}) => {
   const box = await specimen(page, "GrantPicker · stacked");
   await expect(box.locator(".grant-picker")).toHaveAttribute(
     "data-arrangement",
@@ -121,9 +123,15 @@ test("stacked: the add field grants and the row's button removes", async ({ page
   const field = card.getByRole("combobox", { name: "Add SSH access" });
   await field.fill("stage-db-07");
   const list = card.getByRole("listbox", { name: "SSH access: options" });
-  await list.getByRole("option", { name: /stage-db-07/ }).click();
-  await card.getByRole("button", { name: "Add 1" }).click();
-  await expect(card.getByText("stage-db-07", { exact: true })).toBeVisible();
+  const option = list.getByRole("option", { name: /stage-db-07/ });
+  await option.click();
+  // Added at once, without a second button; the list stays open for the next one.
+  await expect(card.getByRole("button", { name: "Remove stage-db-07" })).toBeVisible();
+  await expect(card.getByRole("button", { name: /^Add/ })).toHaveCount(0);
+  await expect(option).toHaveAttribute("aria-disabled", "true");
+  await expect(option).toContainText("allowed");
+  await page.keyboard.press("Escape");
+  await expect(list).toBeHidden();
 
   await card.getByRole("button", { name: "Remove stage-db-07" }).click();
   await expect(card.getByText("stage-db-07", { exact: true })).toHaveCount(0);
@@ -196,13 +204,55 @@ test.describe("touch screen", () => {
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("the split specimen stacks at phone width", async ({ page }) => {
+  test("the picker is one checklist: a tap grants, allowed entries come first", async ({
+    page,
+  }) => {
     const box = await split(page);
     await expect(box.locator(".grant-picker")).toHaveAttribute(
       "data-arrangement",
-      "stacked",
+      "list",
     );
-    await expect(box.getByRole("combobox", { name: "Add SSH access" })).toBeVisible();
-    await expect(box.getByRole("searchbox")).toHaveCount(0);
+    await expect(box.getByRole("combobox")).toHaveCount(0);
+    const rows = box.getByRole("group", { name: "SSH accesses" }).getByRole("checkbox");
+    await expect(
+      box.getByRole("heading", { name: "Allowed in this session · 2" }),
+    ).toBeVisible();
+    // The project's entry says why it is fixed, in the row.
+    await expect(box.getByText("Project managed")).toBeVisible();
+    const search = box.getByRole("searchbox", { name: "Search SSH accesses" });
+    await search.fill("dev-logs-50");
+    const row = rows.first();
+    await row.check();
+    await expect(
+      box.getByRole("heading", { name: "Allowed in this session · 3" }),
+    ).toBeVisible();
+    // A new search sorts what is allowed to the top.
+    await search.fill("");
+    await expect(rows.nth(2)).toHaveAccessibleName("dev-logs-50");
+    await expect(rows.nth(2)).toBeChecked();
+    // Unticking keeps the row in place until the next search.
+    await rows.nth(2).uncheck();
+    await expect(rows.nth(2)).toHaveAccessibleName("dev-logs-50");
+    await expect(
+      box.getByRole("heading", { name: "Allowed in this session · 2" }),
+    ).toBeVisible();
+  });
+
+  test("dialog: rows are touch sized and the search stays below the heading", async ({
+    page,
+  }) => {
+    await page.goto("/settings/components");
+    await page.getByRole("button", { name: "Open SSH accesses" }).click();
+    const dialog = page.getByRole("dialog", { name: "SSH accesses" });
+    const search = dialog.getByRole("searchbox", { name: "Search SSH accesses" });
+    await expect(search).toBeVisible();
+    await expect(search).not.toBeFocused();
+    const row = dialog.locator(".grant-picker-row").nth(3);
+    expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await dialog.getByRole("checkbox").nth(30).scrollIntoViewIfNeeded();
+    const heading = await dialog.locator(".dialog-heading").boundingBox();
+    const field = await search.boundingBox();
+    expect(field.y).toBeGreaterThanOrEqual(heading.y + heading.height - 1);
+    expect(field.y).toBeLessThan(heading.y + heading.height + 24);
   });
 });

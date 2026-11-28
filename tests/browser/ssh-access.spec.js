@@ -78,7 +78,7 @@ test("existing session assignment exposes copy command without sending agent inp
 
 // The session SSH dialog chooses through GrantPicker
 // (docs/ui-guide.md#choosing-what-a-session-may-use): search and rows on the left, the
-// allowed list on the right, stacked on phones.
+// allowed list on the right, one checklist on phones.
 async function openSessionSsh(page) {
   await page.goto(baseURL + "/sessions/fixture-session");
   await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
@@ -117,7 +117,7 @@ test("the session SSH dialog finds an access by typing and keeps the payload", a
   expect(sessionPuts(state)).toEqual([{ accessIds: ["ssh-host-23"] }]);
 });
 
-test("the session SSH dialog stacks on a phone and keeps choices across the breakpoint", async ({
+test("the session SSH dialog is one checklist on a phone and keeps choices across the breakpoint", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -128,15 +128,12 @@ test("the session SSH dialog stacks on a phone and keeps choices across the brea
   await expect(picker).toHaveAttribute("data-arrangement", "split");
   await dialog.getByRole("checkbox", { name: "Build server" }).check();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(picker).toHaveAttribute("data-arrangement", "stacked");
+  await expect(picker).toHaveAttribute("data-arrangement", "list");
   await expect(
-    dialog
-      .getByRole("group", { name: /^Erlaubt in dieser Session/ })
-      .getByText("Build server", { exact: true }),
+    dialog.getByRole("heading", { name: "Erlaubt in dieser Session · 1" }),
   ).toBeVisible();
-  await expect(
-    dialog.getByRole("combobox", { name: "SSH-Zugang hinzufügen" }),
-  ).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Build server" })).toBeChecked();
+  await expect(dialog.getByRole("combobox")).toHaveCount(0);
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(picker).toHaveAttribute("data-arrangement", "split");
   await expect(dialog.getByRole("checkbox", { name: "Build server" })).toBeChecked();

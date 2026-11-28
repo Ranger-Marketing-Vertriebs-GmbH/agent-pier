@@ -6,6 +6,7 @@ import {
   defaultRowLimit,
   filterCandidates,
   initialPickerState,
+  isSelectable,
   itemsToAdd,
   keyIntent,
   markGranted,
@@ -29,6 +30,8 @@ const asResult = (result) =>
  * the server after a short pause. Rows are checked in an attached listbox; already
  * `granted` ids stay visible but disabled. `modes` ({ value, label }) offers one mode
  * for all new items. `onAdd(items, mode)` hands the choice to the caller's draft.
+ * With `direct` a click, Space or Enter adds the row at once and the list stays open:
+ * no checking first and no footer, for a caller whose own Save confirms the change.
  */
 export default function AddPicker({
   typeLabel,
@@ -41,6 +44,7 @@ export default function AddPicker({
   onAdd,
   limit = defaultRowLimit,
   disabled = false,
+  direct = false,
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -107,6 +111,10 @@ export default function AddPicker({
     input.current?.focus();
   }
 
+  function addNow(row) {
+    if (isSelectable(row)) onAdd([row], state.mode);
+  }
+
   function onKeyDown(event) {
     const intent = keyIntent(event.key, state);
     if (!intent) return;
@@ -115,6 +123,8 @@ export default function AddPicker({
       finish();
     } else if (intent === "close") {
       dispatch({ type: "close" });
+    } else if (direct && (intent === "toggle" || intent === "add")) {
+      addNow(rows[state.active]);
     } else if (intent === "toggle") {
       dispatch({ type: "toggleActive", rows });
     } else if (intent === "add") {
@@ -139,7 +149,13 @@ export default function AddPicker({
   const status = remote.busy ? copy.searching : copy.matches(total);
 
   return (
-    <div className="add-picker" ref={root} onKeyDown={onPanelKeyDown}>
+    <div
+      className="add-picker"
+      ref={root}
+      onKeyDown={onPanelKeyDown}
+      // The on-screen keyboard keeps the field and the top of its list in view.
+      data-keyboard-reveal=""
+    >
       <div className="list-row add-picker-field">
         <Icon name="plus" size={16} className="add-picker-plus" />
         <input
@@ -196,7 +212,9 @@ export default function AddPicker({
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => dispatch({ type: "toggle", candidate: row })}
+                  onClick={() =>
+                    direct ? addNow(row) : dispatch({ type: "toggle", candidate: row })
+                  }
                 >
                   <span className="add-picker-check" data-checked={checked} />
                   <span className="add-picker-text">
@@ -217,36 +235,38 @@ export default function AddPicker({
           )}
           {hidden > 0 && <p className="add-picker-note">{copy.more(hidden)}</p>}
           <ErrorMessage error={remote.error} className="error add-picker-note" />
-          <div className="add-picker-footer">
-            {modes?.length > 0 && (
-              <div className="add-picker-mode">
-                <span aria-hidden="true">{copy.mode}</span>
-                <AnchoredSelect
-                  label={copy.modeLabel}
-                  value={state.mode}
-                  options={modes}
-                  onChange={(mode) => dispatch({ type: "mode", mode })}
-                />
+          {!direct && (
+            <div className="add-picker-footer">
+              {modes?.length > 0 && (
+                <div className="add-picker-mode">
+                  <span aria-hidden="true">{copy.mode}</span>
+                  <AnchoredSelect
+                    label={copy.modeLabel}
+                    value={state.mode}
+                    options={modes}
+                    onChange={(mode) => dispatch({ type: "mode", mode })}
+                  />
+                </div>
+              )}
+              <div className="add-picker-actions">
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={() => finish()}
+                >
+                  {commonCopy.cancel}
+                </button>
+                <button
+                  type="button"
+                  className="button primary compact"
+                  disabled={!state.selected.length}
+                  onClick={() => finish(state.selected)}
+                >
+                  {copy.add(state.selected.length)}
+                </button>
               </div>
-            )}
-            <div className="add-picker-actions">
-              <button
-                type="button"
-                className="button secondary compact"
-                onClick={() => finish()}
-              >
-                {commonCopy.cancel}
-              </button>
-              <button
-                type="button"
-                className="button primary compact"
-                disabled={!state.selected.length}
-                onClick={() => finish(state.selected)}
-              >
-                {copy.add(state.selected.length)}
-              </button>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

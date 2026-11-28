@@ -10,6 +10,7 @@ import {
   allowedEntries,
   grantCandidates,
   isAllowed,
+  pinnedFirst,
   setGrant,
 } from "./grant-picker.js";
 import { touchQuery } from "./useModalDialog.js";
@@ -141,10 +142,35 @@ function AllowedList({
   );
 }
 
-function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFocus }) {
+function Choices({
+  id,
+  entries,
+  selected,
+  onChange,
+  listLabel,
+  disabled,
+  autoFocus,
+  heading,
+  onRemove,
+}) {
+  // With a `heading` this is the phone checklist: the whole picker in one list.
+  const list = Boolean(heading);
   const [query, setQuery] = useState("");
+  // The ids shown first in the phone checklist. They follow what is allowed until the
+  // first tap and then stay, so no row moves under the finger; a new search sorts again.
+  const [pinned, setPinned] = useState(null);
   const input = useRef(null);
-  const matches = filterCandidates(entries, query);
+  const allowedIds = () => ids(allowedEntries(entries, selected));
+  const ordered = list ? pinnedFirst(entries, pinned ?? allowedIds()) : entries;
+  const matches = filterCandidates(ordered, query);
+  const search = (value) => {
+    setQuery(value);
+    setPinned(null);
+  };
+  const change = (next) => {
+    if (list && !pinned) setPinned(allowedIds());
+    onChange(next);
+  };
   const { rows, hidden } = visibleRows(matches);
 
   // Mounted with its Modal, the closed dialog ignores this and `data-autofocus` lets the
@@ -156,7 +182,8 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
   }, [autoFocus]);
 
   return (
-    <div className="grant-picker-column">
+    <div className="grant-picker-column" data-keyboard-reveal={list ? "" : undefined}>
+      {list && <GroupLabel as="h3">{heading}</GroupLabel>}
       <div className="grant-picker-search">
         <input
           ref={input}
@@ -170,14 +197,14 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
           autoCapitalize="none"
           spellCheck={false}
           data-autofocus={autoFocus || undefined}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => search(event.target.value)}
           onKeyDown={(event) => {
             // Escape clears a query first, in every engine (Firefox would close the
             // dialog and drop unsaved choices); with an empty field the dialog closes.
             if (event.key !== "Escape" || !query) return;
             event.preventDefault();
             event.stopPropagation();
-            setQuery("");
+            search("");
           }}
         />
         <span className="grant-picker-count" role="status">
@@ -196,35 +223,56 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
               notes.length && `${rowId}-notes`,
             ].filter(Boolean);
             return (
-              <label key={entry.id} className="grant-picker-row">
-                <input
-                  type="checkbox"
-                  aria-labelledby={`${rowId}-name`}
-                  aria-describedby={described.join(" ") || undefined}
-                  checked={isAllowed(entry, selected)}
-                  disabled={Boolean(entry.locked)}
-                  onChange={(event) =>
-                    onChange(setGrant(selected, entry.id, event.target.checked))
-                  }
-                />
-                <span className="grant-picker-name" id={`${rowId}-name`}>
-                  {entry.name}
-                </span>
-                {entry.sub && (
-                  <span className="grant-picker-sub" id={`${rowId}-sub`}>
-                    {entry.sub}
+              <React.Fragment key={entry.id}>
+                <label className="grant-picker-row">
+                  <input
+                    type="checkbox"
+                    aria-labelledby={`${rowId}-name`}
+                    aria-describedby={described.join(" ") || undefined}
+                    checked={isAllowed(entry, selected)}
+                    disabled={Boolean(entry.locked)}
+                    onChange={(event) =>
+                      change(setGrant(selected, entry.id, event.target.checked))
+                    }
+                  />
+                  <span className="grant-picker-text">
+                    <span className="grant-picker-name" id={`${rowId}-name`}>
+                      {entry.name}
+                    </span>
+                    {entry.sub && (
+                      <span className="grant-picker-sub" id={`${rowId}-sub`}>
+                        {entry.sub}
+                      </span>
+                    )}
+                    {/* Why a locked row cannot be switched off. Beside the allowed
+                        list it is the checkbox's description only (hidden, so it is
+                        not read twice); the phone checklist shows it in the row. */}
+                    {notes.length > 0 && (
+                      <span
+                        hidden={!list}
+                        className="grant-picker-notes"
+                        id={`${rowId}-notes`}
+                      >
+                        {notes.join(" · ")}
+                      </span>
+                    )}
                   </span>
+                  {entry.badge && <span className="badge">{entry.badge}</span>}
+                </label>
+                {list && entry.action && (
+                  <button
+                    type="button"
+                    className="grant-picker-action"
+                    disabled={disabled}
+                    onClick={(event) => {
+                      onRemove(event.currentTarget);
+                      entry.action.onClick();
+                    }}
+                  >
+                    {entry.action.label}
+                  </button>
                 )}
-                {entry.badge && <span className="badge">{entry.badge}</span>}
-                {/* Why a locked row cannot be switched off, read as the checkbox's
-                    description only: hidden, it is not read a second time, and the
-                    allowed list shows the notes. */}
-                {notes.length > 0 && (
-                  <span hidden id={`${rowId}-notes`}>
-                    {notes.join(" · ")}
-                  </span>
-                )}
-              </label>
+              </React.Fragment>
             );
           })}
           {!matches.length && (
@@ -243,8 +291,9 @@ function Choices({ id, entries, selected, onChange, listLabel, disabled, autoFoc
  * Chooses what a session may use from a long list (docs/ui-guide.md#choosing-what-a-
  * session-may-use). `entries` ({ id, name, sub?, group?, badge?, locked?, notes?,
  * action? }) are searched on the left and the allowed ones listed on the right; on
- * phones, or with `stacked`, the allowed list ends in an `AddPicker`. `onChange(ids)`
- * hands the next selected ids to the caller's draft.
+ * phones it is one checklist with the allowed entries first. With `stacked` the allowed
+ * list ends in an `AddPicker` that adds on a tap. `onChange(ids)` hands the next
+ * selected ids to the caller's draft.
  */
 export default function GrantPicker({
   entries,
@@ -282,7 +331,24 @@ export default function GrantPicker({
     onRemove,
   };
 
-  if (stacked || phone)
+  if (phone && !stacked)
+    return (
+      <div className="grant-picker" data-arrangement="list" ref={root}>
+        <Choices
+          id={id}
+          entries={entries}
+          selected={selected}
+          onChange={onChange}
+          listLabel={listLabel}
+          disabled={disabled}
+          heading={list.heading}
+          onRemove={onRemove}
+        />
+        {children}
+      </div>
+    );
+
+  if (stacked)
     return (
       <div className="grant-picker" data-arrangement="stacked" ref={root}>
         <AllowedList
@@ -293,6 +359,7 @@ export default function GrantPicker({
               candidates={grantCandidates(entries)}
               granted={ids(allowed)}
               grantedLabel={copy.allowedTag}
+              direct
               disabled={disabled}
               onAdd={(items) => onChange(addGrants(selected, ids(items)))}
             />

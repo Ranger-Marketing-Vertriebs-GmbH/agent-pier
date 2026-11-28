@@ -5,6 +5,7 @@ import {
   allowedEntries,
   grantCandidates,
   isAllowed,
+  pinnedFirst,
   setGrant,
 } from "../../web/components/grant-picker.js";
 
@@ -60,4 +61,12 @@ test("grantCandidates shows a badge as the group when the entry has none", () =>
     { id: "s", name: "S", sub: "u@s:22", group: "SFTP" },
     { id: "s", name: "S", sub: "u@s:22", group: "g" },
   ]);
+});
+
+test("pinnedFirst moves the given ids to the top and keeps both orders", () => {
+  assert.deepEqual(
+    pinnedFirst(entries, ["c", "gone"]).map((entry) => entry.id),
+    ["c", "a", "b"],
+  );
+  assert.equal(pinnedFirst(entries, []), entries);
 });
