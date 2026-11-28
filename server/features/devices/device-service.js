@@ -95,6 +95,8 @@ export class DeviceService extends DeviceRegistry {
   // away from the caller, or for themselves, while the call waited.
   #turn(id, caller, need, runtime, { held = true } = {}) {
     if (!this.permission(caller, id)[need]) throw refusal("DEVICE_FORBIDDEN", 403);
+    // What only the caller's own feature knows of this call (device-access.js).
+    caller?.admit?.();
     if (held) this.#free(runtime, caller);
   }
 

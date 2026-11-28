@@ -5,6 +5,11 @@
  * features that assign devices (sessions, agents, team members) answer through a
  * registered resolver. `manage` is the permission to reset and delete. While the
  * owner holds a device (`ownerHold`), nobody else acts on it.
+ *
+ * A caller may carry `admit()`: the device service calls it when the caller's turn
+ * on a device comes, after the grant was checked again, and a throw refuses the
+ * call. An agent's call asks there whether the run it belongs to may still use
+ * devices (assistants/agent-devices.js).
  */
 const kinds = ["session", "agent"];
 const none = Object.freeze({ use: false, manage: false });
