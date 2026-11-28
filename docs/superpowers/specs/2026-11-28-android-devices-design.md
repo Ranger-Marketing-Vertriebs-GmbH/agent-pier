@@ -667,17 +667,18 @@ builds on what this section lists. Guides: `docs/devices.md` (Devices for agents
 
 ### Modules
 
-| Module                                                                                                          | What it is                                                                                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server/features/devices/device-tool-schemas.js`                                                                | The fields and per-action shapes of the device tools, once: the session tools are derived from them, the agents' tool is checked against them                                                              |
-| `server/features/devices/device-tool-messages.js`                                                               | The sentence per code, worded per audience (`session`, `agent`)                                                                                                                                            |
-| `server/features/devices/agent-device-grants.js`                                                                | `AgentDeviceGrants`: `devices/agent-grants.json`, an agent's assignments, its create permission and its workspace recorded as one folder; disk first                                                       |
-| `server/features/devices/agent-device-access.js`, `server/http/routes/agent-devices.js`                         | The value of the routes and of the topic `agent.devices`, the routes themselves, the audit row                                                                                                             |
-| `server/features/assistants/agent-device-origin.js`                                                             | The devices' own gate: `deviceAgent` (who can be given devices at all), `deviceOrigin` (which recorded origins may use devices), `deviceRun(w, inv)` (the run behind a call, with `manage` and `writable`) |
-| `server/features/assistants/agent-devices.js`                                                                   | `invokeDevice`: the bridge action `device`; validation, the gate at arrival and at the queue head, the scope of a run, the workspace as area, the screenshot's answer                                      |
-| `server/features/assistants/member-device-passes.js`                                                            | What a lead passes on with a task: the check, the record on the task (`devices`), the live resolution for the device service and the device list                                                           |
-| `server/features/assistants/team-plugin/device-tool.js`, `runtimes/hermes/hermes-config/team-plugin-results.js` | The tool's description and JSON schema and how each runtime's plugin returns a screenshot as an image                                                                                                      |
-| `server/features/assistants/team-bridge-dispatch.js`                                                            | The bridge's dispatch by action, moved out of `team-bridge.js`                                                                                                                                             |
+| Module                                                                                                          | What it is                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server/features/devices/device-tool-schemas.js`                                                                | The fields and per-action shapes of the device tools, once: the session tools are derived from them, the agents' tool is checked against them                                                                                                                                  |
+| `server/features/devices/device-tool-messages.js`                                                               | The sentence per code, worded per audience (`session`, `agent`)                                                                                                                                                                                                                |
+| `server/features/devices/agent-device-grants.js`                                                                | `AgentDeviceGrants`: `devices/agent-grants.json`, an agent's assignments, its create permission and its workspace recorded as one folder; disk first                                                                                                                           |
+| `server/features/devices/agent-device-access.js`, `server/http/routes/agent-devices.js`                         | The value of the routes and of the topic `agent.devices`, the routes themselves, the audit row                                                                                                                                                                                 |
+| `server/features/assistants/agent-device-origin.js`                                                             | The devices' own gate: `deviceAgent` (who can be given devices at all), `deviceOriginKinds` and `deviceOrigin` (the allow-list of recorded origins that may use devices), `taskOrigin`, `taskEnded`, `deviceRun(w, inv)` (the run behind a call, with `manage` and `writable`) |
+| `server/features/devices/grant-file.js`                                                                         | Reads `agent-grants.json` and `session-grants.json`: a damaged file or entry is kept aside as `<file>.damaged-<time>`, logged once, and the file written anew from what counts                                                                                                 |
+| `server/features/assistants/agent-devices.js`                                                                   | `invokeDevice`: the bridge action `device`; validation, the gate at arrival and at the queue head, the scope of a run, the workspace as area, the screenshot's answer                                                                                                          |
+| `server/features/assistants/member-device-passes.js`                                                            | What a lead passes on with a task: the check, the record on the task (`devices`), the live resolution for the device service and the device list                                                                                                                               |
+| `server/features/assistants/team-plugin/device-tool.js`, `runtimes/hermes/hermes-config/team-plugin-results.js` | The tool's description and JSON schema and how each runtime's plugin returns a screenshot as an image                                                                                                                                                                          |
+| `server/features/assistants/team-bridge-dispatch.js`                                                            | The bridge's dispatch by action, moved out of `team-bridge.js`                                                                                                                                                                                                                 |
 
 Wiring: `device-wiring.js` creates `services.agentDeviceGrants` and registers
 `registerGrants("agent")` (direct grants and open task passes),
@@ -746,7 +747,7 @@ manage: false, passedBy: { id, name } }`. A pass that ended with its task leaves
 fields flat beside it (`device`, `name`, `element`, `x`, `y`, `longPress`, `scroll`,
 `x1`, `y1`, `x2`, `y2`, `durationMs`, `key`, `count`, `text`, `path`, `devicePath`,
 `package`, `activity`, `all`, `url`, `lines`, `tag`, `priority`, `command`,
-`timeoutMs`), the same on OpenClaw and Hermes. An agent's call ends after 110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`; a session's after 140), and the plugins wait 125. `agentpier_team_delegate` gained
+`timeoutMs`), the same on OpenClaw and Hermes. An agent's call ends after 110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`; a session's after 140), and the plugins wait 125; an agent's `shell` takes a `timeoutMs` of at most 100000 (`AGENT_SHELL_TIMEOUT_MAX_MS`), a session's 120000. `agentpier_team_delegate` gained
 `access.devices` (1 to 20 ids or names). The run rules are the table in
 `docs/assistant-gateway.md` (Android devices).
 
@@ -814,6 +815,56 @@ Nothing built here stands in its way. What it needs:
 - "Forwarded" exists for Telegram messages only; content the owner pastes, or that
   an agent reads in an owner's turn (web, mail, files, a device's screen), is part of
   that turn.
+
+### After the review of pull request 3
+
+An independent review found thirteen points; each has a regression test. What the
+sections above say changed as follows:
+
+- **Origins are an allow-list.** `deviceOriginKinds`: `owner` and `telegram` (use and
+  manage unless a goal marker is set), `reminder`, `member-result`, `team-result`,
+  `coding-result`, `session-talk`, `coding-session`, `member-long-chat` (use only).
+  Everything else gets no device, also a kind added later: `mail-result`,
+  `ssh-access-result`, `memory-result`, `coding-start`, `memory-step`, the foreign
+  kinds, `unknown`, no record. `tests/integration/agent-device-origins.test.js`
+  scans the server for the kinds it records as a turn's context and fails for one
+  without a decision. A task's origin may also be `routine` (`taskOrigin`).
+- **A call is judged by the run it names** (`ownRun`): a `runId` that maps to
+  another attempt than the bound one is refused; one that maps to no attempt
+  (OpenClaw's completion and check-in runs) uses without `manage`. Hermes sends no
+  run id, so there a call counts for the turn its session has.
+- **A run without a turn** gets devices only when the chat's latest request has an
+  origin of the allow-list (or the chat has no request).
+- **A lead's routine on its member** needs what a task needs of the lead (exists,
+  no member, `deviceAgent`).
+- **A cancelled task** (`cancelRequested`) has ended for the gate and for its pass.
+- **A call the runtime gave up** is aborted: the bridge's invocation carries `gone`,
+  a signal that aborts when the last connection waiting for the answer closed
+  (`TeamBridge#awaited`); only the device action reads it.
+- **`create` is asked again at its turn** (`DeviceService#create` `admit`).
+- **The workspace record** is only the workspace folder itself (a folder, no link,
+  at exactly its name below the real workspaces folder; never the data folder, a
+  folder above it or the devices' folder), checked at every use; the owner's `PUT`
+  records anew only when the recorded folder is gone or differs and the folder there
+  passes the check. Repair after a restore: change the agent's devices and save.
+- **Pushes.** `devices` and `agent.devices` read again on every agent-level
+  `change` event, which a task's end and stop, archive and restore, a sender bot and
+  user access all end with.
+- **The add field** of a stacked picker clears the typed text after an add.
+
+Known and not verified after it:
+
+- The run id of a turn's own tool calls is taken from the code and the existing
+  contracts (the attempt id as the send's idempotency key, or the acknowledged run
+  id; `assistant-owner-run-contract.test.js` pins that a completion run has a run id
+  of its own). No new contract on the pinned OpenClaw exercises a device call of a
+  completion run while a turn is bound.
+- A `member-result` turn also carries a member's report from a hook's or a routine's
+  run; it uses devices like any member result, as decided.
+- The web app sends the devices only when their draft changed, so the repair of a
+  restored workspace needs a changed draft (or the API); there is no button for it.
+- `reminder` is in the allow-list but no turn is recorded with that kind today: a
+  reminder runs as a Gateway job without tools.
 
 ## State after pull request 3 (web)
 

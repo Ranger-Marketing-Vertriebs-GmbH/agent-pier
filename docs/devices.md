@@ -364,7 +364,11 @@ A lead can pass a device on to a member with a task: `agentpier_team_delegate` t
 - A member never resets or deletes a passed device and creates none in a task: a
   member's task is not a turn you started.
 - A member you assigned a device to yourself uses it in its own runs like any agent,
-  and in a task of its lead beside what the lead passed on. A task the lead started
+  and in a task of its lead beside what the lead passed on. That includes a turn you
+  start yourself in a permanent member's own chat: there it creates devices (with
+  **Create devices** on), and resets and deletes its own devices and those you
+  allowed it to, exactly as an agent that is no member does. A temporary member has
+  no such turn; it works on its lead's tasks only. A task the lead started
   while it worked on someone else's content gets no device at all, not even the
   member's own.
 - What a lead sets up on a member reaches a device only while the lead could be
