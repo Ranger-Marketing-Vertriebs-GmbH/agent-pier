@@ -37,6 +37,9 @@ export const resources = new Set([
   "mail",
   // Session and agent previews: open, close, expiry (audit-preview-details.js).
   "preview",
+  // Android devices: created, reset, deleted (audit-device-details.js). Their SDK is
+  // the tool `android-devices`.
+  "device",
   // Sign-ins at the workspace: sign-in, failed sign-in, lockout, sign-out and the
   // owner's setup (audit-login-details.js).
   "login",
@@ -98,4 +101,6 @@ export const verbs = new Set([
   // agent, by file name only.
   "memory-saved",
   "memory-deleted",
+  // An Android device returned to its factory state (device-service.js).
+  "reset",
 ]);

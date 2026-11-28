@@ -595,3 +595,49 @@ test("MCP create audits keep a known origin only", () => {
   assert.deepEqual(event("directory"), { transport: "http", origin: "directory" });
   assert.deepEqual(event("https://evil"), { transport: "http" });
 });
+
+test("Android device audits keep the caller's kind and a stable failure code only", () => {
+  const device = auditEvent({
+    action: "device.reset",
+    resourceType: "device",
+    resourceId: "d-0123456789ab",
+    sessionId: "s1",
+    source: "mcp",
+    outcome: "success",
+    details: { caller: "session", name: "My phone", code: "rm -rf" },
+  });
+  assert.deepEqual(device.details, { caller: "session" });
+  assert.equal(device.sessionId, "s1");
+  assert.deepEqual(
+    auditEvent({
+      action: "device.deleted",
+      resourceType: "device",
+      source: "user",
+      outcome: "success",
+      details: { caller: "root" },
+    }).details,
+    {},
+  );
+  // The SDK is the tool `android-devices`; a failed installation names its code.
+  const failed = auditEvent({
+    action: "tool.installed",
+    resourceType: "tool",
+    resourceId: "android-devices",
+    source: "user",
+    outcome: "failure",
+    details: { code: "DEVICES_DOWNLOAD_FAILED", detail: "/private/path" },
+  });
+  assert.deepEqual(failed.details, { code: "DEVICES_DOWNLOAD_FAILED" });
+  // Another tool's row takes no such code.
+  assert.deepEqual(
+    auditEvent({
+      action: "tool.installed",
+      resourceType: "tool",
+      resourceId: "chromium",
+      source: "user",
+      outcome: "failure",
+      details: { code: "DEVICES_DOWNLOAD_FAILED" },
+    }).details,
+    {},
+  );
+});

@@ -4,6 +4,7 @@ import { PreviewService } from "../features/previews/preview-service.js";
 import { runTailscale } from "../features/remote/tailscale-cli.js";
 import { activeSessionGrant } from "../features/mcp/session-capability.js";
 import { runtimeFor } from "../features/assistants/runtimes/runtime-for.js";
+import { DEVICE_PORTS } from "../features/devices/device-paths.js";
 import { readJSON } from "../lib/storage.js";
 
 const read = (file) => {
@@ -41,7 +42,8 @@ function adapterPorts(directory) {
 
 /**
  * AgentPier's own listeners a preview may never forward to: its HTTP port, the team
- * bridge, the reminder webhook, the Gateway with the agent browsers' CDP ports, and the session adapters.
+ * bridge, the reminder webhook, the Gateway with the agent browsers' CDP ports, the
+ * session adapters, and the private adb server with the running Android devices.
  */
 export function internalPorts(services) {
   const ports = new Set();
@@ -57,6 +59,9 @@ export function internalPorts(services) {
   for (const entry of services.assistants?.browsers?.running?.values() || [])
     add(entry?.keeper?.cdpPort);
   for (const port of adapterPorts(services.sessions?.directory)) add(port);
+  // adb gives whoever reaches it a shell on every device (device-paths.js).
+  add(services.devices?.sources.emulator?.adbPort ?? DEVICE_PORTS.adbServer);
+  for (const port of services.devices?.ports() ?? []) add(port);
   return ports;
 }
 

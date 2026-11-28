@@ -39,6 +39,14 @@ export const liveTopics = Object.freeze({
   inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
   // The open previews of sessions and agents (server/features/previews/live-topics.js).
   previews: Object.freeze({ mode: "state", path: () => "/previews", interval: 5000 }),
+  // Android devices and the installation of their SDK
+  // (server/features/devices/live-topics.js).
+  devices: Object.freeze({ mode: "state", path: () => "/devices", interval: 5000 }),
+  "devices.installation": Object.freeze({
+    mode: "state",
+    path: () => "/devices/installation",
+    interval: 5000,
+  }),
   // A session's or run's review comments (server/features/changes/live-topics.js).
   "session.review": Object.freeze({
     mode: "state",

@@ -942,3 +942,126 @@ Task 5 adds this to the job; the pull request's CI run is the check. The job als
 - **Files outside the data folder:** set `TMPDIR` to `<data>/devices/run/tmp` for emulator processes; the crash database under `/tmp/android-<user>/` cannot be moved and is named in `docs/devices.md`. `netsimd` listens on fixed `127.0.0.1:6402` and may collide with an emulator the user runs themselves; `docs/devices.md` says so under troubleshooting.
 - **Manifest hosts:** `dl.google.com` only; no redirects were seen.
 - **Reuse:** the six verified zips are in the avd-proof folders named in the findings; the refresh script and the native contract may take them from there instead of downloading again.
+
+## API reference for Task 9 (as built)
+
+Taken from the code after Task 7 (`server/http/routes/devices.js`, `server/application/device-wiring.js`, `device-service.js`, `android-sdk.js`). All routes are owner only and answer `Cache-Control: no-store`. A restricted user gets 404 `not found` on every one of them (route-access.js answers like an unknown route, not 403) and `unknown-topic` on both topics; without a login 401.
+
+### Routes
+
+| Method and path                          | Body                           | Answer                                    |
+| ---------------------------------------- | ------------------------------ | ----------------------------------------- |
+| `GET /api/devices`                       |                                | 200, the **view**                         |
+| `POST /api/devices`                      | `{ name }`                     | 201, a **device**                         |
+| `POST /api/devices/:id/start`            |                                | 202, the **device** as it is then         |
+| `POST /api/devices/:id/stop`             |                                | 202, the **device** as it is then         |
+| `POST /api/devices/:id/reset`            |                                | 202, the **device** after the reset       |
+| `DELETE /api/devices/:id`                |                                | 204, empty                                |
+| `PUT /api/devices/settings`              | `{ maxDevices?, maxRunning? }` | 200, `{ maxDevices, maxRunning }`         |
+| `GET /api/devices/installation`          |                                | 200, the **status**                       |
+| `POST /api/devices/installation/install` | `{ acceptTerms: true }`        | 202, the **status**                       |
+| `POST /api/devices/installation/cancel`  |                                | 202, the **status** (also without a job)  |
+| `POST /api/devices/installation/remove`  |                                | 202, the **status** (`state: "removing"`) |
+
+When each one answers:
+
+- `create` answers when the device's files exist (fast). The name is trimmed, 1 to 40 characters, unique without regard to case.
+- `start` answers as soon as the device holds a running slot (`state` is `starting`, or `running` when it ran already) or was refused. That is immediate in the normal case; it waits while calls are queued on the device or while another device is stopped to make room. A refusal before that point is the HTTP answer (it leaves no trace in the device). What goes wrong afterwards (the boot) is **not** an HTTP error: the device becomes `failed` with `failure.code`, pushed over `devices`.
+- `stop` answers at once (`state` is `stopping`, `stopped`, or still `starting`/`running` when calls are queued before it); a stop that fails shows as `failed` with `failure.code`.
+- `reset` and `DELETE` answer when they are done; both stop a running device first (up to about 35 s in the worst case). While they run, the device has `operation: "reset" | "delete"` in the view.
+- `install` answers at once with the first status of the job (`state: "downloading"`); if the pinned components are installed already it only stores the terms and answers `state: "installed"`.
+- `remove` deletes every device first (each is audited), then removes the SDK in the background. It is refused with `DEVICES_IN_USE` while a device starts, runs or stops, and with `DEVICES_OPERATION_RUNNING` while an install or removal runs; nothing is deleted then.
+- `PUT settings` takes either field alone; bounds `maxDevices` 1 to 20, `maxRunning` 1 to 5 (integers).
+
+### Refusals
+
+`{ code, error: code }` with status 400, 403, 404 or 409, plus `reason`, `image` or `exitCode` when the error carries them (strings or numbers). Anything without a stable `DEVICE_*`/`DEVICES_*` code goes to the error handler (500).
+
+### The view (`GET /api/devices`, topic `devices`)
+
+```js
+{
+  availability: { available: boolean, reason: null | "DEVICES_PLATFORM_UNSUPPORTED" | "DEVICES_KVM_MISSING"
+                                             | "DEVICES_KVM_DENIED" | "DEVICES_NOT_INSTALLED" },
+  settings: { maxDevices, maxRunning },
+  counts: { total, running },        // running: devices that hold a slot (starting, running, stopping, or failed with a live process)
+  devices: [device],
+}
+// device
+{
+  id,                                 // "d-" + 12 hex characters
+  name,
+  source: "emulator",
+  state: "stopped" | "starting" | "running" | "stopping" | "failed",
+  operation: null | "reset" | "delete",
+  failure: null | { code, at },       // at: ms since the epoch; set while state is "failed"
+  creator: { kind: "owner" | "agent" | "session", id, name, gone: boolean },  // the owner: id "owner", name ""
+  assignments: [{ kind, id, name, manage }],   // empty in PR 1
+  image: { id, current: boolean },    // current: false when a later release pinned another image (a reset moves it)
+  diskBytes: number | null,           // measured at start-up, after create, stop and reset
+  held: boolean,                      // always false in PR 1
+  viewers: number,                    // always 0 in PR 1
+  createdAt, lastUsedAt,              // ms; lastUsedAt may be null
+}
+```
+
+`DeviceService` signals the topic on every change of this view; `AndroidSdk` signals it too (availability changes with the installation). It is not signalled when only `diskBytes` of a running device would differ (it is not measured then).
+
+### The status (`GET /api/devices/installation`, topic `devices.installation`)
+
+```js
+{
+  available: boolean,                 // the host can run devices at all (not: installed)
+  reason: null | "DEVICES_PLATFORM_UNSUPPORTED" | "DEVICES_KVM_MISSING" | "DEVICES_KVM_DENIED",
+  state: "absent" | "downloading" | "unpacking" | "checking" | "removing" | "installed" | "failed",
+  updating: boolean,                  // the job replaces an installed SDK (a later pin)
+  progress: null | { component: "platformTools" | "emulator" | "image", received, total },  // bytes of that component
+  failure: null | { code, at, detail? },   // detail: { missing: [library names] } with DEVICES_SDK_UNUSABLE on Linux
+  requested: boolean,
+  terms: { accepted: boolean, acceptedAt: number | null, by: null | "owner" | "installer" },
+  pinned: { emulator, platformTools, image: { id, api, tag, abi | null }, downloadBytes, diskBytes },
+  installed: null | { emulator: version | null, platformTools: version | null, images: [id] },
+  sources: ["dl.google.com"],
+  licences: [{ id, name, url }],
+}
+```
+
+- Components install in the order platform tools, emulator, image; `progress` restarts per component and phase, and the topic is signalled once per component, phase and percent. There is no overall byte count: sum from `pinned.downloadBytes` if the UI wants one.
+- `state: "failed"` only while nothing usable is installed; with an installed SDK a failed update shows as `state: "installed"` with `failure` set. `failure` stays until the next attempt.
+- After the owner's cancel: `state` returns to `absent` (or `installed`), `failure: null`, `requested: false`. Partial downloads stay and the next install continues them.
+- On an unavailable host `install` is refused with the reason code itself (409), not with `DEVICE_UNAVAILABLE`.
+
+### Codes the browser can receive
+
+As the HTTP answer of a route:
+
+| Code                                                                        | Status | From                           | Detail                          |
+| --------------------------------------------------------------------------- | ------ | ------------------------------ | ------------------------------- |
+| `DEVICE_NOT_FOUND`                                                          | 404    | start, stop, reset, delete     |                                 |
+| `DEVICE_NAME_INVALID`                                                       | 400    | create                         |                                 |
+| `DEVICE_NAME_TAKEN`                                                         | 409    | create                         |                                 |
+| `DEVICE_LIMIT_TOTAL`                                                        | 409    | create                         |                                 |
+| `DEVICE_LIMIT_RUNNING`                                                      | 409    | start                          |                                 |
+| `DEVICE_UNAVAILABLE`                                                        | 409    | create, start, reset           | `reason`, see below             |
+| `DEVICE_IMAGE_MISSING`                                                      | 409    | create, reset                  | `image`: the image id           |
+| `DEVICE_DISK_SPACE`                                                         | 409    | create                         |                                 |
+| `DEVICE_BUSY`                                                               | 409    | start, stop, reset, delete     | a reset or delete runs          |
+| `DEVICE_STOP_FAILED`                                                        | 409    | reset, delete                  | the running device did not stop |
+| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`                                   | 409    | reset, delete (while stopping) |                                 |
+| `DEVICES_SETTINGS_INVALID`                                                  | 400    | settings                       |                                 |
+| `DEVICES_TERMS_REQUIRED`                                                    | 400    | install                        |                                 |
+| `DEVICES_PLATFORM_UNSUPPORTED`, `DEVICES_KVM_MISSING`, `DEVICES_KVM_DENIED` | 409    | install                        |                                 |
+| `DEVICES_OPERATION_RUNNING`                                                 | 409    | install, remove                |                                 |
+| `DEVICES_IN_USE`                                                            | 409    | install (an update), remove    |                                 |
+
+`reason` of `DEVICE_UNAVAILABLE`: `DEVICES_PLATFORM_UNSUPPORTED`, `DEVICES_KVM_MISSING`, `DEVICES_KVM_DENIED`, `DEVICES_NOT_INSTALLED`, `DEVICES_OPERATION_RUNNING` (the SDK is being installed, updated or removed), `DEVICES_SHUTTING_DOWN`, `DEVICE_SOURCE` (a record names a source this build does not have).
+
+As `failure.code` of a device (state `failed`), never as an HTTP answer of `start` or `stop`: `DEVICE_BOOT_TIMEOUT`, `DEVICE_EXITED` (died during the boot, or by itself while running), `DEVICE_PORTS_BUSY`, `DEVICE_IMAGE_MISSING`, `DEVICE_UNAVAILABLE` (the reason is not kept in `failure`), `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`, `DEVICE_BUSY`, `DEVICE_STOP_FAILED`, `DEVICE_START_FAILED` (anything without a stable code).
+
+As `failure.code` of the installation: `DEVICES_DOWNLOAD_FAILED`, `DEVICES_DOWNLOAD_STALLED`, `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID`, `DEVICES_DISK_SPACE`, `DEVICES_SDK_UNUSABLE` (with `detail.missing` when `ldd` named libraries), `DEVICES_INSTALL_FAILED` (also a failed removal), `DEVICES_INTERRUPTED` (AgentPier ended during the installation; the next attempt continues the downloads), `DEVICES_PLATFORM_UNSUPPORTED`.
+
+Codes that exist but cannot reach the owner's browser in PR 1 (give them a text anyway, PRs 2 to 4 surface them): `DEVICE_FORBIDDEN` (403), `DEVICE_HELD`, `DEVICE_NOT_RUNNING`, `DEVICE_ADB_CANCELLED`, `DEVICE_START_CANCELLED`, `DEVICES_DOWNLOAD_CANCELLED`.
+
+### Audit rows
+
+`device.created`, `device.reset`, `device.deleted` (resource `device`, the device id, `details.caller`: `owner` | `session` | `agent`; never the name), and for the SDK `tool.installed` (outcome `failure` with `details.code` when it failed), `tool.cancelled` and `tool.deleted` with resource id `android-devices`. The vocabulary (`device`, `reset`) is in both `audit-actions` catalogs and confirmed in the lock.
