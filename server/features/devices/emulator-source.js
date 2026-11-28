@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn as nodeSpawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { processIdentity } from "../../lib/process-identity.js";
+import { closeConnection } from "../../lib/socket-errors.js";
 import { readJSON, writePrivate, writePrivateText } from "../../lib/storage.js";
 import { SyncQueue } from "../../lib/sync-queue.js";
 import { requireSpace } from "../tools/pinned-download.js";
@@ -64,7 +65,7 @@ const alive = (pid) => {
 // Whether loopback port `port` can be bound now.
 const free = (port) =>
   new Promise((resolve) => {
-    const probe = net.createServer();
+    const probe = net.createServer(closeConnection);
     probe.once("error", () => resolve(false));
     probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
   });
