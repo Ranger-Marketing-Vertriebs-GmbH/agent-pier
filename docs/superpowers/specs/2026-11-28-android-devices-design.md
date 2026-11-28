@@ -566,3 +566,91 @@ and `DEVICE_HELD` are now reachable (by a tool).
   workflow's (`.github/workflows/android-devices.yml`).
 - A file on the device that grows while it is pulled is ended by a watch on the
   private copy every 100 ms; between two looks adb may write more than the limit.
+
+## State after pull request 2 (web)
+
+The web half of pull request 2 is built. Guide for owners: `docs/devices.md` (Devices
+for coding sessions).
+
+### What exists
+
+All in `web/features/devices/` unless a path is given.
+
+| Module                                         | What it is                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session-device-access.js`                     | The rules, free of React: the draft `{ devices: [{ deviceId, manage }], create }` (the body of the `PUT` and of `deviceAccess`), `withGranted`, `withManage`, `prunedDraft`, `sameAccess`, the picker entries, `deviceEligibleSession`, `accessBlocked`, `launchSummary`  |
+| `DeviceGrantFields.jsx`, `device-grants.css`   | `GrantPicker` over a list of devices with the card **Permissions** as its children: one `ToggleRow` "Reset and delete" per granted device and "Create devices". Takes any `[{ id, name, own? }]` and a draft, so the agent settings of pull request 3 can use it as it is |
+| `LaunchDeviceChoices.jsx`                      | The section of the new-session dialog (stacked picker), mounted in `web/features/sessions/LaunchDialog.jsx`                                                                                                                                                               |
+| `SessionDevicesDialog.jsx`                     | The dialog of a running session, opened by `web/features/sessions/useSessionActions.jsx` (item `devices`, icon `phone`, page action `session-devices:<id>`)                                                                                                               |
+| `useSessionDevices.js`                         | `useSessionDevices(sessionId)` on `session.devices:<id>` with `save(draft)`; `useAssignableDevices()`, the devices of the topic `devices` or null while the host offers none                                                                                              |
+| `web/features/quick-open/workspace-entries.js` | `sessionDeviceEntries`: "<session> · Android devices" in ⌘K, while `devicesAvailable`                                                                                                                                                                                     |
+| `device-view.js`                               | `assignmentText`: a row of the device list names three assignments and counts the rest                                                                                                                                                                                    |
+| Texts                                          | `devicesCopy.access` (dialog, launch, permissions, tools), `devicesCopy.list.assignedMore`, `devicesCopy.search.sessionDevices`                                                                                                                                           |
+
+Rules the web part follows:
+
+- Nothing about devices is shown while `useAssignableDevices()` is null (components
+  not installed, host cannot run devices, device view not readable): no section in the
+  launch dialog, no action in the session header, no search entry.
+- The launch dialog offers the section for coding CLIs without a task profile (the
+  server refuses devices for pipeline sessions) and sends `deviceAccess` only when the
+  draft grants something. A ticket start passes it on in `session`.
+- The session action shows for a running coding session that is no sign-in, pipeline
+  or imported session. The one server rule the browser cannot know (a session a
+  restricted user's agent started) arrives as `eligible: false`; the dialog then shows
+  `DEVICE_SESSION_INELIGIBLE` in words and no choice.
+- Reload & resume and a stop do not pass through the web for grants: the server keeps
+  them by session id, so the web neither sends nor repeats them. Launch preferences
+  (`launch-preferences.js`) remember CLI, access, folder and mode only, as for SSH and
+  agents; devices are not remembered.
+- A device with `own: true` is a locked picker entry with the note "created by this
+  session" and has no switch. Its grant, if the owner gave one, stays in the draft; the
+  server reports `manage: true` for it, so a save stores `manage: true` there.
+- A push while the dialog is open replaces the choice only while it is unchanged;
+  otherwise the draft stays, minus devices that are gone.
+
+Server change in this half: `PUT /api/sessions/:id/devices` is audited as
+`session.updated` with `details.kind: "device-grants"` (`audit-http.js`), like a
+session's SSH accesses; no device is named.
+
+Changes outside the feature, each with its test:
+
+- `AddPicker` closes its list when an outside press ends, not when it starts. The list
+  lies in the page's flow, so the permissions below it moved away under the pointer
+  and the first click on a switch was lost.
+- `SessionAgentAccessDialog` dropped a grant pushed while nothing was unsaved (it
+  compared with the saved grant inside a state updater that ran after the saved grant
+  was replaced). `SessionDevicesDialog` reads the saved access before the updater.
+- The shared browser fixtures answer `GET /api/devices` with "not installed"
+  (`tests/helpers/assistant-browser-fixture.js`, `tests/browser/providers-fixture.js`),
+  because session views, the launch dialog and the search now follow that topic.
+
+Tests: `tests/unit/session-device-access.test.js`, `device-view.test.js`
+(`assignmentText`), `quick-open.test.js` (the search entry and its page action),
+`tests/browser/session-devices.spec.js` (launch, dialog, pushes, tools missing,
+ineligible, ⌘K, German, phone), `tests/browser/devices.spec.js` (assignments and a gone
+creator, desktop and phone), `tests/integration/session-devices-routes.test.js` (the
+audit row).
+
+### Left for pull requests 3 and 4
+
+- Pull request 3: the agent settings use `DeviceGrantFields` with the agents' grants;
+  `assignmentText` and `creatorText` already name agents. The device list shows only
+  three assignments by name; if agents make longer lists common, a disclosure for the
+  rest belongs to the device row.
+- Pull request 4: the strip or button that opens a device from a session, and the
+  owner's view. The session dialog lists devices by name only; their state
+  (`devices[].state`) is delivered and not shown yet.
+- Autopilot orders (`web/features/autopilot/OrderSessionFields.jsx`) assign SSH
+  accesses and secrets to the sessions they start, not devices: the order service does
+  not take `deviceAccess`.
+
+### Known and not verified (pull request 2, web)
+
+- A session that became ineligible while it holds grants (it cannot happen for a
+  running session today) gets no control to take them away in the dialog; the server
+  accepts an empty `PUT` for it.
+- The dialog offers no **Reload** button beside the "without AgentPier tools" note,
+  because a reload brings the tools back only when they were revoked, not for a
+  session started without them.
+- Browser tests ran in Chromium only; WebKit runs with the `webkit` label.
