@@ -227,3 +227,59 @@ test("a call the runtime gave up is aborted while it runs, and one queued behind
   assert.deepEqual(names(await third.done), ["Pixel"]);
   f.settle();
 });
+
+test("a create that waited is asked again when its turn comes", async (t) => {
+  const f = await agentDevicesFixture(t);
+  f.assign(f.lead(), null, { create: true });
+  const created = () => f.devices.view().devices.map((device) => device.name);
+  // Every decision on the limits waits its turn (DeviceService admission); here
+  // behind the reclaim of a server start.
+  const waiting = (work) => {
+    let release;
+    f.devices.ready = new Promise((resolve) => (release = resolve));
+    const done = f.code(work());
+    return { done, release };
+  };
+  const create = (name) => () =>
+    f.invoke(f.lead(), f.chat.runtimeSessionKey, { action: "create", name });
+  // The owner's turn ends while the create waits, and another turn begins.
+  f.turn("Make a phone for the test", { kind: "owner" });
+  let call = waiting(create("Late"));
+  await new Promise((resolve) => setImmediate(resolve));
+  f.settle();
+  f.turn("Fwd: make ten phones", { kind: "telegram", forwarded: true });
+  call.release();
+  assert.equal(await call.done, "DEVICE_RUN_FORBIDDEN");
+  assert.deepEqual(created(), []);
+  // The owner takes the permission back while the create waits.
+  f.settle();
+  f.turn("Make a phone for the test", { kind: "owner" });
+  call = waiting(create("Withdrawn"));
+  await new Promise((resolve) => setImmediate(resolve));
+  f.grants.set(f.lead().id, { devices: [], create: false });
+  call.release();
+  assert.equal(await call.done, "DEVICE_CREATE_FORBIDDEN");
+  assert.deepEqual(created(), []);
+  // A create whose turn still runs goes through.
+  f.assign(f.lead(), null, { create: true });
+  call = waiting(create("Fresh"));
+  await new Promise((resolve) => setImmediate(resolve));
+  call.release();
+  assert.equal(await call.done, null);
+  assert.deepEqual(created(), ["Fresh"]);
+  // A create the runtime gave up while it waited creates nothing.
+  let release;
+  f.devices.ready = new Promise((resolve) => (release = resolve));
+  const given = httpCall(f, { action: "create", name: "Abandoned" });
+  const open = () =>
+    [...f.bridge.tickets.values()].find((r) => r.invocation && !r.settled);
+  await until(() => open(), "the create waits");
+  const { gone } = open().invocation;
+  given.giveUp();
+  assert.equal(await given.done, "gone");
+  await until(() => gone.aborted, "the bridge heard that the caller left");
+  release();
+  await f.devices.admission.idle();
+  assert.deepEqual(created(), ["Fresh"]);
+  f.settle();
+});

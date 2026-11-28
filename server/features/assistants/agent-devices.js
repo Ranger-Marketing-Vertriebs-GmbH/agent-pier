@@ -15,8 +15,9 @@ import { agentWorkspace } from "./runtimes/runtime-for.js";
  *
  * Every call passes the devices' own gate on the run it belongs to
  * (agent-device-origin.js), when it arrives and again when its turn on the device
- * comes, so a call that waited behind another one does nothing for a run that has
- * ended or changed meanwhile:
+ * comes (for `create`: its turn among the creates and starts), so a call that
+ * waited behind another one does nothing for a run that has ended or changed
+ * meanwhile:
  *
  * - no device at all for a run on someone else's content, a run of unknown origin,
  *   an agent of restricted users or one with a bot for other people;

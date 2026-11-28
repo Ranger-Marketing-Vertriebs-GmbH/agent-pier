@@ -105,12 +105,16 @@ export class DeviceService extends DeviceRegistry {
    * nothing boots. Throws DEVICE_UNAVAILABLE (with `reason`;
    * DEVICES_OPERATION_RUNNING while every device is removed), DEVICE_LIMIT_TOTAL,
    * DEVICE_NAME_INVALID (400), DEVICE_NAME_TAKEN or a refusal of the source.
+   * `admit()` is asked when the create's turn comes, as a caller's `admit` is for a
+   * call on a device (device-access.js): a create may wait behind another one, an
+   * idle device's stop or the reclaim of a start, and what it throws refuses it.
    */
-  async create({ name, creator, source = "emulator" }) {
+  async create({ name, creator, source = "emulator", admit = null }) {
     this.#open();
     return this.admission.run(async () => {
       await this.ready;
       this.#usable();
+      admit?.();
       if (this.store.list().length >= this.limits.maxDevices)
         throw refusal("DEVICE_LIMIT_TOTAL");
       const record = this.store.add({
