@@ -929,3 +929,16 @@ Task 5 adds this to the job; the pull request's CI run is the check. The job als
 6. **Index file name:** Task 2 uses whichever index lists revision 7 and records it in the manifest header.
 7. **Homebrew:** Task 8 checks `scripts/install-homebrew.sh` and the formula and passes the flag through where the other `--with-*` flags are passed.
 8. **KVM on CI:** do not push a throwaway workflow in Task 1. GitHub's Linux x64 runners are documented to offer `/dev/kvm` after a udev rule grants access; Task 5 adds that rule to the job and the pull request's own CI run is the check. If it does not work there, drop the job and say so in the pull request.
+
+## Amendments after Task 1 (orchestrator, binding for Tasks 2 to 9)
+
+- **Environment:** every adb process also gets `ADB_MDNS=0` (otherwise adb opens UDP `*:5353`). `deviceEnvironment` (Task 4) sets it and its test asserts it.
+- **adb server:** `adb -L tcp:localhost:47600 server nodaemon` as AgentPier's own child. Before starting it, `AdbClient.startServer()` runs `adb kill-server` against the private port, because a running emulator can have started a daemonized server there that ignores SIGTERM on Linux. Test in Task 5 with the fake (a "foreign daemon" mode that only `kill-server` ends, and only when it is one of ours: a listener that does not answer the adb protocol still ends in `DEVICE_ADB_FAILED` and stays alive).
+- **File modes:** emulator and adb are spawned with umask 077 (the emulator follows the umask on Linux). Test in Task 5: files the fake emulator creates are not group or world readable.
+- **Unclean exit:** when a device's process ended without a saved snapshot after its last start (killed, crashed, reclaimed as an orphan, host reboot), the next start passes `-no-snapshot-load`, because a plain start silently returns to the last snapshot and loses everything written since. The source keeps a marker in the device's run state: set at spawn, cleared after a clean `emu kill`. Tests in Task 5: after mode `crash` and after a reclaim, the next launch has `-no-snapshot-load`; after a clean stop it does not.
+- **config.ini:** the 24 keys of the findings (the candidate set plus `hw.keyboard.lid=yes`, `hw.dPad=no`, `hw.mainKeys=no`, `hw.trackBall=no`).
+- **Chrome first run:** the first-boot step writes `chrome --disable-fre --no-default-browser-check --no-first-run` to `/data/local/tmp/chrome-command-line` and runs `pm grant com.android.chrome android.permission.POST_NOTIFICATIONS`.
+- **Linux packages (Task 8):** `libx11-6 libx11-xcb1`, nothing else. `ldd` alone does not find the second one, so `DEVICES_SDK_UNUSABLE` also covers an emulator that fails `-version` or exits by a signal.
+- **Files outside the data folder:** set `TMPDIR` to `<data>/devices/run/tmp` for emulator processes; the crash database under `/tmp/android-<user>/` cannot be moved and is named in `docs/devices.md`. `netsimd` listens on fixed `127.0.0.1:6402` and may collide with an emulator the user runs themselves; `docs/devices.md` says so under troubleshooting.
+- **Manifest hosts:** `dl.google.com` only; no redirects were seen.
+- **Reuse:** the six verified zips are in the avd-proof folders named in the findings; the refresh script and the native contract may take them from there instead of downloading again.
