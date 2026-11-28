@@ -94,6 +94,11 @@ export function pickerReducer(state, action) {
       return toggle(state, action.rows[state.active]);
     case "mode":
       return { ...state, mode: action.mode };
+    case "added":
+      // A row was added at once (AddPicker `direct`): what was typed to find it is
+      // done with, and the list stays open on every candidate. Nothing typed leaves
+      // the list and its active row as they are, for the next row.
+      return state.query ? { ...state, query: "", active: -1 } : state;
     case "reset":
       return initialPickerState(state.mode);
     default:

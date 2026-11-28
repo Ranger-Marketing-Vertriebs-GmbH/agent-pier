@@ -210,3 +210,20 @@ test("the copy pluralises the count and the add button in both languages", () =>
   assert.equal(de.alreadyGranted, "hat er schon");
   assert.equal(en.alreadyGranted, "already granted");
 });
+
+test("an item added at once clears what was typed and keeps the list open", () => {
+  // The direct mode of a stacked grant picker: a click adds the row, the list stays.
+  const typed = run([
+    { type: "query", query: "prod-web" },
+    { type: "move", intent: "next", rows: hosts },
+  ]);
+  assert.deepEqual([typed.query, typed.open, typed.active], ["prod-web", true, 0]);
+  const added = pickerReducer(typed, { type: "added" });
+  assert.deepEqual(added, { ...typed, query: "", active: -1 });
+  assert.equal(added.open, true);
+  assert.equal(added.mode, "approval");
+  // Nothing was typed: the list and the active row stay as they are, so several
+  // rows can be added one after another with the keyboard.
+  const browsing = run([{ type: "open" }, { type: "move", intent: "next", rows: hosts }]);
+  assert.equal(pickerReducer(browsing, { type: "added" }), browsing);
+});

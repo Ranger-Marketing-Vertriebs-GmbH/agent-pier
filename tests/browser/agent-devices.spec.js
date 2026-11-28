@@ -169,7 +169,13 @@ test("the Access tab assigns devices to an agent and saves them with the tab", a
   await expect(saveBar(page)).toHaveCount(0);
 
   await addGrant(devices, "Add Android device", "Tablet");
+  // The typed name is gone once its device was added: the field is ready for the
+  // next one, and the list shows every device again.
+  const add = devices.getByRole("combobox", { name: "Add Android device" });
+  await expect(add).toHaveValue("");
+  await expect(devices.getByRole("option", { name: "Pixel test" })).toBeVisible();
   await addGrant(devices, "Add Android device", "Pixel test");
+  await expect(add).toHaveValue("");
   await expect(
     devices.getByRole("group", { name: /^Allowed for this agent · 3$/ }),
   ).toBeVisible();
