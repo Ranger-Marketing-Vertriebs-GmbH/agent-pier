@@ -39,6 +39,7 @@ import {
   deviceDefinition,
   deviceKeys,
 } from "../../server/features/assistants/team-plugin/device-tool.js";
+import { AGENT_CALL_TIMEOUT_MS } from "../../server/features/assistants/agent-devices.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { ACTIONS, DeviceActions } from "../../server/features/devices/device-actions.js";
 import { KEY_NAMES } from "../../server/features/devices/device-input.js";
@@ -132,12 +133,18 @@ test("the bridge serves agentpier_device to every run kind the gate then judges"
     "utf8",
   );
   assert.match(installer, /"device-tool\.js"/);
-  // Longer than the longest device call (a boot and the call's own deadline).
-  const callTimeoutMs = new DeviceActions({
+  // An agent's call ends before a runtime counts it as stuck (two minutes), and the
+  // plugins wait a little longer than that deadline.
+  const calls = new DeviceActions({
     devices: { onChanged() {}, onRemoved() {} },
     dataDir: fs.mkdtempSync(path.join(os.tmpdir(), "device-tool-")),
-  }).callTimeoutMs;
-  assert.ok(toolTimeouts.device > callTimeoutMs);
+  });
+  assert.equal(AGENT_CALL_TIMEOUT_MS, 110000);
+  assert.equal(calls.deadline(AGENT_CALL_TIMEOUT_MS), AGENT_CALL_TIMEOUT_MS);
+  assert.equal(calls.deadline(undefined), calls.callTimeoutMs);
+  assert.equal(calls.deadline(10 * calls.callTimeoutMs), calls.callTimeoutMs);
+  assert.ok(toolTimeouts.device > AGENT_CALL_TIMEOUT_MS);
+  assert.ok(toolTimeouts.device <= 125000);
 });
 
 test("only the owner's own agents hold the tool, while devices can run on the host", () => {

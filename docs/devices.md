@@ -259,8 +259,9 @@ default. The tool does what a coding session's tools do (the table under
 [Devices for coding sessions](#devices-for-coding-sessions)), as one tool with an
 `action`: `list`, `create`, `start`, `stop`, `reset`, `delete`, `screenshot`, `ui`,
 `tap`, `swipe`, `key`, `type`, `install`, `push`, `pull`, `app_launch`, `app_stop`,
-`apps`, `open_url`, `logs` and `shell`, with the same arguments, sizes and time
-limits. A screenshot reaches the agent's model as an image.
+`apps`, `open_url`, `logs` and `shell`, with the same arguments and sizes. An
+agent's call ends after 110 seconds as a whole (a session's after 140), also while a
+device is still booting, which then goes on. A screenshot reaches the agent's model as an image.
 
 <!-- Agent settings UI: name the controls here once the web part is built. -->
 

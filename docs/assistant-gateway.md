@@ -6013,8 +6013,10 @@ write (`DEVICE_PULL_READONLY`). A screenshot answers `{ image: { data, mimeType 
 width, height, bytes, device, note }`, which the plugin returns as a text block and
 an `image` block (`deviceImageResult`), as it does for `agentpier_workspace`
 `image_view`. Refusals carry their `DEVICE_*` code with an English sentence
-(`tool-errors.js`, `device-tool-messages.js` audience `agent`). A call answers within
-150 seconds (`toolTimeouts.device`; the device action itself ends after 140). See
+(`tool-errors.js`, `device-tool-messages.js` audience `agent`). A call ends after
+110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`, below the two minutes after which a
+runtime counts a tool call as stuck), and the plugins wait 125 seconds
+(`toolTimeouts.device`). See
 [Android devices](devices.md#devices-for-agents).
 
 ## SSH access proposals (2026-10-26, AGENTPIER-249)
