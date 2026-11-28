@@ -529,7 +529,8 @@ The information architecture is recorded in
     project, pipeline and task profile lists, read while the search is open
     (`useQuickOpenSources.js`). The Control Room is indexed by “Autopilot”, “Composer” and “Aufträge”. Order-specific actions appear while their controls are available. Actions: "New order", "New session", "Start run", "Open inbox", "New
     agent", "Add SSH access", "Add email account" and the other connection actions,
-    "Install skill", "Update CLI", "Chrome for Testing", "Upload" (Files, opens the
+    "Install skill", "Update CLI", "Chrome for Testing", "New device" (Settings › General ›
+    Android devices, opens its dialog), "Upload" (Files, opens the
     upload panel), "Send test notification" and "Install app"; each agent's "Duplicate",
     "Archive", "Restart main chat" and "Clear attachments"; each session's "Reload &
     resume", "Continue with another account", "AgentPier tools", "Stop" or "Remove" and

@@ -19,6 +19,10 @@ the owner account there, since the owner's sign-in is not part of a backup. ⌘K
 
 ## What a backup holds
 
+Not in any backup: [Android devices](devices.md). Neither the downloaded emulator
+components nor a device (`devices/` in the data directory) is archived or restored;
+after a restore, install the components and create the devices again.
+
 Always, as public (unencrypted) members:
 
 - Saved split views (`views.json`), restored as saved ([Views](views.md)).

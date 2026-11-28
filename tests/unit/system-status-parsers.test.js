@@ -192,4 +192,10 @@ test("data directory paths map to their areas", () => {
   assert.equal(area("assistants/workspaces/agent-1/attachments"), "agentAttachments");
   assert.equal(area("assistants/workspaces/agent-1/project"), "agentWorkspaces");
   assert.equal(area("sessions"), "other");
+  // Android devices: the SDK, the devices and their logs are one area.
+  assert.equal(area("devices", true), "devices");
+  assert.equal(area("devices/sdk/emulator/emulator"), "devices");
+  assert.equal(area("devices/avd/d-0000000000a1.avd/userdata-qemu.img"), "devices");
+  assert.equal(area("devices/logs/d-0000000000a1.log"), "devices");
+  assert.equal(area("devices/settings.json"), "devices");
 });

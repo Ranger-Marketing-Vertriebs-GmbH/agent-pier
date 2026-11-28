@@ -58,6 +58,7 @@ test("every routed area and its tabs have a search entry", () => {
     "/settings/notifications",
     "/settings/users",
     "/settings/remote",
+    "/settings/devices",
     "/settings?tab=operations",
   ];
   for (const path of expected) assert.ok(has(path), path);
@@ -106,6 +107,10 @@ test("every settings group inside a page has a search entry (en and de)", () => 
     ["Defaults", "Voreinstellungen"],
     ["System status", "Systemstatus"],
     ["ChatGPT for agents", "ChatGPT für Agenten"],
+    // Settings › General › Android devices
+    ["Android devices", "Android-Geräte"],
+    ["Devices", "Geräte"],
+    ["Limits", "Limits"],
   ];
   for (const [en, de] of groups) {
     assert.ok(labelled(en), en);

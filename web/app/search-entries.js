@@ -10,6 +10,7 @@ import { assistantSemanticMemoryCopy } from "../lib/i18n/messages/assistant-sema
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { craftAnythingCopy } from "../lib/i18n/messages/craft-anything.js";
+import { devicesCopy } from "../lib/i18n/messages/devices.js";
 import { craftCopy } from "../lib/i18n/messages/craft.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { extensionsHubCopy } from "../lib/i18n/messages/extensions.js";
@@ -31,6 +32,10 @@ import {
   surfaceSearchEntries,
 } from "../features/assistants/runtime-surface-search.js";
 import { codingRoute } from "../features/coding/routes.js";
+import {
+  deviceActionEntries,
+  devicePageEntries,
+} from "../features/devices/device-search-entries.js";
 import { connectionSections, connectionsRoute } from "../features/connections/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
 import { termsOf } from "./search-index.js";
@@ -326,6 +331,7 @@ export function pageEntries() {
         id === "directory" ? { aliases: [alias("defaultFolder")] } : undefined,
       ),
     ),
+    ...devicePageEntries(pageEntry, bilingual, general, settingsRoute("devices")),
     ...["diagnostics", "backups", "updates", "audit"].map((section) =>
       pageEntry(
         `settings-${section}`,
@@ -472,6 +478,15 @@ export function actionEntries() {
           ].map(bilingual),
         },
       ),
+    ),
+    ...deviceActionEntries(
+      action,
+      join(
+        bilingual(text.settings),
+        bilingual(() => operationsCopy.groups.general),
+        bilingual(() => devicesCopy.title),
+      ),
+      settingsRoute("devices"),
     ),
     ...projectActionEntries(action, bilingual(text.projects), bilingual),
     ...areaActionEntries(action),

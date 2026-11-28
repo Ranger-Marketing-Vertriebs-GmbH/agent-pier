@@ -1,0 +1,82 @@
+/* Settings › General › Android devices. Tokens only (docs/ui-guide.md). */
+.devices-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.devices-page > section {
+  min-width: 0;
+}
+.devices-intro,
+.devices-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+}
+.devices-empty {
+  padding: var(--space-3) var(--space-1);
+}
+.devices-page .field-description {
+  margin: var(--space-2) var(--space-1) 0;
+}
+/* A remark below a row of a card: the running step, what an earlier image means. */
+.devices-note,
+.devices-alert {
+  margin: 0;
+  padding: var(--space-2) 14px var(--space-3);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.devices-note p {
+  margin: 0;
+}
+.devices-alert {
+  color: var(--error-text);
+}
+/* One device: its row, remarks and actions belong together, so the card's 1px
+   divider shows between devices only. */
+.device-row {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+.device-row > .error {
+  margin: 0 14px var(--space-3);
+}
+.device-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 14px var(--space-3);
+}
+.device-row-hint {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+/* What an installation downloads, and the licence links, in a dialog. */
+.devices-dialog-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* On a phone the actions share the row's width evenly and wrap two by two. */
+@media (max-width: 700px) {
+  .device-row-actions .button {
+    flex: 1 1 calc(50% - var(--space-2));
+  }
+}
+.devices-dialog-list a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}

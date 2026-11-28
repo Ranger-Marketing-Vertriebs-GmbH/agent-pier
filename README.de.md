@@ -109,6 +109,11 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   als Link in deinem Browser über AgentPier, mit eigenem Port aus einem einstellbaren
   Bereich, lokal, über Tailscale und im Netzwerkmodus erreichbar, nur für den
   angemeldeten Besitzer ([Vorschauen](docs/previews.md), auf Englisch).
+- **Android-Geräte:** emulierte Android-Telefone auf dem Host (Googles Android
+  Emulator, macOS mit Apple Silicon und Linux x64 mit KVM), mit einem Klick installiert
+  und unter **Einstellungen › Allgemein › Android-Geräte** angelegt, gestartet,
+  zurückgesetzt und gelöscht, innerhalb der Limits, die du setzt
+  ([Android-Geräte](docs/devices.md), auf Englisch).
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und
   Coding-Sessions als Datei zuweist, nie als Umgebungsvariable
   ([Secrets](docs/secrets.md), auf Englisch).

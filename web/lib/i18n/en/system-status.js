@@ -96,6 +96,7 @@ export const systemStatusCopy = {
     agentAttachments: "Agent attachments",
     agentShares: "Agent shares",
     agentWorkspaces: "Agent workspaces",
+    devices: "Android devices",
     secrets: "Secrets",
     logs: "Logs",
     other: "Other",

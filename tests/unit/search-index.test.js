@@ -930,3 +930,56 @@ test("an OpenClaw agent's model behaviour is found on its Identity tab", () => {
   ])
     assert.equal(results(query, users).length, 0, query);
 });
+
+test("Android devices is found by the words people type and opens its page", () => {
+  for (const language of ["de", "en"]) {
+    const previous = getLanguage();
+    setLanguage(language);
+    try {
+      for (const query of [
+        "android",
+        "emulator",
+        "Handy",
+        "Telefon",
+        "phone",
+        "smartphone",
+        "android phone",
+        "Android Handy",
+        "Android devices",
+        "Android-Geräte",
+      ]) {
+        const page = results(query).find((item) => item.group === "pages");
+        assert.equal(page?.id, "page:settings-devices", `${language} ${query}`);
+        assert.equal(pathOf(page), "/settings/devices", `${language} ${query}`);
+      }
+    } finally {
+      setLanguage(previous);
+    }
+  }
+  const page = index.find((entry) => entry.id === "page:settings-devices");
+  assert.deepEqual(page.path, {
+    de: "Einstellungen › Allgemein › Android-Geräte",
+    en: "Settings › General › Android devices",
+  });
+  // Its groups are found under the page, each in both languages.
+  for (const [id, de, en] of [
+    ["installation", "Installation", "Installation"],
+    ["list", "Geräte", "Devices"],
+    ["limits", "Limits", "Limits"],
+  ]) {
+    const group = index.find((entry) => entry.id === `page:settings-devices-${id}`);
+    assert.deepEqual(group.label, { de, en });
+    assert.equal(group.path.en, `Settings › General › Android devices › ${en}`);
+    assert.equal(pathOf(group), "/settings/devices");
+  }
+  assert.equal(pathOf(first("Android limits")), "/settings/devices");
+});
+
+test("New device is an action that opens the dialog on the devices page", () => {
+  for (const query of ["New device", "Neues Gerät", "new android phone", "Neues Handy"]) {
+    const action = results(query).find((item) => item.group === "actions");
+    assert.equal(action?.id, "action:new-device", query);
+    assert.equal(pathOf(action), "/settings/devices", query);
+    assert.equal(action.target.pending, "device-create", query);
+  }
+});

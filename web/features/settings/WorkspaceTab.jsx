@@ -23,6 +23,7 @@ import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import { agentsHubRoute } from "../assistants/hub-routes.js";
 import { agentsHubCopy as hubCopy } from "../../lib/i18n/messages/agents-hub.js";
+import AndroidDevicesRow from "../devices/AndroidDevicesRow.jsx";
 import DirectoryRow from "./DirectoryRow.jsx";
 import McpDirectoryRow, { officialRegistry } from "./McpDirectoryRow.jsx";
 import { TabFrame } from "./SettingsFrame.jsx";
@@ -156,6 +157,7 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
           href={routePath(agentsRuntime)}
           onClick={() => frame.go(agentsRuntime)}
         />
+        <AndroidDevicesRow frame={frame} />
       </ListCard>
       <McpDirectoryRow
         values={draft.values}

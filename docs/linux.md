@@ -255,7 +255,9 @@ under the data directory; no systemd unit of its own.
 [Installation](installation.md)): Beim nächsten Start lädt AgentPier den gepinnten
 Android Emulator, die Platform Tools und ein System-Image von `dl.google.com`. Die
 Option gilt als Zustimmung zu Googles Bedingungen, die der Installer ausgibt. Es gibt den
-Emulator nur für Linux x64; auf arm64 meldet der Installer `unavailable`.
+Emulator nur für Linux x64; auf arm64 meldet der Installer `unavailable`. Den Fortschritt,
+die Geräte und die Fehlersuche nach Fehlercode zeigt **Einstellungen › Allgemein ›
+Android-Geräte** ([Android-Geräte](devices.md), auf Englisch).
 
 - **KVM.** Der Emulator braucht `/dev/kvm`, les- und schreibbar für den Benutzer, unter
   dem AgentPier läuft. Fehlt die Datei, ist die Hardware-Virtualisierung in der Firmware

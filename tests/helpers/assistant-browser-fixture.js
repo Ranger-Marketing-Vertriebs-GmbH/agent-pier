@@ -1,4 +1,5 @@
 import { systemStatusAnswer } from "./system-status-fixture.js";
+import { installation } from "./devices-fixture.js";
 import { noPreviews } from "./previews-fixture.js";
 import { noViews } from "./views-fixture.js";
 // Unrelated browser fixtures run with agents switched off: the only requests the UI
@@ -33,6 +34,12 @@ export async function fulfillDormantAssistantRequest(route) {
   // Wide pages follow the split views; fixtures have none.
   if (path === "/api/views") {
     await route.fulfill({ json: noViews });
+    return true;
+  }
+  // Settings › General shows the state of the Android devices installation (the
+  // live topic `devices.installation`): not installed in a fixture.
+  if (path === "/api/devices/installation") {
+    await route.fulfill({ json: installation() });
     return true;
   }
   if (path === "/api/mcp-servers") {

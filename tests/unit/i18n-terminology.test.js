@@ -98,6 +98,8 @@ const properNouns = [
   // Page names and the editor's Save As command.
   /\b(in|under) (Accounts|Agents|Artifacts|Connections|Settings)\b/g,
   /Save As/g,
+  // Google's names for the Android components (Settings › General › Android devices).
+  /Android SDK Platform-Tools|Android Emulator|\bAndroid\b|Play Store/g,
 ];
 test("English labels use sentence case", async () => {
   const titleCase = [];
