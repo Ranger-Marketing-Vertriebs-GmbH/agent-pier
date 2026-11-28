@@ -13,7 +13,7 @@ import { providerEnvironment } from "../providers/provider-environment.js";
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
-import { withUtf8Locale } from "../../lib/session-locale.js";
+import { cleanEnvironment } from "../../lib/clean-environment.js";
 import {
   cliVersions,
   isManagedInstall,
@@ -62,35 +62,7 @@ export function resolveShell(env = process.env, available = shellExecutable) {
     ].find((file) => shellPath(file) && available(file)) || null
   );
 }
-export function cleanEnvironment(source = process.env) {
-  const env = {};
-  for (const key of [
-    "PATH",
-    "HOME",
-    "USER",
-    "LOGNAME",
-    "SHELL",
-    "LANG",
-    "LC_ALL",
-    "LC_CTYPE",
-    "TMPDIR",
-    "SSH_AUTH_SOCK",
-    "DISPLAY",
-    "SSL_CERT_FILE",
-    "SSL_CERT_DIR",
-    "NODE_EXTRA_CA_CERTS",
-    // Codex's own variable for a CA bundle; it reads SSL_CERT_FILE otherwise.
-    "CODEX_CA_CERTIFICATE",
-    "HTTPS_PROXY",
-    "HTTP_PROXY",
-    "NO_PROXY",
-    "https_proxy",
-    "http_proxy",
-    "no_proxy",
-  ])
-    if (typeof source[key] === "string") env[key] = source[key];
-  return { ...withUtf8Locale(env), TERM: "xterm-256color", COLORTERM: "truecolor" };
-}
+export { cleanEnvironment };
 function detectExecutables(tools, env, common, additionalDirectories) {
   const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
   if (common)
