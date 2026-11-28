@@ -21,6 +21,7 @@ import { runReply } from "./history-text.js";
 import { answerFields } from "./team-texts.js";
 import { deliverRequest, goalResult } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
+import { applyPass, taskAccess } from "./member-device-passes.js";
 import { sharedWith } from "./lead-share-views.js";
 import { followUpChat } from "./chat-successor.js";
 import { anyHostReady } from "./runtimes/runtime-for.js";
@@ -138,21 +139,12 @@ export class LeadRequests {
   /**
    * A task, optionally with `access` the lead shares for this task only
    * (lead-shares.js): checked against the lead before the task exists, in place
-   * before the member's turn starts, gone when the task ends.
+   * before the member's turn starts, gone when the task ends. `access.devices`
+   * passes Android devices on for the task (member-device-passes.js), to any member.
    */
   async delegate(inv, input) {
-    let share = null;
-    if (
-      input &&
-      typeof input === "object" &&
-      !Array.isArray(input) &&
-      "access" in input
-    ) {
-      const { access, ...task } = input;
-      share = this.taskShare(inv, task.memberId, access);
-      input = task;
-    }
-    return this.toolResult(await this.create("task", inv, input, share));
+    const { task, share, devices } = taskAccess(this, inv, input);
+    return this.toolResult(await this.create("task", inv, task, share, devices));
   }
   taskShare(inv, memberId, access) {
     inv.assertCurrent();
@@ -180,7 +172,7 @@ export class LeadRequests {
       return null;
     }
   }
-  async create(type, inv, input, share = null) {
+  async create(type, inv, input, share = null, devices = null) {
     inv.assertCurrent();
     const offer = type === "task" ? await this.lastReply(inv, input) : null;
     inv.assertCurrent();
@@ -192,6 +184,8 @@ export class LeadRequests {
       offer,
     });
     if (share && !requestTerminal.has(r.phase)) applyTaskShare(share, r, inv);
+    if (devices && !requestTerminal.has(r.phase))
+      applyPass(this.assistants.workflows, r, devices);
     return this.started(r);
   }
   /** A new request: dispatched at once, briefly; the wait counts from the tool call. */

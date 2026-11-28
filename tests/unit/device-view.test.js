@@ -54,6 +54,10 @@ function serverCodes() {
       .map((name) => path.join(root, "features/devices", name)),
     path.join(root, "http/routes/devices.js"),
     path.join(root, "application/device-wiring.js"),
+    // The agents' side of the feature: their tool, its gate and what a lead passes on.
+    ...["agent-devices.js", "agent-device-origin.js", "member-device-passes.js"].map(
+      (name) => path.join(root, "features/assistants", name),
+    ),
   ];
   const codes = new Set();
   for (const file of files)
@@ -89,6 +93,11 @@ test("every code the server can send has a text in both languages", () => {
     "DEVICES_DOWNLOAD_STALLED",
     "DEVICES_DOWNLOAD_CANCELLED",
     "DEVICES_CHECKSUM_MISMATCH",
+    "DEVICE_AGENT_INELIGIBLE",
+    "DEVICE_RUN_FORBIDDEN",
+    "DEVICE_OWNER_TURN_REQUIRED",
+    "DEVICE_PULL_READONLY",
+    "DEVICE_PASS_INVALID",
   ])
     assert.ok(codes.includes(expected), expected);
   assert.ok(codes.length >= 40, String(codes.length));

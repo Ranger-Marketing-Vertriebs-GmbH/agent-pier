@@ -260,6 +260,31 @@ def _shown(action, result):
             ],
             "text_summary": line + " This image cannot be shown to your model.",
         }
+    # A device's screenshot (agentpier_device) likewise: the note AgentPier wrote for
+    # it with the other facts, and the image as an image part. A model that cannot
+    # see images reads the summary, which points at the screen's elements instead.
+    if action == "device" and isinstance(result, dict) and isinstance(result.get("image"), dict):
+        image = result["image"]
+        facts = {key: value for key, value in result.items() if key not in ("image", "note")}
+        line = str(result.get("note") or "Screenshot.") + " " + json.dumps(facts)
+        if isinstance(image.get("data"), str) and image.get("mimeType") in _PROJECT_IMAGES:
+            return {
+                "_multimodal": True,
+                "content": [
+                    {"type": "text", "text": line},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:" + image["mimeType"] + ";base64," + image["data"]
+                        },
+                    },
+                ],
+                "text_summary": line
+                + " This image cannot be shown to your model; use action ui for the"
+                " screen's elements instead.",
+            }
+        facts["note"] = "This image cannot be shown to your model; use action ui instead."
+        return json.dumps(facts)
     # Any other answer with data (none today but image_view's) never shows it as text.
     if action == "workspace" and isinstance(result, dict) and "data" in result:
         result = {key: value for key, value in result.items() if key != "data"}

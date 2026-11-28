@@ -199,6 +199,16 @@ export const devicesCopy = {
       "This session may not create devices. Allow it under the session's devices.",
     DEVICE_SESSION_INELIGIBLE:
       "Devices can be given to your own running coding sessions only, not to sign-in, pipeline or imported sessions or to sessions of a restricted user's agent.",
+    DEVICE_AGENT_INELIGIBLE:
+      "Devices can be given to your own agents only, not to an archived agent, an agent of restricted users or an agent with its own Telegram bot for other people.",
+    DEVICE_RUN_FORBIDDEN:
+      "The agent gets no device in this run, because it works on content that is not your own or its origin is unknown.",
+    DEVICE_OWNER_TURN_REQUIRED:
+      "An agent creates, resets and deletes devices only in a turn you started with a message of your own.",
+    DEVICE_PULL_READONLY:
+      "This run may not change files in the agent's workspace, so no file was copied from the device.",
+    DEVICE_PASS_INVALID:
+      "An agent can pass on to a team member only devices it has itself.",
     DEVICE_ASSIGNMENT_INVALID:
       "This assignment is not valid. A device in it may no longer exist; reload and try again.",
     DEVICE_INPUT_INVALID: "The call to the device had a missing or malformed argument.",

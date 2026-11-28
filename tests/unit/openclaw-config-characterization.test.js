@@ -222,6 +222,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "agentpier_project",
     "agentpier_preview",
     "agentpier_craft",
+    "agentpier_device",
     "ask_user",
     // Compiled before any agent uses them; each agent's entry names its own tools.
     "web_fetch",

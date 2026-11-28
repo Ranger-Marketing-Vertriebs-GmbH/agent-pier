@@ -212,6 +212,7 @@
       "agentpier_project",
       "agentpier_preview",
       "agentpier_craft",
+      "agentpier_device",
       "ask_user",
       "web_fetch",
       "view_image"

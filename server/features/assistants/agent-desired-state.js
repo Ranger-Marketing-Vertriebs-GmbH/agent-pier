@@ -68,6 +68,7 @@ export function desiredAgent(
     channelBot,
     lead = null,
     craft = false,
+    devices = false,
     optionConnections,
   } = {},
 ) {
@@ -95,7 +96,7 @@ export function desiredAgent(
       permanent: profile.lifetime === "permanent",
     },
     // The tools it may hold, each grant with what it needs of the runtime.
-    tools: toolGrants(profile, { ssh: !!ssh, craft: !!craft }),
+    tools: toolGrants(profile, { ssh: !!ssh, craft: !!craft, devices: !!devices }),
     shell: { level: personalShell(profile), pathPrepend: [...shellPath] },
     memory: memoryEnabled(profile),
     skills: {
@@ -182,6 +183,7 @@ export function desiredState(inputs = {}) {
     githubShell,
     sshShell,
     craft = false,
+    devices = false,
     mcp,
     stdio = stdioAgents(mcp || {}),
     telegram,
@@ -197,6 +199,7 @@ export function desiredState(inputs = {}) {
     desiredAgent(profile, {
       ssh: !!sshAgents?.has(profile.id),
       craft,
+      devices,
       shellPath: [
         ...(githubShell?.[profile.id] || []),
         ...(sshShell?.[profile.id] || []),
