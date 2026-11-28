@@ -376,6 +376,20 @@ test(
     assert.match(page.elements[bar - 1], /editable/);
     const tapped = await timed("tap by number", () => run("tap", { element: bar }));
     assert.ok(tapped.tapped.x > 0 && tapped.tapped.y > 0);
+    // On a device that has just booted Chrome may still load and take the focus back,
+    // and what is typed then goes nowhere. The bar is tapped until it holds the focus.
+    await until(
+      async () => {
+        const shown = await run("ui").catch(() => null);
+        const entry = shown?.elements.find((line) => field.test(line));
+        if (!entry) return false;
+        if (/\bfocused\b/.test(entry)) return true;
+        await run("tap", { element: Number(entry.split(" ")[0]) });
+        return false;
+      },
+      60000,
+      "the address bar to hold the focus",
+    );
     const text = "a b %s|100%sure $HOME;`id`\"q\"'x'\\n&<>(){}*?!~# -d";
     // As an overview line quotes it.
     const quoted = (value) => JSON.stringify(value).slice(1, -1);
