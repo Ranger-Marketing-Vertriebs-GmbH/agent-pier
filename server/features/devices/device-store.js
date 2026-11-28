@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { isDeviceId } from "./avd-files.js";
+import { avdImage, isDeviceId, listAvds, unknownImage } from "./avd-files.js";
 
 /*
  * The device records, in `<data>/devices/devices.json` (`{ version: 1, devices }`),
@@ -13,6 +14,14 @@ import { isDeviceId } from "./avd-files.js";
  * and holds no runtime state: whether a device runs is the service's knowledge
  * (device-service.js). `image` is the system image the device was made with or last
  * reset to; `provisioned` says that its first-boot steps ran.
+ *
+ * A file that cannot be read as that (cut off, hand-edited, with records that are
+ * none) is never simply replaced: every device is a folder of several gigabytes
+ * that only its record makes visible and deletable. The file is first kept aside as
+ * `devices.json.damaged-<time>`, and every device folder below `<data>/devices/avd`
+ * that has no record left gets one again: named "Recovered device <n>", created by
+ * the owner, on the image its `config.ini` names ("unknown" when it names none; a
+ * reset moves such a device to the pinned image). A missing file is no damage.
  */
 const creators = ["owner", "agent", "session"];
 const changeable = ["name", "image", "provisioned", "lastUsedAt", "resetAt"];
@@ -34,21 +43,95 @@ const valid = (record) =>
   text(record.image) &&
   creators.includes(record.creator?.kind);
 
+// Copies the damaged `file` to `target`, for the owner only; never over another.
+function copyAside(file, target) {
+  fs.copyFileSync(file, target, fs.constants.COPYFILE_EXCL);
+  fs.chmodSync(target, 0o600);
+}
+
 export class DeviceStore {
-  /** `write(file, value)` writes the file atomically; tests replace it. */
-  constructor({ dataDir, now = Date.now, write = writePrivate }) {
-    Object.assign(this, { now, write });
+  /**
+   * `write(file, value)` writes the file atomically, `keepAside(file, target)`
+   * copies a damaged file and `log(line)` hears of it; tests replace them.
+   */
+  constructor({
+    dataDir,
+    now = Date.now,
+    write = writePrivate,
+    keepAside = copyAside,
+    log = console.warn,
+  }) {
+    Object.assign(this, { now, write, keepAside, log });
     this.file = path.join(dataDir, "devices", "devices.json");
+    this.avd = path.join(dataDir, "devices", "avd");
+    // A damaged file that is not kept aside yet: nothing is written over it.
+    this.damaged = false;
     let stored = null;
     try {
       stored = readJSON(this.file, null);
     } catch {
-      // A damaged file reads as no devices.
+      this.damaged = true;
     }
-    this.devices = Array.isArray(stored?.devices) ? stored.devices.filter(valid) : [];
+    const listed = Array.isArray(stored?.devices) ? stored.devices : null;
+    this.devices = (listed ?? []).filter(valid);
+    if (!listed && fs.existsSync(this.file)) this.damaged = true;
+    if (this.damaged || this.devices.length !== (listed?.length ?? 0)) this.#recover();
+  }
+  #aside() {
+    for (let time = this.now(); ; time++) {
+      const target = `${this.file}.damaged-${time}`;
+      try {
+        this.keepAside(this.file, target);
+        this.damaged = false;
+        return path.basename(target);
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+      }
+    }
+  }
+  // What is left of a damaged file, and a record for every device folder without one.
+  #recover() {
+    this.damaged = true;
+    const paths = { avd: this.avd };
+    const known = new Set(this.devices.map((device) => device.id));
+    const devices = [...this.devices];
+    let number = 0;
+    for (const id of listAvds(paths)) {
+      if (known.has(id)) continue;
+      let name;
+      do name = `Recovered device ${++number}`;
+      while (devices.some((device) => device.name.toLowerCase() === name.toLowerCase()));
+      devices.push({
+        id,
+        name,
+        source: "emulator",
+        creator: { kind: "owner", id: "owner", name: "" },
+        image: avdImage(paths, id) ?? unknownImage,
+        // Its first-boot steps run again; they change nothing when they ran before.
+        provisioned: false,
+        createdAt: this.now(),
+        lastUsedAt: null,
+        resetAt: null,
+      });
+    }
+    const found = devices.length - this.devices.length;
+    this.devices = devices;
+    let kept = null;
+    try {
+      kept = this.#aside();
+      this.write(this.file, { version: 1, devices });
+    } catch {
+      // Told below; while the copy is missing, every later write tries it again.
+    }
+    this.log(
+      `Android devices: devices.json was damaged and ${
+        kept ? `is kept as ${kept}` : "could not be kept aside (nothing overwrites it)"
+      }; ${found} device(s) were recovered from their folders.`,
+    );
   }
   // The file is written first: a failed write changes nothing in memory either.
   #save(devices) {
+    if (this.damaged) this.#aside();
     this.write(this.file, { version: 1, devices });
     this.devices = devices;
   }

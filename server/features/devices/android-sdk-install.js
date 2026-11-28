@@ -6,6 +6,7 @@ import { privateDirectory, readJSON, writePrivate } from "../../lib/storage.js";
 import { downloadResumed, requireSpace } from "../tools/pinned-download.js";
 import { run as runTool } from "../tools/tool-run.js";
 import { unpackZip } from "../tools/zip-unpack.js";
+import { unknownImage } from "./avd-files.js";
 import { deviceEnvironment, ensureDeviceFolders, receiptFile } from "./device-paths.js";
 
 /*
@@ -111,8 +112,12 @@ export function sweepSdk(paths) {
       fs.rmSync(path.join(paths.sdk, name), { recursive: true, force: true });
 }
 
-/** Removes every installed image whose id is not in `keep`. */
+/**
+ * Removes every installed image whose id is not in `keep`. Nothing goes while
+ * `keep` holds the image of a recovered device that does not say which one it uses.
+ */
 export function pruneImages(paths, keep) {
+  if (keep.includes(unknownImage)) return;
   let names = [];
   try {
     names = fs.readdirSync(paths.images);

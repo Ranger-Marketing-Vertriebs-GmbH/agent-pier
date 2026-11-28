@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fixture as serviceFixture } from "../helpers/device-service-fixture.js";
+import { writeAvd } from "../../server/features/devices/avd-files.js";
 import { DeviceStore } from "../../server/features/devices/device-store.js";
 
 // The device records in `<data>/devices/devices.json`.
@@ -124,29 +126,184 @@ test("patch changes the fields that change, remove removes the record", (t) => {
   assert.throws(() => store.remove(a.id), { code: "DEVICE_NOT_FOUND", status: 404 });
 });
 
-test("a damaged file reads as empty, and records that are none are left out", (t) => {
-  const { dataDir, file, read } = fixture(t);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  for (const content of ["{ not json", "[]", '{"version":1,"devices":"none"}', "null"]) {
-    fs.writeFileSync(file, content);
-    assert.deepEqual(new DeviceStore({ dataDir }).list(), [], content);
-  }
-  const good = new DeviceStore({ dataDir }).add({ name: "Good", creator: owner, image });
-  fs.writeFileSync(
-    file,
-    JSON.stringify({
-      version: 1,
-      devices: [
-        good,
-        { ...good, id: "../../etc" },
-        { ...good, id: "d-aaaaaaaaaaaa", name: "" },
-        { ...good, id: "d-bbbbbbbbbbbb", creator: null },
-        "text",
-      ],
-    }),
+// A device's folder as the emulator source writes it, on `made` (an image id).
+function avd(dataDir, id, made = image) {
+  writeAvd(
+    { avd: path.join(dataDir, "devices", "avd") },
+    {
+      id,
+      image: made,
+      abi: "arm64-v8a",
+      shape: {
+        width: 720,
+        height: 1600,
+        density: 320,
+        cores: 4,
+        memoryMb: 2048,
+        dataPartition: "6G",
+      },
+    },
   );
-  assert.deepEqual(new DeviceStore({ dataDir }).list(), [good]);
-  assert.equal(read().devices.length, 5);
+}
+const asides = (file) =>
+  fs
+    .readdirSync(path.dirname(file))
+    .filter((name) => name.startsWith("devices.json.damaged-"))
+    .sort();
+
+test("a damaged file is kept aside and its devices return from their folders", (t) => {
+  const { dataDir, file, read } = fixture(t);
+  const logged = [];
+  const open = (now = () => 7000) =>
+    new DeviceStore({ dataDir, now, log: (line) => logged.push(line) });
+  const earlier = "android-35-google_apis-r4";
+  avd(dataDir, "d-0000000000aa");
+  avd(dataDir, "d-0000000000bb", earlier);
+  // A folder that is no device's, and a device folder without a readable config.
+  fs.mkdirSync(path.join(dataDir, "devices", "avd", "Pixel_9.avd"));
+  fs.mkdirSync(path.join(dataDir, "devices", "avd", "d-0000000000cc.avd"));
+  fs.writeFileSync(file, "{ not json");
+  const store = open();
+  assert.deepEqual(
+    store.list().map(({ id, name, image: made, creator, source }) => ({
+      id,
+      name,
+      image: made,
+      creator,
+      source,
+    })),
+    [
+      ["d-0000000000aa", "Recovered device 1", image],
+      ["d-0000000000bb", "Recovered device 2", earlier],
+      ["d-0000000000cc", "Recovered device 3", "unknown"],
+    ].map(([id, name, made]) => ({
+      id,
+      name,
+      image: made,
+      creator: { kind: "owner", id: "owner", name: "" },
+      source: "emulator",
+    })),
+  );
+  // The damaged file is still there, the new one is written, and the log says so.
+  assert.deepEqual(asides(file), ["devices.json.damaged-7000"]);
+  assert.equal(
+    fs.readFileSync(path.join(path.dirname(file), "devices.json.damaged-7000"), "utf8"),
+    "{ not json",
+  );
+  assert.equal(
+    fs.statSync(path.join(path.dirname(file), asides(file)[0])).mode & 0o77,
+    0,
+  );
+  assert.deepEqual(read().devices, store.list());
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /devices\.json\.damaged-7000/);
+  assert.match(logged[0], /3 /);
+  // The owner sees them, can rename and delete them; the next start changes nothing.
+  store.patch("d-0000000000aa", { name: "Mine" });
+  store.remove("d-0000000000cc");
+  const again = open(() => 8000);
+  assert.deepEqual(
+    again.list().map(({ name }) => name),
+    ["Mine", "Recovered device 2"],
+  );
+  assert.deepEqual(asides(file), ["devices.json.damaged-7000"]);
+  assert.equal(logged.length, 1);
+  // The images of recovered devices are in use: an update of the SDK keeps them.
+  assert.deepEqual(serviceFixture(t, { dataDir }).service.imagesInUse(), [
+    image,
+    earlier,
+  ]);
+
+  // Every other shape that is not a list of devices is damage too.
+  for (const [index, content] of [
+    "[]",
+    '{"version":1,"devices":"none"}',
+    "null",
+  ].entries()) {
+    fs.writeFileSync(file, content);
+    const names = open(() => 9000 + index)
+      .list()
+      .map(({ id }) => id);
+    assert.deepEqual(names, ["d-0000000000aa", "d-0000000000bb", "d-0000000000cc"]);
+    assert.equal(asides(file).length, 2 + index, content);
+  }
+  // No file at all is a host without devices: nothing is adopted, nothing kept aside.
+  fs.rmSync(file);
+  assert.deepEqual(open().list(), []);
+  assert.equal(asides(file).length, 4);
+  assert.equal(fs.existsSync(file), false);
+});
+
+test("records that are none are left out only after the file was kept aside", (t) => {
+  const { dataDir, file, read } = fixture(t);
+  const logged = [];
+  const good = new DeviceStore({ dataDir }).add({ name: "Good", creator: owner, image });
+  const before = JSON.stringify({
+    version: 1,
+    devices: [
+      good,
+      { ...good, id: "../../etc" },
+      { ...good, id: "d-aaaaaaaaaaaa", name: "" },
+      { ...good, id: "d-bbbbbbbbbbbb", creator: null },
+      "text",
+    ],
+  });
+  fs.writeFileSync(file, before);
+  // One of the broken records has its folder: the device returns under a new name.
+  avd(dataDir, "d-aaaaaaaaaaaa");
+  avd(dataDir, good.id);
+  const store = new DeviceStore({
+    dataDir,
+    now: () => 4000,
+    log: (line) => logged.push(line),
+  });
+  assert.deepEqual(
+    store.list().map(({ id, name }) => [id, name]),
+    [
+      [good.id, "Good"],
+      ["d-aaaaaaaaaaaa", "Recovered device 1"],
+    ],
+  );
+  assert.deepEqual(store.get(good.id), good);
+  assert.deepEqual(asides(file), ["devices.json.damaged-4000"]);
+  assert.equal(
+    fs.readFileSync(path.join(path.dirname(file), "devices.json.damaged-4000"), "utf8"),
+    before,
+  );
+  assert.equal(read().devices.length, 2);
+  assert.equal(logged.length, 1);
+});
+
+test("a damaged file that cannot be kept aside is never overwritten", (t) => {
+  const { dataDir, file } = fixture(t);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, "{ not json");
+  avd(dataDir, "d-0000000000aa");
+  const logged = [];
+  const store = new DeviceStore({
+    dataDir,
+    log: (line) => logged.push(line),
+    keepAside: () => {
+      throw Object.assign(Error("no space"), { code: "ENOSPC" });
+    },
+  });
+  // The devices are shown, but nothing is written over the only copy of the file.
+  assert.deepEqual(
+    store.list().map(({ name }) => name),
+    ["Recovered device 1"],
+  );
+  assert.throws(() => store.add({ name: "New", creator: owner, image }), {
+    code: "ENOSPC",
+  });
+  assert.equal(fs.readFileSync(file, "utf8"), "{ not json");
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /could not be kept aside/);
+  assert.deepEqual(asides(file), []);
+  // Once the copy succeeds, the write follows it.
+  store.keepAside = (from, to) => fs.copyFileSync(from, to);
+  store.add({ name: "New", creator: owner, image });
+  assert.equal(asides(file).length, 1);
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).devices.length, 2);
 });
 
 test("a write is atomic: a failure leaves the file and the store as they were", (t) => {
