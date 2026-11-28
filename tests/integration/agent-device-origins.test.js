@@ -31,13 +31,13 @@ const decided = {
   "session-talk": "use",
   "coding-session": "use",
   "member-long-chat": "use",
-  // Outcomes of the owner's approvals and AgentPier's own steps: refused unless a
-  // concrete need shows.
-  "mail-result": "none",
-  "ssh-access-result": "none",
-  "memory-result": "none",
+  // AgentPier's own notice of how something ended that waited for the owner.
+  "mail-result": "use",
+  "ssh-access-result": "use",
+  "memory-result": "use",
+  "coding-start": "use",
+  // AgentPier's own step on the agent's memory.
   "memory-step": "none",
-  "coding-start": "none",
   // Someone else's content (owner-runs.js foreignKinds).
   "ssh-result": "none",
   "sftp-result": "none",
@@ -141,7 +141,7 @@ test("the gate's list is the decided one, and nothing else gets a device", () =>
   // records its own origin on the task.
   assert.equal(taskOrigin({ kind: "routine", bindingId: "b1" }), true);
   assert.equal(taskOrigin({ kind: "owner" }), true);
-  for (const kind of ["mail-result", "hook", "agent-run", "unknown"])
+  for (const kind of ["memory-step", "hook", "agent-run", "unknown"])
     assert.equal(taskOrigin({ kind }), false, kind);
 });
 

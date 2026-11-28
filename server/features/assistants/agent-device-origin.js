@@ -74,11 +74,13 @@ export function deviceAgent(services, agent) {
  * - `reminder`, `member-result`, `team-result`, `coding-result`, `session-talk`,
  *   `coding-session`, `member-long-chat`: what the owner's own agents and coding
  *   sessions report into their chat. Use only.
+ * - `mail-result`, `ssh-access-result`, `memory-result`, `coding-start`:
+ *   AgentPier's own notice of how something ended that waited for the owner (a
+ *   status, ids, an error code; no content of other people). Use only, so that an
+ *   agent keeps its device when its work goes on after the owner's approval.
  *
- * Not listed, so without a device: `mail-result`, `ssh-access-result`,
- * `memory-result` and `coding-start` (outcomes of the owner's approvals; no need
- * for a device showed), `memory-step`, everything foreign (owner-runs.js
- * foreignKinds), `unknown` and a turn without a record.
+ * Not listed, so without a device: `memory-step`, everything foreign
+ * (owner-runs.js foreignKinds), `unknown` and a turn without a record.
  */
 export const deviceOriginKinds = Object.freeze([
   "owner",
@@ -90,6 +92,10 @@ export const deviceOriginKinds = Object.freeze([
   "session-talk",
   "coding-session",
   "member-long-chat",
+  "mail-result",
+  "ssh-access-result",
+  "memory-result",
+  "coding-start",
 ]);
 
 const usingKinds = new Set(deviceOriginKinds);

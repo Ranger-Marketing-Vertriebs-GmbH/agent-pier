@@ -823,9 +823,9 @@ sections above say changed as follows:
 
 - **Origins are an allow-list.** `deviceOriginKinds`: `owner` and `telegram` (use and
   manage unless a goal marker is set), `reminder`, `member-result`, `team-result`,
-  `coding-result`, `session-talk`, `coding-session`, `member-long-chat` (use only).
-  Everything else gets no device, also a kind added later: `mail-result`,
-  `ssh-access-result`, `memory-result`, `coding-start`, `memory-step`, the foreign
+  `coding-result`, `session-talk`, `coding-session`, `member-long-chat`,
+  `mail-result`, `ssh-access-result`, `memory-result`, `coding-start` (use only).
+  Everything else gets no device, also a kind added later: `memory-step`, the foreign
   kinds, `unknown`, no record. `tests/integration/agent-device-origins.test.js`
   scans the server for the kinds it records as a turn's context and fails for one
   without a decision. A task's origin may also be `routine` (`taskOrigin`).
