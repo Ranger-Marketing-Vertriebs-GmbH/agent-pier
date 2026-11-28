@@ -45,8 +45,8 @@ function refuse(res, error) {
   };
   res.status([400, 403, 404, 409].includes(error.status) ? error.status : 409).json(body);
 }
-// A handler whose stable refusals are answered as such.
-const answering = (handler) => async (req, res) => {
+/** A handler whose stable refusals are answered as such. */
+export const answering = (handler) => async (req, res) => {
   try {
     await handler(req, res);
   } catch (error) {

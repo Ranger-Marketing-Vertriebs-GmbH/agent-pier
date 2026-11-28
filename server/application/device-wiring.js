@@ -1,13 +1,17 @@
 // Android devices on `services`: the SDK installation, the emulator source and the
-// device service, their live topics, audit rows, routes, start and shutdown.
+// device service, the sessions' grants and the device actions, their live topics,
+// audit rows, routes, start and shutdown.
 import { AndroidSdk } from "../features/devices/android-sdk.js";
+import { DeviceActions } from "../features/devices/device-actions.js";
 import { DeviceService } from "../features/devices/device-service.js";
 import { EmulatorSource } from "../features/devices/emulator-source.js";
 import {
   deviceInstallationChanged,
   devicesChanged,
 } from "../features/devices/live-topics.js";
+import { SessionDeviceGrants } from "../features/devices/session-device-grants.js";
 import { devicesRoutes } from "../http/routes/devices.js";
+import { sessionDevicesRoutes } from "../http/routes/session-devices.js";
 
 /** The audit resource id of the SDK components, a `tool`. */
 export const ANDROID_TOOL = "android-devices";
@@ -79,6 +83,12 @@ function auditInstallation(audit, sdk, operation) {
  * tests replace: `manifest`, `host`, `problem`, `fetchImpl`, `run`, and further
  * options of EmulatorSource (`source`) and DeviceService (`service`). Nothing is
  * read from the network or started here.
+ *
+ * Also returned: `grants`, the devices the owner assigned to coding sessions
+ * (session-device-grants.js), which answer the service's permission checks, fill the
+ * assignments of its view and say whether a session that created a device still
+ * exists; and `actions`, what a session or agent does with a device
+ * (device-actions.js).
  */
 export function createDevices(services) {
   const { config } = services;
@@ -107,15 +117,24 @@ export function createDevices(services) {
     sdk,
     ...source,
   });
+  const grants = new SessionDeviceGrants({ dataDir: config.dataDir });
   devices = new DeviceService({
     dataDir: config.dataDir,
     sdk,
     sources: { emulator },
     changed: () => devicesChanged(services.live),
     audit: (entry) => auditDevice(services.audit, entry),
+    // An agent that created a device is looked up with the agent tools.
+    creatorExists: (creator) => creator.kind !== "session" || grants.exists(creator.id),
     ...service,
   });
-  return { devices, sdk };
+  devices.registerGrants("session", (id) => grants.grantsOf(id));
+  devices.registerAssignments("session", (id) => grants.assignmentsOf(id));
+  devices.onRemoved((id) => grants.dropDevice(id));
+  // Who a device is assigned to is part of the device view.
+  grants.onChange = () => devices.signal();
+  const actions = new DeviceActions({ devices, dataDir: config.dataDir });
+  return { devices, sdk, grants, actions };
 }
 
 /**
@@ -139,14 +158,18 @@ export async function startDevices({ devices, androidSdk: sdk }) {
 }
 
 /**
- * Sets `services.devices` and `services.androidSdk`, mounts the routes and, once
- * the server listens, runs startDevices.
+ * Sets `services.devices`, `services.androidSdk`, `services.sessionDeviceGrants`
+ * and `services.deviceActions`, mounts the routes and, once the server listens, runs
+ * startDevices.
  */
 export function connectDevices(services, { mount, whenListening }) {
-  const { devices, sdk } = createDevices(services);
+  const { devices, sdk, grants, actions } = createDevices(services);
   services.devices = devices;
   services.androidSdk = sdk;
+  services.sessionDeviceGrants = grants;
+  services.deviceActions = actions;
   mount(devicesRoutes(services));
+  mount(sessionDevicesRoutes(services));
   whenListening.push(() => startDevices(services));
 }
 

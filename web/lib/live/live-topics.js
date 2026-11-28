@@ -336,6 +336,14 @@ export const liveTopics = Object.freeze({
     path: session("agent-accesses"),
     interval: 30000,
   }),
+  // The Android devices a session may use
+  // (server/features/devices/session-device-access.js), pushed on every assignment
+  // and every change of a device.
+  "session.devices": Object.freeze({
+    mode: "state",
+    path: session("devices"),
+    interval: 5000,
+  }),
   // A file scope's job envelopes (`global` or `session:<id>`), the first page of its
   // jobs, pushed on every job write. Entry and result pages stay REST: the explorer
   // reads them when a job's `updatedAt` changes.

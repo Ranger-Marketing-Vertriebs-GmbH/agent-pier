@@ -250,6 +250,7 @@ test("the package, plugin, SSH, sign-in, reload and agent access topics name the
     ["job.chatgpt-login:current", "/assistant-model-login/current", 1000, false],
     ["session.reload:abc", "/sessions/abc/reload", 1500, true],
     ["session.agent-access:abc", "/sessions/abc/agent-accesses", 30000, false],
+    ["session.devices:abc", "/sessions/abc/devices", 5000, false],
   ];
   for (const [topic, path, interval, sampled] of expected) {
     const info = topicInfo(topic);

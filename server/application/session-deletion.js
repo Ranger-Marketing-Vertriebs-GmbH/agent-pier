@@ -8,6 +8,8 @@ export async function deleteSession(services, session) {
   services.sessionMcp?.discard(id);
   services.sshSessions?.discard(id);
   services.sessionAgentGrants?.discard(id);
+  // Its device assignments go, and a device it created shows its creator as gone.
+  services.sessionDeviceGrants?.discard(id);
   services.sessionSecrets?.discard(id);
   await services.sshIntegration?.discard(id);
   await services.chatDelivery.discard(id);

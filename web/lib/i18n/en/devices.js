@@ -196,6 +196,10 @@ export const devicesCopy = {
     DEVICE_NOT_RUNNING: "The device is not running. Start it first.",
     DEVICE_CREATE_FORBIDDEN:
       "This session may not create devices. Allow it under the session's devices.",
+    DEVICE_SESSION_INELIGIBLE:
+      "Devices can be given to your own running coding sessions only, not to sign-in, pipeline or imported sessions or to sessions of a restricted user's agent.",
+    DEVICE_ASSIGNMENT_INVALID:
+      "This assignment is not valid. A device in it may no longer exist; reload and try again.",
     DEVICE_INPUT_INVALID: "The call to the device had a missing or malformed argument.",
     DEVICE_TEXT_UNSUPPORTED:
       "Only plain ASCII characters can be typed on a device in this version, no umlauts, accents or emoji.",

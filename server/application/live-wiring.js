@@ -48,6 +48,7 @@ import {
   deviceInstallationTopic,
   devicesTopic,
 } from "../features/devices/live-topics.js";
+import { sessionDevicesTopic } from "../features/devices/session-device-access.js";
 import {
   cleanupSummaryTopic,
   systemStatusTopics,
@@ -144,6 +145,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(artifactsChangedTopic());
   hub.define(previewsTopic(services));
   hub.define(devicesTopic(services));
+  hub.define(sessionDevicesTopic(services));
   hub.define(deviceInstallationTopic(services));
   for (const topic of systemStatusTopics(services)) hub.define(topic);
   hub.define(cleanupSummaryTopic(services));
