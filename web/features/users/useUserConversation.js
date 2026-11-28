@@ -12,6 +12,7 @@ import { sharedDrafts } from "../assistants/useAssistants.js";
 import { userApi } from "./user-api.js";
 import { useRetry } from "../assistants/run-steps.js";
 import { sendRoute } from "../assistants/send-route.js";
+import useSendingMessage from "../assistants/useSendingMessage.jsx";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 
 const settled = new Set(["completed", "failed", "cancelled"]);
@@ -30,6 +31,7 @@ export default function useUserConversation(
 ) {
   const drafts = sharedDrafts;
   const [text, setText] = useState(() => drafts.get(conversationId));
+  const { sending, sendAhead } = useSendingMessage({ conversationId, drafts, setText });
   const [view, setView] = useState(() => {
     const cached = histories.get(conversationId);
     return cached ? withLive(emptyHistoryView, cached) : emptyHistoryView;
@@ -71,7 +73,7 @@ export default function useUserConversation(
       return false;
     }
   };
-  async function deliver(submitted, ids, accepted) {
+  async function deliver(submitted, ids) {
     setBusy(true);
     try {
       return await run(async () => {
@@ -79,7 +81,6 @@ export default function useUserConversation(
           conversationId,
           ids.length ? { ...submitted, attachments: ids } : submitted,
         );
-        accepted?.();
         // `/new` started a chat (chat-commands.js): it opens instead.
         if (result?.created) await onCreated?.(result.created);
         else await refresh();
@@ -128,10 +129,7 @@ export default function useUserConversation(
     if (route === "queue") return queue(ids);
     if (route === "sending") setError(assistantCopy.sendUnderway);
     if (route !== "send") return false;
-    const submitted = drafts.delivery(conversationId);
-    return deliver(submitted, ids, () => {
-      if (drafts.acknowledge(conversationId, submitted.clientRequestId)) setText("");
-    });
+    return sendAhead(deliver, ids);
   }
   async function takeBackQueued(attachments) {
     await run(async () => {
@@ -169,6 +167,7 @@ export default function useUserConversation(
     drafts,
     text,
     setText,
+    sending,
     view,
     history,
     feed,

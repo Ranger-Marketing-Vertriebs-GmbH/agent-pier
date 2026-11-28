@@ -1,3 +1,5 @@
+import { takeBack } from "./queued-message.js";
+
 // The unsent text of each agent chat, and its picked files (`attachments`). Both live
 // as long as the page, not the composer: a reload starts every chat empty.
 export class AssistantDrafts {
@@ -32,13 +34,20 @@ export class AssistantDrafts {
     this.values.set(id, value);
     return { ...value };
   }
-  acknowledge(id, clientRequestId) {
-    if (this.values.get(id)?.clientRequestId !== clientRequestId) return false;
-    this.clear(id);
-    return true;
-  }
   clear(id) {
     this.values.delete(id);
+  }
+  // A delivery that failed after its text left the field (useSendingMessage.jsx): an
+  // empty field takes it back with its key, so a retry is the same delivery; else it
+  // comes before what was typed since. Returns the field's text.
+  restore(id, submitted) {
+    const typed = this.get(id);
+    if (!typed.trim()) this.values.set(id, { ...submitted });
+    else {
+      this.set(id, takeBack(submitted.text, typed));
+      if (submitted.teamAllowed) this.allowTeam(id, true);
+    }
+    return this.get(id);
   }
   // A logout or another user: no chat keeps the previous text or files.
   clearAll() {

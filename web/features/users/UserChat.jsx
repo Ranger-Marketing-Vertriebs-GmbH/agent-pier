@@ -32,6 +32,7 @@ import AgentRunState from "../assistants/AgentRunState.jsx";
 import { memoryStepTurn, stepsOf } from "../assistants/run-steps.js";
 import useLongChat from "../assistants/useLongChat.js";
 import useModelHint from "../assistants/useModelHint.js";
+import { SendingMessage } from "../assistants/useSendingMessage.jsx";
 import SummariseConfirm from "../assistants/SummariseConfirm.jsx";
 import { userApi } from "./user-api.js";
 
@@ -94,7 +95,11 @@ export default function UserChat({
   }, [history.messages, history.requests, delta, chat.busy]);
   // Pressable during her own delivery too: a second press says it is under way.
   const canSend = Boolean(
-    (chat.text.trim() || files) && !active && !chat.queued && chat.available,
+    (chat.text.trim() || files) &&
+    !active &&
+    !chat.queued &&
+    chat.available &&
+    !chat.sending,
   );
   const send = (event, ids) => {
     stick.current = true;
@@ -184,7 +189,7 @@ export default function UserChat({
                   {assistantCopy.earlier}
                 </button>
               )}
-              {!history.messages.length && !latest && (
+              {!history.messages.length && !latest && !chat.sending && (
                 <div className="assistant-empty">
                   <h2>{assistantCopy.emptyChat}</h2>
                 </div>
@@ -212,6 +217,7 @@ export default function UserChat({
                     timestamp={Date.parse(latest.createdAt) || 0}
                   />
                 )}
+              <SendingMessage sending={chat.sending} history={history} />
               {delta?.text && !streamInHistory(delta, history) && (
                 <AssistantMessage
                   role="assistant"
