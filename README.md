@@ -100,7 +100,9 @@ and agents that work as a team.
 - **Android devices:** emulated Android phones on the host (Google's Android Emulator,
   macOS on Apple silicon and Linux x64 with KVM), installed with one click and created,
   started, reset and deleted under **Settings › General › Android devices**, within
-  limits you set ([Android devices](docs/devices.md)).
+  limits you set. Coding sessions you assign a device to look at it, operate it,
+  install and start apps, open URLs and read logs through their AgentPier tools
+  ([Android devices](docs/devices.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
 - **Email for agents:** IMAP/SMTP mailboxes (Gmail with an app password, or any other)

@@ -836,6 +836,16 @@ personal workspace, not an isolation boundary for mutually untrusted users.
 
    Only a profile whose working directory is read-only closes this completely.
 
+10. **Android devices on loopback.** AgentPier's adb server listens on
+    `127.0.0.1:47600` and asks for no credentials. On a profile with network access
+    (nono's default) a sandboxed session can connect to it and operate every running
+    device, whatever was assigned to it; a profile that blocks the network
+    (`network.block`) blocks that too. The device tools work under both, because they
+    go to AgentPier over the session's granted socket. Files a session copies to or
+    from a device through the tools stay inside its working folder, so the tools do
+    not widen what the sandbox lets it read or write
+    ([Android devices](devices.md#what-a-device-can-reach)).
+
 ## Tools that do not run sandboxed
 
 AgentPier does not try to make every tool work under nono. Some tools need access a
