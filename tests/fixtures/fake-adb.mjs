@@ -8,9 +8,9 @@
 //   adb devices
 //   adb -s emulator-<n> shell getprop sys.boot_completed
 //   adb -s emulator-<n> emu kill
-//   adb -s emulator-<n> shell <command>
+//   adb -s emulator-<n> shell [-T] <command>
 //   adb -s emulator-<n> exec-out screencap -p | uiautomator dump /dev/tty
-//   adb -s emulator-<n> install -r <file> | push <file> <path> | pull <path> <file>
+//   adb -s emulator-<n> install -r <file> | push <file> <path>
 //
 // What a device answers to the calls of the device tools is fake-android-device.mjs.
 //
@@ -192,9 +192,7 @@ async function client() {
     await ensureServer();
     process.exit(0);
   }
-  if (
-    !["devices", "shell", "emu", "exec-out", "install", "push", "pull"].includes(command)
-  )
+  if (!["devices", "shell", "emu", "exec-out", "install", "push"].includes(command))
     stop(`adb: unknown command ${command ?? ""}`.trimEnd());
   await ensureServer();
   const running = emulators();
@@ -230,6 +228,8 @@ async function client() {
   const shell = readJson(path.join(state, "behaviour.json"), {}).shell || {};
   if (shell.delayMs) await new Promise((resolve) => setTimeout(resolve, shell.delayMs));
   const phone = fakeDevice(state, device.serial);
+  // `-T` asks for no terminal; the fake has none anyway.
+  if (command === "shell" && rest[0] === "-T") rest.shift();
   // The device tools hand `shell` one string; a scripted answer comes first.
   const answer =
     command === "shell"

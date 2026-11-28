@@ -375,15 +375,14 @@ test("files travel only inside the session's working folder", { timeout }, async
   const hostPaths = f
     .adb()
     .flatMap(([command, ...args]) =>
-      command === "install"
-        ? [args[1]]
-        : command === "push"
-          ? [args[0]]
-          : command === "pull"
-            ? [args[1]]
-            : [],
+      command === "install" ? [args[1]] : command === "push" ? [args[0]] : [],
     );
-  assert.equal(hostPaths.length, 3);
+  assert.equal(hostPaths.length, 2);
+  // A file from the device is the output of its `cat`; adb copies nothing itself.
+  assert.deepEqual(
+    f.adb().filter(([command, option]) => command === "pull" || option === "-T"),
+    [["shell", "-T", "cat '/sdcard/Download/my notes.txt'"]],
+  );
   for (const file of hostPaths) assert.ok(file.startsWith(transfers), file);
   assert.equal(fs.existsSync(transfers) ? fs.readdirSync(transfers).length : 0, 0);
 
@@ -425,6 +424,25 @@ test("files travel only inside the session's working folder", { timeout }, async
     "DEVICE_FILE_NOT_FOUND",
     404,
   );
+  // Bytes arrive as they are, and a folder is no file.
+  const bytes = Buffer.from(Array.from({ length: 70000 }, (_, at) => (at * 31) % 256));
+  fs.writeFileSync(f.phone.local("/sdcard/Download/raw.bin"), bytes);
+  assert.deepEqual(
+    await f.ok("device_pull", {
+      device: "Pixel",
+      devicePath: "/sdcard/Download/raw.bin",
+      path: "raw.bin",
+    }),
+    { pulled: "raw.bin", bytes: 70000 },
+  );
+  assert.deepEqual(fs.readFileSync(path.join(project, "raw.bin")), bytes);
+  await f.refused(
+    "device_pull",
+    { device: "Pixel", devicePath: "/sdcard/Download", path: "folder.bin" },
+    "DEVICE_FILE_NOT_FOUND",
+    404,
+  );
+  assert.equal(fs.existsSync(path.join(project, "folder.bin")), false);
   const failed = await f.refused(
     "device_install",
     { device: "Pixel", path: "notes.txt" },

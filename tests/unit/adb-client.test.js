@@ -161,6 +161,34 @@ test("output is cut at maxBytes and a slow command is killed", async (t) => {
   assert.ok(Buffer.isBuffer(whole.stdout));
   assert.equal(whole.stdout.length, 200000);
   assert.equal(whole.code, 0);
+  // Handed on chunk by chunk instead of kept, with the same limit.
+  const taken = (options) => {
+    const chunks = [];
+    return adb
+      .exec(serial, ["shell", "cat", "big"], {
+        ...options,
+        onData: (chunk) => chunks.push(chunk),
+      })
+      .then((answer) => ({ ...answer, taken: Buffer.concat(chunks).length }));
+  };
+  assert.deepEqual(await taken({}), {
+    stdout: "",
+    stderr: "",
+    code: 0,
+    truncated: false,
+    taken: 200000,
+  });
+  const part = await taken({ maxBytes: 70000 });
+  assert.deepEqual([part.truncated, part.taken, part.stdout], [true, 70000, ""]);
+  // Whoever takes the output cannot go on: the command ends.
+  await assert.rejects(
+    adb.exec(serial, ["shell", "cat", "big"], {
+      onData: () => {
+        throw Error("disk full");
+      },
+    }),
+    { code: "DEVICE_ADB_FAILED" },
+  );
   sdk.behaviour({ shell: { stdout: "late\n", delayMs: 600000 } });
   // The pid as the client got it: a loaded machine may reach the timeout before the
   // fake has recorded its call.

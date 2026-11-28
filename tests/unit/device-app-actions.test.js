@@ -9,6 +9,15 @@ import { actionsFixture, refused } from "../helpers/device-actions-fixture.js";
 const invalid = refused("DEVICE_INPUT_INVALID", 400);
 const outside = refused("DEVICE_PATH_OUTSIDE", 403);
 const first = (f) => f.adb.map(({ args }) => args);
+// What the device's `cat` sends, as AdbClient hands it on: chunk by chunk to
+// `onData`, cut at `maxBytes`.
+function sent(options, content) {
+  const bytes = Buffer.from(content);
+  const cut = bytes.length > options.maxBytes;
+  options.onData(cut ? bytes.subarray(0, options.maxBytes) : bytes);
+  return cut ? { code: null, truncated: true } : {};
+}
+const statOf = (args) => args[0] === "shell" && args[1].startsWith("stat ");
 
 test("apps are listed by name, third-party by default, bounded", async (t) => {
   const f = actionsFixture(t, { limits: { apps: 3 } });
@@ -460,11 +469,11 @@ test("a file comes from the device into the area, bounded", async (t) => {
   const f = actionsFixture(t, { limits: { pullBytes: 30 } });
   await f.owned("Pixel");
   const device = (content) =>
-    f.answers((args) => {
-      if (args[0] === "shell") return { stdout: `regular file|${content.length}\n` };
-      fs.writeFileSync(args[2], content);
-      return { stderr: `${args[1]}: 1 file pulled, 0 skipped.\n` };
-    });
+    f.answers((args, options) =>
+      statOf(args)
+        ? { stdout: `regular file|${content.length}\n` }
+        : sent(options, content),
+    );
   device("from the device");
   const remote = "/sdcard/Download/it's here.txt";
   assert.deepEqual(
@@ -483,8 +492,14 @@ test("a file comes from the device into the area, bounded", async (t) => {
     "shell",
     "stat -L -c '%F|%s' '/sdcard/Download/it'\\''s here.txt'",
   ]);
-  assert.deepEqual(f.adb[1].args.slice(0, 2), ["pull", remote]);
-  assert.ok(f.adb[1].args[2].startsWith(f.transfers + path.sep));
+  // The bytes come as the output of the device's `cat`, cut at the limit; adb gets
+  // no path of the host.
+  assert.deepEqual(f.adb[1].args, [
+    "shell",
+    "-T",
+    "cat '/sdcard/Download/it'\\''s here.txt'",
+  ]);
+  assert.equal(f.adb[1].options.maxBytes, 30);
   assert.deepEqual(fs.readdirSync(f.transfers), []);
   // Larger than the limit by what the device says: not copied at all.
   f.answers(() => ({ stdout: "regular file|31\n" }));
@@ -493,11 +508,9 @@ test("a file comes from the device into the area, bounded", async (t) => {
     (error) => error.code === "DEVICE_FILE_TOO_LARGE" && error.limit === 30,
   );
   // Grown since its size was read: what arrived is not written to the area.
-  f.answers((args) => {
-    if (args[0] === "shell") return { stdout: "regular file|5\n" };
-    fs.writeFileSync(args[2], "x".repeat(31));
-    return {};
-  });
+  f.answers((args, options) =>
+    statOf(args) ? { stdout: "regular file|5\n" } : sent(options, "x".repeat(31)),
+  );
   await assert.rejects(
     f.run("pull", { device: "Pixel", devicePath: remote, path: "big.txt" }),
     { code: "DEVICE_FILE_TOO_LARGE" },
@@ -545,27 +558,75 @@ test("a caller whose folder may be read-only for it pulls nothing", async (t) =>
   );
 });
 
-test("a file that keeps growing while it is pulled ends the copy", async (t) => {
+test("a pull is one bounded stream, whatever the device path has become", async (t) => {
   const f = actionsFixture(t, { limits: { pullBytes: 30 } });
   await f.owned("Pixel");
-  f.answers((args, options) => {
-    if (args[0] === "shell") return { stdout: "regular file|5\n" };
-    fs.writeFileSync(args[2], "x".repeat(100));
-    // adb goes on until its call is aborted.
-    return new Promise((_, reject) =>
-      options.signal.addEventListener("abort", () =>
-        reject(
-          Object.assign(Error("DEVICE_ADB_CANCELLED"), { code: "DEVICE_ADB_CANCELLED" }),
-        ),
-      ),
+  const pull = () =>
+    f.run("pull", { device: "Pixel", devicePath: "/sdcard/log", path: "log.txt" });
+  const clean = () => {
+    assert.deepEqual(fs.readdirSync(f.transfers), []);
+    assert.equal(fs.existsSync(path.join(f.area, "log.txt")), false);
+    // adb is never told to copy to a place on the host: a device path that is a
+    // folder by then would arrive as a tree of any size.
+    assert.equal(
+      f.adb.some(({ args }) => args[0] === "pull"),
+      false,
     );
+  };
+  // A regular file when its size was read, a folder when it is copied.
+  f.answers((args, options) => {
+    if (statOf(args)) return { stdout: "regular file|5\n" };
+    if (args[0] === "pull") {
+      fs.mkdirSync(args[2]);
+      fs.writeFileSync(path.join(args[2], "big"), "x".repeat(100));
+      return new Promise((resolve) => {
+        options.signal.addEventListener("abort", () => resolve({}));
+        setTimeout(() => resolve({}), 300);
+      });
+    }
+    return { code: 1, stderr: "cat: /sdcard/log: Is a directory\n" };
   });
+  await assert.rejects(pull(), refused("DEVICE_FILE_NOT_FOUND", 404, /Is a directory/));
+  clean();
+  // A file that grew since its size was read ends at the limit.
+  f.answers((args, options) =>
+    statOf(args) ? { stdout: "regular file|5\n" } : sent(options, "x".repeat(100)),
+  );
   await assert.rejects(
-    f.run("pull", { device: "Pixel", devicePath: "/sdcard/log", path: "log.txt" }),
+    pull(),
     (error) => error.code === "DEVICE_FILE_TOO_LARGE" && error.limit === 30,
   );
+  clean();
+  // Exactly the limit passes, byte for byte.
+  const bytes = Buffer.from(Array.from({ length: 30 }, (_, index) => (index * 37) % 256));
+  f.answers((args, options) =>
+    statOf(args) ? { stdout: "regular file|30\n" } : sent(options, bytes),
+  );
+  assert.deepEqual(await pull(), { pulled: "log.txt", bytes: 30 });
+  assert.deepEqual(fs.readFileSync(path.join(f.area, "log.txt")), bytes);
+});
+
+test("a pull whose call has ended writes nothing into the area", async (t) => {
+  const f = actionsFixture(t, { callTimeoutMs: 40 });
+  await f.owned("Pixel");
+  let release;
+  f.answers((args, options) => {
+    if (statOf(args)) return { stdout: "regular file|4\n" };
+    if (args[0] === "pull") fs.writeFileSync(args[2], "late");
+    else options.onData(Buffer.from("late"));
+    // adb goes on although its call was aborted, and ends well.
+    return new Promise((resolve) => (release = () => resolve({})));
+  });
+  await assert.rejects(
+    f.run("pull", { device: "Pixel", devicePath: "/sdcard/x", path: "late.txt" }),
+    refused("DEVICE_CALL_TIMEOUT", 409),
+  );
+  release();
+  // What is left of the call ends by itself: its private folder goes away.
+  for (let wait = 0; wait < 100 && fs.readdirSync(f.transfers).length; wait++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
   assert.deepEqual(fs.readdirSync(f.transfers), []);
-  assert.equal(fs.existsSync(path.join(f.area, "log.txt")), false);
+  assert.deepEqual(fs.readdirSync(f.area), ["build"]);
 });
 
 test("what an earlier process left of a transfer is removed at the start", async (t) => {

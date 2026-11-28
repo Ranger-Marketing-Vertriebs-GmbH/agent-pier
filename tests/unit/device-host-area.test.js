@@ -301,6 +301,31 @@ test("nothing is written outside the area, through a link or over one", async (t
   assert.equal(fs.readFileSync(path.join(f.area, "build", "via-link.txt"), "utf8"), "ok");
 });
 
+test("nothing is written once the call has ended", async (t) => {
+  const f = fixture(t);
+  const cancelled = refused("DEVICE_ADB_CANCELLED");
+  fs.writeFileSync(path.join(f.area, "kept.txt"), "as it was");
+  const gone = new AbortController();
+  gone.abort();
+  await assert.rejects(f.write("kept.txt", "late", { signal: gone.signal }), cancelled);
+  await assert.rejects(f.write("new.txt", "late", { signal: gone.signal }), cancelled);
+  // Ended while the file was being copied: the part is removed, the name untouched.
+  for (const after of [1, 2, 3]) {
+    let asked = 0;
+    const signal = {
+      get aborted() {
+        return ++asked > after;
+      },
+    };
+    await assert.rejects(f.write("kept.txt", "late", { signal }), cancelled, `${after}`);
+  }
+  assert.equal(fs.readFileSync(path.join(f.area, "kept.txt"), "utf8"), "as it was");
+  assert.deepEqual(fs.readdirSync(f.area).sort(), ["build", "kept.txt"]);
+  const live = new AbortController();
+  await f.write("kept.txt", "in time", { signal: live.signal });
+  assert.equal(fs.readFileSync(path.join(f.area, "kept.txt"), "utf8"), "in time");
+});
+
 test("the size limit holds for a file that is written", async (t) => {
   const f = fixture(t);
   await assert.rejects(

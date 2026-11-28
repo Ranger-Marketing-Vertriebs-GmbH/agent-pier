@@ -211,6 +211,19 @@ export function fakeDevice(state, serial) {
         );
       return ok(lines.length ? `--------- beginning of main\n${lines.join("")}` : "");
     }
+    if (name === "cat") {
+      const remote = args.at(-1);
+      const target = local(remote);
+      const found = target && fs.existsSync(target) ? fs.statSync(target) : null;
+      if (!found?.isFile())
+        return {
+          stdout: "",
+          stderr: `cat: ${remote}: ${found ? "Is a directory" : "No such file or directory"}\n`,
+          code: 1,
+        };
+      // The bytes as they are.
+      return { stdout: fs.readFileSync(target), stderr: "", code: 0 };
+    }
     if (name === "stat") {
       const remote = args.at(-1);
       const target = local(remote);
@@ -240,11 +253,13 @@ export function fakeDevice(state, serial) {
       for (const words of commands) {
         const next = program(words);
         if (!next) return null;
-        answer = {
-          stdout: (answer?.stdout ?? "") + next.stdout,
-          stderr: (answer?.stderr ?? "") + next.stderr,
-          code: next.code,
-        };
+        answer = answer
+          ? {
+              stdout: answer.stdout + next.stdout,
+              stderr: answer.stderr + next.stderr,
+              code: next.code,
+            }
+          : next;
         if (next.code !== 0) break;
       }
       return answer;
@@ -305,22 +320,6 @@ export function fakeDevice(state, serial) {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(source, target);
       return { stdout: "", stderr: pushed, code: 0 };
-    },
-    pull(remote, target) {
-      const source = local(remote);
-      if (!source || !fs.existsSync(source))
-        return {
-          stdout: "",
-          stderr: `adb: error: failed to stat remote object '${remote}': No such file or directory\n`,
-          code: 1,
-        };
-      fs.copyFileSync(source, target);
-      const size = fs.statSync(source).size;
-      return {
-        stdout: "",
-        stderr: `${remote}: 1 file pulled, 0 skipped. 1.7 MB/s (${size} bytes in 0.001s)\n`,
-        code: 0,
-      };
     },
   };
 }
