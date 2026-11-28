@@ -350,6 +350,10 @@ A lead can pass a device on to a member with a task: `agentpier_team_delegate` t
   and in a task of its lead beside what the lead passed on. A task the lead started
   while it worked on someone else's content gets no device at all, not even the
   member's own.
+- What a lead sets up on a member reaches a device only while the lead could be
+  given devices itself: a task and a routine the lead set up on a permanent member
+  alike. While the lead has its own Telegram bot for other people, is archived or is
+  gone, such a run gets no device (`DEVICE_RUN_FORBIDDEN`), not even the member's own.
 - The device list names the member beside the device while the pass counts, and the
   audit log records the pass (`lead-share` with the number of devices).
 - A temporary member's first assignment (from `agentpier_team_propose`) and a

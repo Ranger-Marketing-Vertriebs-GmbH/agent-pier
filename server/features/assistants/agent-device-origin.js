@@ -2,6 +2,7 @@ import { refusal } from "../devices/device-registry.js";
 import { isUserAgent } from "../users/user-access.js";
 import { directOwnerTurn } from "./goal-turns.js";
 import { requestKind, requestTerminal, taskWritable } from "./lead-request-store.js";
+import { isLeadRoutine } from "./lead-routines.js";
 import { foreignOrigin, ownerChat } from "./owner-runs.js";
 
 /*
@@ -28,6 +29,10 @@ import { foreignOrigin, ownerChat } from "./owner-runs.js";
  *   task counts only while the run that started it could have used devices itself:
  *   a lead that worked on someone else's content hands no device on, and a member
  *   with devices of its own does not use them for such a task either.
+ * - What a lead sets up on its member reaches a device only while the lead could be
+ *   given devices itself (`workingLead`): its task, and its routine on the member
+ *   (lead-routines.js) alike. A lead with a bot for other people, an archived one
+ *   or one that is gone starts no run with a device.
  *
  * The facts come from AgentPier's own records, never from the model: the bridge's
  * ticket says whether the call belongs to a turn, a routine's or a hook's run or a
@@ -90,14 +95,20 @@ function memberTask(w, agent, origin) {
     !deviceOrigin(request.origin)
   )
     throw forbidden();
+  return { request, lead: workingLead(w, request.parentAssistantId) };
+}
+
+// The lead `id` behind a member's run (a task, a routine it set up on the member)
+// while it could be given devices itself. Throws DEVICE_RUN_FORBIDDEN otherwise.
+function workingLead(w, id) {
   let lead = null;
   try {
-    lead = w.a.store.getAssistant(request.parentAssistantId);
+    lead = w.a.store.getAssistant(id);
   } catch {
     throw forbidden();
   }
   if (lead.teamMemberId || !deviceAgent(w.s, lead)) throw forbidden();
-  return { request, lead };
+  return lead;
 }
 
 /**
@@ -139,13 +150,17 @@ function locate(w, inv, store) {
       manage: false,
       writable: false,
     };
-  if (inv.routine)
+  if (inv.routine) {
+    const { binding, conversation } = inv.routine;
+    // A lead's routine on its member is the lead's doing, as its task is.
+    if (isLeadRoutine(binding)) workingLead(w, binding.leadId);
     return {
-      ...chat(inv.routine.conversation),
+      ...chat(conversation),
       kind: "routine",
       manage: false,
-      writable: routineWritable(w, inv.routine.binding),
+      writable: routineWritable(w, binding),
     };
+  }
   if (!inv.attemptId) {
     if (!inv.ownerRun) throw forbidden();
     return {
