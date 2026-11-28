@@ -1,4 +1,7 @@
-import { assertSource } from "../../server/features/devices/device-source.js";
+import {
+  assertSource,
+  deviceError,
+} from "../../server/features/devices/device-source.js";
 
 /** A promise with its `resolve` and `reject`. */
 export function deferred() {
@@ -16,7 +19,9 @@ export function deferred() {
  *
  * - `log`: every call, `[name, id, ...]`, in order
  * - `gates.start`, `gates.stop`, `gates.exec`: `(record) => promise` that the call
- *   awaits before it completes (a rejection fails the call)
+ *   awaits before it completes (a rejection fails the call; a device whose stop
+ *   failed stays `stopping`, as one whose process survived). A start also ends,
+ *   with DEVICE_START_CANCELLED, when its `signal` aborts while it waits
  * - `peak`: the most starts, adb calls and live devices (starting, running or
  *   stopping) seen at one moment
  * - `image`: what `reset` answers; `unavailable`: what `availability()` answers
@@ -53,15 +58,24 @@ export function memoryDeviceSource({ image = "android-36-google_apis-r7" } = {})
       log.push(["create", record.id, record.image]);
       set(record.id, "stopped");
     },
-    start(record) {
+    start(record, { signal } = {}) {
       log.push(["start", record.id]);
       return during("start", async () => {
         set(record.id, "starting");
+        let abort;
+        const aborted = new Promise((_, reject) => {
+          abort = () => reject(deviceError("DEVICE_START_CANCELLED"));
+          if (signal?.aborted) abort();
+          else signal?.addEventListener("abort", abort, { once: true });
+        });
+        aborted.catch(() => {});
         try {
-          await source.gates.start?.(record);
+          await Promise.race([source.gates.start?.(record), aborted]);
         } catch (error) {
           set(record.id, "stopped");
           throw error;
+        } finally {
+          signal?.removeEventListener("abort", abort);
         }
         set(record.id, "running");
         return {

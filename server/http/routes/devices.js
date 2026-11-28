@@ -14,7 +14,14 @@ import { Router } from "express";
  * a start answers once the device holds a running slot (state `starting`) or was
  * refused, so a refusal that leaves no trace in the device's state (the limit, an
  * unavailable host) is never lost; what goes wrong later is the device's `failure`.
- * `reset` and `DELETE` answer when they are done.
+ * `reset` and `DELETE` answer when they are done. A stop, a reset and a delete end
+ * a boot in progress instead of waiting for it.
+ *
+ * While the installation is removed with every device, each of these routes and
+ * `POST /devices` answers DEVICE_UNAVAILABLE with `reason`
+ * DEVICES_OPERATION_RUNNING; the removal itself is refused with DEVICES_IN_USE while
+ * a device starts, runs or stops and with DEVICE_BUSY while one is reset or deleted
+ * or has calls waiting.
  */
 const owner = Object.freeze({ kind: "owner" });
 const stable = /^DEVICES?_[A-Z0-9_]+$/;
@@ -86,7 +93,8 @@ export function devicesRoutes(services) {
     res.status(202).json(sdk().cancel()),
   );
   // Removing the installation deletes every device first; nothing goes while a
-  // device runs or another job works on the SDK.
+  // device runs, is reset or deleted or has calls waiting, or while another job
+  // works on the SDK.
   router.post(
     "/devices/installation/remove",
     answering(async (_req, res) => {

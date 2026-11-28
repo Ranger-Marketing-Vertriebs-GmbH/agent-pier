@@ -43,8 +43,9 @@ involved, and nothing is installed outside the data directory.
   installed version stays in use and the page shows the failure beside it. A new system
   image is used for new devices; an existing device keeps its image until it is reset.
 - **Uninstall …** deletes the components **and every device**, after a confirmation
-  that names how many devices that is. It is refused while a device starts, runs or
-  stops.
+  that names how many devices that is. It is refused while a device starts, runs,
+  stops, or is being reset or deleted; while it runs, nothing can be started or
+  created.
 
 ### Terms
 
@@ -62,12 +63,12 @@ prints the same terms. AgentPier redistributes none of these files
 has the same shape: a phone with Android 16, 720 × 1600 pixels at 320 dpi, 4 cores and
 2 GB of guest memory.
 
-| Action       | What happens                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Start**    | Boots the device: about 30 to 55 s the first time, about 3 s afterwards from its saved state. The row shows **Starting**, then **Running**. |
-| **Stop**     | Shuts the device down and saves its state for the next start.                                                                               |
-| **Reset …**  | Back to the factory state: apps, logins and files on the device are deleted; its name and who may use it stay. Asks first.                  |
-| **Delete …** | Deletes the device and everything on it. Asks first.                                                                                        |
+| Action       | What happens                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Start**    | Boots the device: about 30 to 55 s the first time, about 3 s afterwards from its saved state. The row shows **Starting**, then **Running**.                                    |
+| **Stop**     | Shuts the device down and saves its state for the next start. A device that is still starting is stopped at once; **Reset …** and **Delete …** do not wait for a start either. |
+| **Reset …**  | Back to the factory state: apps, logins and files on the device are deleted; its name and who may use it stay. Asks first.                                                     |
+| **Delete …** | Deletes the device and everything on it. Asks first.                                                                                                                           |
 
 A row also shows who created the device (you, an agent or a session; "creator no longer
 exists" when that agent or session is gone), who it is assigned to, and its size on
@@ -169,7 +170,7 @@ log and the installer's result.
 | `DEVICE_PORTS_BUSY`                                    | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                         |
 | `DEVICE_IMAGE_MISSING`                                 | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset. |
 | `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`              | AgentPier could not reach the device through adb. Stop the device and start it again.                                                                                                                                             |
-| `DEVICE_STOP_FAILED`                                   | The device did not stop. Try again; restarting AgentPier ends what is left of it.                                                                                                                                                 |
+| `DEVICE_STOP_FAILED`                                   | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                            |
 
 Also worth knowing:
 
