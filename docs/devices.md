@@ -131,6 +131,13 @@ Everything lives below `<data dir>/devices`, readable by the AgentPier account o
 `settings.json` and `devices.json`. **System status › Storage** lists it as **Android
 devices**.
 
+If `devices.json` cannot be read at a start (cut off by a crash, edited by hand),
+AgentPier keeps it as `devices.json.damaged-<time>`, says so in the server log, and
+lists every device whose folder exists under `avd` again as **Recovered device 1**,
+**2** and so on, created by you. Their contents are untouched; names, creators and
+assignments are lost, so rename the devices or delete the ones you do not need. The
+kept file is yours to inspect and delete.
+
 Two things the emulator writes elsewhere and AgentPier cannot redirect: its crash
 database under `/tmp/android-<account>/`, and on Linux `netsimd` logs in the same folder.
 

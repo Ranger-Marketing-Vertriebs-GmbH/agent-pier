@@ -308,6 +308,11 @@ test("an old image stays while a device names it and leaves afterwards", async (
   assert.deepEqual((await install({ manifest: later })).images, [next]);
   assert.deepEqual(sdk.fetchImpl.requests, []);
   assert.deepEqual(fs.readdirSync(paths.images), [next]);
+  // A recovered device that does not say which image it uses keeps them all.
+  const images = fs.readdirSync(paths.images);
+  pruneImages(paths, ["unknown"]);
+  assert.deepEqual(fs.readdirSync(paths.images), images);
+  assert.ok(images.length > 0);
   // pruneImages by itself keeps exactly what it is told to.
   pruneImages(paths, []);
   assert.deepEqual(fs.readdirSync(paths.images), []);

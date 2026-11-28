@@ -18,6 +18,9 @@ const imageId = /^android-(\d+)-([a-z0-9_]+)-r\d+$/;
 const architectures = { "arm64-v8a": "arm64", x86_64: "x86_64" };
 const tagNames = { google_apis: "Google APIs" };
 
+/** The image of a recovered device whose files name none (device-store.js). */
+export const unknownImage = "unknown";
+
 /** Whether `id` is a device id (`d-` and twelve hex digits): the only AVD names used. */
 export const isDeviceId = (id) => typeof id === "string" && deviceId.test(id);
 
@@ -98,6 +101,33 @@ export function removeAvd(paths, id) {
 export function hasAvd(paths, id) {
   const { ini: iniFile, folder } = files(paths, id);
   return fs.existsSync(iniFile) && fs.existsSync(path.join(folder, "config.ini"));
+}
+
+/** The ids of the device folders that exist (`<id>.avd`), in order. */
+export function listAvds(paths) {
+  try {
+    return fs
+      .readdirSync(paths.avd)
+      .filter((name) => name.endsWith(".avd") && isDeviceId(name.slice(0, -4)))
+      .map((name) => name.slice(0, -4))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** The system image the files of device `id` name, or null when they name none. */
+export function avdImage(paths, id) {
+  try {
+    const config = fs.readFileSync(
+      path.join(files(paths, id).folder, "config.ini"),
+      "utf8",
+    );
+    const [, image] = /^image\.sysdir\.1=system-images\/([^/\s]+)\//m.exec(config) || [];
+    return imageId.test(image || "") ? image : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Whether device `id` has a saved quick-boot snapshot. */
