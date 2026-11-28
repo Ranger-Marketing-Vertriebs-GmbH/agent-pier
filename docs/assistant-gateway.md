@@ -6019,6 +6019,14 @@ runtime counts a tool call as stuck), and the plugins wait 125 seconds
 (`toolTimeouts.device`). See
 [Android devices](devices.md#devices-for-agents).
 
+A release that ships this needs **Upgrade notes**: on a host where Android devices
+are installed and can run, every compiled `openclaw.json` gains `agentpier_device`
+in the tool allow list of each of the owner's agents, in the Gateway's global list
+and in the routine and hook caps, with the next apply after the update; an agent
+without an assigned device has the tool and an empty list. Nothing changes on a host
+without the Android components, and no agent has a device until the owner assigns
+one under **Agents › <agent> › Access › Android devices**.
+
 ## SSH access proposals (2026-10-26, AGENTPIER-249)
 
 `agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and

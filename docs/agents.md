@@ -1256,10 +1256,18 @@ full page with search. When nothing exists yet, the group links to Connections t
 it up. An agent of users gets project folders only; the other groups show a lock.
 
 - **Android devices:** an agent can be given emulated Android phones to test apps
-  and websites on, with the tool `agentpier_device`: which devices, whether it may
-  reset and delete each, and whether it may create devices. Only your own agents,
-  and which of an agent's runs may use a device is decided per run
-  ([Android devices](devices.md#devices-for-agents)).
+  and websites on, with the tool `agentpier_device`. The group **Android devices**
+  closes the Access tab while the Android components are installed and the host can
+  run devices: **Allowed for this agent** with the **Add Android device** field,
+  and **Permissions** with **Reset and delete "<device>"** per device and **Create
+  devices**, all saved with the tab's **Save agent**. The agent uses its devices in
+  every run, also in routines and hooks; it creates, resets and deletes devices only
+  in a turn you started with a message of your own; a run on other people's content
+  gets no device. Only your own agents: an agent of users, an archived agent and an
+  agent with its own Telegram bot for other people read why they get none. A team
+  member has the same group (a temporary member as the only thing you set on its
+  Access tab, with **Save devices**), and **Passed on for a task** lists what its
+  lead passes on right now ([Android devices](devices.md#devices-for-agents)).
 - **Secrets:** pick the secrets this agent receives (up to
   50). They are delivered as `.agentpier/secrets.env` in its workspace, and its
   AgentPier instructions name that file and how to load it, so it can read their

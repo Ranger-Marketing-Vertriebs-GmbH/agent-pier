@@ -114,8 +114,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   und unter **Einstellungen › Allgemein › Android-Geräte** angelegt, gestartet,
   zurückgesetzt und gelöscht, innerhalb der Limits, die du setzt. Coding-Sessions,
   denen du ein Gerät zuweist (in **Neue Session** oder in der Session unter
-  **Android-Geräte**), sehen es an, bedienen es, installieren und starten Apps,
-  öffnen URLs und lesen Logs über ihre AgentPier-Werkzeuge
+  **Android-Geräte**), und Agenten, denen du eines zuweist (in den Einstellungen des
+  Agenten unter **Zugriffe › Android-Geräte**), sehen es an, bedienen es, installieren
+  und starten Apps, öffnen URLs und lesen Logs über ihre AgentPier-Werkzeuge; ein
+  leitender Agent kann ein Gerät für eine Aufgabe an ein Teammitglied weitergeben
   ([Android-Geräte](docs/devices.md), auf Englisch).
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und
   Coding-Sessions als Datei zuweist, nie als Umgebungsvariable

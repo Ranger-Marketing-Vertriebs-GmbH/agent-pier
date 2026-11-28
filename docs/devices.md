@@ -71,11 +71,15 @@ has the same shape: a phone with Android 16, 720 × 1600 pixels at 320 dpi, 4 co
 | **Delete …** | Deletes the device and everything on it. Asks first.                                                                                                                           |
 
 A row also shows who created the device (you, an agent or a session; "creator no longer
-exists" when that agent or session is gone; the device stays), who it is assigned to, and its size on
-disk (measured while the device is stopped, so a running device shows none). Sessions
-are named as they are called now, with "(may reset and delete)" where you allowed it;
-a device more than three sessions share names three and counts the rest ("and 2
-more"). The session's own **Android devices** dialog shows the full choice. A device that failed shows the reason in words; see
+exists" when that agent or session is gone, also a deleted agent; the device stays),
+who it is assigned to, and its size on disk (measured while the device is stopped, so
+a running device shows none). Agents and sessions are named as they are called now
+("Assigned to agent Home (may reset and delete), session Checkout"), with "(may reset
+and delete)" where you allowed it. A team member that uses the device because its
+lead passed it on reads "agent Scout (passed on by Home for a task)"; that entry
+leaves the row when the task has ended. A device with more than three assignments
+names three and counts the rest ("and 2 more"). The full choice is in each agent's
+**Access** tab and in each session's **Android devices** dialog. A device that failed shows the reason in words; see
 [Troubleshooting](#troubleshooting).
 
 Resources, measured with the pinned emulator:
@@ -263,15 +267,32 @@ default. The tool does what a coding session's tools do (the table under
 agent's call ends after 110 seconds as a whole (a session's after 140), also while a
 device is still booting, which then goes on. A screenshot reaches the agent's model as an image.
 
-<!-- Agent settings UI: name the controls here once the web part is built. -->
+You assign devices in the agent's settings, **Agents › <agent> › Access › Android
+devices**, at the end of the tab's groups (in the search, ⌘K / Ctrl+K, as "<agent> ·
+Android devices"). The group shows while the Android components are installed and
+this host can run devices:
 
-You assign devices in the agent's settings, with the same two permissions as for a
-session, both off unless you turn them on:
+- **Allowed for this agent · n** lists the devices the agent may use, each with a
+  remove button, and ends in the **Add Android device** field. A device the agent
+  created is listed with "created by this agent" and cannot be taken away.
+- **Permissions** holds one switch **Reset and delete "<device>"** per added device
+  and the switch **Create devices**, all off unless you turn them on. A device an
+  agent created is its own: it may use, reset and delete it without a further
+  permission, and you see it in the device list with its creator.
+- **Passed on for a task** appears for a team member while its lead passes a device
+  on with a task that is open now. It is for your information: you change nothing
+  there, and the entry leaves when the task has ended.
+- The text below says in short which runs use a device (see [Which runs](#which-runs)),
+  and **Manage Android devices** opens **Settings › General › Android devices**.
 
-- **Reset and delete**, per device.
-- **Create devices**, per agent. A device an agent created is its own: it may use,
-  reset and delete it without a further permission, and you see it in the device list
-  with its creator.
+The choice is part of the Access tab's draft: **Save agent** in the bar at the bottom
+stores it together with the tab's other changes, and it applies at once, without a
+restart of the agent. A change made elsewhere shows in the open tab; if you were
+editing the devices meanwhile, your choice stays and the bar offers **Reload** or
+**Overwrite anyway**. An agent that cannot be given devices (see
+[Which agents](#which-agents)) reads why in place of the choice. A temporary team
+member has the same group as the one thing you set on its Access tab, with its own
+**Save devices**.
 
 The tool is offered to your agents while the components are installed and the host
 can run devices; an agent without a device has the tool and an empty list. An
