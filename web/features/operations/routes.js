@@ -16,6 +16,8 @@ export const sections = new Set([
   "github",
   // Restricted users and their agents (Settings › Users).
   "users",
+  // Android devices for agents and sessions (Settings › General › Android devices).
+  "devices",
   // The component gallery, below the Development group of the operations tab.
   "components",
 ]);
@@ -49,6 +51,7 @@ export const settingsSectionGroups = {
     "ssh",
     "secrets",
     "github",
+    "devices",
   ],
   app: ["notifications"],
   users: ["users"],

@@ -97,6 +97,10 @@ and agents that work as a team.
   in your browser through AgentPier, with its own port from a configurable range, reachable
   locally, over Tailscale and in network mode, for the signed-in owner only
   ([previews](docs/previews.md)).
+- **Android devices:** emulated Android phones on the host (Google's Android Emulator,
+  macOS on Apple silicon and Linux x64 with KVM), installed with one click and created,
+  started, reset and deleted under **Settings › General › Android devices**, within
+  limits you set ([Android devices](docs/devices.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
 - **Email for agents:** IMAP/SMTP mailboxes (Gmail with an app password, or any other)

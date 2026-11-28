@@ -174,6 +174,7 @@ entries or two minutes; a partial result says so. Sizes are allocated disk block
 | Agent attachments           | `assistants/workspaces/<agent>/attachments`                       |
 | Agent shares                | `assistants/shares`                                               |
 | Agent workspaces            | the rest of `assistants/workspaces`                               |
+| Android devices             | `devices` (the emulator components and every device)              |
 | Logs                        | `server.log`, `server-error.log`, `assistants/logs`               |
 | Other                       | everything else                                                   |
 

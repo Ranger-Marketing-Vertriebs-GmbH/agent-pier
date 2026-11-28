@@ -15,7 +15,7 @@ import { readDeviceSettings, writeDeviceSettings } from "./device-settings.js";
  * release-install.mjs), in the style of tools/craft-provisioning.js: it leaves a
  * request in `<data>/devices/settings.json` and downloads nothing. The server
  * installs the pinned components at its next start (AndroidSdk#resume), resumably
- * and with its progress in Settings › Android devices.
+ * and with its progress in Settings › General › Android devices.
  *
  * The option counts as accepting Google's terms, so the step prints them with what
  * will be downloaded. It never throws and never fails an installation.
@@ -119,7 +119,7 @@ export async function provisionAndroidDevices({
       [
         "Android devices: AgentPier downloads these components from " +
           `${manifest.hosts.join(", ")} at its next start ` +
-          `(${gigabytes(downloadBytes(manifest, key))}; Settings › Android devices shows the progress):`,
+          `(${gigabytes(downloadBytes(manifest, key))}; Settings › General › Android devices shows the progress):`,
         `  Android Emulator ${versions.emulator}, platform tools ${versions.platformTools}, ` +
           `system image ${versions.image}`,
         "Google provides them under these terms:",
@@ -127,7 +127,7 @@ export async function provisionAndroidDevices({
           (licence) => `  ${licence.name}: ${licence.url}`,
         ),
         "By passing --with-android-devices you accept these terms. AgentPier redistributes " +
-          "none of these files; remove them again in Settings › Android devices.",
+          "none of these files; remove them again in Settings › General › Android devices.",
       ].join("\n"),
     );
     if (settings.requested && settings.terms && !settings.failure)

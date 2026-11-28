@@ -620,3 +620,24 @@ test("a project's other tabs are found by project name (AGENTPIER-418)", () => {
   assert.equal(pathOf(hit), "/projects/p1?tab=knowledge");
   assert.equal(hit.path.de, "Projekte › billing-api");
 });
+
+test("Android devices and New device are the owner's; a user's search holds neither", () => {
+  const owners = buildSearchIndex({ agentsEnabled: false });
+  const page = flat(searchEntries(owners, "android")).find(
+    (item) => item.group === "pages",
+  );
+  assert.equal(page.id, "page:settings-devices");
+  assert.equal(routePath(page.target.route), "/settings/devices");
+  const action = flat(searchEntries(owners, "new device")).find(
+    (item) => item.group === "actions",
+  );
+  assert.equal(action.id, "action:new-device");
+  // Choosing it requests the page's dialog, which the page takes once it is ready.
+  requestPageAction(action.target.pending, 1000);
+  assert.equal(takePageAction("device-create", 1500), true);
+  assert.equal(takePageAction("device-create", 1500), false);
+  // Devices are the owner's: users get 404 on the routes and no entry here.
+  const users = buildUserSearchIndex({ agents: [{ id: "mine", name: "Mine" }] });
+  for (const query of ["android", "new device", "Handy", "emulator"])
+    assert.equal(flat(searchEntries(users, query)).length, 0, query);
+});

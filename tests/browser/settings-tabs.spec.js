@@ -147,23 +147,26 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       );
       await expect(runtime).toHaveAttribute("href", /^\/agents\?tab=runtime/);
-      // Funktionen holds the one "Agenten · An/Aus" row; it leads to Laufzeit too.
+      // Funktionen holds the "Agenten · An/Aus" row, which leads to Laufzeit too, and
+      // Android devices with the state of their installation.
       const features = page.getByRole("group", {
         name: t("Funktionen", "Features"),
         exact: true,
       });
-      await expect(features.getByRole("link")).toHaveCount(1);
-      await expect(features.getByRole("link")).toHaveAttribute(
-        "href",
-        "/agents?tab=runtime",
-      );
-      await expect(features.getByRole("link")).toContainText(
+      await expect(features.getByRole("link")).toHaveCount(2);
+      const agentsRow = features.getByRole("link").first();
+      await expect(agentsRow).toHaveAttribute("href", "/agents?tab=runtime");
+      await expect(agentsRow).toContainText(
         t(
           "Ein- und ausschalten unter Agenten › Laufzeit",
           "Turn on and off under Agents › Runtime",
         ),
       );
-      await expect(features.getByRole("link")).toContainText(t("Aus", "Off"));
+      await expect(agentsRow).toContainText(t("Aus", "Off"));
+      const devicesRow = features.getByRole("link").last();
+      await expect(devicesRow).toHaveAttribute("href", "/settings/devices");
+      await expect(devicesRow).toContainText(t("Android-Geräte", "Android devices"));
+      await expect(devicesRow).toContainText(t("Nicht installiert", "Not installed"));
       await runtime.click();
       await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=%2Fsettings$/);
       await expect(

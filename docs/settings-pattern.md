@@ -164,7 +164,9 @@ moves focus to a tab only once it is selected.
 Settings keeps five tabs: **General**, **App and notifications**, **Users**, **Remote
 access** and **Operations** ([General tab](screenshots/settings-general-desktop.png),
 [on a phone](screenshots/settings-general-phone.png)).
-General shows a **Features** row (agents on or off, linking to Agents › Runtime) and,
+General shows a **Features** group (agents on or off, linking to Agents › Runtime, and
+**Android devices** with the state of their installation, opening `/settings/devices`,
+see [Android devices](devices.md)) and,
 for two releases, a **Moved** group with links to the pages that left Settings.
 Operations adds a **Storage** row that opens the system status clean-up.
 

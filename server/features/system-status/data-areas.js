@@ -11,6 +11,7 @@ export const AREAS = [
   "agentAttachments",
   "agentShares",
   "agentWorkspaces",
+  "devices",
   "secrets",
   "logs",
   "other",
@@ -22,6 +23,8 @@ const top = {
   "mcp-packages": "tools",
   "chat-attachments": "chatAttachments",
   secrets: "secrets",
+  // Android devices: the SDK components and every device (features/devices).
+  devices: "devices",
   "server.log": "logs",
   "server-error.log": "logs",
 };

@@ -6,6 +6,7 @@ import { SubpageFrame, TabFrame } from "./SettingsFrame.jsx";
 // service sections moved to Agenten › Laufzeit (movedRoute in web/app/route-redirects.js).
 const UpdatesPage = lazy(() => import("../operations/UpdatesPage.jsx"));
 const ComponentGallery = lazy(() => import("../gallery/ComponentGallery.jsx"));
+const DevicesPage = lazy(() => import("../devices/DevicesPage.jsx"));
 const pages = {
   mcp: lazy(() => import("../mcp/McpSettings.jsx")),
   remote: lazy(() => import("../remote/RemoteSettings.jsx")),
@@ -48,6 +49,12 @@ export default function SettingsSubpage({ section, route, state, frame }) {
     return (
       <Suspense fallback={fallback}>
         <UpdatesPage route={route} navigate={frame.navigate} frame={frame} />
+      </Suspense>
+    );
+  if (section === "devices")
+    return (
+      <Suspense fallback={fallback}>
+        <DevicesPage frame={frame} />
       </Suspense>
     );
   if (section === "components")

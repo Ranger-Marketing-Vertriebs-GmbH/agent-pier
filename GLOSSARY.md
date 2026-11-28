@@ -213,3 +213,21 @@ _Avoid_: Profile (unqualified), plugin set.
 
 **Sandbox profile**:
 See above. Belongs to nono, not to AgentPier.
+
+### Android devices
+
+**Android device** (short: device):
+An emulated Android phone on the AgentPier host, with a name, a creator and its own
+state on disk. It is created, started, stopped, reset and deleted; agents and sessions
+use it through adb.
+_Avoid_: Emulator (that is the program a device runs in), AVD, phone, virtual device.
+
+**Device source**:
+The only code that knows how a device comes to exist and run. The emulator source is
+the first; a real phone would be another.
+_Avoid_: Backend, driver, provider.
+
+**Android components**:
+The pinned Android Emulator, platform tools and system image that AgentPier downloads
+from Google into its data directory; what "installed" means for Android devices.
+_Avoid_: SDK (in the interface), Android Studio.
