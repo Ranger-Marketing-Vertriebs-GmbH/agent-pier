@@ -291,6 +291,39 @@ test("the overview numbers the elements, and a tap takes a number", async (t) =>
     f.run("tap", { device: "Pixel", element: 31 }),
     refused("DEVICE_ELEMENT_STALE", 409),
   );
+  // What a screen says of an element's place is checked like a point a caller
+  // names: nothing off the screen is listed, and no such number is tapped.
+  f.answers((args) =>
+    args[1] === "uiautomator"
+      ? {
+          stdout:
+            '<hierarchy><node text="a" bounds="[-500,-500][-100,-100]" />' +
+            `<node text="b" bounds="[0,0][${"9".repeat(400)},${"9".repeat(400)}]" />` +
+            '<node text="c" bounds="[0,0][10,10]" /></hierarchy>',
+        }
+      : undefined,
+  );
+  const odd = await f.run("ui", { device: "Pixel" });
+  assert.deepEqual(odd.elements, ['1 View "c" [0,0][10,10]']);
+  const before = f.adb.length;
+  await assert.rejects(
+    f.run("tap", { device: "Pixel", element: 2 }),
+    refused("DEVICE_ELEMENT_STALE", 409),
+  );
+  for (const target of [
+    { n: 1, x: -300, y: -300 },
+    { n: 1, x: Infinity, y: 5 },
+    { n: 1, x: 5, y: 10001 },
+    { n: 1, x: 1.5, y: 5 },
+  ]) {
+    f.actions.remember(f.caller, pixel.id, [target]);
+    await assert.rejects(
+      f.run("tap", { device: "Pixel", element: 1 }),
+      refused("DEVICE_ELEMENT_STALE", 409),
+      JSON.stringify(target),
+    );
+  }
+  assert.equal(f.adb.length, before);
 });
 
 test("a number is refused without an overview and after a restart or reset", async (t) => {

@@ -153,6 +153,36 @@ test("text is one bounded line, whatever the screen says", () => {
   assert.equal(shown.elements[3], '4 TextView "say \\"hi\\" \'now\'" [0,0][4,4]');
 });
 
+test("every field is bounded and every element lies where a tap can go", () => {
+  const huge = "9".repeat(400);
+  const shown = overview(
+    `<hierarchy rotation="0"><node class="android.widget.FrameLayout" package="${"p".repeat(100000)}" bounds="[0,0][720,1600]">` +
+      [
+        node({ text: "Left of the screen", bounds: "[-500,-500][-100,-100]" }),
+        node({ text: "Half outside", bounds: "[-100,0][100,50]" }),
+        node({ text: "Beyond any screen", bounds: `[0,0][${huge},${huge}]` }),
+        node({ text: "Too far", bounds: "[0,0][10001,10]" }),
+        node({ text: "At the edge", bounds: "[9990,9990][10000,10000]" }),
+        node({ text: "Class", class: `android.${"C".repeat(100000)}` }),
+        node({ text: "Id", "resource-id": `com.example:id/${"i".repeat(100000)}` }),
+        node({ hint: "h".repeat(100000), class: "android.widget.EditText" }),
+      ].join("") +
+      "</node></hierarchy>",
+  );
+  assert.deepEqual(shown.elements, [
+    '1 View "At the edge" [9990,9990][10000,10000]',
+    `2 ${"C".repeat(60)}… "Class" [0,0][10,10]`,
+    `3 View#${"i".repeat(60)}… "Id" [0,0][10,10]`,
+    `4 EditText hint="${"h".repeat(120)}…" [0,0][10,10] editable`,
+  ]);
+  assert.equal(shown.total, 4);
+  assert.deepEqual(shown.targets[0], { n: 1, x: 9995, y: 9995 });
+  for (const { x, y } of shown.targets)
+    assert.ok([x, y].every((value) => Number.isInteger(value) && value >= 0));
+  assert.equal(shown.package, `${"p".repeat(200)}…`);
+  assert.ok(JSON.stringify(shown).length < 2000, String(JSON.stringify(shown).length));
+});
+
 test("the list is cut at its entry and byte limits and says so", () => {
   const many = dump(
     ...Array.from({ length: 400 }, (_, index) => node({ text: `Item ${index}` })),

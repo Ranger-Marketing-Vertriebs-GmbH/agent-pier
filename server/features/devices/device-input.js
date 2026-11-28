@@ -70,7 +70,9 @@ export function typeCommand(value) {
     .join(" && ");
 }
 
-const coordinate = (value) => Number.isInteger(value) && value >= 0 && value <= 10000;
+/** Whether `value` is a coordinate a tap or swipe may name: a whole number from 0 to 10000. */
+export const coordinate = (value) =>
+  Number.isInteger(value) && value >= 0 && value <= 10000;
 /** `{ x, y }` as checked screen coordinates. */
 export function point(x, y) {
   if (!coordinate(x) || !coordinate(y)) throw invalid("coordinates");
