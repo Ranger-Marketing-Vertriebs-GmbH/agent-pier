@@ -36,6 +36,15 @@ import { reclaimLeftovers } from "./emulator-leftovers.js";
  *                     the last snapshot and lose everything written since.
  *   logs/<id>.log     the emulator output of the last start
  *
+ * What the pinned emulator (37.3.10) was seen to do, and the code relies on:
+ * - `-ports <console>,<console + 1>` outside 5555 to 5585 works; the emulator logs
+ *   one warning about the range and registers with the adb server of
+ *   ANDROID_ADB_SERVER_PORT by itself as `emulator-<console>`. `adb connect` is never
+ *   used: it would add a second transport to the same device.
+ * - It never rewrites `config.ini` and creates its files with the process umask.
+ * - After SIGKILL its helpers (netsimd, crashpad_handler) end by themselves; the
+ *   lock files it leaves in the AVD folder do not block the next start.
+ *
  * The source signals only processes it started or reclaimed by their run record
  * (emulator-leftovers.js); it never decides by `adb devices` what to stop, so an
  * emulator the user runs themselves is never touched.

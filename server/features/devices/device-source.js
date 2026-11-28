@@ -31,7 +31,8 @@
  * DEVICE_UNAVAILABLE (with `reason`: a host code, DEVICES_NOT_INSTALLED,
  * DEVICES_OPERATION_RUNNING while the SDK is installed, updated or removed, or
  * DEVICES_SHUTTING_DOWN), DEVICE_IMAGE_MISSING (with `image`: the system image a
- * device needs is not installed), DEVICE_PORTS_BUSY, DEVICE_ADB_FAILED,
+ * device needs is not installed), DEVICE_PORTS_BUSY, DEVICE_ADB_FAILED (with
+ * `reason` DEVICE_ADB_PORT_IN_USE when the adb port is another program's),
  * DEVICE_ADB_TIMEOUT, DEVICE_ADB_CANCELLED, DEVICE_BOOT_TIMEOUT, DEVICE_EXITED (with
  * `exitCode`), DEVICE_START_CANCELLED, DEVICE_STOP_FAILED, DEVICE_BUSY (a start
  * while the device stops), DEVICE_NOT_RUNNING and DEVICE_DISK_SPACE.
