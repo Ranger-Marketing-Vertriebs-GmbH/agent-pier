@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { growth, linearAtMost } from "../helpers/cpu-time.js";
 import {
   shellSegments,
   programKey,
@@ -167,19 +168,24 @@ test("the default list names AgentBus as its Claude plugin registers it", async 
 });
 
 test("sed scripts from the CLI are checked in linear time", () => {
+  // Growth, not a time budget (tests/helpers/cpu-time.js): 16 times the script takes
+  // about 16 times as long, and about 256 times with a pattern that backtracks.
+  const check = (script) => printScript(script) || substitution(script);
   for (const [script, expected] of [
-    ["0".repeat(50000), true],
-    ["$," + "00$,".repeat(20000), false],
-    ["$,+" + "00$,+".repeat(20000), false],
-    ["1p;".repeat(20000), true],
-    ["/" + "\\/".repeat(20000), false],
-    ["s/" + "a".repeat(50000) + "/b/g", true],
-    ["s/" + "\\".repeat(50001), false],
+    [(n) => "0".repeat(n), true],
+    [(n) => "$," + "00$,".repeat(n / 4), false],
+    [(n) => "$,+" + "00$,+".repeat(n / 5), false],
+    [(n) => "1p;".repeat(n / 3), true],
+    [(n) => "/" + "\\/".repeat(n / 2), false],
+    [(n) => "s/" + "a".repeat(n) + "/b/g", true],
+    [(n) => "s/" + "\\".repeat(n + 1), false],
   ]) {
-    const started = performance.now();
-    const result = printScript(script) || substitution(script);
-    assert.ok(performance.now() - started < 50, `slow for ${script.slice(0, 12)}…`);
-    assert.equal(result, expected, script.slice(0, 12));
+    assert.equal(check(script(48000)), expected, script(12));
+    const factor = growth(check, script, 12000);
+    assert.ok(
+      factor < linearAtMost(),
+      `${script(12)}…: 16 times the script took ${factor.toFixed(1)} times as long`,
+    );
   }
   // The same scripts as before stay safe or unsafe.
   for (const script of [

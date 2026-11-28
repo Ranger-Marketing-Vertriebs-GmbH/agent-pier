@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { performance } from "node:perf_hooks";
+import { growth, linearAtMost } from "../helpers/cpu-time.js";
 import { hasReference } from "../../server/features/mcp-servers/value-references.js";
 
 test("hasReference recognizes each reference form and ignores near misses", () => {
@@ -12,15 +12,16 @@ test("hasReference recognizes each reference form and ignores near misses", () =
 
 // Inputs that made the former regular expression backtrack quadratically
 // (100k characters took over a second). The scan stays linear.
-test("hasReference checks 100k characters of unclosed openers in under 50 ms", () => {
-  const length = 100_000;
-  const inputs = ["${{", "${", "{env:{env:", "{file:", "${}"].map((unit) =>
-    unit.repeat(Math.ceil(length / unit.length)).slice(0, length),
-  );
-  for (const input of inputs) {
-    const started = performance.now();
-    hasReference(input);
-    const elapsed = performance.now() - started;
-    assert.ok(elapsed < 50, `${JSON.stringify(input.slice(0, 6))}: ${elapsed} ms`);
+// Measured as growth, not against a time budget (tests/helpers/cpu-time.js): 16 times
+// the input takes about 16 times as long, and about 256 times when it backtracks.
+test("hasReference checks unclosed openers in linear time, up to 400k characters", () => {
+  for (const unit of ["${{", "${", "{env:{env:", "{file:", "${}"]) {
+    const input = (length) =>
+      unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
+    const factor = growth(hasReference, input, 25_000);
+    assert.ok(
+      factor < linearAtMost(),
+      `${JSON.stringify(unit)}: 16 times the input took ${factor.toFixed(1)} times as long`,
+    );
   }
 });

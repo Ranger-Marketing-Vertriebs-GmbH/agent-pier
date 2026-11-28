@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
+import { growth, linearAtMost } from "../helpers/cpu-time.js";
 import { redactSecrets, redactedMark } from "../../server/lib/secret-redaction.js";
 
 const M = redactedMark;
@@ -147,43 +148,11 @@ test("redaction is idempotent and keeps text around a secret intact", () => {
   assert.equal(redactSecrets(undefined), undefined);
 });
 
-// How much longer `run` takes for 16 times the input: about 16 for a linear scan,
-// about 256 for a quadratic one (a regex that backtracks from every position), whatever
-// the machine's speed. The limit lies in the middle (64), a factor of four from both.
-// It counts this thread's CPU time, not the clock, so the time other processes take on
-// a busy machine is left out. Linux advances that counter only every 0.5 to 1 ms, so a
-// measurement repeats the run until 10 ms of CPU time have passed and takes the mean.
-// Both sizes are measured in turns and the fastest turn of each counts, so a slow
-// stretch (a slower core, a collection) falls on both or neither.
+// Growth instead of a time budget (tests/helpers/cpu-time.js): 16 times the input
+// takes about 16 times as long for a linear rule and about 256 times for one that
+// backtracks from every position; the limit lies in the middle.
 const sizeFactor = 16;
-const linearAtMost = 64;
-const measuredMicroseconds = 10000;
-function growth(run, input, bytes, rounds = 3) {
-  const cpu = () => {
-    const { user, system } = process.threadCpuUsage();
-    return user + system;
-  };
-  const timed = (text) => {
-    const start = cpu();
-    let runs = 0;
-    let spent = 0;
-    do {
-      run(text);
-      runs++;
-      spent = cpu() - start;
-    } while (spent < measuredMicroseconds);
-    return spent / runs;
-  };
-  const small = input(bytes);
-  const large = input(bytes * sizeFactor);
-  let fastestSmall = Infinity;
-  let fastestLarge = Infinity;
-  for (let round = 0; round < rounds; round++) {
-    fastestSmall = Math.min(fastestSmall, timed(small));
-    fastestLarge = Math.min(fastestLarge, timed(large));
-  }
-  return fastestLarge / fastestSmall;
-}
+const limit = linearAtMost(sizeFactor);
 
 test("every rule's time grows linearly on adversarial input, 16 KB to 256 KB", () => {
   const repeated = (unit) => (bytes) => unit.repeat(Math.ceil(bytes / unit.length));
@@ -205,7 +174,7 @@ test("every rule's time grows linearly on adversarial input, 16 KB to 256 KB", (
   for (const input of inputs) {
     const factor = growth(redactSecrets, input, 16384);
     assert.ok(
-      factor < linearAtMost,
+      factor < limit,
       `${JSON.stringify(input(24))}…: ${sizeFactor} times the input took ${factor.toFixed(1)} times as long`,
     );
   }
@@ -215,5 +184,5 @@ test("the growth measure tells a backtracking regex from a linear one", () => {
   // /a*b/ tries every start position of a run of "a" that no "b" follows.
   const backtracking = (text) => /a*b/.test(text);
   const factor = growth(backtracking, (bytes) => "a".repeat(bytes), 512);
-  assert.ok(factor > linearAtMost, `only ${factor.toFixed(1)} times as long`);
+  assert.ok(factor > limit, `only ${factor.toFixed(1)} times as long`);
 });
