@@ -5187,6 +5187,15 @@ allow** and **Deny**.
   `exec.approval.list` and `approval.history`. A Gateway restart cancels pending
   requests; their actions end as cancelled, never stay waiting, and a late
   decision answers 409. The command does not run.
+- OpenClaw can refuse an answer to a request that still waits. It checks the
+  caller's access again as it commits the answer and refuses the commit when a
+  session changed since the answer arrived (another run ending is enough). The
+  refusal reads like a request it no longer has: `INVALID_REQUEST`, "unknown or
+  expired approval id", `details.reason: "APPROVAL_NOT_FOUND"`. Nothing is committed
+  and the request stays in `exec.approval.list`. The approvals port
+  (`openclaw-approvals.js`) therefore sends a refused answer again while the list
+  still names the request, at most four times. A request the list no longer names
+  is gone, and the decision answers 409 as before.
 - OpenClaw's exec tool can stop waiting for an approval the Gateway still lists
   (`approval-request-failed`, for example when its wait call fails while the
   Gateway adopts a new configuration); an allow sent afterwards is accepted but runs

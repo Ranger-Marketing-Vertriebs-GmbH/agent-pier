@@ -11,6 +11,7 @@ import { runtimeManifest } from "../../server/features/assistants/runtimes/openc
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { openClawApprovals } from "../../server/features/assistants/runtimes/openclaw/openclaw-approvals.js";
 
 const installed = process.env.AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME;
 const options = {
@@ -248,7 +249,10 @@ test(
       (await approver.call("exec.approval.list", {})).map((a) => a.id),
       [id],
     );
-    const resolved = await approver.call("exec.approval.resolve", {
+    // Through the approvals port, as AgentPier answers: a bare exec.approval.resolve
+    // is refused as unknown when a session changes during its commit, and the port
+    // sends it again while the request is listed (openclaw-approvals.js).
+    const resolved = await openClawApprovals({ client: approver }).resolve({
       id,
       decision: "deny",
     });

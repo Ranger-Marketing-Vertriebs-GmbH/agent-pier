@@ -15,6 +15,7 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/exec-allowlist-policy.js";
 import {
   answer,
+  answerRequest,
   decide,
   requestFor,
   shellGateway,
@@ -210,7 +211,7 @@ test(
         `${label} allowed=${request.allowedDecisions} analysis=${JSON.stringify(request.commandAnalysis)}`,
       );
       assert.deepEqual(request.allowedDecisions, ["allow-once", "deny"]);
-      await approver.call("exec.approval.resolve", { id, decision: "allow-once" });
+      await answerRequest(approver, id, "allow-once");
       const plan = allowAlwaysPlan({
         command: request.command,
         cwd: request.cwd,

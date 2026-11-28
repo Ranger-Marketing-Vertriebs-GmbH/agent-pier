@@ -10,6 +10,7 @@ import { runtimeManifest } from "../../server/features/assistants/runtimes/openc
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { assistantModelServer, grantedToolNames } from "./assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { openClawApprovals } from "../../server/features/assistants/runtimes/openclaw/openclaw-approvals.js";
 
 // Shared fixture for the shell contract: an isolated Gateway on the deterministic
 // model, whose exec calls are set per turn through `gateway.tool`. `environment`
@@ -178,11 +179,19 @@ export function requestFor(approver, run, total = 60000) {
   );
 }
 
+// Answers request `id` as AgentPier does, through the approvals port. A bare
+// exec.approval.resolve may be refused as "unknown or expired approval id" although
+// the request waits, when a session changes while the Gateway commits the answer
+// (another run ending is enough); the port sends such an answer again
+// (openclaw-approvals.js).
+export const answerRequest = (approver, id, decision) =>
+  openClawApprovals({ client: approver }).resolve({ id, decision });
+
 // Answers the request for `run` with `decision` when one arrives within `ms`, then
 // waits for the turn. Returns the request (or undefined) and the turn's tool result.
 export async function decide(gateway, approver, run, decision, ms = 60000) {
   const request = await requestFor(approver, run, ms);
-  if (request) await approver.call("exec.approval.resolve", { id: request.id, decision });
+  if (request) await answerRequest(approver, request.id, decision);
   return { request, ...(await gateway.settle(run)) };
 }
 

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
+  answerRequest,
   decide,
   eventually,
   shellGateway,
@@ -317,7 +318,9 @@ test(
     t.diagnostic(`cron request=${JSON.stringify(request.request).slice(0, 1500)}`);
     assert.match(request.request.sessionKey, new RegExp(`^agent:main:cron:${job}`));
     assert.match(request.request.warningText, /deferred to human approval \(risk=high\)/);
-    await approver.call("exec.approval.resolve", { id: request.id, decision: "deny" });
+    // The allowed run before may still be ending, which is when a bare answer is
+    // refused (answerRequest).
+    await answerRequest(approver, request.id, "deny");
     assert.ok(await resolved(request.id));
     assert.equal(fs.existsSync(at("ask")), false);
 
