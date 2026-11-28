@@ -561,3 +561,24 @@ test("device test ports lie below the system's own, in one slot per process", as
   });
   assert.equal(code, "EADDRINUSE");
 });
+
+test("the device environment carries no agent socket and no display, but the proxy", () => {
+  const paths = devicePaths("/data", undefined, { platform: "linux", arch: "x64" });
+  const env = deviceEnvironment(paths, {
+    base: {
+      PATH: "/usr/bin",
+      SSH_AUTH_SOCK: "/run/user/1000/ssh-agent.socket",
+      DISPLAY: ":0",
+      WAYLAND_DISPLAY: "wayland-0",
+      XAUTHORITY: "/home/someone/.Xauthority",
+      HTTPS_PROXY: "http://proxy.example:3128",
+      no_proxy: "localhost",
+    },
+  });
+  for (const name of ["SSH_AUTH_SOCK", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"])
+    assert.equal(name in env, false, name);
+  // The guest's network and the emulator's own requests may need the proxy.
+  assert.equal(env.HTTPS_PROXY, "http://proxy.example:3128");
+  assert.equal(env.no_proxy, "localhost");
+  assert.equal(env.PATH, "/usr/bin");
+});
