@@ -35,8 +35,9 @@ const asResult = (result) =>
  * the server after a short pause. Rows are checked in an attached listbox; already
  * `granted` ids stay visible but disabled. `modes` ({ value, label }) offers one mode
  * for all new items. `onAdd(items, mode)` hands the choice to the caller's draft.
- * With `direct` a click, Space or Enter adds the row at once and the list stays open:
- * no checking first and no footer, for a caller whose own Save confirms the change.
+ * With `direct` a click, Space or Enter adds the row at once, the typed text is
+ * cleared and the list stays open: no checking first and no footer, for a caller
+ * whose own Save confirms the change.
  */
 export default function AddPicker({
   typeLabel,
@@ -156,7 +157,9 @@ export default function AddPicker({
   }
 
   function addNow(row) {
-    if (isSelectable(row)) onAdd([row], state.mode);
+    if (!isSelectable(row)) return;
+    onAdd([row], state.mode);
+    dispatch({ type: "added" });
   }
 
   function onKeyDown(event) {

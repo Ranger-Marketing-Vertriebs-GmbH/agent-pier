@@ -181,8 +181,8 @@ identity stable; it returns items or `{ items, total }`). The field shows "n Tre
   and the list waits up to 350 ms for it); checked rows keep it open. Rows are 44px
   on phones and touch screens.
 - `direct` drops the checking step: a click, Space or Enter adds that row at once
-  through `onAdd`, the row then shows as granted and the list stays open; there is no
-  footer. For a picker whose surrounding dialog confirms with its own button
+  through `onAdd`, the text typed to find it is cleared and the list stays open on
+  every candidate, where the row shows as granted from then on; there is no footer. For a picker whose surrounding dialog confirms with its own button
   (`GrantPicker` with `stacked`); not together with `modes`.
 - With the on-screen keyboard open the list is as high as the space it leaves (at
   least three rows), and the field and the top of its list scroll into view.
@@ -229,8 +229,8 @@ field of the tab's draft and saves with the tab's `SaveBar`.
   below the dialog's heading. The keyboard opens only on a tap in the search field.
 - **Stacked** (with `stacked`, at every width, for a picker that is one section of a
   larger form such as the new-session dialog): the allowed list card ends in an
-  `AddPicker` with `direct`, so a click on an option adds it at once and the list stays
-  open for the next one; allowed entries show there as "erlaubt" / "allowed". An entry
+  `AddPicker` with `direct`, so a click on an option adds it at once, clears the field
+  and leaves the list open for the next one; allowed entries show there as "erlaubt" / "allowed". An entry
   without `group` shows its `badge` in the options instead, so "SFTP" stays visible and
   searchable.
 - `locked` marks an entry the session has anyway (from the project): it counts as
