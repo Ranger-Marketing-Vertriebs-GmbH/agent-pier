@@ -5,10 +5,12 @@ name: Assistant runtime
 # native contracts on Linux arm64 and macOS x64 and the cross-version updates run
 # only nightly, on demand and before a release (a tag push through release.yml),
 # not after each merge. The merge queue runs the core contracts through
-# assistant-runtime-queue.yml (without the semantic memory contract, which runs the
-# real embedding model: here on pull requests that touch the runtime, nightly and
-# before a release). A pull request that only bumps the version of
-# package.json and package-lock.json (a release) runs none of the jobs.
+# assistant-runtime-queue.yml, an explicit list of files that does not read the
+# shard list. The semantic memory contract, which runs the real embedding model, is
+# in the shard list only: it runs here, on the Linux runners, on pull requests that
+# touch the runtime, nightly and before a release, never in the merge queue. A pull
+# request that only bumps the version of package.json and package-lock.json (a
+# release) runs none of the jobs.
 on:
   workflow_dispatch:
   workflow_call:
@@ -169,6 +171,20 @@ jobs:
           node scripts/provision-assistant-contracts.mjs
           --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
           --env-file "$GITHUB_ENV"
+      # With a cache hit this fetches nothing. Without one it downloads the server
+      # from GitHub and the model from Hugging Face. When they cannot be fetched, a
+      # pull request that changes semantic memory search fails here; every other run
+      # (another pull request, nightly, release) gets a warning annotation and runs
+      # its contracts without this one (scripts/assistant-embedding-assets.mjs).
+      - name: Fetch the pinned embedding server and model
+        id: assets
+        if: steps.semantic.outputs.run == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          node scripts/assistant-embedding-assets.mjs
+          --root "$RUNNER_TEMP/agentpier-assistant-contracts/assistants"
+          --base "$BASE_SHA"
       # The compiled web tools contract drives the runner's preinstalled Google Chrome
       # headless, with its own profile in the test's temporary data directory. A
       # runner without Chrome fails here instead of skipping the browser checks.
@@ -209,12 +225,15 @@ jobs:
         # full wait budget of lead-requests.js; pull requests use a 12 s ask.
         env:
           AGENTPIER_TEAM_LONG_ASK: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          EMBEDDING_ASSETS: ${{ steps.assets.outputs.available }}
         # macOS has bash 3.2 without mapfile; the contract paths contain no spaces.
         run: |
           files=$(node scripts/assistant-contract-shards.mjs \
             --shard "${{ matrix.shard }}" --total 4)
-          # Linux only, see the cache step above.
-          if [ "$RUNNER_OS" != Linux ]; then
+          # The semantic memory contract: on Linux only, and only with the pinned
+          # server and model in place (see the cache and fetch steps above). Only
+          # the shard that lists it is affected; the filter matches nothing else.
+          if [ "$RUNNER_OS" != Linux ] || [ "$EMBEDDING_ASSETS" != true ]; then
             files=$(printf '%s\n' "$files" | grep -v semantic-memory-contract)
           fi
           echo "$files"

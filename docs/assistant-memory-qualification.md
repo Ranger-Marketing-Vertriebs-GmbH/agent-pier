@@ -102,7 +102,13 @@ question finds a German note, each of two agents gets only its own notes (also f
 query that matches the other agent's note by word and by meaning), a deleted note
 leaves the vector index and a new one enters it without a rebuild, an agent created
 afterwards searches by meaning from its first note, and a Gateway restart (another
-server port) keeps the indexes valid. Switching off restores keyword search at once,
+server port) keeps the indexes valid. Then the embeddings break while it is on (the
+server is stopped and the model file replaced by bytes of the same size it cannot
+load): the next memory search is answered by keyword alone and the state is
+`degraded` (`EMBEDDINGS_UNAVAILABLE`), also with the file back; a missing model
+file shows as `degraded` without a search; the repair installs the server anew,
+checks the model, restarts and rebuilds, after which the state is `on` and the
+search finds by meaning again. Switching off restores keyword search at once,
 removes the model and leaves no embedding server behind. It reports the time of each
 step, the search latency and the server's resident memory as diagnostics.
 
@@ -119,14 +125,32 @@ Debian 13 container, on Linux arm64 (94 s), each against a runtime provisioned
 through the installer's step; the measurements are in the
 [gateway guide](assistant-gateway.md#semantic-memory-search). Linux x64 runs in CI.
 
-CI runs it in the `native-contracts` job of `assistant-runtime.yml` on the Linux
-runners (pull requests that touch the assistant runtime on x64; nightly, on demand
-and before a release also on arm64), not in the merge queue's core contracts and
-not on the hosted macOS runner: the macOS build of the server computes on Metal,
-and a virtualized GPU is no qualification of that. Run it on Apple silicon before a
-release with the command above. The shard that runs it caches `embeddings/` under a key of the server
-release and the model digest, so the model is downloaded once per pin and runner
-architecture.
+Where CI runs it:
+
+- **Pull requests that touch the assistant runtime** (`assistant-runtime.yml`,
+  `native-contracts`, Linux x64): yes, in the one shard of four that
+  `scripts/assistant-contract-shards.json` assigns it to.
+- **Nightly, on demand and before a release** (the same workflow through
+  `full.yml`): yes, on Linux x64 and Linux arm64.
+- **Merge queue** (`assistant-runtime-queue.yml`): no. That workflow names its core
+  contracts itself and does not read the shard list.
+- **Hosted macOS runners**: no; the shard's file list drops it there. The macOS
+  build of the server computes on Metal, and a virtualized GPU is no qualification
+  of that. Run it on Apple silicon before a release with the command above.
+
+The shard that runs it caches `embeddings/` under a key of the server release and
+the model digest (per runner OS and architecture), so a run with a cache hit
+downloads nothing. On a miss `scripts/assistant-embedding-assets.mjs` downloads the
+server from GitHub and the 329 MB model from Hugging Face. If that fails, a pull
+request that changes semantic memory search (its files, the runtime manifest or
+lock, the shard list, this workflow), or whose changes cannot be read, fails; every
+other run gets a warning annotation "Semantic memory contract not run" and runs its
+other contracts, so an outage of either host blocks no unrelated pull request and
+no release. The shard list budgets 240 s for the file. Measured with the assets
+present: 104 s on Linux arm64 and 121 s on Apple silicon. Only the shard that holds
+it pays that time; the balancer evens the budgets out, so each of the four shards'
+budget grows by about one minute. A cold cache adds the one download of about
+342 MB to that shard.
 
 Not covered: a real model deciding to search, retrieval quality beyond the fixed
 examples, transcripts (they stay unindexed), an update between two runtimes that both
