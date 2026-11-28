@@ -190,6 +190,28 @@ const operations = { reset: "resetting", delete: "deleting" };
 // The states in which a device holds a running slot.
 const slots = ["starting", "running", "stopping"];
 
+// How many assignments a row names; the rest is a count, so a device many sessions
+// share keeps a short row on a phone.
+const namedAssignments = 3;
+
+/**
+ * Who a device is assigned to, in one line, or "": the first three by name (with
+ * "may reset and delete" where set), then how many more.
+ */
+export function assignmentText(assignments) {
+  const { list: text } = copy;
+  const names = (Array.isArray(assignments) ? assignments : [])
+    .filter((entry) => entry && (entry.name || entry.id))
+    .map((entry) => {
+      const name = String(entry.name || entry.id);
+      return entry.manage ? text.assignedManage(name) : name;
+    });
+  if (!names.length) return "";
+  const shown = names.slice(0, namedAssignments).join(", ");
+  const more = names.length - namedAssignments;
+  return more > 0 ? text.assignedMore(shown, more) : text.assigned(shown);
+}
+
 function creatorText(creator) {
   const { list: text } = copy;
   const name = String(creator?.name || creator?.id || "");
@@ -222,15 +244,10 @@ export function deviceRowView(device, { availability, installation = null, bytes
   const unavailable = availability?.available
     ? ""
     : codeText(availability?.reason || "DEVICE_UNAVAILABLE");
-  const assignments = (Array.isArray(device.assignments) ? device.assignments : [])
-    .filter((entry) => entry && (entry.name || entry.id))
-    .map((entry) => {
-      const name = String(entry.name || entry.id);
-      return entry.manage ? text.assignedManage(name) : name;
-    });
+  const assigned = assignmentText(device.assignments);
   const details = [
     creatorText(device.creator),
-    ...(assignments.length ? [text.assigned(assignments.join(", "))] : []),
+    ...(assigned ? [assigned] : []),
     // The size is measured while a device is stopped: a device that runs has grown
     // since, so its last figure (a few kilobytes before the first start) is left out.
     ...(Number.isFinite(device.diskBytes) && bytes && !slots.includes(state)

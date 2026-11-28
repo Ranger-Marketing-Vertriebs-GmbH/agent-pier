@@ -108,6 +108,7 @@ export const devicesCopy = {
     creatorSession: (name) => `Von Session ${name} angelegt`,
     creatorGone: "Ersteller existiert nicht mehr",
     assigned: (names) => `Zugewiesen an ${names}`,
+    assignedMore: (names, more) => `Zugewiesen an ${names} und ${more} weitere`,
     assignedManage: (name) => `${name} (darf zurücksetzen und löschen)`,
     assignedNone: "Nicht zugewiesen",
     size: (size) => `${size} auf der Festplatte`,
@@ -260,7 +261,41 @@ export const devicesCopy = {
   sdkMissingLibraries: (libraries) =>
     `Der geladene Emulator startet auf diesem Rechner nicht, weil diese Systembibliotheken fehlen: ${libraries}. Installiere die Pakete, die sie enthalten (unter Debian und Ubuntu enthält libx11-6 die libX11.so.6 und libx11-xcb1 die libX11-xcb.so.1), und versuche es dann erneut.`,
   unknownCode: (code) => `Etwas ist schiefgegangen (${code}).`,
+  // Die Android-Geräte einer Coding-Session: der Dialog der Session und die Auswahl
+  // im Dialog für eine neue Session.
+  access: {
+    title: "Android-Geräte",
+    summary: "Wähle die Android-Geräte, die diese Session nutzen darf.",
+    hint: "Die Session bedient ein zugewiesenes Gerät mit ihren Geräte-Tools: Sie startet und stoppt es, sieht und tippt auf seinen Bildschirm, installiert Apps und führt Befehle darauf aus. Ein Gerät erreicht das Netzwerk und die lokalen Dienste dieses Rechners; ein Gerät zuzuweisen ist deshalb ein Vertrauensschritt wie eine Shell zuzuweisen.",
+    scope:
+      "Zuweisungen bleiben, solange es die Session gibt, auch über einen Stopp und ein Neuladen. Ein Gerät, das die Session angelegt hat, gehört ihr: Sie darf es immer nutzen, zurücksetzen und löschen.",
+    grantType: "Android-Gerät",
+    listLabel: "Android-Geräte",
+    empty:
+      "Noch keine Geräte. Lege eines unter Einstellungen › Allgemein › Android-Geräte an.",
+    busy: "Wird gespeichert …",
+    saved: "Gespeichert.",
+    own: "von dieser Session angelegt",
+    permissions: "Berechtigungen",
+    manage: (name) => `„${name}“ zurücksetzen und löschen`,
+    create: "Geräte anlegen",
+    createSub:
+      "Geräte, die die Session anlegt, gehören ihr und zählen zum Limit der Geräte insgesamt.",
+    tools: {
+      ready: "Hat die Geräte-Tools",
+      missing:
+        "Diese Session läuft ohne AgentPier-Tools. Die Zuweisung ist gespeichert, aber die Session bekommt die Geräte-Tools erst nach einem Neuladen mit AgentPier-Tools; eine ohne sie gestartete Session braucht eine neue Session.",
+    },
+    launch: {
+      hint: "Die Session darf die hinzugefügten Geräte mit ihren Geräte-Tools bedienen. Später änderst du das in der Session unter Android-Geräte.",
+      summary: (count) => `${count} ${count === 1 ? "Android-Gerät" : "Android-Geräte"}`,
+      summaryCreate: "darf Geräte anlegen",
+      toolsOff:
+        "Ohne AgentPier-Tools bekommt die Session keine Geräte-Tools. Schalte oben die AgentPier-Tools ein.",
+    },
+  },
   search: {
     newDevice: "Neues Gerät",
+    sessionDevices: "Android-Geräte",
   },
 };

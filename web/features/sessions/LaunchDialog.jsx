@@ -6,6 +6,13 @@ import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import LaunchSecretChoices from "../secrets/LaunchSecretChoices.jsx";
 import LaunchAgentChoices from "../session-talk/LaunchAgentChoices.jsx";
 import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
+import LaunchDeviceChoices from "../devices/LaunchDeviceChoices.jsx";
+import { useAssignableDevices } from "../devices/useSessionDevices.js";
+import {
+  grantsAnything,
+  launchSummary,
+  noAccess,
+} from "../devices/session-device-access.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import { secretsCopy } from "../../lib/i18n/messages/secrets.js";
 import useLaunchAccess from "./useLaunchAccess.js";
@@ -130,6 +137,9 @@ export default function LaunchDialog({
     [secretIds, setSecretIds] = useState([]),
     // Agents the session may talk to (coding CLIs only); a task-profile launch takes none.
     [agentAccessIds, setAgentAccessIds] = useState([]),
+    // Android devices the session may use (coding CLIs only, while this host offers
+    // devices); a task-profile launch takes none.
+    [deviceDraft, setDeviceDraft] = useState(noAccess),
     [refused, setRefused] = useState(null),
     // The account's open sign-in session that refused the start (SESSION_LOGIN_OPEN).
     [signIn, setSignIn] = useState(null),
@@ -141,6 +151,9 @@ export default function LaunchDialog({
   const agentsEnabled = useAssistantFeature().enabled === true;
   const agentChoice = agentsEnabled && isCodingCli(selectedTool) && !profileId;
   const agentIds = agentChoice ? agentAccessIds : [];
+  const assignable = useAssignableDevices();
+  const deviceChoice = Boolean(assignable) && isCodingCli(selectedTool) && !profileId;
+  const deviceAccess = deviceChoice && grantsAnything(deviceDraft) ? deviceDraft : null;
   const modeDescription =
     launchMode === "profile"
       ? copy.profileModeDescription(
@@ -196,6 +209,7 @@ export default function LaunchDialog({
                 sshAccessIds,
                 ...(secretIds.length ? { secretIds } : {}),
                 ...(agentIds.length ? { agentAccessIds: agentIds } : {}),
+                ...(deviceAccess ? { deviceAccess } : {}),
                 agentpierTools: coding ? agentpierTools : false,
                 ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
@@ -499,6 +513,7 @@ export default function LaunchDialog({
                       ...(agentIds.length
                         ? [sessionTalkCopy.launch.summary(agentIds.length)]
                         : []),
+                      ...(deviceAccess ? [launchSummary(deviceAccess)] : []),
                     ].join(" · ")}
                   </small>
                 </span>
@@ -535,6 +550,14 @@ export default function LaunchDialog({
                   <LaunchAgentChoices
                     selected={agentAccessIds}
                     change={setAgentAccessIds}
+                  />
+                )}
+                {deviceChoice && (
+                  <LaunchDeviceChoices
+                    devices={assignable}
+                    draft={deviceDraft}
+                    change={setDeviceDraft}
+                    tools={agentpierTools}
                   />
                 )}
               </div>

@@ -152,6 +152,52 @@ test("a running coding session offers its agent access; others do not", () => {
   assert.ok(!off.some((item) => item.id.endsWith(":agent-access")));
 });
 
+test("a running coding session offers its Android devices while the host has devices", () => {
+  const sessions = [
+    ...sources.workspace.sessions,
+    { id: "s3", name: "Old work", tool: "claude", cwd: "/x", status: "stopped" },
+    { id: "s4", name: "Terminal", tool: "shell", cwd: "/x", status: "running" },
+    { id: "s5", name: "Sign in", tool: "claude", status: "running", purpose: "login" },
+    {
+      id: "s6",
+      name: "Step",
+      tool: "codex",
+      status: "running",
+      pipeline: { runId: "r" },
+    },
+    { id: "s7", name: "Imported", tool: "claude", status: "running", imported: true },
+  ];
+  const workspace = { ...sources, workspace: { ...sources.workspace, sessions } };
+  const entries = workspaceEntries(workspace, { devicesAvailable: true });
+  const devices = entries.filter((item) => item.id.endsWith(":devices"));
+  assert.deepEqual(
+    devices.map((item) => item.id),
+    ["session:s1:devices"],
+  );
+  assert.equal(devices[0].group, "actions");
+  assert.equal(devices[0].icon, "phone");
+  assert.deepEqual(devices[0].target, { session: "s1", pending: "session-devices:s1" });
+  assert.equal(devices[0].label.en, "Refactor billing · Android devices");
+  assert.equal(devices[0].label.de, "Refactor billing · Android-Geräte");
+  for (const query of ["billing android devices", "billing emulator", "billing Handy"])
+    assert.ok(
+      find(query, entries).some((item) => item.id === devices[0].id),
+      query,
+    );
+  // Without devices on this host there is nothing to assign.
+  for (const options of [{}, { devicesAvailable: false }, { agentsEnabled: true }])
+    assert.ok(
+      !workspaceEntries(workspace, options).some((item) => item.id.endsWith(":devices")),
+    );
+});
+
+test("a session's Android devices request waits for that session alone", () => {
+  requestPageAction("session-devices:b", 1000);
+  assert.equal(takePageAction("session-devices:a", 1001), false);
+  assert.equal(takePageAction("session-devices:b", 5000), true);
+  assert.equal(takePageAction("session-devices:b", 5001), false);
+});
+
 test("a token matches fuzzily from a word start with few skipped letters", () => {
   assert.equal(fuzzyGaps("session", "sesion"), 1);
   assert.equal(fuzzyGaps("new session", "nsess"), 3);
