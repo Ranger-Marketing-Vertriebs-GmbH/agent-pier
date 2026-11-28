@@ -46,6 +46,7 @@ fs.appendFileSync(
       ),
     ),
     pid: process.pid,
+    umask: process.umask(),
   }) + "\n",
 );
 
