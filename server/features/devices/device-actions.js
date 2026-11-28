@@ -12,7 +12,7 @@ import { screenActions } from "./device-screen-actions.js";
  * (device-mcp.js) call it today, the agent tools will. An action is a name, an
  * input object and a context:
  *
- *   run(action, input, { caller, canCreate, area, signal })
+ *   run(action, input, { caller, canCreate, area, areaWritable, signal })
  *
  * - `caller`: `{ kind: "session" | "agent", id, name }`. Who may use, reset or
  *   delete which device is the device service's rule (device-access.js); every
@@ -21,6 +21,9 @@ import { screenActions } from "./device-screen-actions.js";
  * - `canCreate()`: whether the caller may create devices (DEVICE_CREATE_FORBIDDEN).
  * - `area()`: resolves the caller's own folder on the host, for files that travel
  *   to or from a device (host-area.js); null when it has none.
+ * - `areaWritable()`: false when AgentPier must not write into that folder for the
+ *   caller: a sandboxed session, whose sandbox may give it the folder read-only
+ *   (`pull` answers DEVICE_PULL_SANDBOXED then).
  * - `signal`: aborts the call when the caller is gone.
  *
  * The actions (ACTIONS) and their inputs are documented where they are defined:
@@ -177,6 +180,7 @@ export class DeviceActions {
       signal,
       canCreate: () => !!context.canCreate?.(),
       area: async () => (await context.area?.()) || null,
+      areaWritable: () => context.areaWritable?.() !== false,
       device: (reference) => this.device(caller, reference),
       adb,
       shell: (id, command, options) => adb(id, ["shell", command], options),

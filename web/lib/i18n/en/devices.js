@@ -207,6 +207,8 @@ export const devicesCopy = {
       "The element number came from an overview of the screen that is no longer current.",
     DEVICE_PATH_OUTSIDE:
       "The file lies outside the working folder of the session, so it was not read or written.",
+    DEVICE_PULL_SANDBOXED:
+      "A sandboxed session cannot copy files from a device into its working folder, because its sandbox may allow it to read there only.",
     DEVICE_FILE_NOT_FOUND: "There is no regular file at that path.",
     DEVICE_FILE_TOO_LARGE:
       "The file is too large: up to 200 MB go to a device and up to 50 MB come from it.",

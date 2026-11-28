@@ -4338,6 +4338,7 @@
   "devices:devicesCopy.codes.DEVICE_NOT_RUNNING": "de:036d8c2e0f61 en:0d23c85aa191",
   "devices:devicesCopy.codes.DEVICE_PATH_OUTSIDE": "de:a9f5e94495e4 en:d579eecaeb57",
   "devices:devicesCopy.codes.DEVICE_PORTS_BUSY": "de:11246d79a8b1 en:1749b09eb127",
+  "devices:devicesCopy.codes.DEVICE_PULL_SANDBOXED": "de:1fe047504bde en:9ffeac64b852",
   "devices:devicesCopy.codes.DEVICE_SCREEN_UNAVAILABLE": "de:4f777a8dd9d4 en:44e05226ac76",
   "devices:devicesCopy.codes.DEVICE_SESSION_INELIGIBLE": "de:9e4ef3e364d8 en:189369969aff",
   "devices:devicesCopy.codes.DEVICE_SOURCE": "de:cfc73b346b59 en:574274214621",

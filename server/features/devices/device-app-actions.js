@@ -138,6 +138,9 @@ export const appActions = {
   },
   async pull(input, call) {
     const { id } = call.device(input.device);
+    // The server is in no sandbox: it would write where the caller's sandbox may
+    // only let it read (nono gives the working folder read-only by default).
+    if (!call.areaWritable()) throw refusal("DEVICE_PULL_SANDBOXED", 403);
     const remote = devicePath(input.devicePath);
     const requested = hostPath(input.path);
     const into = await area(call);
