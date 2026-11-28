@@ -12,9 +12,6 @@
 // (`'it'\''s'`), and commands joined by `&&`. Nothing is expanded and nothing is
 // ever run on the host. A command this file does not know is echoed, or answered by
 // `behaviour.json` (`shell: { stdout, code, delayMs }`), as before.
-//
-// Not recorded from the real tools, and approximate: what `adb install` prints for
-// a file that is no package.
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -283,7 +280,7 @@ export function fakeDevice(state, serial) {
       if (!name)
         return {
           stdout,
-          stderr: `adb: failed to install ${file}: Failure [INSTALL_PARSE_FAILED_NOT_APK: Failed to parse /data/app/vmdl1.tmp/base.apk]\n`,
+          stderr: `adb: failed to install ${file}: Failure [INSTALL_PARSE_FAILED_NOT_APK: Failed to parse /data/app/vmdl1043003878.tmp/base.apk: Failed to load asset path /data/app/vmdl1043003878.tmp/base.apk]\n`,
           code: 1,
         };
       change((device) => ({

@@ -82,28 +82,42 @@ async function capped(file, limit, outer, work) {
   }
 }
 
+/**
+ * The private copy of the file `requested` of the caller's area that adb reads,
+ * below `folder`: `{ file, within, bytes, name }`. It has the file's own name in a
+ * folder of its own (`within`), so adb names it as the caller did, and a file pushed
+ * onto a folder of the device keeps that name.
+ */
+async function privateCopy(call, folder, requested) {
+  const first = path.join(folder, "payload");
+  const { bytes, name } = await copyIn({
+    area: await area(call),
+    requested,
+    target: first,
+    maxBytes: call.limits.pushBytes,
+    protectedRoots: call.protectedRoots,
+  });
+  const within = path.join(folder, "named");
+  fs.mkdirSync(within, { mode: 0o700 });
+  const file = path.join(within, name);
+  fs.renameSync(first, file);
+  return { file, within, bytes, name };
+}
+
 export const appActions = {
   async install(input, call) {
     const { id } = call.device(input.device);
     const requested = hostPath(input.path);
-    const from = await area(call);
     return call.actions.staged(async (folder) => {
+      const { file, within, bytes, name } = await privateCopy(call, folder, requested);
       // adb installs only a file whose name ends in `.apk`.
-      const staged = path.join(folder, "app.apk");
-      const { bytes, name } = await copyIn({
-        area: from,
-        requested,
-        target: staged,
-        maxBytes: call.limits.pushBytes,
-        protectedRoots: call.protectedRoots,
-      });
       if (!/\.apk$/i.test(name)) throw invalid("path");
-      const answer = await call.adb(id, ["install", "-r", staged], {
+      const answer = await call.adb(id, ["install", "-r", file], {
         timeoutMs: 120000,
         maxBytes: call.limits.outputBytes,
       });
       if (answer.code !== 0 || !/^Success\b/m.test(answer.stdout))
-        throw commandFailed(scrubbed(answer, folder), "The installation failed.");
+        throw commandFailed(scrubbed(answer, within), "The installation failed.");
       return { installed: name, bytes };
     });
   },
@@ -111,28 +125,14 @@ export const appActions = {
     const { id } = call.device(input.device);
     const requested = hostPath(input.path);
     const remote = devicePath(input.devicePath);
-    const from = await area(call);
     return call.actions.staged(async (folder) => {
-      const first = path.join(folder, "payload");
-      const { bytes, name } = await copyIn({
-        area: from,
-        requested,
-        target: first,
-        maxBytes: call.limits.pushBytes,
-        protectedRoots: call.protectedRoots,
-      });
-      // Under its own name in a folder of its own: pushed onto a folder of the
-      // device, the file keeps that name.
-      const inner = path.join(folder, "named");
-      fs.mkdirSync(inner, { mode: 0o700 });
-      const staged = path.join(inner, name);
-      fs.renameSync(first, staged);
-      const answer = await call.adb(id, ["push", staged, remote], {
+      const { file, within, bytes } = await privateCopy(call, folder, requested);
+      const answer = await call.adb(id, ["push", file, remote], {
         timeoutMs: 120000,
         maxBytes: call.limits.outputBytes,
       });
       if (answer.code !== 0)
-        throw commandFailed(scrubbed(answer, inner), "The copy failed.");
+        throw commandFailed(scrubbed(answer, within), "The copy failed.");
       return { pushed: remote, bytes };
     });
   },
