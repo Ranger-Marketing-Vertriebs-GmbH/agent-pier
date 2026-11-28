@@ -1,5 +1,5 @@
 import { systemStatusAnswer } from "./system-status-fixture.js";
-import { installation } from "./devices-fixture.js";
+import { installation, notInstalledView } from "./devices-fixture.js";
 import { noPreviews } from "./previews-fixture.js";
 import { noViews } from "./views-fixture.js";
 // Unrelated browser fixtures run with agents switched off: the only requests the UI
@@ -40,6 +40,12 @@ export async function fulfillDormantAssistantRequest(route) {
   // live topic `devices.installation`): not installed in a fixture.
   if (path === "/api/devices/installation") {
     await route.fulfill({ json: installation() });
+    return true;
+  }
+  // Session views, the new-session dialog and the search ask whether this host
+  // offers devices to sessions (the live topic `devices`): none in a fixture.
+  if (path === "/api/devices") {
+    await route.fulfill({ json: notInstalledView() });
     return true;
   }
   if (path === "/api/mcp-servers") {
