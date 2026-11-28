@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { leadWithMembers, lifecycleFixture } from "../helpers/agent-lifecycle-fixture.js";
 import { agentTables } from "../../server/features/assistants/agent-deletion.js";
+import { AgentDeviceGrants } from "../../server/features/devices/agent-device-grants.js";
 
 test("an own agent is archived and restored unchanged, audited by id", async (t) => {
   const f = lifecycleFixture(t);
@@ -348,4 +349,42 @@ test("the owner deletes a user's agent with her chats on it", async (t) => {
   await f.lifecycle.archive(agent.id, { revision: agent.revision });
   await f.lifecycle.delete(agent.id, { name: "Anna's agent" });
   assert.deepEqual(f.remains(agent.id), { files: [], rows: {} });
+});
+
+test("deleting an agent drops its device grants and keeps its devices", async (t) => {
+  const f = lifecycleFixture(t);
+  const other = f.populated("Other");
+  const { agent } = f.populated();
+  // Wired after the agents, as in the application (device-wiring.js).
+  const grants = new AgentDeviceGrants({
+    dataDir: f.dataDir,
+    agent: (id) => {
+      try {
+        return f.store.getAssistant(id);
+      } catch (error) {
+        return error?.status === 404 ? null : undefined;
+      }
+    },
+  });
+  let announced = 0;
+  grants.onChange = () => announced++;
+  f.services.agentDeviceGrants = grants;
+  const access = {
+    devices: [{ deviceId: "d-0000000000a1", manage: true }],
+    create: true,
+  };
+  grants.set(agent.id, access);
+  grants.set(other.agent.id, access);
+  const archived = await f.lifecycle.archive(agent.id, { revision: agent.revision });
+  assert.ok(archived.archivedAt);
+  announced = 0;
+  await f.lifecycle.delete(agent.id, { name: "Helper" });
+  assert.deepEqual(grants.get(agent.id), { devices: [], create: false });
+  assert.equal(grants.exists(agent.id), false);
+  // Announced, so a device the agent created shows that its creator is gone.
+  assert.equal(announced, 1);
+  assert.deepEqual(grants.get(other.agent.id), access);
+  assert.deepEqual(grants.assignmentsOf("d-0000000000a1"), [
+    { kind: "agent", id: other.agent.id, name: "Other", manage: true },
+  ]);
 });
