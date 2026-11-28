@@ -6,6 +6,7 @@ import useAssistants from "../../useAssistants.js";
 import GrantedCapabilities from "../GrantedCapabilities.jsx";
 import LeadSharesGroup from "../LeadSharesGroup.jsx";
 import AgentSshAgentStatus from "./AgentSshAgentStatus.jsx";
+import MemberDevicesAccess from "./MemberDevicesAccess.jsx";
 
 /**
  * The lead's SSH hosts as the member's plain ssh names them: the catalog hosts and
@@ -49,9 +50,9 @@ function useLeadSsh(memberId, leadId) {
  * A temporary member's Access tab: what its lead granted (read only), the lead's
  * grants of folders, MCP servers, shell and SSH with Revoke, and its temporary MCP
  * servers, and while it uses its lead's SSH hosts its own plain ssh with them. The
- * owner changes nothing else here; the lead decides.
+ * owner changes nothing else here but the member's Android devices; the lead decides.
  */
-export default function MemberAccess({ assistant }) {
+export default function MemberAccess({ assistant, navigate }) {
   const { members = [] } = useAssistants();
   const member = members.find((m) => m.assistantId === assistant.id);
   const ssh = assistant.inherited?.ssh === true;
@@ -70,6 +71,7 @@ export default function MemberAccess({ assistant }) {
         />
       )}
       {member && <TemporaryMcpServers servers={member.mcpServers} />}
+      <MemberDevicesAccess assistant={assistant} navigate={navigate} />
     </>
   );
 }
