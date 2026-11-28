@@ -42,6 +42,102 @@ test("the approvals sub-port sends the Gateway requests callers sent before the 
   ]);
 });
 
+// OpenClaw's refusal of an answer whose commit lost its access check: the request
+// is reported as unknown although it still waits (openclaw-approvals.js).
+const unknown = () =>
+  Object.assign(new Error("Assistant Gateway unavailable (INVALID_REQUEST)."), {
+    code: "INVALID_REQUEST",
+    status: 503,
+    answered: true,
+    remoteMessage: "unknown or expired approval id",
+    detailReason: "APPROVAL_NOT_FOUND",
+  });
+// A Gateway holding the request `a1`, which refuses the first `refusals` answers.
+function refusing(refusals, { listed = () => true, list } = {}) {
+  let left = refusals;
+  return recorder((method) => {
+    if (method === "exec.approval.list")
+      return list ? list() : listed() ? [{ id: "a1" }, { id: "a2" }] : [{ id: "a2" }];
+    if (method !== "exec.approval.resolve") return {};
+    if (left-- > 0) throw unknown();
+    return { ok: true };
+  });
+}
+const answer = { id: "a1", decision: "allow-once" };
+const methods = (client) => client.calls.map(([method]) => method);
+
+test("an answer refused as unknown is sent again while the request is still listed", async () => {
+  const client = refusing(2);
+  const { approvals } = createOpenClawRuntime({ client });
+  assert.deepEqual(await approvals.resolve(answer), { ok: true });
+  assert.deepEqual(client.calls, [
+    ["exec.approval.resolve", answer],
+    ["exec.approval.list", {}],
+    ["exec.approval.resolve", answer],
+    ["exec.approval.list", {}],
+    ["exec.approval.resolve", answer],
+  ]);
+});
+
+test("a refused answer stands when the request is gone, unreadable or keeps being refused", async () => {
+  // Gone: decided elsewhere, expired or cancelled; nothing is sent twice.
+  const gone = refusing(1, { listed: () => false });
+  await assert.rejects(
+    createOpenClawRuntime({ client: gone }).approvals.resolve(answer),
+    {
+      detailReason: "APPROVAL_NOT_FOUND",
+      answered: true,
+    },
+  );
+  assert.deepEqual(methods(gone), ["exec.approval.resolve", "exec.approval.list"]);
+  // The list cannot be read, or is no list: the refusal stands, not the read's error.
+  for (const list of [
+    () => {
+      throw Object.assign(new Error("closed"), { code: "CLOSED" });
+    },
+    () => null,
+  ]) {
+    const unreadable = refusing(1, { list });
+    await assert.rejects(
+      createOpenClawRuntime({ client: unreadable }).approvals.resolve(answer),
+      { detailReason: "APPROVAL_NOT_FOUND" },
+    );
+    assert.deepEqual(methods(unreadable), [
+      "exec.approval.resolve",
+      "exec.approval.list",
+    ]);
+  }
+  // Bounded: four answers, then the refusal reaches the caller.
+  const stuck = refusing(Infinity);
+  await assert.rejects(
+    createOpenClawRuntime({ client: stuck }).approvals.resolve(answer),
+    { detailReason: "APPROVAL_NOT_FOUND" },
+  );
+  assert.equal(methods(stuck).filter((m) => m === "exec.approval.resolve").length, 4);
+  assert.equal(methods(stuck).filter((m) => m === "exec.approval.list").length, 3);
+});
+
+test("any other refusal of an answer is not sent again", async () => {
+  for (const error of [
+    // Another reason, the same code.
+    Object.assign(unknown(), { detailReason: "APPROVAL_ALREADY_RESOLVED" }),
+    Object.assign(unknown(), { detailReason: undefined }),
+    // Not the Gateway's answer: the outcome is unknown, and the caller reconciles.
+    Object.assign(unknown(), { answered: false }),
+    Object.assign(new Error("closed"), { code: "CLOSED" }),
+  ]) {
+    const client = recorder((method) => {
+      if (method === "exec.approval.resolve") throw error;
+      return [{ id: "a1" }];
+    });
+    await assert.rejects(
+      createOpenClawRuntime({ client }).approvals.resolve(answer),
+      (thrown) => thrown === error,
+    );
+    assert.deepEqual(methods(client), ["exec.approval.resolve"]);
+  }
+});
+
 test("staleAllowlist tells only OpenClaw's stale base hash refusal", () => {
   const { approvals } = createOpenClawRuntime({ client: null });
   assert.equal(approvals.staleAllowlist(stale()), true);

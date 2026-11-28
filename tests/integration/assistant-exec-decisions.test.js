@@ -62,6 +62,38 @@ test("each decision resolves its own approval id once and ends the action", asyn
   assert.deepEqual(f.workflows.get(actions[0].id).result, { decision: "allow-once" });
 });
 
+// OpenClaw refuses an answer whose commit lost its access check to a session change
+// like a request it no longer has, although it still lists the request
+// (openclaw-approvals.js).
+test("a decision refused for a request the Gateway still lists is sent again", async (t) => {
+  const f = await execFixture(t);
+  const owner = { kind: "owner" };
+  const action = await f.request("busy");
+  f.gateway.answers["exec.approval.list"] = [
+    { id: "busy", approvalKind: "exec", request: {} },
+  ];
+  let refusals = 1;
+  f.gateway.answers["exec.approval.resolve"] = () => {
+    if (refusals-- > 0)
+      throw Object.assign(
+        gatewayError("INVALID_REQUEST", "unknown or expired approval id"),
+        { detailReason: "APPROVAL_NOT_FOUND" },
+      );
+    return { ok: true };
+  };
+  await f.workflows.decide(
+    action.id,
+    { revision: action.revision, decision: "allow-once" },
+    owner,
+  );
+  assert.deepEqual(f.resolves(), [
+    { id: "busy", decision: "allow-once" },
+    { id: "busy", decision: "allow-once" },
+  ]);
+  assert.equal(f.workflows.get(action.id).state, "completed");
+  assert.deepEqual(f.workflows.get(action.id).result, { decision: "allow-once" });
+});
+
 test("expired and already resolved requests answer 409 and resolve nothing else", async (t) => {
   const f = await execFixture(t);
   const owner = { kind: "owner" };

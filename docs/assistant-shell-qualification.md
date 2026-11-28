@@ -367,6 +367,18 @@ resolvedAtMs }`.
   is `{ status: "denied", reason: "user", decision: "deny", resolver: { kind:
 "runtime", id } }`. AgentPier therefore takes the final state of a deny from
   `approval.history`. The event of an expiry was not observed (it needs 30 minutes).
+- An answer can be refused although its request waits (observed on 2026.11.6).
+  `exec.approval.resolve` checks the caller's access again inside the commit and
+  fails it when the Gateway's access revision moved since the call arrived; session
+  changes move it, for example an earlier run that is still ending. The caller gets
+  `INVALID_REQUEST` "unknown or expired approval id" with `details.reason:
+"APPROVAL_NOT_FOUND"`, the same answer as for a request that is gone. The request is
+  still in `exec.approval.list`, `approval.history` has no record of it, and the
+  same answer sent again is accepted. AgentPier's approvals port does that
+  (`openclaw-approvals.js`), and the contracts answer through the port
+  (`answerRequest` in `tests/helpers/assistant-shell-gateway.js`). Under load the
+  routine contract of `assistant-shell-auto-review-contract.test.js`, which answers
+  right after an allowed run, hit the refusal in about one run in twenty.
 - Reconcile on ready: any pending AgentPier exec action whose id is not in
   `exec.approval.list` is final. `approval.history` gives its status (`cancelled`,
   `denied`, `allowed`). Requests in the list that AgentPier does not know are
