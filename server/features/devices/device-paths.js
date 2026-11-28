@@ -17,6 +17,17 @@ import { androidManifest, androidPlatform } from "./android-manifest.js";
  *   devices/logs           the emulator output of each device's last start
  *   devices/settings.json, devices/devices.json
  */
+/**
+ * AgentPier's fixed loopback ports for devices, outside adb's own emulator scan
+ * range (5555 to 5585): the private adb server, and the even console ports of the
+ * emulators (a device's adb port is its console port plus one).
+ */
+export const DEVICE_PORTS = Object.freeze({
+  adbServer: 47600,
+  consoleFirst: 47602,
+  consoleLast: 47620,
+});
+
 /** The receipt inside an installed SDK component: `{ version, sha256 }`. */
 export const receiptFile = "agentpier-receipt.json";
 
@@ -66,7 +77,10 @@ export function ensureDeviceFolders(paths) {
  * temporary folder, AgentPier's own adb server port and adb's mDNS discovery off
  * (it would open UDP port 5353 on every interface).
  */
-export function deviceEnvironment(paths, { adbPort, base = cleanEnvironment() } = {}) {
+export function deviceEnvironment(
+  paths,
+  { adbPort = DEVICE_PORTS.adbServer, base = cleanEnvironment() } = {},
+) {
   if (!Number.isInteger(adbPort) || adbPort < 1024 || adbPort > 65535 || adbPort === 5037)
     throw TypeError("An adb server port of AgentPier's own is required.");
   const env = {};

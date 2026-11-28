@@ -116,7 +116,9 @@ function downloadHost(served) {
     const rest = content.subarray(from);
     const broken = rule("failAfter", url);
     const stalled = rule("stall", url);
-    const sent = broken ? rest.subarray(0, broken.value) : rest;
+    // What is delivered before the transfer breaks off or stalls: everything else.
+    const limit = broken?.value ?? stalled?.value ?? rest.length;
+    const sent = rest.subarray(0, limit);
     let at = 0;
     const body = new ReadableStream({
       start(controller) {
@@ -126,13 +128,13 @@ function downloadHost(served) {
       },
       // One chunk per read, so the bytes before a break reach the reader.
       pull(controller) {
-        // A stalled transfer delivers nothing and never ends by itself.
-        if (stalled) return new Promise(() => {});
         if (at < sent.length) {
           controller.enqueue(sent.subarray(at, at + 16384));
           at += 16384;
-        } else if (sent.length < rest.length)
+        } else if (broken && sent.length < rest.length)
           controller.error(Object.assign(Error("terminated"), { code: "ECONNRESET" }));
+        // A stalled transfer delivers nothing more and never ends by itself.
+        else if (stalled) return new Promise(() => {});
         else controller.close();
       },
     });
@@ -154,7 +156,9 @@ function downloadHost(served) {
     /** Every transfer breaks off after `bytes` bytes of its body. */
     failAfter: add("failAfter"),
     /** Every transfer answers and then delivers nothing: `stall(only)`. */
-    stall: (only = "") => add("stall")(true, only),
+    stall: (only = "") => add("stall")(0, only),
+    /** Every transfer delivers `bytes` bytes and then nothing more. */
+    stallAfter: add("stall"),
     /** One byte of every served archive is wrong: `corrupt(only)`. */
     corrupt: (only = "") => add("corrupt")(true, only),
     /** Every request is answered with HTTP status `code`. */
@@ -174,7 +178,8 @@ function downloadHost(served) {
  * - `pin({ emulator, build, platformTools, image: { api, revision } })`: another
  *   manifest (a later release's pin), served by the same host
  * - `fetchImpl`: the download host; `.requests`, `.failAfter(bytes, only)`,
- *   `.stall(only)`, `.corrupt(only)`, `.status(code, only)`, `.reset()`
+ *   `.stall(only)`, `.stallAfter(bytes, only)`, `.corrupt(only)`,
+ *   `.status(code, only)`, `.reset()`
  * - `behaviour(patch)`: merges into `<state>/behaviour.json`, read by both fakes
  * - `calls()`: the fake adb's calls, `[{ argv, env, pid }]`
  * - `launches()`: the fake emulator's launches, `[{ avd, argv, env, pid, umask }]`

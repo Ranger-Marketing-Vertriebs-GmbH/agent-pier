@@ -11,6 +11,7 @@ import {
   waitUntil,
 } from "../helpers/fake-android-sdk.js";
 import {
+  DEVICE_PORTS,
   deviceEnvironment,
   devicePaths,
   ensureDeviceFolders,
@@ -515,7 +516,17 @@ test("the device environment is private and drops inherited Android variables", 
   });
   // adb's default port, or none, is never AgentPier's own.
   assert.throws(() => deviceEnvironment(paths, { adbPort: 5037, base: {} }), TypeError);
-  assert.throws(() => deviceEnvironment(paths, { base: {} }), TypeError);
+  assert.throws(
+    () => deviceEnvironment(paths, { adbPort: "47600", base: {} }),
+    TypeError,
+  );
+  // Without a port it is AgentPier's fixed one.
+  assert.equal(deviceEnvironment(paths, { base: {} }).ANDROID_ADB_SERVER_PORT, "47600");
+  assert.deepEqual(DEVICE_PORTS, {
+    adbServer: 47600,
+    consoleFirst: 47602,
+    consoleLast: 47620,
+  });
 });
 
 test("the device folders are created for the owner only", async (t) => {
