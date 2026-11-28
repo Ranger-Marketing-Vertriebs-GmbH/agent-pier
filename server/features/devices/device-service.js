@@ -196,18 +196,20 @@ export class DeviceService extends DeviceRegistry {
     if (runtime.state === "stopped") return;
     runtime.state = "stopping";
     this.signal();
+    let failure = null;
     try {
       await this.sourceOf(record).stop(record);
-      runtime.state = "stopped";
-      runtime.failure = null;
     } catch (error) {
-      runtime.state = "failed";
-      runtime.failure = failureOf(error, "DEVICE_STOP_FAILED", this.now());
+      failure = failureOf(error, "DEVICE_STOP_FAILED", this.now());
       throw error;
     } finally {
       if (runtime.lastUse !== record.lastUsedAt)
         this.store.patch(id, { lastUsedAt: runtime.lastUse });
       await this.measure(record);
+      // Last of all: whoever sees the device stopped finds nothing of this stop
+      // left on its queue (an uninstall would be refused while there is).
+      runtime.state = failure ? "failed" : "stopped";
+      runtime.failure = failure;
       this.signal();
     }
   }
