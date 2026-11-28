@@ -1,7 +1,13 @@
-/* The devices of one session (DeviceGrantFields.jsx). Tokens only (docs/ui-guide.md). */
+/* The devices of one session or agent (DeviceGrantFields.jsx). Tokens only (docs/ui-guide.md). */
 .device-grant-permissions {
   min-width: 0;
 }
 .device-grant-permissions > .group-label:first-child {
   margin-top: 0;
+}
+/* The run rules below an agent's devices (DevicesAccess.jsx): set off from the card
+   above and in line with the group labels. */
+.agent-devices-rules {
+  margin: var(--space-3) 0;
+  padding: 0 var(--space-1);
 }

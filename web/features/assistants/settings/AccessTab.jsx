@@ -14,6 +14,9 @@ import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/as
 import { assistantSecretsCopy as secretsCopy } from "../../../lib/i18n/messages/assistant-secrets.js";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { assistantMailCopy as mailCopy } from "../../../lib/i18n/messages/assistant-mail.js";
+import { devicesCopy } from "../../../lib/i18n/messages/devices.js";
+import { agentAccessDraft, devicesStep } from "../../devices/agent-device-access.js";
+import useAgentDevices from "../../devices/useAgentDevices.js";
 import useAssistants from "../useAssistants.js";
 import {
   accessServer,
@@ -45,6 +48,7 @@ const conflictLabels = {
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
   mcpServers: () => mcpServerCopy.agentTitle,
+  devices: () => devicesCopy.title,
 };
 
 // Pages an agent of users never has (user-agent-lock.js).
@@ -64,21 +68,26 @@ const catalogOf = (list) => ({
 });
 
 const accessPath = (id) => `/assistants/${encodeURIComponent(id)}/access`;
-const accessDraft = (policy, assistant) => ({
+// `devices` is the agent's Android devices (their own route and live topic), a draft
+// that grants nothing while the host offers none.
+const accessDraft = (policy, assistant, deviceAccess) => ({
   ...accessServer(policy),
   mcpServers: sortedIds(assistant?.mcpServers),
+  devices: agentAccessDraft(deviceAccess),
 });
 
 /**
  * Zugriffe (handoff 5.4): everything the agent may use. A temporary member shows its
  * lead's grants, read only; every other agent edits one draft of grants and
- * permissions (PUT /work, access half only) and MCP servers (the agent's PATCH).
+ * permissions (PUT /work, access half only), MCP servers (the agent's PATCH) and
+ * Android devices (PUT /devices). A temporary member's devices are the one thing the
+ * owner sets there.
  */
 export default function AccessTab(props) {
   return isPersonal(props.assistant) ? (
     <PersonalAccess {...props} />
   ) : (
-    <MemberAccess assistant={props.assistant} />
+    <MemberAccess assistant={props.assistant} navigate={props.navigate} />
   );
 }
 
@@ -89,6 +98,7 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
   const userAgent = Boolean(assistant.userAccess);
   const page = userAgent && lockedPages.includes(asked) ? null : asked;
   const withMcp = Array.isArray(assistant.mcpServers);
+  const devices = useAgentDevices(assistant.id);
   const [policy, setPolicy] = useState(null),
     [catalog, setCatalog] = useState(null),
     [loadError, setLoadError] = useState(""),
@@ -115,13 +125,14 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
       .catch((e) => setLoadError(e.message));
   // A conflict, Reload or Overwrite fetches the access policy and the agent again.
   const draft = useTabDraft({
-    server: accessDraft(policy, assistant),
+    server: accessDraft(policy, assistant, devices.access),
     revisions: { access: policy?.revision, assistant: assistant.revision },
     refresh: async () => {
       try {
-        const [access, agents] = await Promise.all([
+        const [access, agents, deviceAccess] = await Promise.all([
           api(accessPath(assistant.id)),
           api("/assistants"),
+          devices.refresh(),
         ]);
         // GET /assistants answers { assistants, conversations, policies, models }.
         const fresh =
@@ -130,7 +141,7 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
         setLoadError("");
         refresh();
         return {
-          server: accessDraft(access, fresh),
+          server: accessDraft(access, fresh, deviceAccess),
           revisions: { access: access.revision, assistant: fresh.revision },
         };
       } catch (e) {
@@ -158,6 +169,7 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
       mailAccountIds,
     }),
     ...(withMcp ? [mcpStep({ assistantId: assistant.id, label })] : []),
+    ...(devices.offered ? [devicesStep({ save: devices.save })] : []),
   ];
   // A granted project that no longer exists (an older row merged away) is dropped by
   // the server on save; the owner learns how many.
@@ -222,6 +234,7 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
     loadError,
     disabled,
     userAgent,
+    devices,
     go,
     navigate,
     retryCatalog,

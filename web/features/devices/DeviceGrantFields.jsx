@@ -14,11 +14,13 @@ import {
 import "./device-grants.css";
 
 /**
- * The devices one session may use, as a draft (`{ devices: [{ deviceId, manage }],
- * create }`, session-device-access.js): the grant picker over `devices`
+ * The devices one session or agent may use, as a draft (`{ devices: [{ deviceId,
+ * manage }], create }`, session-device-access.js): the grant picker over `devices`
  * (`[{ id, name, own? }]`), below it the permissions, one "reset and delete" switch
  * per granted device and "Create devices". `stacked` and `heading` are GrantPicker's;
- * the new-session dialog uses both. `onChange(draft)` hands on the next draft.
+ * the new-session dialog and an agent's Access tab use both. `ownNote` and
+ * `createSub` replace the session's wording (an agent's settings).
+ * `onChange(draft)` hands on the next draft.
  */
 export default function DeviceGrantFields({
   devices,
@@ -28,13 +30,15 @@ export default function DeviceGrantFields({
   stacked = false,
   disabled = false,
   autoFocus = false,
+  ownNote,
+  createSub,
 }) {
   const { access: copy } = devicesCopy;
   const id = useId();
   return (
     <GrantPicker
       stacked={stacked}
-      entries={deviceGrantEntries(devices)}
+      entries={deviceGrantEntries(devices, ownNote)}
       selected={grantedIds(draft)}
       onChange={(ids) => onChange(withGranted(draft, ids))}
       typeLabel={copy.grantType}
@@ -60,7 +64,7 @@ export default function DeviceGrantFields({
           ))}
           <ToggleRow
             label={copy.create}
-            sub={copy.createSub}
+            sub={createSub ?? copy.createSub}
             checked={draft.create}
             disabled={disabled}
             onChange={(create) => onChange({ ...draft, create })}

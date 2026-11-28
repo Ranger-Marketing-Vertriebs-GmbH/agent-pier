@@ -19,6 +19,7 @@ import MailAccess from "./MailAccess.jsx";
 import McpAccess from "./McpAccess.jsx";
 import ListAccess from "./ListAccess.jsx";
 import AgentCapability from "../AgentCapability.jsx";
+import DevicesAccess from "./DevicesAccess.jsx";
 
 const copy = assistantSettingsCopy.access;
 
@@ -62,8 +63,9 @@ function GithubAccess({ assistantId, catalog, value, go, navigate }) {
 
 /**
  * The Access tab's groups with inline add (handoff 5.4, 5.5): Projekte, SSH/SFTP,
- * MCP-Server, Pipelines, GitHub, Geheimnisse, E-Mail. An agent of users keeps project folders
- * and MCP servers; the rest stays locked as before.
+ * MCP-Server, Pipelines, GitHub, Geheimnisse, E-Mail, Android-Geräte (while the host
+ * offers devices). An agent of users keeps project folders and MCP servers; the rest
+ * stays locked as before, and its Android devices say why it gets none.
  */
 export default function AccessGroups({
   assistant,
@@ -73,6 +75,7 @@ export default function AccessGroups({
   loadError,
   disabled,
   userAgent,
+  devices,
   withMcp,
   mcpNotice,
   mcpReload,
@@ -190,6 +193,16 @@ export default function AccessGroups({
           disabled={disabled}
           locked={Boolean(assistant.telegramSenders)}
           go={go}
+          navigate={navigate}
+        />
+      )}
+      {devices.offered && (
+        <DevicesAccess
+          devices={devices}
+          value={values.devices}
+          onChange={(next) => draft.set("devices", next)}
+          disabled={draft.saving}
+          member={Boolean(assistant.teamMemberId)}
           navigate={navigate}
         />
       )}
