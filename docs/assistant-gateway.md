@@ -5969,6 +5969,54 @@ is deleted. The owner's Telegram chat gets a text message with the link, except 
 `127.0.0.1` address. Errors carry the stable `PREVIEW_*` codes. See
 [Session previews](previews.md).
 
+## Android devices (2026-11-28, AGENTPIER-508)
+
+`agentpier_device` is one tool with an `action` (`list`, `create`, `start`, `stop`,
+`reset`, `delete`, `screenshot`, `ui`, `tap`, `swipe`, `key`, `type`, `install`,
+`push`, `pull`, `app_launch`, `app_stop`, `apps`, `open_url`, `logs`, `shell`) and the
+arguments of the session tools of the same names
+([MCP](mcp.md#android-devices-from-sessions)): `device-tool-schemas.js` holds the
+fields once, the plugin's flat JSON schema (`team-plugin/device-tool.js`) is checked
+against it, and `agent-devices.js` validates each call with the strict schema of its
+action before it runs the shared device action (`devices/device-actions.js`). One
+tool rather than 21, like AgentPier's other agent tools: every tool is compiled into
+each agent's allow list, the Gateway's global list, the routine and hook caps and the
+plugin manifest, and its schema is sent with every model request.
+
+It is compiled for every agent of the owner's that is not archived, members
+included, while Android devices are installed and can run on the host
+(`toolGrants` `devices`, read at every apply like `craft`); never for an agent of
+restricted users (`lockedTools`) or one with its own bot for other people
+(`senderLockedTools`). Routines and hook runs keep it in their caps. The bridge
+admits the action `device` for a turn of any agent or member, a routine's run, a
+hook's run and a run of the owner's chat without a turn; what a call may do is the
+devices' own gate, `agent-device-origin.js`, asked when the call arrives and again
+when its turn on the device's queue comes (`DeviceService` calls the caller's
+`admit`):
+
+| Run (the bridge's ticket, and the turn's recorded origin)                                            | Use                            | Create, reset, delete |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- |
+| Turn with origin `owner` or `telegram`, not `forwarded`, no goal marker (`directOwnerTurn`)          | yes                            | yes                   |
+| Turn with any other known origin that is not foreign (`foreignOrigin`) and no memory step            | yes                            | no                    |
+| Routine run, hook run, owner run without a turn                                                      | yes                            | no                    |
+| Member's turn with origin `lead-request`, its task open, the task's own origin usable, lead eligible | the task's pass and its own    | no                    |
+| Forwarded or foreign origin, `memory-step`, `unknown`, no record, a temporary member's other turns   | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
+| Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's  | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
+
+A lead passes devices on with `agentpier_team_delegate` `access.devices`
+(`member-device-passes.js`): checked against what the lead has and against the
+lead's own run, written onto the task's record (`devices`), counted live while the
+task is open and the lead still has the device, never with `manage`. Files travel
+between a device and the agent's workspace only, recorded as one folder in
+`devices/agent-grants.json` (`area`), never `.agentpier/`; `pull` needs a run that may
+write (`DEVICE_PULL_READONLY`). A screenshot answers `{ image: { data, mimeType },
+width, height, bytes, device, note }`, which the plugin returns as a text block and
+an `image` block (`deviceImageResult`), as it does for `agentpier_workspace`
+`image_view`. Refusals carry their `DEVICE_*` code with an English sentence
+(`tool-errors.js`, `device-tool-messages.js` audience `agent`). A call answers within
+150 seconds (`toolTimeouts.device`; the device action itself ends after 140). See
+[Android devices](devices.md#devices-for-agents).
+
 ## SSH access proposals (2026-10-26, AGENTPIER-249)
 
 `agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and

@@ -404,18 +404,18 @@ pinned SDK into a data folder for it).
 All on `services.devices`. A caller is `{ kind: "owner" }`, `{ kind: "session", id }`
 or `{ kind: "agent", id }`.
 
-| Need                                           | Method                                                                                                                                                                                                                               |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Run an adb command on a device                 | `adb(id, args, { caller, start, timeoutMs, maxBytes, input, signal, encoding })`: queued per device, starts a stopped device unless `start` is false, bounds output and time, counts as use; `encoding: "buffer"` for a screenshot   |
-| The devices a caller may use                   | `devicesFor(caller)` (each view with `manage`), `permission(caller, id)` (`{ use, manage }`)                                                                                                                                         |
-| Grants of sessions, agents and team members    | `registerGrants(kind, resolver)` with `resolver(callerId) -> [{ deviceId, manage }]`; `registerAssignments(kind, lister)` with `lister(deviceId) -> [{ kind, id, name, manage }]` for the view; `onRemoved(listener)` to drop grants |
-| Create, start, stop, reset, delete by a caller | `create({ name, creator })`, `startDevice(id, { caller })`, `stopDevice(id, { caller })`, `reset(id, { caller })`, `remove(id, { caller })`; reset and delete need `manage`, a creator manages its own devices                       |
-| The owner takes a device over                  | `hold(id, { ms })` returns `{ release(), extend(ms), until }`; `heldUntil(id)`; other callers get `DEVICE_HELD` meanwhile                                                                                                            |
-| A viewer watches a device                      | `watch(id)` returns the function that ends it; a watched device is not stopped for another and stops after 60 instead of 15 idle minutes                                                                                             |
-| Follow the state                               | topic `devices`, `onChanged(listener)`, `view()`, `device(id)`                                                                                                                                                                       |
-| Whether a creator still exists                 | the `creatorExists(creator)` option of the service (wired to "always" so far)                                                                                                                                                        |
-| Another kind of device                         | an object with the methods of `device-source.js` in `sources`; records carry `source`                                                                                                                                                |
-| Steps at a device's first boot                 | `firstBootSteps` in `emulator-source.js` (a later on-device helper is installed there, AGENTPIER-514)                                                                                                                                |
+| Need                                           | Method                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run an adb command on a device                 | `adb(id, args, { caller, start, timeoutMs, maxBytes, input, signal, encoding, onData })`: queued per device, the caller's grant and the owner's hold checked when the call arrives and again at its turn (also `caller.admit()`, since pull request 3), starts a stopped device unless `start` is false, bounds output and time, counts as use; `encoding: "buffer"` for a screenshot |
+| The devices a caller may use                   | `devicesFor(caller)` (each view with `manage`), `permission(caller, id)` (`{ use, manage }`)                                                                                                                                                                                                                                                                                          |
+| Grants of sessions, agents and team members    | `registerGrants(kind, resolver)` with `resolver(callerId) -> [{ deviceId, manage }]`; `registerAssignments(kind, lister)` with `lister(deviceId) -> [{ kind, id, name, manage }]` for the view; `onRemoved(listener)` to drop grants                                                                                                                                                  |
+| Create, start, stop, reset, delete by a caller | `create({ name, creator })`, `startDevice(id, { caller })`, `stopDevice(id, { caller })`, `reset(id, { caller })`, `remove(id, { caller })`; reset and delete need `manage`, a creator manages its own devices                                                                                                                                                                        |
+| The owner takes a device over                  | `hold(id, { ms })` returns `{ release(), extend(ms), until }`; `heldUntil(id)`; other callers get `DEVICE_HELD` meanwhile                                                                                                                                                                                                                                                             |
+| A viewer watches a device                      | `watch(id)` returns the function that ends it; a watched device is not stopped for another and stops after 60 instead of 15 idle minutes                                                                                                                                                                                                                                              |
+| Follow the state                               | topic `devices`, `onChanged(listener)`, `view()`, `device(id)`                                                                                                                                                                                                                                                                                                                        |
+| Whether a creator still exists                 | the `creatorExists(creator)` option of the service (wired to "always" so far)                                                                                                                                                                                                                                                                                                         |
+| Another kind of device                         | an object with the methods of `device-source.js` in `sources`; records carry `source`                                                                                                                                                                                                                                                                                                 |
+| Steps at a device's first boot                 | `firstBootSteps` in `emulator-source.js` (a later on-device helper is installed there, AGENTPIER-514)                                                                                                                                                                                                                                                                                 |
 
 ### What the later pull requests add
 
@@ -456,14 +456,14 @@ sessions).
 
 All in `server/features/devices/` unless a path is given.
 
-| Module                                                                         | What it is                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `device-actions.js`, `device-screen-actions.js`, `device-app-actions.js`       | `DeviceActions#run(action, input, { caller, canCreate, area, signal })`: the 21 actions, independent of MCP, for sessions now and agents in pull request 3                                  |
-| `device-input.js`, `ui-overview.js`, `host-area.js`                            | Checked and quoted words for the device's shell, the numbered overview from a `uiautomator` dump, and the rule that a host file stays inside the caller's area                              |
-| `session-device-grants.js`                                                     | `SessionDeviceGrants`: `devices/session-grants.json`, the sessions' assignments and create permission, and `deviceEligible`                                                                 |
-| `session-device-access.js`                                                     | The value of the routes and of the topic `session.devices`, the check of a launch's `deviceAccess`                                                                                          |
-| `device-mcp.js`, `device-tool-messages.js`                                     | The session tool family and the English sentence for each code                                                                                                                              |
-| `server/http/routes/session-devices.js`, `server/application/device-wiring.js` | The two routes; `services.sessionDeviceGrants` and `services.deviceActions`, registered with `registerGrants("session")`, `registerAssignments("session")`, `onRemoved` and `creatorExists` |
+| Module                                                                         | What it is                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `device-actions.js`, `device-screen-actions.js`, `device-app-actions.js`       | `DeviceActions#run(action, input, { caller, canCreate, area, areaWritable, scope, protectedRoots, signal })`: the 21 actions, independent of MCP, for sessions and agents                                                                               |
+| `device-input.js`, `ui-overview.js`, `host-area.js`                            | Checked and quoted words for the device's shell, the numbered overview from a `uiautomator` dump, and the rule that a host file stays inside the caller's area, which is one folder (`{ path, dev, ino }`, recorded when the caller got it), not a path |
+| `session-device-grants.js`                                                     | `SessionDeviceGrants`: `devices/session-grants.json`, the sessions' assignments and create permission, and `deviceEligible`                                                                                                                             |
+| `session-device-access.js`                                                     | The value of the routes and of the topic `session.devices`, the check of a launch's `deviceAccess`                                                                                                                                                      |
+| `device-mcp.js`, `device-tool-messages.js`                                     | The session tool family and the English sentence for each code                                                                                                                                                                                          |
+| `server/http/routes/session-devices.js`, `server/application/device-wiring.js` | The two routes; `services.sessionDeviceGrants` and `services.deviceActions`, registered with `registerGrants("session")`, `registerAssignments("session")`, `onRemoved` and `creatorExists`                                                             |
 
 ### Routes (owner only; a restricted user gets 404)
 
@@ -536,7 +536,7 @@ session's MCP grant covers.
 `DEVICE_CREATE_FORBIDDEN` (403), `DEVICE_SESSION_INELIGIBLE` (409; 403 from a tool),
 `DEVICE_ASSIGNMENT_INVALID` (400), `DEVICE_INPUT_INVALID` (400),
 `DEVICE_TEXT_UNSUPPORTED` (400), `DEVICE_ELEMENT_STALE`, `DEVICE_PATH_OUTSIDE` (403),
-`DEVICE_PULL_SANDBOXED` (403, a pull in a sandboxed session), `DEVICE_FILE_NOT_FOUND`
+`DEVICE_PULL_SANDBOXED` (403, a pull in a sandboxed session, decided by `areaWritable`), `DEVICE_FILE_NOT_FOUND`
 (404), `DEVICE_FILE_TOO_LARGE` (400), `DEVICE_COMMAND_FAILED`,
 `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` (409 unless noted). Only the first
 three reach the owner's pages; the others are answers of a tool. `DEVICE_FORBIDDEN`
@@ -564,8 +564,10 @@ and `DEVICE_HELD` are now reachable (by a tool).
 - The emulator's own adb port (the odd one) was not tried with a foreign adb key.
 - Linux: the new actions ran on the real emulator on macOS only; the Linux run is the
   workflow's (`.github/workflows/android-devices.yml`).
-- A file on the device that grows while it is pulled is ended by a watch on the
-  private copy every 100 ms; between two looks adb may write more than the limit.
+- `device_pull` reads the file as one stream (the output of the device's `cat`), cut
+  at the limit as it arrives; a file that grows while it is pulled is refused with
+  `DEVICE_FILE_TOO_LARGE` and never fills the host's disk. (The watch on a private
+  copy that this section first described was replaced in review.)
 
 ## State after pull request 2 (web)
 
@@ -654,3 +656,156 @@ audit row).
   because a reload brings the tools back only when they were revoked, not for a
   session started without them.
 - Browser tests ran in Chromium only; WebKit runs with the `webkit` label.
+
+## State after pull request 3 (backend)
+
+The backend half of pull request 3 is built: the agents' grants with their routes and
+topic, the agents' tool on both runtimes with its run gate, and what a lead passes on
+to a member. The web part (the picker in the agent settings, texts, search entries)
+builds on what this section lists. Guides: `docs/devices.md` (Devices for agents),
+`docs/assistant-gateway.md` (Android devices), `docs/hermes-runtime.md`.
+
+### Modules
+
+| Module                                                                                                          | What it is                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/features/devices/device-tool-schemas.js`                                                                | The fields and per-action shapes of the device tools, once: the session tools are derived from them, the agents' tool is checked against them                                                              |
+| `server/features/devices/device-tool-messages.js`                                                               | The sentence per code, worded per audience (`session`, `agent`)                                                                                                                                            |
+| `server/features/devices/agent-device-grants.js`                                                                | `AgentDeviceGrants`: `devices/agent-grants.json`, an agent's assignments, its create permission and its workspace recorded as one folder; disk first                                                       |
+| `server/features/devices/agent-device-access.js`, `server/http/routes/agent-devices.js`                         | The value of the routes and of the topic `agent.devices`, the routes themselves, the audit row                                                                                                             |
+| `server/features/assistants/agent-device-origin.js`                                                             | The devices' own gate: `deviceAgent` (who can be given devices at all), `deviceOrigin` (which recorded origins may use devices), `deviceRun(w, inv)` (the run behind a call, with `manage` and `writable`) |
+| `server/features/assistants/agent-devices.js`                                                                   | `invokeDevice`: the bridge action `device`; validation, the gate at arrival and at the queue head, the scope of a run, the workspace as area, the screenshot's answer                                      |
+| `server/features/assistants/member-device-passes.js`                                                            | What a lead passes on with a task: the check, the record on the task (`devices`), the live resolution for the device service and the device list                                                           |
+| `server/features/assistants/team-plugin/device-tool.js`, `runtimes/hermes/hermes-config/team-plugin-results.js` | The tool's description and JSON schema and how each runtime's plugin returns a screenshot as an image                                                                                                      |
+| `server/features/assistants/team-bridge-dispatch.js`                                                            | The bridge's dispatch by action, moved out of `team-bridge.js`                                                                                                                                             |
+
+Wiring: `device-wiring.js` creates `services.agentDeviceGrants` and registers
+`registerGrants("agent")` (direct grants and open task passes),
+`registerAssignments("agent")`, `onRemoved` and `creatorExists` for agents; a
+device whose creating agent is deleted shows `creator.gone`. `agent-lifecycle.js`
+discards a deleted agent's grants. The tool is compiled while
+`configuration.devicesAvailable()` holds (`workflow-instruction-wiring.js`), through
+`toolGrants({ devices })`.
+
+### Routes (owner only; a restricted user gets 404)
+
+| Method and path                   | Body                                                                                          | Answer                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------ |
+| `GET /api/assistants/:id/devices` | –                                                                                             | 200, the agent's device access |
+| `PUT /api/assistants/:id/devices` | `{ devices: [{ deviceId, manage }], create }` (both fields, nothing else; at most 20 devices) | 200, the same after the change |
+
+The agent's device access (also the value of the live topic `agent.devices:<agent
+id>`, registered in `web/lib/live/live-topics.js` with the path
+`/assistants/<id>/devices`):
+
+```json
+{
+  "availability": { "available": true, "reason": null },
+  "eligible": true,
+  "create": false,
+  "devices": [
+    {
+      "id": "d-0123456789ab",
+      "name": "Pixel",
+      "state": "stopped",
+      "creator": { "kind": "owner", "id": "owner", "name": "", "gone": false },
+      "assigned": true,
+      "manage": false,
+      "own": false,
+      "passed": false
+    }
+  ]
+}
+```
+
+- The same shape as a session's access, without `tools` and with `passed`: the
+  agent is a member and its lead passes this device on with a task that is open now.
+  `DeviceGrantFields` takes it as it is (`[{ id, name, own }]` and the draft).
+- `eligible` is false for an archived agent, an agent of restricted users and an
+  agent with its own Telegram bot for other people. A `PUT` that grants anything to
+  such an agent answers 409 `DEVICE_AGENT_INELIGIBLE`; a `PUT` that grants nothing
+  always works. An agent that became ineligible keeps what the owner set
+  (`assigned`), and it counts for nothing meanwhile.
+- A member (permanent or temporary) is eligible like any agent of the owner's.
+- Refusals answer `{ code, error: code }`: `DEVICE_ASSIGNMENT_INVALID` (400),
+  `DEVICE_AGENT_INELIGIBLE` (409). An unknown agent is a 404 as on the other agent
+  routes.
+- A change is audited as `assistant.updated` with `details.kind: "device-grants"`
+  and no device named; a pass as `details.kind: "lead-share"` with `devices` (a
+  number) and the task's `requestId`.
+- The device view (`GET /api/devices`, topic `devices`) fills `assignments` with
+  `{ kind: "agent", id, name, manage }` and, for a pass, `{ kind: "agent", id, name,
+manage: false, passedBy: { id, name } }`. A pass that ended with its task leaves
+  the list with the next change of the view (the end of a task signals nothing).
+- A `PUT` that grants something records the agent's workspace folder anew; that is
+  how the owner repairs `DEVICE_PATH_OUTSIDE` after a restore.
+
+### The tool
+
+`agentpier_device`, one tool with `action` (the 21 actions) and the session tools'
+fields flat beside it (`device`, `name`, `element`, `x`, `y`, `longPress`, `scroll`,
+`x1`, `y1`, `x2`, `y2`, `durationMs`, `key`, `count`, `text`, `path`, `devicePath`,
+`package`, `activity`, `all`, `url`, `lines`, `tag`, `priority`, `command`,
+`timeoutMs`), the same on OpenClaw and Hermes. `agentpier_team_delegate` gained
+`access.devices` (1 to 20 ids or names). The run rules are the table in
+`docs/assistant-gateway.md` (Android devices).
+
+### Codes added (each with a text in both web catalogs, `devicesCopy.codes`)
+
+`DEVICE_AGENT_INELIGIBLE` (409 from the route, 403 from the tool),
+`DEVICE_RUN_FORBIDDEN` (403), `DEVICE_OWNER_TURN_REQUIRED` (403),
+`DEVICE_PULL_READONLY` (403), `DEVICE_PASS_INVALID` (409). Only the first reaches the
+owner's pages; the others are answers of a tool.
+
+### Left for the web part
+
+- The agent settings: `DeviceGrantFields` on `GET`/`PUT /api/assistants/:id/devices`
+  with `useLiveTopic("agent.devices:<id>")`; offered while
+  `availability.available`, with `DEVICE_AGENT_INELIGIBLE` in words and no choice
+  while `eligible` is false. Where it lives in the settings is the web part's call
+  (`docs/agents.md` names it under **Access** for now).
+- `passed: true` rows for a member ("passed on by its lead for a task"), and
+  `passedBy` in the device list's `assignmentText`.
+- Search entries, texts, browser tests; the two READMEs and the controls' names in
+  `docs/devices.md` (marked with an HTML comment) and `docs/agents.md`.
+- The team settings need nothing: a pass has no owner switch. If the owner should be
+  able to forbid passes per lead, that is a new setting on the team policy, read in
+  `member-device-passes.js` `checkedPass`.
+
+### Seam for pull request 4 (takeover request)
+
+Nothing built here stands in its way. What it needs:
+
+- A bridge-side entry: either a further action of `agentpier_device` (`ACTIONS` is
+  the device actions' list, so a `takeover` action belongs in `agent-devices.js`
+  before the dispatch to `DeviceActions`, with its own field in
+  `device-tool-schemas.js` and `team-plugin/device-tool.js`), or a card. It should
+  pass `deviceRun` like every call and be allowed wherever `use` is.
+- The link: the device's view route of pull request 4 with the device id; the
+  agent's result should carry it like `agentpier:browser-takeover`, and the
+  Telegram notice can follow `notifyAgentPreview` (`agent-previews.js`).
+- While the owner holds the device (`DeviceService#hold`), agents' calls answer
+  `DEVICE_HELD` already, with a sentence that says to wait; a call that was queued
+  is checked again at its turn.
+- `agentDeviceAccess` and the device view carry `state` and `held`; the chat strip
+  can read which device an agent uses from `lastUsedAt` and the audit, or pull
+  request 4 adds a "last caller" to the runtime state.
+
+### Known and not verified (pull request 3, backend)
+
+- The pinned runtimes' contracts (`AGENTPIER_TEAM_CONTRACT_RUNTIME`,
+  `AGENTPIER_HERMES_CONTRACT_RUNTIME`) were not run with the device tool on this
+  machine: no contract installation is provisioned here. The plugins' handling of
+  the answer is tested against the plugin code itself (the OpenClaw plugin's
+  `execute`, the compiled Hermes plugin in Python), not against a model request of
+  a running runtime.
+- The run gate is tested once, on the shared bridge; the Hermes side of it is the
+  session key its plugin sends (tested) and the same bridge.
+- On Hermes a call's HTTP request is not aborted when its turn is stopped; such a
+  call is refused at its turn on the device (`admit`), or runs to its own time limit
+  when it had already begun.
+- A sender-facing agent on Hermes still lists the tool (Hermes's tool list does not
+  apply `senderLockedTools`); every call answers `DEVICE_AGENT_INELIGIBLE`.
+- "Forwarded" exists for Telegram messages only; content the owner pastes, or that
+  an agent reads in an owner's turn (web, mail, files, a device's screen), is part of
+  that turn.

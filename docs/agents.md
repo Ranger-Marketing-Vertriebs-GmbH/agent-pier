@@ -376,7 +376,8 @@ What works on Hermes today:
   sees attached images directly, as on OpenClaw), sharing files with you
   (also to your paired Telegram chat), the agent's own reminders and routines, hook
   proposals, project folders and new projects, SSH and SSH access requests, GitHub,
-  secrets, work goals, coding sessions, email and previews work as on OpenClaw. The
+  secrets, work goals, coding sessions, email, previews and Android devices work as
+  on OpenClaw. The
   agent works in the same kind of folder as an OpenClaw agent, so its attachments,
   secrets and transfers are where its commands run. With **Read images**, images it
   views in your project folders reach its model as images too.
@@ -1254,6 +1255,11 @@ save. A long group shows its first entries and **n more · Show all**, which ope
 full page with search. When nothing exists yet, the group links to Connections to set
 it up. An agent of users gets project folders only; the other groups show a lock.
 
+- **Android devices:** an agent can be given emulated Android phones to test apps
+  and websites on, with the tool `agentpier_device`: which devices, whether it may
+  reset and delete each, and whether it may create devices. Only your own agents,
+  and which of an agent's runs may use a device is decided per run
+  ([Android devices](devices.md#devices-for-agents)).
 - **Secrets:** pick the secrets this agent receives (up to
   50). They are delivered as `.agentpier/secrets.env` in its workspace, and its
   AgentPier instructions name that file and how to load it, so it can read their
@@ -1692,6 +1698,10 @@ with Learning") and on their own:
 A permanent member has only the access you gave it. When a task needs the lead's own
 access, the lead can share it, without asking you:
 
+- **Android devices** for one task (`access.devices` of a delegated task), to a
+  permanent or a temporary member: only devices the lead has itself, to use and
+  never to reset or delete
+  ([Android devices](devices.md#team-members)),
 - **Project folders** at most at the lead's own **Read** or **Read and write** level,
 - **Coding projects**: the member may request coding runs on the lead's project with
   the lead's pipelines; every run still waits for your approval, also when the lead
@@ -2669,6 +2679,9 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
 - Agents run as your operating-system user. **Shell access** works with your logins,
   files and keys and is not sandboxed; the optional [nono sandbox](sandbox.md) applies
   to CLI sessions only.
+- An Android device you assign to an agent reaches the network and the host's
+  loopback like a shell on the host, and what it shows is untrusted content
+  ([Android devices](devices.md#what-a-device-can-reach)).
 - Secrets you grant an agent are readable by it, and a shell can also change the file
   that holds them. Grant tokens with the fewest rights needed ([secrets](secrets.md)).
 - Local (stdio) MCP servers run commands on the host; AgentPier asks before you bind
