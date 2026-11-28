@@ -125,7 +125,13 @@ What the choices mean:
 - **Create devices** is a permission per session, off by default. A device a session
   created is its own: it may use, reset and delete it without further permission. It
   appears in your device list with the session as its creator, counts towards
-  **Devices in total**, and you can assign it to other sessions or delete it.
+  **Devices in total**, and you can assign it to other sessions or delete it. Device
+  names are unique on the host, so a session with this permission learns that a name
+  is taken (`DEVICE_NAME_TAKEN`) also when the device of that name is not assigned to
+  it; it needs the reason to choose another name. That is accepted: you trust such a
+  session with creating devices, and their names are not secret from it. A session
+  without the permission learns no names: a name it was not given answers
+  `DEVICE_NOT_FOUND`, like one that does not exist.
 - **When the session is removed**, its assignments go with it. Devices it created
   stay and show "creator no longer exists"; you decide what happens to them. Stopping
   a session keeps its assignments, and a stopped session can call nothing.
@@ -232,8 +238,10 @@ other tools build their commands from checked values (a package name, a key from
 fixed list, coordinates) and quote everything else as one word.
 
 "Inside the device" is still not "isolated": a device reaches the network and the
-host's loopback (see below). Give a session a device as you would give it a shell on
-your network.
+host's loopback (see [What a device can reach](#what-a-device-can-reach)). Give a
+session a device as you would give it a shell on your network. That holds for a
+[sandboxed](sandbox.md) session too, whatever its profile says about the network: the
+device is outside its sandbox.
 
 ### What a device shows is untrusted
 
@@ -264,6 +272,17 @@ since its last saved state is lost.
   (inside the device, `10.0.2.2` is the host). That is intended, for testing a local
   development server on a phone; treat giving someone a device like giving them a
   shell on the host's network.
+- **A device gives a network-blocked session the network.** A session whose nono
+  profile blocks the network (`network.block`) reaches none on the host, but a device
+  assigned to it does, and `device_shell` runs commands there. From inside a device
+  such a session reaches the internet, every service on the host's loopback, and
+  AgentPier's own adb server (`10.0.2.2:47600` from inside the device), which asks
+  for no credentials; through it the session lists every running device and runs
+  commands on each, around your assignments and while you hold a device. Checked with
+  two emulators on macOS: a session with one device sent adb's `host:devices` and
+  `host:transport:<the other device>` with the device's `nc` and ran a shell command
+  on the device it was not given. **Do not assign a device to a session whose sandbox
+  is meant to keep it off the network, and do not let such a session create one.**
 - **Loopback adb is not an access boundary.** AgentPier runs its own adb server on
   `127.0.0.1:47600` and each running device listens on two loopback ports from
   `47602` to `47621`. The adb server asks for no credentials: any local process
@@ -285,8 +304,9 @@ since its last saved state is lost.
     server directly, around the assignments; it cannot read the adb key or the
     console token, which lie in a folder it is not granted. A profile that blocks
     the network (`network.block`) blocks loopback as well, and AgentPier opens no
-    device port for a session; such a session reaches devices only through its
-    tools. (Read from nono's documented behaviour and AgentPier's launch code; not
+    device port for a session; such a session reaches the adb server only from
+    inside a device it was given (see "A device gives a network-blocked session the
+    network" above), which is enough to reach every other running device. (Read from nono's documented behaviour and AgentPier's launch code; not
     tried with a device under nono.)
   - **The device tools work in every sandboxed session** all the same: they go to
     the AgentPier server over the session's granted Unix socket, and the server
