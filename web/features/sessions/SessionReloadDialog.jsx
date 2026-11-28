@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import CheckRow from "../../components/CheckRow.jsx";
 import Icon from "../../components/Icon.jsx";
@@ -7,6 +7,11 @@ import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
 import { routeLabel } from "../provider-connections/route-label.js";
 import "./session-reload.css";
+
+// A reload normally verifies the resumed conversation within a few seconds. One that
+// still runs after this long is probably waiting in the terminal for the user to allow
+// hooks or trust the project, so only then does the dialog switch to the terminal.
+const TERMINAL_AFTER_MS = 10_000;
 
 const stateTones = {
   waiting: "pending",
@@ -29,9 +34,16 @@ export default function SessionReloadDialog({
   const [interrupt, setInterrupt] = useState(false);
   const [targetAccountId, setTargetAccountId] = useState("");
   const { data, busy, error } = reload;
+  // The callback changes with every render of the workspace; the timer must not restart.
+  const openTerminalRef = useRef(openTerminal);
   useEffect(() => {
-    if (!busy && data?.state === "reloading") openTerminal();
-  }, [busy, data?.state, openTerminal]);
+    openTerminalRef.current = openTerminal;
+  });
+  useEffect(() => {
+    if (busy || data?.state !== "reloading") return undefined;
+    const timer = setTimeout(() => openTerminalRef.current(), TERMINAL_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [busy, data?.state]);
   const validTarget =
     !switchAccount || data?.accountTargets?.some((a) => a.id === targetAccountId);
   const active = ["waiting", "reloading"].includes(data?.state);

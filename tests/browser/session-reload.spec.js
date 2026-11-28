@@ -472,19 +472,48 @@ test("a failed account startup can retry the current target without switching ag
   );
 });
 
-test("a started reload opens the terminal automatically for delayed hook approval", async ({
+// A reload passes through "reloading" for a moment even when nothing needs approval:
+// the view the user was in stays, and only a reload that keeps running opens the terminal.
+test("a reload that keeps running opens the terminal for delayed hook approval", async ({
   page,
 }) => {
   const state = await fixture(page);
   state.reload.activity = { state: "idle" };
   state.awaitingHooks = true;
+  await page.clock.install();
   await open(page);
   await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+  await expect(dialog(page)).toContainText("Waiting for the resumed conversation");
+  await page.clock.fastForward(9_000);
+  await expect(dialog(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/sessions\/reload\/chat$/);
+  expect(state.sockets).toBe(0);
+  await page.clock.fastForward(1_500);
   await expect(dialog(page)).not.toBeVisible();
   await expect.poll(() => state.sockets).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Send Enter", exact: true }).click();
   await expect.poll(() => state.terminalInputs).toContain("\r");
   expect(state.posts).toHaveLength(1);
+});
+
+test("a reload that completes keeps the chat view open", async ({ page, liveStub }) => {
+  const state = await fixture(page);
+  state.reload.activity = { state: "idle" };
+  state.awaitingHooks = true;
+  await page.clock.install();
+  await open(page);
+  await liveStub.waitForSubscribe("session.reload:reload");
+  await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+  await expect(dialog(page)).toContainText("Waiting for the resumed conversation");
+  await page.clock.fastForward(5_000);
+  state.reload = { ...state.reload, state: "completed" };
+  state.session.reload = { ...state.reload };
+  await expect(dialog(page)).toContainText("Conversation resumed");
+  await page.clock.fastForward(30_000);
+  await expect(dialog(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/sessions\/reload\/chat$/);
+  await expect(page.getByText("Existing answer")).toBeVisible();
+  expect(state.sockets).toBe(0);
 });
 
 // The dialog follows the live session.reload topic (answered here from the REST mock):
