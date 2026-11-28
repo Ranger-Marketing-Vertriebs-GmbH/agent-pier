@@ -102,7 +102,17 @@ test("remove deletes the device, tells the listeners and frees the name", async 
     throw Error("another feature's failure");
   });
   t.mock.method(console, "error", () => {});
+  // Every change of the view is heard, until the listener is taken away; a failing
+  // listener stops neither the others nor the change.
+  let changes = 0;
+  service.onChanged(() => {
+    throw Error("another feature's failure");
+  });
+  const unheard = service.onChanged(() => changes++);
   await service.startDevice(device.id, { caller: owner });
+  assert.ok(changes >= 2);
+  unheard();
+  const heard = changes;
   service.hold(device.id, { ms: minute });
   const gate = deferred();
   source.gates.stop = () => gate.promise;
@@ -111,6 +121,7 @@ test("remove deletes the device, tells the listeners and frees the name", async 
   gate.resolve();
   assert.equal(await removal, undefined);
   assert.deepEqual(removed, [device.id]);
+  assert.equal(changes, heard);
   assert.deepEqual(
     service.view().devices.map((entry) => entry.id),
     [kept.id],

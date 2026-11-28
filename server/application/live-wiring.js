@@ -45,6 +45,10 @@ import {
 } from "../features/artifacts/live-topics.js";
 import { previewsTopic } from "../features/previews/live-topics.js";
 import {
+  deviceInstallationTopic,
+  devicesTopic,
+} from "../features/devices/live-topics.js";
+import {
   cleanupSummaryTopic,
   systemStatusTopics,
 } from "../features/system-status/live-topics.js";
@@ -139,6 +143,8 @@ export function createLiveHub(services, options = {}) {
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());
   hub.define(previewsTopic(services));
+  hub.define(devicesTopic(services));
+  hub.define(deviceInstallationTopic(services));
   for (const topic of systemStatusTopics(services)) hub.define(topic);
   hub.define(cleanupSummaryTopic(services));
   defineAgentBusTopic(hub, services);

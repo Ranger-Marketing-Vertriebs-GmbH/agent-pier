@@ -172,6 +172,21 @@ test("the operations and artifact topics name their routes at their former polls
   assert.equal(previews.path(), "/previews");
   assert.deepEqual([previews.mode, previews.interval], ["state", 5000]);
   assert.equal(topicInfo("previews:x"), null);
+  // Android devices: both topics carry their route's answer and are never sampled.
+  const devices = topicInfo("devices");
+  assert.equal(devices.path(), "/devices");
+  assert.deepEqual(
+    [devices.mode, devices.interval, devices.sampled],
+    ["state", 5000, false],
+  );
+  const installation = topicInfo("devices.installation");
+  assert.equal(installation.path(), "/devices/installation");
+  assert.deepEqual(
+    [installation.mode, installation.interval, installation.sampled],
+    ["state", 5000, false],
+  );
+  assert.equal(topicInfo("devices:x"), null);
+  assert.equal(topicInfo("devices.installation:x"), null);
   const views = topicInfo("views");
   assert.equal(views.path(), "/views");
   assert.deepEqual([views.mode, views.interval], ["state", 30000]);

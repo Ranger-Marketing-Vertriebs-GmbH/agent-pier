@@ -35,6 +35,7 @@ export const auditActionCopy = {
     storage: "Speicher",
     mail: "E-Mail",
     preview: "Vorschau",
+    device: "Android-Gerät",
     login: "Anmeldung",
   },
   verbs: {
@@ -83,5 +84,6 @@ export const auditActionCopy = {
     "memory-restored": "Gedächtnis wiederhergestellt",
     "memory-saved": "Gedächtnis gespeichert",
     "memory-deleted": "Gedächtnis gelöscht",
+    reset: "zurückgesetzt",
   },
 };

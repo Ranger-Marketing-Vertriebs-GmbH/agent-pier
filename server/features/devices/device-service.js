@@ -79,6 +79,7 @@ export class DeviceService {
     this.runtimes = new Map();
     this.access = new DeviceAccess();
     this.removed = new Set();
+    this.watchers = new Set();
     this.sweepTimer = null;
     this.closed = false;
   }
@@ -108,6 +109,12 @@ export class DeviceService {
   }
   #signal() {
     quiet(() => this.changed());
+    for (const listener of [...this.watchers]) quiet(listener);
+  }
+  /** `listener()` hears every change of the view. Returns its removal. */
+  onChanged(listener) {
+    this.watchers.add(listener);
+    return () => this.watchers.delete(listener);
   }
   #record(action, record, caller) {
     quiet(() =>

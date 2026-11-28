@@ -26,7 +26,9 @@ test("an action reads in words; anything else stays as it is", (t) => {
   assert.equal(auditActionLabel("assistant.hook-blocked"), "Agent blocked by a hook");
   assert.equal(auditActionLabel("ssh.key.exported"), "SSH key exported");
   assert.equal(auditActionLabel("weird.thing"), "weird.thing");
+  assert.equal(auditActionLabel("device.reset"), "Android device reset");
   setLanguage("de");
+  assert.equal(auditActionLabel("device.reset"), "Android-Gerät zurückgesetzt");
   assert.equal(auditActionLabel("backup.created"), "Sicherung erstellt");
 });
 

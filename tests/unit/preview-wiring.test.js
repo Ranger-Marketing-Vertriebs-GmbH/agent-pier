@@ -47,6 +47,23 @@ test("internal ports name AgentPier, the bridge, the reminder webhook, the Gatew
   assert.equal(ports.has(42112), false);
 });
 
+test("the private adb server and the ports of running devices are internal", () => {
+  // Without the device service the adb server's fixed port is still never a target.
+  assert.ok(internalPorts({}).has(47600));
+  const running = [47602, 47603];
+  const ports = internalPorts({
+    devices: { sources: { emulator: { adbPort: 47600 } }, ports: () => running },
+  });
+  for (const port of [47600, 47602, 47603]) assert.ok(ports.has(port), `${port}`);
+  assert.equal(ports.has(47604), false);
+  // A stopped device holds no port.
+  running.length = 0;
+  assert.deepEqual(
+    [...internalPorts({ devices: { sources: {}, ports: () => running } })],
+    [47600],
+  );
+});
+
 test("an agent preview lives while its conversation and unarchived agent exist", () => {
   const conversations = { c1: { assistantId: "a1" } };
   const agents = { a1: { archivedAt: null }, a2: { archivedAt: "2026-11-01" } };

@@ -86,6 +86,7 @@ import { auditRoutes } from "./http/routes/audit.js";
 import { createApiRegistry } from "./http/api-registry.js";
 import { healthRoutes } from "./http/routes/health.js";
 import { createShutdown } from "./application/shutdown.js";
+import { connectDevices } from "./application/device-wiring.js";
 import { directoryResolver } from "./lib/directories.js";
 import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
@@ -487,6 +488,7 @@ export async function createApplication(config) {
   const mount = (router) => api.mount(router);
   mount(artifactsRoutes(services));
   mount(previewsRoutes(services));
+  connectDevices(services, { mount, whenListening });
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
   mount(projectGroupsRoutes(services));

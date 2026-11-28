@@ -1,4 +1,5 @@
 import { serverMessages } from "../lib/i18n/de.js";
+import { shutdownDevices } from "./device-wiring.js";
 export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
@@ -54,6 +55,9 @@ export function createShutdown({ services, wss, server }) {
         ws.once("close", () => clearTimeout(timeout));
       }
     await services.artifacts?.close();
+    // Android devices stop and a running SDK download ends (bounded, about 3 s),
+    // before the previews, which never forward to a device's ports.
+    await shutdownDevices(services);
     // Preview listeners and their sockets; Tailscale Serve registrations stay.
     await services.previews?.shutdown();
     await services.files?.close();
