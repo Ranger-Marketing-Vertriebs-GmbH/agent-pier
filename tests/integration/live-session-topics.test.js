@@ -114,16 +114,18 @@ test("the topic keeps the planned sampler", () => {
   assert.equal(typeof definition.sampling, "function");
 });
 
-test("a created request reaches a subscriber within 1 s", async (t) => {
+// These topics have no other source than the change's own signal (or one sampled far
+// more slowly than the wait): a frame can only follow the write. How soon the hub
+// sends it (150 ms after the last change, 1 s at most) is
+// tests/unit/live-instance.test.js, on a manual clock; the waits here bound a hang.
+test("a created request reaches a subscriber", async (t) => {
   const f = await fixture(t, { sampleMs: 60000 });
   const tab = subscribe(f.hub, topic);
   const snapshot = await tab.next();
   assert.equal(snapshot.type, "snapshot");
   assert.deepEqual(snapshot.data.requests, []);
-  const started = Date.now();
   f.channel.publish("native-1", request, async () => {});
-  const frame = await tab.next(listed, 1000);
-  assert.ok(Date.now() - started < 1000);
+  const frame = await tab.next(listed, 10000);
   assert.equal(frame.type, "state");
   assert.equal(frame.data.requests[0].subject.command, "fixture command");
   assert.ok(frame.revision > snapshot.revision);
@@ -157,7 +159,7 @@ test("a touch from another client pushes its moment and the frame's server time"
   assert.equal(snapshot.data.requests[0].interaction, undefined);
   const before = Date.now();
   await f.broker.touch("fixture", snapshot.data.requests[0].id, { client: "other" });
-  const frame = await tab.next(pushed, 1000);
+  const frame = await tab.next(pushed, 10000);
   const { interaction } = frame.data.requests[0];
   assert.equal(interaction.client, "other");
   assert.equal(interaction.at % 1000, 0);
@@ -196,10 +198,10 @@ test("a terminal notice and its clearing push frames", async (t) => {
     source: "claude",
     kind: "permission",
   });
-  const shown = await tab.next(pushed, 1000);
+  const shown = await tab.next(pushed, 10000);
   assert.deepEqual(shown.data.notice, { id: "a".repeat(64), reason: "terminal" });
   f.broker.clearNotice("fixture");
-  const cleared = await tab.next(pushed, 1000);
+  const cleared = await tab.next(pushed, 10000);
   assert.equal(cleared.data.notice, undefined);
   tab.stop();
 });
@@ -247,9 +249,9 @@ test("after startup, broker changes and native activity still push", async (t) =
   const tab = subscribe(f.hub, topic);
   await tab.next();
   await pending(f);
-  const created = await tab.next(listed, 1000);
+  const created = await tab.next(listed, 10000);
   await f.broker.touch("fixture", created.data.requests[0].id, { client: "other" });
-  const touched = await tab.next(pushed, 1000);
+  const touched = await tab.next(pushed, 10000);
   assert.equal(touched.data.requests[0].interaction.client, "other");
   // Native activity reads the list again (the read looks at the screen once).
   const screens = f.counts.screens;

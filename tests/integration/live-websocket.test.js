@@ -50,14 +50,16 @@ test("an owner gets hello, then a snapshot for a defined topic", async (t) => {
   live.ws.close();
 });
 
-test("a frame follows a change within 1 s", async (t) => {
+// These topics have no other source than the change's own signal (or one sampled far
+// more slowly than the wait): a frame can only follow the write. How soon the hub
+// sends it (150 ms after the last change, 1 s at most) is
+// tests/unit/live-instance.test.js, on a manual clock; the waits here bound a hang.
+test("a frame follows a change", async (t) => {
   const f = await applicationFixture(t);
   const topic = fixtureTopic(f);
   const { live, first } = await subscribed(f, topic.name);
-  const started = Date.now();
   topic.set({ n: 1 });
-  const frame = await live.next(ofType("state", topic.name), 1000);
-  assert.ok(Date.now() - started < 1000);
+  const frame = await live.next(ofType("state", topic.name), 10000);
   assert.deepEqual(frame.data, { n: 1 });
   assert.ok(frame.revision > first.revision);
   live.ws.close();

@@ -41,20 +41,25 @@ test("the state snapshot equals GET /api/state", async (t) => {
   live.ws.close();
 });
 
-test("PATCH /api/preferences pushes a delta within 1 s", async (t) => {
+// A write pushes by its own signal, not with the next collect (every 2.5 s, which
+// reads the state too). With the collect stopped, a delta can only come from the
+// write, however long the machine takes; how soon the hub sends it is
+// tests/unit/live-instance.test.js, on a manual clock.
+const withoutCollect = (f) => clearInterval(f.application.operationsEvents.timer);
+
+test("PATCH /api/preferences pushes a delta by itself", async (t) => {
   const f = await applicationFixture(t);
   await settledState(f);
   const { live, snapshot } = await subscribedState(f);
+  withoutCollect(f);
   const held = applyListSync(null, snapshot.data);
   assert.equal(held.list.autoResumeInterrupted, true);
-  const started = Date.now();
   const response = await f.request("/api/preferences", {
     method: "PATCH",
     body: { autoResumeInterrupted: false },
   });
   assert.equal(response.status, 200);
-  const delta = await live.next(forState, 1000);
-  assert.ok(Date.now() - started < 1000);
+  const delta = await live.next(forState, 10000);
   assert.equal(delta.type, "delta");
   assert.ok(delta.revision > snapshot.revision);
   const next = applyListSync(held, delta.data);
@@ -93,16 +98,17 @@ test("a new session reaches the topic within one collect, in the shape of GET", 
   live.ws.close();
 });
 
-test("a created account pushes a delta within 1 s", async (t) => {
+test("a created account pushes a delta by itself", async (t) => {
   const f = await applicationFixture(t);
   await settledState(f);
   const { live, snapshot } = await subscribedState(f);
+  withoutCollect(f);
   const response = await f.request("/api/accounts", {
     method: "POST",
     body: { name: "Zweites Profil", tool: "claude" },
   });
   assert.equal(response.status, 201);
-  const delta = await live.next(forState, 1000);
+  const delta = await live.next(forState, 10000);
   const list = applyListSync(applyListSync(null, snapshot.data), delta.data).list;
   assert.ok(list.accounts.some((account) => account.name === "Zweites Profil"));
   live.ws.close();

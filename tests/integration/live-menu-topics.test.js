@@ -61,15 +61,19 @@ test("each menu-hint snapshot equals its REST route", async (t) => {
   live.ws.close();
 });
 
-test("an owner write pushes the summary and the problems within 1 s", async (t) => {
+// These topics have no other source than the change's own signal (or one sampled far
+// more slowly than the wait): a frame can only follow the write. How soon the hub
+// sends it (150 ms after the last change, 1 s at most) is
+// tests/unit/live-instance.test.js, on a manual clock; the waits here bound a hang.
+test("an owner write pushes the summary and the problems", async (t) => {
   const f = await applicationFixture(t);
   const { live, first } = await listening(f, ...Object.keys(menuTopics));
   assert.deepEqual(first["settings.summary"].data.access.secrets, { count: 0 });
   assert.equal(first["connections.problems"].data.secrets.total, 0);
-  // Each frame is awaited from the write on, 1 s apiece.
+  // Each frame is awaited from the write on.
   const pushed = Promise.all([
-    live.next((frame) => frame.topic === "settings.summary", 1000),
-    live.next((frame) => frame.topic === "connections.problems", 1000),
+    live.next((frame) => frame.topic === "settings.summary", 10000),
+    live.next((frame) => frame.topic === "connections.problems", 10000),
   ]);
   const created = await f.request("/api/secrets", {
     method: "POST",
