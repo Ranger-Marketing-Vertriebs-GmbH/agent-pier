@@ -71,7 +71,12 @@ export function requestAudit(req) {
       operation === "ssh-accesses"
     )
       action = "updated";
-    else if (operation) return null;
+    else if (operation === "devices") {
+      // The owner changed which Android devices the session may use, or whether it
+      // may create devices; never which ones.
+      action = "updated";
+      kind = "device-grants";
+    } else if (operation) return null;
     else if (!id) action = "started";
   } else if (area === "ssh-accesses") {
     if (id === "scan") return null;
