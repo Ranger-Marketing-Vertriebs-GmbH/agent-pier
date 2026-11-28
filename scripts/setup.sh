@@ -21,6 +21,7 @@ Usage: agentpier-install [options]
   --with-rea            Install REA with Ghidra and the JDK (Core follows at server start)
   --with-craft-anything Install Craft Anything (installed at server start, with Ghidra)
   --with-hermes         Enable Hermes Agent and pre-install its pinned runtime
+  --with-android-devices Request Android devices (2.3 GB download at server start; accepts Google's terms)
   --help                Show this help
   --version             Show the installer version
 EOF

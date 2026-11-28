@@ -130,6 +130,31 @@ test("installer arguments pin the first release while retaining setup defaults",
   ]);
 });
 
+test("every optional component round-trips from the setup options to the installer arguments", () => {
+  const flags = {
+    "--with-assistants": "withAssistants",
+    "--with-agent-browser": "withAgentBrowser",
+    "--with-rea": "withRea",
+    "--with-craft-anything": "withCraftAnything",
+    "--with-hermes": "withHermes",
+    "--with-android-devices": "withAndroidDevices",
+  };
+  const base = installerArguments(resolveSetupOptions([], context()), "1.17.0");
+  for (const [flag, option] of Object.entries(flags)) {
+    const options = resolveSetupOptions([flag], context());
+    assert.equal(options[option], true, flag);
+    assert.deepEqual(installerArguments(options, "1.17.0"), [...base, flag]);
+    // Not combinable with the dependency repair.
+    assert.throws(
+      () => resolveSetupOptions(["--dependencies-only", flag], context()),
+      /cannot be combined/,
+    );
+  }
+  const all = resolveSetupOptions(Object.keys(flags), context());
+  assert.deepEqual(installerArguments(all, "1.17.0"), [...base, ...Object.keys(flags)]);
+  assert.equal("withAndroidDevices" in resolveSetupOptions([], context()), false);
+});
+
 test("dependency repair omits release, path, resume, and service arguments", () => {
   const options = resolveSetupOptions(
     ["--dependencies-only"],
