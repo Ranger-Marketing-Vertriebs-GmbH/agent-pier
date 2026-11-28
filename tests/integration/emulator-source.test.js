@@ -211,16 +211,20 @@ test("a stop saves the snapshot; only an unclean end forces a cold boot", async 
   await emulator.stop(record);
   assert.deepEqual(exits, []);
   // The device ends by itself while it runs: reported, and the next start is cold.
-  sdk.behaviour({ mode: "crash", crashMs: 20 });
+  // It crashes when asked, once the start has answered: a crash a few milliseconds
+  // after the boot could come before the source has seen the boot, which is a failed
+  // start (the next test), not a device that ends while it runs.
+  sdk.behaviour({ mode: "crash", crashWhen: "asked", crashNow: false });
   const ended = new Promise((resolve) => {
     emulator.onExit = (id, result) => resolve({ id, ...result });
   });
   await emulator.start(record);
   assert.equal(flag(sdk.launches()[2], "-no-snapshot-load"), false);
+  sdk.behaviour({ crashNow: true });
   assert.deepEqual(await ended, { id: record.id, code: 1, signal: null });
   assert.deepEqual(emulator.state(record), { state: "stopped", serial: null });
   assert.deepEqual(runFiles(paths), []);
-  sdk.behaviour({ mode: "boot" });
+  sdk.behaviour({ mode: "boot", crashNow: false });
   emulator.onExit = null;
   await emulator.start(record);
   assert.equal(flag(sdk.launches()[3], "-no-snapshot-load"), true);
