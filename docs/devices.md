@@ -326,7 +326,9 @@ An agent that tries to create, reset or delete elsewhere is told to ask you
 (`DEVICE_OWNER_TURN_REQUIRED`); a run that gets no device is told so
 (`DEVICE_RUN_FORBIDDEN`). A call that waits behind another call on the same device is
 checked again when its turn comes, so nothing runs for a turn that has ended
-meanwhile.
+meanwhile. A call the agent's runtime gave up (its turn was stopped, or it waited
+too long) is ended as well: what it runs on the device is aborted, and a call that
+still waits behind another never runs.
 
 A call counts for the run it names, not for whatever turn its chat has by then. On
 OpenClaw every call names its run: a late call of an earlier turn gets no device
