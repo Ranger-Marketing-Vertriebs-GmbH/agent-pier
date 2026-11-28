@@ -325,7 +325,8 @@ never on what the agent says:
 
 An agent that tries to create, reset or delete elsewhere is told to ask you
 (`DEVICE_OWNER_TURN_REQUIRED`); a run that gets no device is told so
-(`DEVICE_RUN_FORBIDDEN`). A call that waits behind another call on the same device is
+(`DEVICE_RUN_FORBIDDEN`). A call that waits behind another call on the same device,
+and a `create` that waits behind another create or a start, is
 checked again when its turn comes, so nothing runs for a turn that has ended
 meanwhile. A call the agent's runtime gave up (its turn was stopped, or it waited
 too long) is ended as well: what it runs on the device is aborted, and a call that
