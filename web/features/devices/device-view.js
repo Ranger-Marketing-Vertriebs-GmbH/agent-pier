@@ -207,7 +207,9 @@ function creatorText(creator) {
  * device that is not running its size on disk; `bytes(n)` formats the size) and `sub` the same in one line; `note` says what
  * an earlier system image means; `alert` is the failure in words. `actions` are
  * `{ kind: "start" | "stop" | "reset" | "delete", label, name, disabled, hint }`:
- * `name` labels the button for a screen reader, `hint` says why it is disabled.
+ * `name` labels the button for a screen reader, `hint` says why it is disabled. A
+ * failed device whose process still lives (`device.live`, a stop that did not end
+ * it) offers the stop again instead of a start, which could not work.
  * `availability` is the view's, `installation` the installation status (or null).
  */
 export function deviceRowView(device, { availability, installation = null, bytes }) {
@@ -249,8 +251,10 @@ export function deviceRowView(device, { availability, installation = null, bytes
     hint: busy || blocked,
   });
   const actions = [];
-  if (["stopped", "failed"].includes(state)) actions.push(action("start", unavailable));
-  if (slots.includes(state))
+  const stuck = state === "failed" && device.live === true;
+  if (["stopped", "failed"].includes(state) && !stuck)
+    actions.push(action("start", unavailable));
+  if (slots.includes(state) || stuck)
     actions.push(action("stop", state === "stopping" ? text.states.stopping : ""));
   actions.push(
     action("reset", unavailable || (resetBlocked ? text.imageOutdatedBlocked : "")),
@@ -266,7 +270,10 @@ export function deviceRowView(device, { availability, installation = null, bytes
         ? text.imageOutdatedBlocked
         : text.imageOutdated
       : "",
-    alert: state === "failed" && !operation ? codeText(device.failure?.code) : "",
+    alert:
+      state === "failed" && !operation
+        ? codeText(device.failure?.code, device.failure)
+        : "",
     actions,
   };
 }

@@ -413,6 +413,29 @@ test("a failed device shows its reason and can start again", () => {
   assert.equal(row({ state: "hibernating" }).stateText, "Failed");
 });
 
+test("a failed device whose process still lives offers the stop, not the start", () => {
+  const stuck = row({
+    state: "failed",
+    live: true,
+    failure: { code: "DEVICE_STOP_FAILED", at: 1 },
+  });
+  assert.equal(stuck.tone, "error");
+  assert.match(stuck.alert, /did not stop\. Stop it again/);
+  assert.deepEqual(kinds(stuck), ["stop", "reset", "delete"]);
+  assert.deepEqual(
+    stuck.actions.map((action) => action.disabled),
+    [false, false, false],
+  );
+  assert.equal(stuck.actions[0].name, "Stop Pixel test");
+  // Without a process there is nothing to stop.
+  assert.deepEqual(
+    kinds(
+      row({ state: "failed", live: false, failure: { code: "DEVICE_EXITED", at: 1 } }),
+    ),
+    ["start", "reset", "delete"],
+  );
+});
+
 test("a reset or delete that runs locks the device's actions", () => {
   for (const [operation, text] of [
     ["reset", "Resetting"],

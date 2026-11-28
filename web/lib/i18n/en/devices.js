@@ -174,7 +174,7 @@ export const devicesCopy = {
       "There is too little free disk space for another device. Free up space or delete a device.",
     DEVICE_BUSY: "The device is busy with another operation. Try again in a moment.",
     DEVICE_STOP_FAILED:
-      "The device did not stop. Try again; if it stays, restart AgentPier, which ends what is left of it.",
+      "The device did not stop. Stop it again; if it stays, restart AgentPier, which ends what is left of it.",
     DEVICE_ADB_FAILED:
       "AgentPier could not reach the device through adb. Stop the device and start it again.",
     DEVICE_ADB_TIMEOUT:
