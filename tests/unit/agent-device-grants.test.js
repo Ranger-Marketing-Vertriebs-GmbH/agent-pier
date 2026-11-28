@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AgentDeviceGrants } from "../../server/features/devices/agent-device-grants.js";
+import {
+  AgentDeviceGrants,
+  WORKSPACE_MISPLACED,
+} from "../../server/features/devices/agent-device-grants.js";
+import { AREA_CHANGED } from "../../server/features/devices/host-area.js";
 
 // Which devices an agent was assigned and whether it may create devices
 // (agent-device-grants.js).
@@ -227,21 +231,107 @@ test("the workspace is recorded as one folder and never silently replaced", (t) 
   assert.equal(changes.count, 0, "nothing the owner sees changed");
   assert.deepEqual(open().grants.area(ONE, workspace), area);
   assert.deepEqual(grants.get(ONE), { devices: [], create: false });
-  // Another folder at that path later is not taken over.
-  fs.renameSync(workspace, `${workspace}.moved`);
-  fs.mkdirSync(workspace);
+  // A save while that folder is still the workspace leaves the record as it is.
+  const access = { devices: [{ deviceId: A, manage: false }], create: false };
+  grants.set(ONE, access, { workspace });
   assert.deepEqual(grants.area(ONE, workspace), area);
+  // Another folder at that path later is not taken over by a use: it is refused.
+  const changed = { code: "DEVICE_PATH_OUTSIDE", status: 403, detail: AREA_CHANGED };
+  fs.renameSync(workspace, `${workspace}.moved`);
+  assert.throws(() => grants.area(ONE, workspace), changed, "gone");
+  fs.mkdirSync(workspace);
+  assert.throws(() => grants.area(ONE, workspace), changed, "replaced");
   assert.notEqual(String(fs.statSync(workspace).ino), area.ino);
+  assert.equal(open().grants.entries.get(ONE).area.ino, area.ino);
   // The owner saving the agent's devices records the folder that is there now.
-  grants.set(
-    ONE,
-    { devices: [{ deviceId: A, manage: false }], create: false },
-    { workspace },
-  );
+  grants.set(ONE, access, { workspace });
   assert.equal(grants.area(ONE, workspace).ino, String(fs.statSync(workspace).ino));
   // Taking everything away keeps the record of the folder.
   grants.set(ONE, { devices: [], create: false });
   assert.equal(grants.area(ONE, workspace).ino, String(fs.statSync(workspace).ino));
+});
+
+test("only the workspace folder itself, at its place, is ever recorded", (t) => {
+  const { grants, dataDir, open } = fixture(t);
+  const misplaced = {
+    code: "DEVICE_PATH_OUTSIDE",
+    status: 403,
+    detail: WORKSPACE_MISPLACED,
+  };
+  const access = { devices: [{ deviceId: A, manage: false }], create: false };
+  // OpenClaw's and AgentPier-made Hermes agents' layout, and a Hermes agent with an
+  // id of its own (hermes-paths.js hermesWorkspace): one folder per agent below a
+  // workspaces folder.
+  const roots = [
+    path.join(dataDir, "assistants", "workspaces"),
+    path.join(dataDir, "assistants", "hermes", "workspaces"),
+  ];
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "agent-device-outside-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  for (const root of roots) {
+    fs.mkdirSync(root, { recursive: true });
+    const workspace = path.join(root, ONE);
+    const none = () => {
+      assert.throws(() => grants.area(ONE, workspace), misplaced, root);
+      grants.set(ONE, access, { workspace });
+      assert.equal(grants.entries.get(ONE).area, null, root);
+      assert.equal(open().grants.entries.get(ONE).area, null, root);
+    };
+    // A link to AgentPier's data folder, to the devices' folder, to a folder
+    // elsewhere, to a sibling's workspace, and one that leads nowhere.
+    fs.mkdirSync(path.join(root, TWO));
+    for (const target of [
+      dataDir,
+      path.join(dataDir, "devices"),
+      outside,
+      path.join(root, TWO),
+      path.join(root, "missing"),
+    ]) {
+      fs.symlinkSync(target, workspace);
+      none();
+      fs.rmSync(workspace);
+    }
+    // A file in its place.
+    fs.writeFileSync(workspace, "x");
+    none();
+    fs.rmSync(workspace);
+    // The folder itself.
+    fs.mkdirSync(workspace);
+    assert.equal(grants.area(ONE, workspace).path, fs.realpathSync(workspace));
+    grants.set(ONE, { devices: [], create: false });
+    grants.entries.delete(ONE);
+    fs.rmSync(workspace, { recursive: true });
+    fs.rmSync(path.join(root, TWO), { recursive: true });
+  }
+  // A workspaces folder that is itself the data folder or the devices' folder
+  // (a wrong path, or a link above) names no workspace either.
+  for (const workspace of [dataDir, path.dirname(dataDir), path.join(dataDir, "devices")])
+    assert.throws(() => grants.area(TWO, workspace), misplaced, workspace);
+  fs.mkdirSync(path.join(dataDir, "devices", TWO), { recursive: true });
+  assert.throws(
+    () => grants.area(TWO, path.join(dataDir, "devices", TWO)),
+    misplaced,
+    "below the devices' folder",
+  );
+  // A record of a folder elsewhere, as an earlier version could have written it,
+  // is refused at every use and replaced by the owner's next save.
+  const workspace = path.join(roots[0], ONE);
+  fs.mkdirSync(workspace);
+  const stat = fs.statSync(dataDir, { bigint: true });
+  grants.entries.set(ONE, {
+    ...access,
+    area: {
+      path: fs.realpathSync(dataDir),
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+    },
+  });
+  assert.throws(() => grants.area(ONE, workspace), {
+    code: "DEVICE_PATH_OUTSIDE",
+    detail: AREA_CHANGED,
+  });
+  grants.set(ONE, access, { workspace });
+  assert.equal(grants.area(ONE, workspace).path, fs.realpathSync(workspace));
 });
 
 test("a listener that fails does not undo the change", (t) => {

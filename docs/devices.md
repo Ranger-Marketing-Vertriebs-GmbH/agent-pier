@@ -385,9 +385,20 @@ are refused, and adb only ever sees a private copy. For an agent:
 
 - **The workspace is one folder, recorded.** AgentPier records the folder (its real
   path, device and inode numbers) when you save the agent's devices, and otherwise
-  the first time a file travels. A workspace that was moved, replaced or restored
-  from a backup since is refused (`DEVICE_PATH_OUTSIDE`) until you save the agent's
-  devices again, which records the folder that is there then.
+  the first time a file travels. Only the workspace folder itself is recorded: a
+  folder at exactly its place below AgentPier's workspaces folder. A link standing
+  there, to AgentPier's data folder or to any other folder, is never taken for the
+  workspace, by your save or by a transfer (`DEVICE_PATH_OUTSIDE`).
+- **The record is checked at every transfer.** A workspace that was moved, replaced
+  or restored from a backup since is another folder and is refused
+  (`DEVICE_PATH_OUTSIDE`; the agent is told that you have to save its devices). No
+  call of the agent records it. **To repair it, change the agent's Android devices
+  and save**: for example switch **Create devices** and save, then switch it back and
+  save. A save of changed devices records the folder that is at the workspace's place
+  then, when it passes the check above; while the recorded folder is still the
+  workspace, a save leaves the record as it is. (Saving the Access tab without a
+  change to the devices sends nothing for them; over the API,
+  `PUT /api/assistants/<id>/devices` with the current value does the same.)
 - **The agent's secrets never travel**: nothing in or below `.agentpier/` of the
   workspace is read or written.
 - **A file is written into the workspace (`pull`) only for a run that may change
