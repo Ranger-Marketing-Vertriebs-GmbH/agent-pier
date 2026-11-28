@@ -175,10 +175,11 @@ identity stable; it returns items or `{ items, total }`). The field shows "n Tre
 - Keyboard: arrows open the list and move through it (skipping granted rows), Space
   toggles the active row, Home/End jump, Enter adds the checked rows (or the active
   one), Escape closes the list and keeps the focus in the field; a second Escape clears
-  it. Clicking elsewhere closes an untouched list once that click is delivered (the list lies
-  in the page's flow, so a control below it would otherwise move away under the
-  pointer); checked rows keep it open. Rows are
-  44px on phones and touch screens.
+  it. Clicking or tapping elsewhere closes an untouched list once that click is
+  delivered (the list lies in the page's flow, so a control below it would otherwise
+  move away under the pointer; a tap's click arrives a moment after the touch ends,
+  and the list waits up to 350 ms for it); checked rows keep it open. Rows are 44px
+  on phones and touch screens.
 - `direct` drops the checking step: a click, Space or Enter adds that row at once
   through `onAdd`, the row then shows as granted and the list stays open; there is no
   footer. For a picker whose surrounding dialog confirms with its own button
