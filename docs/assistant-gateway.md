@@ -6037,7 +6037,9 @@ an `image` block (`deviceImageResult`), as it does for `agentpier_workspace`
 (`tool-errors.js`, `device-tool-messages.js` audience `agent`). A call ends after
 110 seconds as a whole (`AGENT_CALL_TIMEOUT_MS`, below the two minutes after which a
 runtime counts a tool call as stuck), and the plugins wait 125 seconds
-(`toolTimeouts.device`). A call the runtime gave up ends too: when the last
+(`toolTimeouts.device`). An agent's `shell` therefore takes a `timeoutMs` of at most
+100000 (`AGENT_SHELL_TIMEOUT_MAX_MS`; the plugin's schema and description name it,
+and a larger one answers `DEVICE_INPUT_INVALID`), where a session's takes 120000. A call the runtime gave up ends too: when the last
 connection waiting for a running `/invoke` closes before its answer, the bridge
 aborts the invocation's `gone` signal (`TeamBridge#awaited`), which is the device
 call's signal, so what runs on the device is aborted and a call still waiting for

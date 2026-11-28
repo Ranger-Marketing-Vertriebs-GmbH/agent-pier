@@ -49,6 +49,15 @@ const plain = (value) => !!value && typeof value === "object" && !Array.isArray(
  */
 export const AGENT_CALL_TIMEOUT_MS = 110000;
 
+/**
+ * The longest `timeoutMs` an agent's `shell` may ask for: below the end of the call
+ * as a whole, so the command's own time limit is the one that ends it and the agent
+ * reads its output so far. A session's shell may ask for 120 seconds, its call lasts
+ * 140 (devices/device-actions.js). The plugin's schema names the same maximum
+ * (team-plugin/device-tool.js).
+ */
+export const AGENT_SHELL_TIMEOUT_MAX_MS = 100000;
+
 /** What a caller reads when its workspace is no longer the recorded folder. */
 export const WORKSPACE_CHANGED =
   "The workspace is no longer the folder AgentPier recorded for this agent: it was moved, replaced or restored. The owner has to save this agent's Android devices again in its settings.";
@@ -111,7 +120,8 @@ export async function invokeDevice(w, inv, input) {
     throw refusal("DEVICE_INPUT_INVALID", 400);
   const { action, ...rest } = input;
   const parsed = actionSchemas[action].safeParse(rest);
-  if (!parsed.success) throw refusal("DEVICE_INPUT_INVALID", 400);
+  if (!parsed.success || parsed.data.timeoutMs > AGENT_SHELL_TIMEOUT_MAX_MS)
+    throw refusal("DEVICE_INPUT_INVALID", 400);
   const { devices, deviceActions: actions, agentDeviceGrants: grants } = s;
   if (!devices || !actions || !grants) throw refusal("DEVICE_UNAVAILABLE");
   const reason = devices.availability();

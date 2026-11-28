@@ -39,7 +39,10 @@ import {
   deviceDefinition,
   deviceKeys,
 } from "../../server/features/assistants/team-plugin/device-tool.js";
-import { AGENT_CALL_TIMEOUT_MS } from "../../server/features/assistants/agent-devices.js";
+import {
+  AGENT_CALL_TIMEOUT_MS,
+  AGENT_SHELL_TIMEOUT_MAX_MS,
+} from "../../server/features/assistants/agent-devices.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { ACTIONS, DeviceActions } from "../../server/features/devices/device-actions.js";
 import { KEY_NAMES } from "../../server/features/devices/device-input.js";
@@ -83,6 +86,8 @@ test("one agent tool carries every action of the session tools, with their argum
   assert.deepEqual(Object.keys(fields).sort(), Object.keys(deviceFields).sort());
   for (const [name, schema] of Object.entries(deviceFields)) {
     const { $schema: _dialect, ...expected } = z.toJSONSchema(schema);
+    // An agent's call ends earlier than a session's, so its shell may run less long.
+    if (name === "timeoutMs") expected.maximum = AGENT_SHELL_TIMEOUT_MAX_MS;
     assert.deepEqual(fields[name], expected, name);
   }
   // Each action takes fields that exist, and the session tools take the same.
@@ -99,6 +104,19 @@ test("one agent tool carries every action of the session tools, with their argum
   assert.equal(actionSchemas.tap.safeParse({ device: "Pixel", z: 1 }).success, false);
   assert.equal(actionSchemas.list.safeParse({ device: "Pixel" }).success, false);
   assert.deepEqual(managingActions, ["create", "reset", "delete"]);
+});
+
+test("an agent's shell command cannot ask for longer than its call lasts", () => {
+  // The call as a whole ends at AGENT_CALL_TIMEOUT_MS: a longer shell timeout would
+  // promise a time the call never has.
+  assert.ok(AGENT_SHELL_TIMEOUT_MAX_MS < AGENT_CALL_TIMEOUT_MS);
+  assert.equal(parameters.properties.timeoutMs.maximum, AGENT_SHELL_TIMEOUT_MAX_MS);
+  const { description } = deviceDefinition.device;
+  assert.match(
+    description,
+    new RegExp(`timeoutMs \\(default 30000, at most ${AGENT_SHELL_TIMEOUT_MAX_MS}\\)`),
+  );
+  assert.match(description, new RegExp(`${AGENT_CALL_TIMEOUT_MS / 1000} seconds`));
 });
 
 test("the description tells an agent what a session's tools tell a session", () => {

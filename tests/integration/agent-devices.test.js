@@ -60,6 +60,20 @@ test("an owner's turn uses an assigned device; without one the agent has none", 
   ]);
 });
 
+test("a shell command may run up to 100 seconds, below the end of the call", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  f.assign(f.lead(), pixel);
+  f.answers(() => ({ stdout: "ok\n", stderr: "", code: 0 }));
+  const shell = (timeoutMs) =>
+    f.call({ action: "shell", device: "Pixel", command: "sleep 1", timeoutMs });
+  assert.equal(await f.code(shell(120000)), "DEVICE_INPUT_INVALID");
+  assert.equal(await f.code(shell(100001)), "DEVICE_INPUT_INVALID");
+  assert.deepEqual(f.adb, []);
+  await shell(100000);
+  assert.equal(f.adb.at(-1).options.timeoutMs, 100000);
+});
+
 test("a malformed call is refused before anything is asked", async (t) => {
   const f = await agentDevicesFixture(t);
   const pixel = await f.device("Pixel");
