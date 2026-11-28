@@ -175,7 +175,7 @@ export const devicesCopy = {
     DEVICE_BUSY:
       "Das Gerät ist mit einem anderen Vorgang beschäftigt. Versuche es gleich noch einmal.",
     DEVICE_STOP_FAILED:
-      "Das Gerät hat nicht gestoppt. Versuche es erneut; bleibt es dabei, starte AgentPier neu, das beendet, was davon übrig ist.",
+      "Das Gerät hat nicht gestoppt. Stoppe es erneut; bleibt es dabei, starte AgentPier neu, das beendet, was davon übrig ist.",
     DEVICE_ADB_FAILED:
       "AgentPier hat das Gerät über adb nicht erreicht. Stoppe das Gerät und starte es neu.",
     DEVICE_ADB_TIMEOUT:

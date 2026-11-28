@@ -66,6 +66,7 @@ export const device = (patch = {}) => ({
   state: "stopped",
   operation: null,
   failure: null,
+  live: false,
   creator: { kind: "owner", id: "owner", name: "", gone: false },
   assignments: [],
   image: { id: pinned.image.id, current: true },
