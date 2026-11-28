@@ -42,19 +42,21 @@ test("the inbox snapshot equals GET /api/inbox", async (t) => {
   live.ws.close();
 });
 
-test("an answered pipeline gate leaves the subscriber's inbox within 1 s", async (t) => {
+// These topics have no other source than the change's own signal (or one sampled far
+// more slowly than the wait): a frame can only follow the write. How soon the hub
+// sends it (150 ms after the last change, 1 s at most) is
+// tests/unit/live-instance.test.js, on a manual clock; the waits here bound a hang.
+test("an answered pipeline gate leaves the subscriber's inbox", async (t) => {
   const f = await applicationFixture(t);
   f.application.pipelines.store.create(structuredClone(waitingRun));
   const { live, snapshot } = await subscribedInbox(f);
   assert.equal(snapshot.data.counts.gates, 1);
-  const started = Date.now();
   const response = await f.request("/api/pipeline-runs/run-waiting/gate", {
     method: "POST",
     body: { action: "accept" },
   });
   assert.equal(response.status, 200);
-  const frame = await live.next(forInbox, 1000);
-  assert.ok(Date.now() - started < 1000);
+  const frame = await live.next(forInbox, 10000);
   assert.equal(frame.type, "state");
   assert.deepEqual(frame.data.items, []);
   assert.equal(frame.data.counts.gates, 0);

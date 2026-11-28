@@ -37,12 +37,15 @@ test("the run snapshot equals GET /api/pipeline-runs/<id>", async (t) => {
   live.ws.close();
 });
 
-test("a gate decision pushes the run within 1 s", async (t) => {
+// These topics have no other source than the change's own signal (or one sampled far
+// more slowly than the wait): a frame can only follow the write. How soon the hub
+// sends it (150 ms after the last change, 1 s at most) is
+// tests/unit/live-instance.test.js, on a manual clock; the waits here bound a hang.
+test("a gate decision pushes the run", async (t) => {
   const f = await applicationFixture(t);
   f.application.pipelines.store.create(structuredClone(waitingRun));
   const topic = "pipeline.run:run-waiting";
   const { live } = await subscribed(f, topic);
-  const started = Date.now();
   const response = await f.request("/api/pipeline-runs/run-waiting/gate", {
     method: "POST",
     body: { action: "accept" },
@@ -50,9 +53,8 @@ test("a gate decision pushes the run within 1 s", async (t) => {
   assert.equal(response.status, 200);
   const frame = await live.next(
     (item) => item.topic === topic && item.data?.run?.status !== "awaiting-human",
-    1000,
+    10000,
   );
-  assert.ok(Date.now() - started < 1000);
   assert.equal(frame.type, "state");
   const body = await (await f.request("/api/pipeline-runs/run-waiting")).json();
   assert.equal(frame.data.run.status, body.run.status);
@@ -73,7 +75,7 @@ test("a missing run answers { run: null }, and so does a deleted one", async (t)
   assert.equal(snapshot.data.run.status, "failed");
   const removed = await f.request("/api/pipeline-runs/run-waiting", { method: "DELETE" });
   assert.ok(removed.status < 300);
-  const frame = await live.next((item) => item.topic === topic, 1000);
+  const frame = await live.next((item) => item.topic === topic, 10000);
   assert.deepEqual(frame, { ...frame, type: "state", data: { run: null } });
   live.ws.close();
 });
@@ -90,7 +92,6 @@ test("a queued item pushes the queue, which equals GET /api/pipeline-queue/<id>"
   const topic = `pipeline.queue:${c.project.id}`;
   const { live, snapshot } = await subscribed(c.app, topic);
   assert.deepEqual(snapshot.data, await (await c.app.request(base)).json());
-  const started = Date.now();
   const added = await c.app.request(`${base}/items`, {
     method: "POST",
     body: { pipelineId: c.pipeline.id, task: "Queued" },
@@ -99,9 +100,8 @@ test("a queued item pushes the queue, which equals GET /api/pipeline-queue/<id>"
   const { item } = await added.json();
   const frame = await live.next(
     (next) => next.topic === topic && next.data?.items?.some((i) => i.id === item.id),
-    1000,
+    10000,
   );
-  assert.ok(Date.now() - started < 1000);
   assert.equal(frame.type, "state");
   assert.deepEqual(frame.data, await (await c.app.request(base)).json());
   live.ws.close();
@@ -124,7 +124,7 @@ test("a started item's run status reaches the queue", async (t) => {
   await c.services.pipelines.cancel(item.id);
   const frame = await live.next(
     (next) => next.topic === topic && next.data?.items?.[0]?.run?.status !== "running",
-    1000,
+    10000,
   );
   assert.equal(frame.data.items[0].run.status, "cancelled");
   live.ws.close();
@@ -158,7 +158,7 @@ test("items moved to another project leave the old project's queue", async (t) =
   assert.equal(added.status, 201);
   await live.next((frame) => frame.topic === from && frame.data?.items?.length === 1);
   c.services.pipelineQueue.moveProject(c.other.id, c.project.id);
-  const frame = await live.next((next) => next.topic === from, 1000);
+  const frame = await live.next((next) => next.topic === from, 10000);
   assert.deepEqual(frame.data.items, []);
   live.ws.close();
 });

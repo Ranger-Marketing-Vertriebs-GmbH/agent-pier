@@ -66,14 +66,15 @@ test("the agent list snapshot equals the former feed's list", { timeout }, async
   live.ws.close();
 });
 
-test("an agent change pushes a delta within 1 s", { timeout }, async (t) => {
+// The list has no other source than its watch: a delta can only follow the change's
+// own signal. How soon the hub sends it (150 ms after the last change, 1 s at most)
+// is tests/unit/live-instance.test.js, on a manual clock; here the wait only bounds a hang.
+test("an agent change pushes a delta", { timeout }, async (t) => {
   const f = await fixture(t);
   const { live, first } = await subscribed(f);
   let held = applyListSync(null, first.data);
-  const started = Date.now();
   rename(f.service, f.assistant.id, "Renamed");
-  const frame = await live.next(forList, 1000);
-  assert.ok(Date.now() - started < 1000);
+  const frame = await live.next(forList, 10000);
   assert.equal(frame.type, "delta");
   assert.ok(frame.data.upserts.some((row) => row.id === `assistants/${f.assistant.id}`));
   held = applyListSync(held, frame.data);
