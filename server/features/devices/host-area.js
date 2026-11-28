@@ -3,12 +3,21 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { assertOutsideDirs, protectedDirs } from "../assistants/protected-dirs.js";
 import { FileNative, nativeReadBytes } from "../files/file-native.js";
+import { folderIdentity } from "../memory/project-rebind.js";
 import { refusal } from "./device-registry.js";
 
 /*
  * Files that travel between a device and the host stay inside the caller's own
  * area on the host: a session's working folder, an agent's workspace. A caller in a
  * sandbox could otherwise make the server, which is in none, read or write for it.
+ *
+ * An area is one folder, not a path: `{ path, dev, ino }`, its real path and its
+ * device and inode numbers as they were when the caller got the folder (`areaOf`;
+ * for a session, when its CLI was started: session-creation.js). A caller that can
+ * write the folder above its own could otherwise move its folder away and put a
+ * link, or another folder, in its place. So before anything else the folder at that
+ * path must still be that very folder (DEVICE_PATH_OUTSIDE otherwise), and the
+ * folder that is then opened is checked for the same numbers once more.
  *
  * The rule, for a host path a caller names (absolute, or relative to the area):
  *
@@ -28,6 +37,13 @@ import { refusal } from "./device-registry.js";
  * server's own data folder (`copyIn`, `copyOut`).
  */
 const outside = () => refusal("DEVICE_PATH_OUTSIDE", 403);
+/** What a caller reads when its area is no longer the folder it was given. */
+export const AREA_CHANGED =
+  "The working folder is no longer the folder this session was started in: it was moved or replaced. Put it back, or reload the session.";
+/** What a caller reads when nothing recorded which folder it was given. */
+export const AREA_UNKNOWN =
+  "AgentPier has no record of the folder this session was started in. Reload the session.";
+const changed = () => refusal("DEVICE_PATH_OUTSIDE", 403, { detail: AREA_CHANGED });
 const missing = () => refusal("DEVICE_FILE_NOT_FOUND", 404);
 const tooLarge = (limit) => refusal("DEVICE_FILE_TOO_LARGE", 400, { limit });
 const within = (root, target) => {
@@ -52,28 +68,47 @@ function real(target) {
   }
 }
 
+/** The area that the folder at `folder` is now: `{ path, dev, ino }`. Throws without one. */
+export const areaOf = (folder) => folderIdentity(folder);
+
+// The real path of `area` while the folder there is still the one it names.
+function rootOf(area) {
+  if (
+    !area ||
+    typeof area !== "object" ||
+    typeof area.path !== "string" ||
+    !path.isAbsolute(area.path) ||
+    typeof area.dev !== "string" ||
+    typeof area.ino !== "string"
+  )
+    throw outside();
+  let now;
+  try {
+    now = folderIdentity(area.path);
+  } catch {
+    throw changed();
+  }
+  if (now.path !== area.path || now.dev !== area.dev || now.ino !== area.ino)
+    throw changed();
+  return now.path;
+}
+
 /**
- * Where `requested` lies in `area`: `{ root, folder, name }` with the real root of
- * the area, the folder's path relative to it (`""` for the root itself) and the
+ * Where `requested` lies in `area`: `{ root, folder, name, area }` with the real root
+ * of the area, the folder's path relative to it (`""` for the root itself) and the
  * file's name. `parent: true` resolves only the folder, for a file to be written.
+ * Throws DEVICE_PATH_OUTSIDE also when the area's folder was moved or replaced.
  */
 export function locate(area, requested, { parent = false, protectedRoots = [] } = {}) {
   if (
-    typeof area !== "string" ||
-    !path.isAbsolute(area) ||
     typeof requested !== "string" ||
     !requested ||
     requested.includes("\0") ||
     requested.length > 4096
   )
     throw outside();
-  let root;
-  try {
-    root = fs.realpathSync(area);
-  } catch {
-    throw outside();
-  }
-  const absolute = path.resolve(area, requested);
+  const root = rootOf(area);
+  const absolute = path.resolve(root, requested);
   const name = path.basename(absolute);
   if (!name || absolute === path.parse(absolute).root) throw outside();
   const folder = parent ? real(path.dirname(absolute)) : path.dirname(real(absolute));
@@ -87,6 +122,7 @@ export function locate(area, requested, { parent = false, protectedRoots = [] } 
     folder: path.relative(root, folder).split(path.sep).join("/"),
     // The name as the real path spells it (the link's target, when it was one).
     name: path.basename(target),
+    area,
   };
 }
 
@@ -109,6 +145,10 @@ export function destination(area, requested, { protectedRoots = [] } = {}) {
 
 async function opened(native, place) {
   const root = await native.run("openRoot", { path: place.root });
+  // The folder that was opened, not the one a path named a moment ago.
+  const found = await native.run("stat", { handle: root.handle });
+  if (String(found.dev) !== place.area.dev || String(found.ino) !== place.area.ino)
+    throw changed();
   return native.run("openLookup", { directory: root.handle, path: place.folder });
 }
 

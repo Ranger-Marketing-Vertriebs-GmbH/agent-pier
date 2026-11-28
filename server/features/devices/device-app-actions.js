@@ -14,7 +14,7 @@ import {
   url,
 } from "./device-input.js";
 import { refusal } from "./device-registry.js";
-import { copyIn, copyOut, destination } from "./host-area.js";
+import { AREA_UNKNOWN, copyIn, copyOut, destination } from "./host-area.js";
 
 /*
  * The actions of device-actions.js for apps, files, logs and the device's shell.
@@ -31,13 +31,14 @@ import { copyIn, copyOut, destination } from "./host-area.js";
  *   shell       { device, command, timeoutMs? }  inside the device, never on the host
  *
  * A host `path` is absolute or relative to the caller's area and must lie in it
- * (host-area.js). adb reads and writes a private copy, so no path of the area and
+ * (host-area.js); the area is the folder the caller was given, `{ path, dev, ino }`,
+ * and a caller without one, or whose folder was moved or replaced, is refused. adb reads and writes a private copy, so no path of the area and
  * nothing a caller typed ever reaches adb as a host path. A device path is one
  * argument of adb (push, pull) or one quoted word of the device's shell.
  */
 const area = async (call) => {
   const folder = await call.area();
-  if (!folder) throw refusal("DEVICE_PATH_OUTSIDE", 403);
+  if (!folder) throw refusal("DEVICE_PATH_OUTSIDE", 403, { detail: AREA_UNKNOWN });
   return folder;
 };
 // adb names the private copy in what it prints; a caller never learns that path.

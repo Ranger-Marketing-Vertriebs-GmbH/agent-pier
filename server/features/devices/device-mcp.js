@@ -258,7 +258,9 @@ export async function callDeviceTool(services, name, input, context) {
     const result = await actions.run(deviceTools[name].action, parsed.data, {
       caller: { kind: "session", id: session.id, name: session.name ?? "" },
       canCreate: () => grants.canCreate(session.id),
-      area: () => session.cwd,
+      // The folder the session's CLI was started in, not whatever its path names
+      // now (session-creation.js). A session from before that was recorded has none.
+      area: () => session.cwdIdentity ?? null,
       // Its nono profile may give a sandboxed session this folder read-only.
       areaWritable: () => !session.sandbox?.profile,
       signal: context.signal,

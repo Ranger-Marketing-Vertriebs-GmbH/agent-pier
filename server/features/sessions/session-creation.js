@@ -12,6 +12,7 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { isCodingCli } from "../clis/catalog.js";
 import { headCommit } from "../changes/git-read.js";
+import { folderIdentity } from "../memory/project-rebind.js";
 import { validTicketRef } from "../tickets/ticket.js";
 
 // Session creation runs inside the global serial barrier: a slow or hung git must not
@@ -179,12 +180,21 @@ export async function buildSessionLaunch(manager, options) {
         : {}),
     }),
   );
+  // The folder itself, not its path: what acts for the session on the host later
+  // (files to and from an Android device) refuses a folder that was swapped since.
+  let cwdIdentity;
+  try {
+    cwdIdentity = folderIdentity(cwd);
+  } catch {
+    throw failure(serverMessages.sessions.invalidWorkingDirectory);
+  }
   const session = {
     id,
     name,
     tool,
     accountId,
     cwd,
+    cwdIdentity,
     status: "running",
     createdAt: new Date().toISOString(),
     // Only this launch's adapter may write `<id>.adapter.json` (adapter-diagnostics.js).

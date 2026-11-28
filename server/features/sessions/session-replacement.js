@@ -15,6 +15,7 @@ import { readTmuxServer } from "./tmux-server-identity.js";
 import { tmuxFormatLiteral } from "./tmux-naming.js";
 import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { folderIdentity } from "../memory/project-rebind.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 // How long a replacement waits for the old CLI to exit before it prepares the new one.
@@ -106,6 +107,12 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
   try {
     const launch = await prepare(session);
     await validateReloadLaunch(launch, session.cwd);
+    // The new CLI starts in the folder this path names now.
+    try {
+      session.cwdIdentity = folderIdentity(session.cwd);
+    } catch {
+      delete session.cwdIdentity;
+    }
     const adapter = launch.adapter
       ? checkedAdapter(launch.adapter, manager.directory, id, () =>
           problem(serverMessages.sessions.invalidAdapterConfiguration),
