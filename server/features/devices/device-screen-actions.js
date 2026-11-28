@@ -74,9 +74,7 @@ async function screenSize(call, id) {
 export const screenActions = {
   async list(_input, call) {
     return {
-      devices: call.devices
-        .devicesFor(call.caller)
-        .map((device) => summary(call.caller, device)),
+      devices: call.devicesFor().map((device) => summary(call.caller, device)),
       canCreate: call.canCreate(),
     };
   },

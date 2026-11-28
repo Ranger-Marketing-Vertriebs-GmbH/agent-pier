@@ -3,21 +3,55 @@
  * stable code that says what happened and what to do next. Coding agents read
  * English; the owner's texts for the same codes are in the web catalogs
  * (web/lib/i18n/<language>/devices.js).
+ *
+ * The same refusals reach a coding session (device-mcp.js) and an agent
+ * (assistants/agent-devices.js); only the words for the caller and its tools differ
+ * (AUDIENCES): a session has one tool per action, an agent one tool with an action.
  */
-const messages = {
-  DEVICE_NOT_FOUND:
-    "There is no such device. Call devices_list for the devices you may use.",
-  DEVICE_FORBIDDEN:
-    "This device is not assigned to this session, or the owner did not allow this action on it. Ask the owner to assign it in AgentPier (and to allow reset and delete, if that is what you need).",
-  DEVICE_CREATE_FORBIDDEN:
-    "This session may not create devices. Ask the owner to allow it for this session in AgentPier, or to assign an existing device.",
-  DEVICE_SESSION_INELIGIBLE:
-    "Android devices are available to the owner's own interactive coding sessions only.",
+const call = (action) => `agentpier_device (action ${action})`;
+/** What a sentence names per kind of caller. */
+export const AUDIENCES = Object.freeze({
+  session: Object.freeze({
+    caller: "this session",
+    list: "devices_list",
+    start: "device_start",
+    ui: "device_ui",
+    key: "device_key",
+    shell: "device_shell",
+    folder: "your own working folder (a session's project folder or worktree)",
+    eligible:
+      "Android devices are available to the owner's own interactive coding sessions only.",
+  }),
+  agent: Object.freeze({
+    caller: "this agent",
+    list: call("list"),
+    start: call("start"),
+    ui: call("ui"),
+    key: call("key"),
+    shell: call("shell"),
+    folder: "your own workspace",
+    eligible:
+      "Android devices are available to the owner's own agents only: not to an agent of restricted users and not to an agent with its own Telegram bot for other people.",
+  }),
+});
+
+const sentences = (w) => ({
+  DEVICE_NOT_FOUND: `There is no such device. Call ${w.list} for the devices you may use.`,
+  DEVICE_FORBIDDEN: `This device is not assigned to ${w.caller}, or the owner did not allow this action on it. Ask the owner to assign it in AgentPier (and to allow reset and delete, if that is what you need).`,
+  DEVICE_CREATE_FORBIDDEN: `${w.caller[0].toUpperCase()}${w.caller.slice(1)} may not create devices. Ask the owner to allow it for ${w.caller} in AgentPier, or to assign an existing device.`,
+  DEVICE_SESSION_INELIGIBLE: AUDIENCES.session.eligible,
+  DEVICE_AGENT_INELIGIBLE: AUDIENCES.agent.eligible,
+  DEVICE_RUN_FORBIDDEN:
+    "Android devices are not available in this run: it works on content that is not the owner's own (a forwarded message, another person's or a member's message), or AgentPier cannot tell how the run started. Do not retry; tell the owner.",
+  DEVICE_OWNER_TURN_REQUIRED:
+    "Creating, resetting and deleting a device is possible only in a turn the owner started with a message of their own, not in a routine, a hook, a follow-up run or a delegated task. Do not retry; ask the owner to say so in the chat.",
+  DEVICE_PULL_READONLY: `This run may not change files in the workspace, so a file cannot be copied from a device into it. Read the content with ${w.shell} (cat) instead.`,
+  DEVICE_PASS_INVALID: `You can pass on only devices that are assigned to you or that you created, by their id or name from ${w.list}, and only while Android devices are available to you in this run.`,
   DEVICE_HELD:
     "The owner is using this device right now. Wait until they hand it back, then try again.",
   DEVICE_BUSY:
     "The device is being reset or deleted, or is stopping. Try again in a moment.",
-  DEVICE_NOT_RUNNING: "The device is not running. Start it with device_start.",
+  DEVICE_NOT_RUNNING: `The device is not running. Start it with ${w.start}.`,
   DEVICE_NAME_INVALID: "A device name has 1 to 40 characters.",
   DEVICE_NAME_TAKEN: "Another device already has this name. Choose a different one.",
   DEVICE_LIMIT_TOTAL:
@@ -31,14 +65,10 @@ const messages = {
   DEVICE_DISK_SPACE:
     "There is too little free disk space on the host for another device.",
   DEVICE_INPUT_INVALID: "An argument is missing or malformed.",
-  DEVICE_TEXT_UNSUPPORTED:
-    "Only printable ASCII characters (space to ~) can be typed in this version: no umlauts, accents, emoji, tabs or line breaks. Type the ASCII parts and press keys such as enter with device_key.",
-  DEVICE_ELEMENT_STALE:
-    "This element number is not from a current overview of this device: none was taken yet, the number is not in it, or the device was restarted or reset since. Call device_ui again and use a number from its result.",
-  DEVICE_PATH_OUTSIDE:
-    "The path on the host must lie inside your own working folder (a session's project folder or worktree), and must not be a link out of it or a file with several names.",
-  DEVICE_PULL_SANDBOXED:
-    "A sandboxed session cannot copy files from a device into its working folder: AgentPier runs outside the sandbox and cannot tell whether the sandbox lets this session write there. Read the content with device_shell (cat) and write the file yourself.",
+  DEVICE_TEXT_UNSUPPORTED: `Only printable ASCII characters (space to ~) can be typed in this version: no umlauts, accents, emoji, tabs or line breaks. Type the ASCII parts and press keys such as enter with ${w.key}.`,
+  DEVICE_ELEMENT_STALE: `This element number is not from a current overview of this device: none was taken yet, the number is not in it, or the device was restarted or reset since. Call ${w.ui} again and use a number from its result.`,
+  DEVICE_PATH_OUTSIDE: `The path on the host must lie inside ${w.folder}, and must not be a link out of it or a file with several names.`,
+  DEVICE_PULL_SANDBOXED: `A sandboxed session cannot copy files from a device into its working folder: AgentPier runs outside the sandbox and cannot tell whether the sandbox lets this session write there. Read the content with ${w.shell} (cat) and write the file yourself.`,
   DEVICE_FILE_NOT_FOUND: "There is no regular file at that path.",
   DEVICE_FILE_TOO_LARGE: "The file is larger than the limit for this action.",
   DEVICE_COMMAND_FAILED: "The device refused this.",
@@ -58,7 +88,11 @@ const messages = {
   DEVICE_START_FAILED: "The device could not be started. Try again.",
   DEVICE_START_CANCELLED: "The start was cancelled because the device was stopped.",
   DEVICE_STOP_FAILED: "The device did not stop. Try again.",
-};
+});
+const byAudience = Object.fromEntries(
+  Object.entries(AUDIENCES).map(([name, words]) => [name, sentences(words)]),
+);
+const messages = byAudience.session;
 
 const megabytes = (bytes) => `${Math.round(bytes / 2 ** 20)} MB`;
 
@@ -68,11 +102,13 @@ export const deviceCode = (code) =>
 
 /**
  * The sentence for the refusal `error` (its `code`, and the `detail`, `limit` or
- * `reason` it carries). A code without a sentence of its own names itself.
+ * `reason` it carries), in the words of `audience` ("session" or "agent"). A code
+ * without a sentence of its own names itself.
  */
-export function deviceToolMessage(error) {
+export function deviceToolMessage(error, audience = "session") {
   const code = error?.code;
-  const known = Object.hasOwn(messages, code) ? messages[code] : null;
+  const texts = Object.hasOwn(byAudience, audience) ? byAudience[audience] : messages;
+  const known = Object.hasOwn(texts, code) ? texts[code] : null;
   const base =
     known ?? `The device call was refused (${deviceCode(code) ? code : "UNKNOWN"}).`;
   const extra = [
