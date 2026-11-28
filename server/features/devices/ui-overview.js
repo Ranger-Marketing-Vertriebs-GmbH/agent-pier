@@ -1,3 +1,5 @@
+import { coordinate } from "./device-input.js";
+
 /*
  * The UI overview of a device: what `uiautomator dump` prints, as a short numbered
  * list an agent can read and tap by number.
@@ -12,8 +14,20 @@
  * acted on (clickable, long-clickable, scrollable, checkable, an input field,
  * focused); bare layout containers and nodes without an area on the screen are
  * dropped. The list is bounded in entries and bytes and says when it was cut.
+ *
+ * The dump is what the device and its apps say, so nothing of it is passed on as it
+ * is: every text, id, class and the package is one line of bounded length, and an
+ * element whose bounds are not coordinates a tap may name (negative, beyond 10000,
+ * no number at all) is dropped like one without an area. uiautomator itself cuts the
+ * bounds of a real element to the visible screen.
  */
-export const OVERVIEW_LIMITS = Object.freeze({ entries: 150, bytes: 16000, text: 120 });
+export const OVERVIEW_LIMITS = Object.freeze({
+  entries: 150,
+  bytes: 16000,
+  text: 120,
+  name: 60,
+  package: 200,
+});
 
 const entities = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
 const unescape = (value) =>
@@ -88,7 +102,8 @@ const kept = (node) =>
  * - `package` of the window in front, `total` elements found, `shown`, and
  *   `truncated` with a `note` when the list was cut
  */
-export function overview(xml, limits = OVERVIEW_LIMITS) {
+export function overview(xml, given = OVERVIEW_LIMITS) {
+  const limits = { ...OVERVIEW_LIMITS, ...given };
   const source = String(xml ?? "");
   if (!/<hierarchy\b/.test(source)) return null;
   const nodes = dumpNodes(source);
@@ -101,7 +116,7 @@ export function overview(xml, limits = OVERVIEW_LIMITS) {
     const bounds = box(node);
     if (!bounds || !kept(node)) continue;
     const [left, top, right, bottom] = bounds;
-    if (right <= left || bottom <= top) continue;
+    if (right <= left || bottom <= top || !bounds.every(coordinate)) continue;
     total++;
     if (truncated) continue;
     const n = elements.length + 1;
@@ -109,7 +124,7 @@ export function overview(xml, limits = OVERVIEW_LIMITS) {
     const text = line(node.text);
     const description = line(node["content-desc"]);
     const entry = [
-      `${n} ${shortClass(node.class)}${id ? `#${line(id, 60)}` : ""}`,
+      `${n} ${line(shortClass(node.class), limits.name) || "View"}${id ? `#${line(id, limits.name)}` : ""}`,
       text && JSON.stringify(text),
       description && description !== text && `desc=${JSON.stringify(description)}`,
       node.hint && !text && `hint=${JSON.stringify(line(node.hint))}`,
@@ -132,7 +147,7 @@ export function overview(xml, limits = OVERVIEW_LIMITS) {
     });
   }
   return {
-    package: nodes[0]?.package || null,
+    package: line(nodes[0]?.package, limits.package) || null,
     elements,
     targets,
     shown: elements.length,

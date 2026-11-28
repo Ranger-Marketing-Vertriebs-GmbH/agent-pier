@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { appActions } from "./device-app-actions.js";
+import { coordinate } from "./device-input.js";
 import { devicePaths } from "./device-paths.js";
 import { refusal } from "./device-registry.js";
 import { screenActions } from "./device-screen-actions.js";
@@ -115,7 +116,9 @@ export class DeviceActions {
     const found = this.overviews
       .get(this.#key(caller, deviceId))
       ?.find((entry) => entry.n === n);
-    if (!found) throw refusal("DEVICE_ELEMENT_STALE");
+    // Only a point a caller could name itself (device-input.js) is ever tapped.
+    if (!found || !coordinate(found.x) || !coordinate(found.y))
+      throw refusal("DEVICE_ELEMENT_STALE");
     return { x: found.x, y: found.y };
   }
   /**
