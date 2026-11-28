@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setLanguage, withLanguage } from "../../web/lib/i18n/index.js";
 import {
+  assignmentText,
   codeText,
   createBlocked,
   deviceRowView,
@@ -514,6 +515,37 @@ test("creator, assignments, hold and viewers are part of the row", () => {
     "Created by session web checkout (creator no longer exists)",
   );
   assert.equal(row({ viewers: 1 }).details.at(-1), "1 open view");
+});
+
+test("a row names three assignments and counts the rest", () => {
+  const sessions = ["Checkout", "Login flow", "Settings", "Payments", "Search"].map(
+    (name, index) => ({ kind: "session", id: `s${index}`, name, manage: index === 1 }),
+  );
+  assert.equal(assignmentText([]), "");
+  assert.equal(assignmentText(undefined), "");
+  assert.equal(
+    assignmentText(sessions.slice(0, 3)),
+    "Assigned to Checkout, Login flow (may reset and delete), Settings",
+  );
+  assert.equal(
+    assignmentText(sessions),
+    "Assigned to Checkout, Login flow (may reset and delete), Settings and 2 more",
+  );
+  assert.equal(
+    row({ assignments: sessions }).details[1],
+    "Assigned to Checkout, Login flow (may reset and delete), Settings and 2 more",
+  );
+  // A session without a name shows its id; an empty entry is skipped.
+  assert.equal(
+    assignmentText([null, { kind: "session", id: "s9", name: "", manage: false }]),
+    "Assigned to s9",
+  );
+  withLanguage("de", () =>
+    assert.equal(
+      assignmentText(sessions),
+      "Zugewiesen an Checkout, Login flow (darf zurücksetzen und löschen), Settings und 2 weitere",
+    ),
+  );
 });
 
 test("without a usable installation a device neither starts nor resets", () => {

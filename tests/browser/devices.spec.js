@@ -22,11 +22,45 @@ test.use({ locale: "en-GB" });
 // confirmations, and the limits. Set AGENTPIER_SCREENSHOT_DIR to keep a screenshot
 // of the main states.
 const shots = process.env.AGENTPIER_SCREENSHOT_DIR;
-async function shoot(page, name) {
+async function shoot(page, name, prefix = "devices-ui-") {
   if (!shots) return;
   fs.mkdirSync(shots, { recursive: true });
-  await page.screenshot({ path: path.join(shots, `devices-ui-${name}.png`) });
+  await page.screenshot({ path: path.join(shots, `${prefix}${name}.png`) });
 }
+// Devices as sessions use them: one that five sessions share, one whose creating
+// session was removed, one a running session created and may always manage.
+const sessionNames = [
+  "Checkout flow on the staging shop",
+  "Login regression",
+  "Settings screen",
+  "Payments sandbox",
+  "Search results",
+];
+const sharedDevices = () => [
+  device({
+    name: "Shared Pixel",
+    state: "running",
+    assignments: sessionNames.map((name, index) => ({
+      kind: "session",
+      id: `s${index + 1}`,
+      name,
+      manage: index === 1,
+    })),
+  }),
+  device({
+    id: "d-0000000000b2",
+    name: "Left behind",
+    creator: { kind: "session", id: "gone", name: "Old checkout work", gone: true },
+  }),
+  device({
+    id: "d-0000000000c3",
+    name: "Scratch",
+    creator: { kind: "session", id: "s1", name: sessionNames[0], gone: false },
+    assignments: [{ kind: "session", id: "s2", name: sessionNames[1], manage: false }],
+  }),
+];
+const sharedText =
+  "Assigned to Checkout flow on the staging shop, Login regression (may reset and delete), Settings screen and 2 more";
 
 // The routes as the server answers them (server/http/routes/devices.js). `state.next`
 // replaces one answer: `{ status, json }`, or a function that waits (a held request).
@@ -445,6 +479,36 @@ test("a failed device shows its reason; a refused start says why", async ({ page
   );
 });
 
+test("a row names who a device is assigned to and a creator that is gone", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page, { devices: sharedDevices() });
+  await open(page);
+  const shared = row(page, "Shared Pixel");
+  await expect(shared).toContainText("Created by you");
+  // Three sessions by name, the rest as a count.
+  await expect(shared).toContainText(sharedText);
+  await expect(shared).not.toContainText("Payments sandbox");
+  await expect(row(page, "Left behind")).toContainText(
+    "Created by session Old checkout work (creator no longer exists)",
+  );
+  await expect(row(page, "Left behind")).not.toContainText("Assigned to");
+  const scratch = row(page, "Scratch");
+  await expect(scratch).toContainText(
+    "Created by session Checkout flow on the staging shop",
+  );
+  await expect(scratch).toContainText("Assigned to Login regression");
+  await expect(scratch).not.toContainText("creator no longer exists");
+  await shoot(page, "device-page-desktop", "devices-pr2-ui-");
+  // An assignment taken away elsewhere shows with the push, without a request.
+  const seen = appRequests(page);
+  state.change("d-0000000000c3", { assignments: [] });
+  await liveStub.pushRest("devices");
+  await expect(scratch).not.toContainText("Assigned to");
+  expect(seen).toEqual([]);
+});
+
 test("reset and delete ask first and wait for the server", async ({ page }) => {
   const state = await setup(page, {
     devices: [device(), device({ id: "d-0000000000b2", name: "Shop login" })],
@@ -655,6 +719,30 @@ test.describe("in German", () => {
 
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test("many assignments stay inside the row", async ({ page }) => {
+    await setup(page, { devices: sharedDevices() });
+    await open(page);
+    const shared = row(page, "Shared Pixel");
+    await expect(shared).toContainText(sharedText);
+    await expect(shared.locator(".list-row-status")).toHaveText("Running");
+    await expect(row(page, "Left behind")).toContainText("creator no longer exists");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBe(0);
+    // Name, details and state lie inside the screen; the state is not pushed out.
+    for (const part of await shared
+      .locator(".list-row-label, .list-row-sub, .list-row-status")
+      .all()) {
+      const box = await part.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shared.scrollIntoViewIfNeeded();
+    await shoot(page, "device-page-phone", "devices-pr2-ui-");
+  });
   test("rows wrap, actions are reachable and dialogs are sheets", async ({ page }) => {
     await setup(page, {
       devices: [

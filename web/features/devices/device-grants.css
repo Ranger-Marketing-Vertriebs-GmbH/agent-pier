@@ -1,0 +1,7 @@
+/* The devices of one session (DeviceGrantFields.jsx). Tokens only (docs/ui-guide.md). */
+.device-grant-permissions {
+  min-width: 0;
+}
+.device-grant-permissions > .group-label:first-child {
+  margin-top: 0;
+}

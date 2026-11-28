@@ -1,5 +1,5 @@
 import { emptyInbox } from "../helpers/empty-inbox.js";
-import { installation } from "../helpers/devices-fixture.js";
+import { installation, notInstalledView } from "../helpers/devices-fixture.js";
 import { systemStatusAnswer } from "../helpers/system-status-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import { installAgentFeedFake } from "../helpers/agent-feed-fake.js";
@@ -538,6 +538,10 @@ export async function fixture(page, { account, session } = {}) {
     // Settings › General shows the state of the Android devices installation.
     if (path === "/api/devices/installation" && method === "GET")
       return route.fulfill({ json: installation() });
+    // Session views, the new-session dialog and the search ask whether this host
+    // offers devices to sessions; fixtures have none.
+    if (path === "/api/devices" && method === "GET")
+      return route.fulfill({ json: notInstalledView() });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

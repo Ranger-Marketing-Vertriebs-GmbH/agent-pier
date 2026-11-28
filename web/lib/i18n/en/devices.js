@@ -108,6 +108,7 @@ export const devicesCopy = {
     creatorSession: (name) => `Created by session ${name}`,
     creatorGone: "creator no longer exists",
     assigned: (names) => `Assigned to ${names}`,
+    assignedMore: (names, more) => `Assigned to ${names} and ${more} more`,
     assignedManage: (name) => `${name} (may reset and delete)`,
     assignedNone: "Not assigned",
     size: (size) => `${size} on disk`,
@@ -254,7 +255,41 @@ export const devicesCopy = {
   sdkMissingLibraries: (libraries) =>
     `The downloaded emulator does not start on this computer because these system libraries are missing: ${libraries}. Install the packages that provide them (on Debian and Ubuntu, libx11-6 provides libX11.so.6 and libx11-xcb1 provides libX11-xcb.so.1), then try again.`,
   unknownCode: (code) => `Something went wrong (${code}).`,
+  // The Android devices of one coding session: the session's dialog and the
+  // new-session dialog's choice.
+  access: {
+    title: "Android devices",
+    summary: "Choose the Android devices this session may use.",
+    hint: "The session operates an assigned device with its device tools: it starts and stops it, sees and taps its screen, installs apps and runs commands on it. A device reaches the network and the local services of this computer, so assigning one is an act of trust like assigning a shell.",
+    scope:
+      "Assignments stay while the session exists, also through a stop and a reload. A device the session created is its own: it may always use, reset and delete it.",
+    grantType: "Android device",
+    listLabel: "Android devices",
+    empty: "No devices yet. Create one under Settings › General › Android devices.",
+    busy: "Saving …",
+    saved: "Saved.",
+    own: "created by this session",
+    permissions: "Permissions",
+    manage: (name) => `Reset and delete “${name}”`,
+    create: "Create devices",
+    createSub:
+      "Devices the session creates are its own and count towards the limit of devices in total.",
+    tools: {
+      ready: "Has the device tools",
+      missing:
+        "This session runs without AgentPier tools. The assignment is saved, but the session gets the device tools only after a reload with AgentPier tools; a session started without them needs a new session.",
+    },
+    launch: {
+      hint: "The session may operate the devices you add with its device tools. Change this later under Android devices in the session.",
+      summary: (count) =>
+        `${count} ${count === 1 ? "Android device" : "Android devices"}`,
+      summaryCreate: "may create devices",
+      toolsOff:
+        "Without AgentPier tools the session gets no device tools. Turn on AgentPier tools above.",
+    },
+  },
   search: {
     newDevice: "New device",
+    sessionDevices: "Android devices",
   },
 };

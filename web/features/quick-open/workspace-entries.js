@@ -24,6 +24,8 @@ import { runTitle } from "../pipelines/run-title.js";
 import { projectsRoute } from "../projects/routes.js";
 import { listedProjects } from "../../lib/project-list.js";
 import { talkEligibleSession } from "../session-talk/talk-eligible.js";
+import { devicesCopy } from "../../lib/i18n/messages/devices.js";
+import { deviceEligibleSession } from "../devices/session-device-access.js";
 
 const same = (text) => ({ de: String(text ?? ""), en: String(text ?? "") });
 const folder = (cwd) => (cwd ? cwd.split("/").filter(Boolean).at(-1) || cwd : "");
@@ -83,6 +85,42 @@ export function sessionAgentAccessEntries({ sessions = [] } = {}) {
         project ? join(root, same(project)) : root,
         { session: session.id, pending: `session-agent-access:${session.id}` },
         { icon: "talk", extra: [project, session.tool].filter(Boolean) },
+      );
+    });
+}
+
+/**
+ * "<session> · Android devices" for every running coding session that can be given
+ * devices: it opens the session and its Android devices dialog (page action
+ * `session-devices:<id>`, useSessionActions.jsx). Found by "phone", "emulator" and
+ * their German words too.
+ */
+export function sessionDeviceEntries({ sessions = [] } = {}) {
+  const root = bilingual(() => commonCopy.sessions);
+  const label = bilingual(() => devicesCopy.search.sessionDevices);
+  return sessions
+    .filter((session) => session?.id && session.name && deviceEligibleSession(session))
+    .map((session) => {
+      const project = session.repositoryName || folder(session.cwd);
+      return entry(
+        "actions",
+        `session:${session.id}:devices`,
+        { de: `${session.name} · ${label.de}`, en: `${session.name} · ${label.en}` },
+        project ? join(root, same(project)) : root,
+        { session: session.id, pending: `session-devices:${session.id}` },
+        {
+          icon: "phone",
+          extra: [
+            project,
+            session.tool,
+            "Android Emulator",
+            "Android phone",
+            "Android Handy",
+            "Android Telefon",
+            "assign device",
+            "Gerät zuweisen",
+          ].filter(Boolean),
+        },
       );
     });
 }
@@ -354,14 +392,19 @@ const allWords = (item) =>
 
 /**
  * The owner's entries with their terms. `sources` holds what is loaded so far; a
- * source not loaded yet (null) adds nothing. Chats need agents on.
+ * source not loaded yet (null) adds nothing. Chats need agents on; a session's Android
+ * devices need a host that offers devices (`devicesAvailable`).
  */
-export function workspaceEntries(sources = {}, { agentsEnabled = false } = {}) {
+export function workspaceEntries(
+  sources = {},
+  { agentsEnabled = false, devicesAvailable = false } = {},
+) {
   return [
     ...sessionEntries(sources.workspace || {}),
     ...projectEntries(sources),
     ...(agentsEnabled ? chatEntries(sources) : []),
     ...(agentsEnabled ? sessionAgentAccessEntries(sources.workspace || {}) : []),
+    ...(devicesAvailable ? sessionDeviceEntries(sources.workspace || {}) : []),
     ...sessionActionEntries(sources.workspace || {}),
     ...cliAccountEntries(sources.workspace || {}),
     ...runEntries(sources.runs, sources.activeRuns),

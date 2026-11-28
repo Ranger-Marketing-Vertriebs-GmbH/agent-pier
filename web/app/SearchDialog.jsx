@@ -6,6 +6,7 @@ import { buildSearchIndex } from "./search-entries.js";
 import { searchEntries } from "./search-index.js";
 import { workspaceEntries } from "../features/quick-open/workspace-entries.js";
 import useQuickOpenSources from "../features/quick-open/useQuickOpenSources.js";
+import { useAssignableDevices } from "../features/devices/useSessionDevices.js";
 import useRuntimes from "../features/assistants/useRuntimes.js";
 import { paletteGroups, resultCount } from "../features/quick-open/palette-groups.jsx";
 
@@ -35,6 +36,8 @@ export default function SearchDialog({
   const language = getLanguage();
   const sources = useQuickOpenSources();
   const { runtimes } = useRuntimes(agentsEnabled);
+  // A session's Android devices are offered only while this host has devices.
+  const devicesAvailable = Boolean(useAssignableDevices());
   const offeredKey = offered.join();
   const index = useMemo(
     () => [
@@ -61,7 +64,7 @@ export default function SearchDialog({
           inbox: sources.inbox,
           views,
         },
-        { agentsEnabled },
+        { agentsEnabled, devicesAvailable },
       ),
     ],
     [
@@ -69,6 +72,7 @@ export default function SearchDialog({
       conversations,
       connections,
       agentsEnabled,
+      devicesAvailable,
       sessionOpen,
       runOpen,
       offeredKey,
