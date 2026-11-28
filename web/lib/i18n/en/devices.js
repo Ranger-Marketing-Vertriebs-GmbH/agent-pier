@@ -194,6 +194,23 @@ export const devicesCopy = {
     DEVICE_FORBIDDEN: "This device may not be used or changed from here.",
     DEVICE_HELD: "You are holding this device, so nothing else can use it right now.",
     DEVICE_NOT_RUNNING: "The device is not running. Start it first.",
+    DEVICE_CREATE_FORBIDDEN:
+      "This session may not create devices. Allow it under the session's devices.",
+    DEVICE_INPUT_INVALID: "The call to the device had a missing or malformed argument.",
+    DEVICE_TEXT_UNSUPPORTED:
+      "Only plain ASCII characters can be typed on a device in this version, no umlauts, accents or emoji.",
+    DEVICE_ELEMENT_STALE:
+      "The element number came from an overview of the screen that is no longer current.",
+    DEVICE_PATH_OUTSIDE:
+      "The file lies outside the working folder of the session, so it was not read or written.",
+    DEVICE_FILE_NOT_FOUND: "There is no regular file at that path.",
+    DEVICE_FILE_TOO_LARGE:
+      "The file is too large: up to 200 MB go to a device and up to 50 MB come from it.",
+    DEVICE_COMMAND_FAILED: "The device refused the action.",
+    DEVICE_SCREEN_UNAVAILABLE:
+      "The device did not deliver its screen. Try again in a moment.",
+    DEVICE_CALL_TIMEOUT:
+      "The call to the device took too long and was ended. A device that was still starting goes on booting.",
     DEVICE_SOURCE:
       "This device was created by a newer AgentPier version and cannot run here.",
     DEVICES_SETTINGS_INVALID:

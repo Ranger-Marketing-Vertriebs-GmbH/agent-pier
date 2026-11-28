@@ -196,6 +196,24 @@ export const devicesCopy = {
       "Dieses Gerät darf von hier aus nicht genutzt oder geändert werden.",
     DEVICE_HELD: "Du hältst dieses Gerät, deshalb kann es gerade nichts anderes nutzen.",
     DEVICE_NOT_RUNNING: "Das Gerät läuft nicht. Starte es zuerst.",
+    DEVICE_CREATE_FORBIDDEN:
+      "Diese Session darf keine Geräte anlegen. Erlaube es bei den Geräten der Session.",
+    DEVICE_INPUT_INVALID:
+      "Beim Aufruf des Geräts fehlte eine Angabe oder sie hatte die falsche Form.",
+    DEVICE_TEXT_UNSUPPORTED:
+      "Auf einem Gerät lassen sich in dieser Version nur einfache ASCII-Zeichen tippen, keine Umlaute, Akzente oder Emoji.",
+    DEVICE_ELEMENT_STALE:
+      "Die Elementnummer stammt aus einer Übersicht des Bildschirms, die nicht mehr aktuell ist.",
+    DEVICE_PATH_OUTSIDE:
+      "Die Datei liegt außerhalb des Arbeitsordners der Session und wurde deshalb weder gelesen noch geschrieben.",
+    DEVICE_FILE_NOT_FOUND: "Unter diesem Pfad gibt es keine reguläre Datei.",
+    DEVICE_FILE_TOO_LARGE:
+      "Die Datei ist zu groß: Bis zu 200 MB gehen auf ein Gerät und bis zu 50 MB kommen von ihm.",
+    DEVICE_COMMAND_FAILED: "Das Gerät hat die Aktion abgelehnt.",
+    DEVICE_SCREEN_UNAVAILABLE:
+      "Das Gerät hat seinen Bildschirm nicht geliefert. Versuche es gleich noch einmal.",
+    DEVICE_CALL_TIMEOUT:
+      "Der Aufruf des Geräts hat zu lange gedauert und wurde beendet. Ein Gerät, das noch startete, fährt weiter hoch.",
     DEVICE_SOURCE:
       "Dieses Gerät wurde mit einer neueren AgentPier-Version angelegt und kann hier nicht laufen.",
     DEVICES_SETTINGS_INVALID:
