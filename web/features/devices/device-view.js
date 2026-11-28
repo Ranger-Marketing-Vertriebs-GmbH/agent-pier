@@ -194,18 +194,35 @@ const slots = ["starting", "running", "stopping"];
 // share keeps a short row on a phone.
 const namedAssignments = 3;
 
+// One assignment in words: "agent Home", "session Deploy", with "may reset and
+// delete" where set. A pass (`passedBy`, a lead's device a member uses for a task)
+// names the lead instead; a pass never resets or deletes.
+function assignmentName(entry) {
+  const { list: text } = copy;
+  const raw = String(entry.name || entry.id);
+  const name =
+    entry.kind === "agent"
+      ? text.assignedAgent(raw)
+      : entry.kind === "session"
+        ? text.assignedSession(raw)
+        : raw;
+  if (entry.passedBy && typeof entry.passedBy === "object") {
+    const lead = String(entry.passedBy.name || "");
+    return lead ? text.assignedPassed(name, lead) : text.assignedPassedUnnamed(name);
+  }
+  return entry.manage ? text.assignedManage(name) : name;
+}
+
 /**
- * Who a device is assigned to, in one line, or "": the first three by name (with
- * "may reset and delete" where set), then how many more.
+ * Who a device is assigned to, in one line, or "": the first three by kind and name
+ * (an agent, a session; with "may reset and delete" where set, or that a lead passed
+ * the device on for a task), then how many more.
  */
 export function assignmentText(assignments) {
   const { list: text } = copy;
   const names = (Array.isArray(assignments) ? assignments : [])
     .filter((entry) => entry && (entry.name || entry.id))
-    .map((entry) => {
-      const name = String(entry.name || entry.id);
-      return entry.manage ? text.assignedManage(name) : name;
-    });
+    .map(assignmentName);
   if (!names.length) return "";
   const shown = names.slice(0, namedAssignments).join(", ");
   const more = names.length - namedAssignments;
@@ -215,6 +232,10 @@ export function assignmentText(assignments) {
 function creatorText(creator) {
   const { list: text } = copy;
   const name = String(creator?.name || creator?.id || "");
+  // A creator that is gone and left no name: say so instead of an empty name.
+  if (creator?.gone && !name && creator.kind === "agent") return text.creatorAgentGone;
+  if (creator?.gone && !name && creator.kind === "session")
+    return text.creatorSessionGone;
   const who =
     creator?.kind === "agent"
       ? text.creatorAgent(name)
