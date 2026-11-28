@@ -140,9 +140,20 @@ runs:
         --repeat-each=5 --retries=0
       env:
         AGENTPIER_TEST_BROWSER: ${{ inputs.browser }}
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-      if: failure()
+    # What Playwright kept of every failed attempt (playwright.config.js:
+    # trace "retain-on-failure", screenshot "only-on-failure"), also of a test that
+    # passed on its retry, which leaves the job green: without its trace a flaky test
+    # cannot be diagnosed afterwards. A run without a failed attempt has no such file
+    # and uploads nothing. The specs run against fixtures and a disposable server; the
+    # jobs hold no secrets.
+    - name: Upload the traces of failed attempts
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      if: ${{ !cancelled() }}
       with:
-        name: browser-failure-${{ inputs.browser }}-${{ inputs.shard }}
-        path: test-results/
+        name: browser-traces-${{ inputs.browser }}-shard${{ inputs.shard }}-attempt${{ github.run_attempt }}
+        path: |
+          test-results/**/trace.zip
+          test-results/**/*.png
+          test-results/**/error-context.md
+        if-no-files-found: ignore
         retention-days: 7
