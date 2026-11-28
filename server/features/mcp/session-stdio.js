@@ -42,6 +42,9 @@ const calls = new Map();
 const callKey = (id) => JSON.stringify(id);
 // Above agent_ask's wait of about 110 s, like the CLIs' tool timeout (session-launch.js).
 const requestTimeoutMs = 150000;
+// A tool result is bounded by the server (256 KiB of text); a device screenshot is
+// an image of up to 4 MiB, which is a third larger as base64.
+const maxResponseBytes = 8 * 2 ** 20;
 const watch = setInterval(() => {
   if (process.ppid !== parent) process.exit(0);
 }, 1000);
@@ -64,11 +67,12 @@ function relay(message, call) {
       },
       (response) => {
         response.setEncoding("utf8");
-        let text = "";
+        let text = "",
+          size = 0;
         response.on("data", (chunk) => {
           text += chunk;
-          if (Buffer.byteLength(text) > 524288)
-            response.destroy(Error("Response too large"));
+          size += Buffer.byteLength(chunk);
+          if (size > maxResponseBytes) response.destroy(Error("Response too large"));
         });
         response.on("error", reject);
         response.on("end", () => {

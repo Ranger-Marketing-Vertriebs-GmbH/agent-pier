@@ -20,6 +20,7 @@ import {
   talkToolEntries,
   talkTools,
 } from "../session-talk/session-talk-mcp.js";
+import { callDeviceTool, deviceToolEntries, deviceTools } from "../devices/device-mcp.js";
 import { StartRequests, orderGrantPrefix } from "./start-requests.js";
 import { queueTools } from "./queue-tools.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -74,6 +75,7 @@ export class McpTools {
       ...previewToolEntries(grant, context),
       ...craftToolEntries(grant, context, this.services),
       ...talkToolEntries(grant, context),
+      ...deviceToolEntries(grant, context, this.services),
     ];
   }
   async call(name, input, grant, resolveGrant, context) {
@@ -104,6 +106,10 @@ export class McpTools {
     // to about two minutes, which must not hold a snapshot back that long.
     if (Object.hasOwn(talkTools, name))
       return callTalkTool(this.services, name, input, context);
+    // Outside the mutation barrier as well: a call may wait for a device to boot and
+    // for a command on it, and devices are in no backup.
+    if (Object.hasOwn(deviceTools, name))
+      return callDeviceTool(this.services, name, input, context);
     const descriptor = toolSchemas[name];
     if (!descriptor || !Object.hasOwn(toolSchemas, name))
       throw problem("Unknown MCP tool.", 404);

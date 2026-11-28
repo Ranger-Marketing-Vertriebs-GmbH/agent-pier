@@ -9,6 +9,10 @@
 //   adb -s emulator-<n> shell getprop sys.boot_completed
 //   adb -s emulator-<n> emu kill
 //   adb -s emulator-<n> shell <command>
+//   adb -s emulator-<n> exec-out screencap -p | uiautomator dump /dev/tty
+//   adb -s emulator-<n> install -r <file> | push <file> <path> | pull <path> <file>
+//
+// What a device answers to the calls of the device tools is fake-android-device.mjs.
 //
 // Like the real client, a command that needs the server starts a daemonized one when
 // none listens on the port; that daemon ignores SIGTERM and ends only on
@@ -21,6 +25,7 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { fakeDevice } from "./fake-android-device.mjs";
 
 const state = process.env.FAKE_ANDROID_STATE;
 const argv = process.argv.slice(2);
@@ -187,7 +192,9 @@ async function client() {
     await ensureServer();
     process.exit(0);
   }
-  if (!["devices", "shell", "emu"].includes(command))
+  if (
+    !["devices", "shell", "emu", "exec-out", "install", "push", "pull"].includes(command)
+  )
     stop(`adb: unknown command ${command ?? ""}`.trimEnd());
   await ensureServer();
   const running = emulators();
@@ -222,7 +229,27 @@ async function client() {
   }
   const shell = readJson(path.join(state, "behaviour.json"), {}).shell || {};
   if (shell.delayMs) await new Promise((resolve) => setTimeout(resolve, shell.delayMs));
-  process.stdout.write(shell.stdout ?? `${rest.join(" ")}\n`, () =>
-    process.exit(shell.code ?? 0),
-  );
+  const phone = fakeDevice(state, device.serial);
+  // The device tools hand `shell` one string; a scripted answer comes first.
+  const answer =
+    command === "shell"
+      ? shell.stdout === undefined && shell.code === undefined && rest.length === 1
+        ? phone.shell(rest[0])
+        : null
+      : command === "exec-out"
+        ? ((bytes) => bytes && { stdout: bytes, stderr: "", code: 0 })(
+            phone.execOut(rest),
+          )
+        : command === "install"
+          ? phone.install(rest.at(-1))
+          : phone[command](rest[0], rest[1]);
+  if (answer) {
+    process.stderr.write(answer.stderr);
+    process.stdout.write(answer.stdout, () => process.exit(answer.code));
+  } else if (command !== "shell")
+    stop(`adb: unknown command ${command} ${rest.join(" ")}`);
+  else
+    process.stdout.write(shell.stdout ?? `${rest.join(" ")}\n`, () =>
+      process.exit(shell.code ?? 0),
+    );
 }

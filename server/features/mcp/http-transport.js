@@ -10,6 +10,7 @@ import { previewInstruction } from "../previews/preview-mcp.js";
 import { sessionToolsGrant } from "./start-requests.js";
 import { craftInstruction } from "../craft/craft-mcp-tools.js";
 import { talkInstruction } from "../session-talk/session-talk-mcp.js";
+import { deviceInstruction, rawResult } from "../devices/device-mcp.js";
 
 const publicPaths = new Set([
   "/mcp",
@@ -146,6 +147,9 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                 ? [craftInstruction]
                 : []),
               talkInstruction,
+              ...(offered.some(([name]) => name === "devices_list")
+                ? [deviceInstruction]
+                : []),
             ].join(" ")
           : serverInstructions,
       },
@@ -181,7 +185,8 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
               () => mcpAccess.checkAccessToken(auth.token).extra.grant,
               context,
             );
-            return boundedToolResult(data, req.body?.id);
+            // An image (a device screenshot) is bounded by the tool that made it.
+            return data?.[rawResult] ?? boundedToolResult(data, req.body?.id);
           } catch (error) {
             return {
               isError: true,
@@ -192,10 +197,10 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                     error: error.status
                       ? agentText(error.message)
                       : "MCP operation failed.",
-                    // Only preview, rebuild, rebuild picture and agent talk errors carry
-                    // their stable code; others stay as before.
+                    // Only preview, rebuild, rebuild picture, agent talk and device
+                    // errors carry their stable code; others stay as before.
                     ...(error.status &&
-                    /^(PREVIEW|CRAFT_REBUILD|CRAFT_PICTURE|AGENT_TALK)_[A-Z_]+$/.test(
+                    /^(PREVIEW|CRAFT_REBUILD|CRAFT_PICTURE|AGENT_TALK|DEVICES?)_[A-Z_]+$/.test(
                       error.code,
                     )
                       ? { code: error.code }
