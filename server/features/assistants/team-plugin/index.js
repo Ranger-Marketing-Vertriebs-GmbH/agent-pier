@@ -59,9 +59,9 @@ export const toolTimeouts = {
   craft: 95000,
   // A preview open checks the server's port and binds a slot before it answers.
   preview: 15000,
-  // A device call may boot the device first and ends after 140 seconds at the latest
-  // (devices/device-actions.js callTimeoutMs).
-  device: 150000,
+  // A device call may boot the device first and ends after 110 seconds at the latest
+  // (agent-devices.js AGENT_CALL_TIMEOUT_MS).
+  device: 125000,
 };
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;

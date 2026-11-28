@@ -33,6 +33,7 @@ test("the plugin hook covers every locked core tool; the rest are plugin tools",
       "agentpier_project",
       "agentpier_preview",
       "agentpier_craft",
+      "agentpier_device",
       ...delegationTools,
       ...memberTeamTools,
     ].sort(),
@@ -49,6 +50,7 @@ test("the plugin hook covers every locked core tool; the rest are plugin tools",
     "project",
     "preview",
     "craft",
+    "device",
   ]) {
     assert.equal(lockedCall(user, bridgeTool(action)), true, action);
     assert.equal(lockedCall({ id: "a" }, bridgeTool(action)), false, action);

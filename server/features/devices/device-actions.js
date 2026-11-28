@@ -35,6 +35,8 @@ import { screenActions } from "./device-screen-actions.js";
  * - `protectedRoots()`: the folders no host path may lie in or below, for a caller
  *   whose area is inside AgentPier's data folder (an agent's workspace); without
  *   it, the data folder itself.
+ * - `callTimeoutMs`: an earlier deadline for the whole call than the actions' own,
+ *   for a caller whose tool call must answer sooner (an agent's).
  * - `signal`: aborts the call when the caller is gone (DEVICE_ADB_CANCELLED); a
  *   call that still waits for its turn on the device then starts and runs nothing.
  *
@@ -130,6 +132,12 @@ export class DeviceActions {
       throw refusal("DEVICE_ELEMENT_STALE");
     return { x: found.x, y: found.y };
   }
+  /** The deadline of one call: the actions' own, or an earlier one a caller asks for. */
+  deadline(asked) {
+    return Number.isFinite(asked) && asked > 0
+      ? Math.min(asked, this.callTimeoutMs)
+      : this.callTimeoutMs;
+  }
   /** The devices `caller` may use, within `scope` when the call has one. */
   devicesFor(caller, scope = null) {
     const mine = this.devices.devicesFor(caller);
@@ -186,7 +194,7 @@ export class DeviceActions {
       timer = setTimeout(() => {
         reject(refusal("DEVICE_CALL_TIMEOUT"));
         abort();
-      }, this.callTimeoutMs);
+      }, this.deadline(context.callTimeoutMs));
     });
     const { signal } = controller;
     const adb = (id, args, options = {}) =>
