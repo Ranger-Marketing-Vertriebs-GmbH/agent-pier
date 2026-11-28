@@ -840,8 +840,23 @@ personal workspace, not an isolation boundary for mutually untrusted users.
     `127.0.0.1:47600` and asks for no credentials. On a profile with network access
     (nono's default) a sandboxed session can connect to it and operate every running
     device, whatever was assigned to it; a profile that blocks the network
-    (`network.block`) blocks that too. The device tools work under both, because they
-    go to AgentPier over the session's granted socket. Files a session installs or
+    (`network.block`) blocks that direct way. The device tools work under both, because
+    they go to AgentPier over the session's granted socket.
+
+    **A device is a way around a network block.** A device is not in the session's
+    sandbox: it reaches the network and the host's loopback (inside the device,
+    `10.0.2.2` is the host). A sandboxed session with one assigned device can
+    therefore, through `device_shell`, do from inside the device what its profile
+    forbids it on the host: reach the internet, reach services that listen only on
+    the host's loopback, and reach AgentPier's own adb server at `10.0.2.2:47600`,
+    which asks for no credentials. Through that server it lists every running device
+    and runs commands on each, around your assignments and while you hold a device
+    (checked with two emulators: a session that had one device ran a command on the
+    other with the device's own `nc`). So do not assign a device to a session whose
+    sandbox is meant to keep it off the network, and do not let it create one;
+    AgentPier adds no firewall between a device and the host.
+
+    Files a session installs or
     pushes come from its working folder only, and copying a file from a device into
     that folder is refused in a sandboxed session, because the profile may give it
     the folder read-only. A file the profile denies inside the working folder is
