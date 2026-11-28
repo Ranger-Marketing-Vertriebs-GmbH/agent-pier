@@ -116,6 +116,12 @@ since its last saved state is lost.
 - **Your own Android setup stays untouched.** The emulator and adb run with their own
   home, SDK and adb key below `<data dir>/devices`, never with `~/.android`, the default
   adb port 5037 or an SDK elsewhere on the machine.
+- **The service's environment is not handed on**, except what a program needs to run:
+  the emulator and adb get neither the SSH agent's socket (`SSH_AUTH_SOCK`) nor the
+  display of a desktop session (`DISPLAY`, `WAYLAND_DISPLAY`, `XAUTHORITY`). The proxy
+  variables (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`) are handed on, because the
+  device's network and the emulator's own requests may need them; a device therefore
+  uses the proxy AgentPier itself was started with.
 
 ## Files
 

@@ -71,11 +71,17 @@ export function ensureDeviceFolders(paths) {
   return paths;
 }
 
+// What a headless emulator and adb never need of the service's environment: the SSH
+// agent, and the display of a desktop session.
+const withheld = ["SSH_AUTH_SOCK", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"];
+
 /**
  * The environment of an emulator or adb process: `base` without any inherited
- * `ANDROID_*` or `ADB_*` variable, with the private home, SDK, AVD folder and
- * temporary folder, AgentPier's own adb server port and adb's mDNS discovery off
- * (it would open UDP port 5353 on every interface).
+ * `ANDROID_*` or `ADB_*` variable, without the SSH agent's socket and the display
+ * variables, with the private home, SDK, AVD folder and temporary folder,
+ * AgentPier's own adb server port and adb's mDNS discovery off (it would open UDP
+ * port 5353 on every interface). The proxy variables stay: the guest's network and
+ * the emulator's own requests may need them.
  */
 export function deviceEnvironment(
   paths,
@@ -85,7 +91,7 @@ export function deviceEnvironment(
     throw TypeError("An adb server port of AgentPier's own is required.");
   const env = {};
   for (const [name, value] of Object.entries(base))
-    if (!/^(?:ANDROID_|ADB_)/.test(name)) env[name] = value;
+    if (!/^(?:ANDROID_|ADB_)/.test(name) && !withheld.includes(name)) env[name] = value;
   const userHome = path.join(paths.home, ".android");
   return {
     ...env,
