@@ -328,6 +328,14 @@ An agent that tries to create, reset or delete elsewhere is told to ask you
 checked again when its turn comes, so nothing runs for a turn that has ended
 meanwhile.
 
+A call counts for the run it names, not for whatever turn its chat has by then. On
+OpenClaw every call names its run: a late call of an earlier turn gets no device
+(`DEVICE_RUN_FORBIDDEN`) even when a turn of yours runs in the chat meanwhile, and a
+call of a run AgentPier sent no turn for (the follow-up after a background command, a
+check-in) uses devices like a run without a turn and never creates, resets or deletes
+on your turn's account. Hermes names no run with a call, so there a call counts for
+the turn its chat has when it arrives.
+
 What this cannot know: "forwarded" is a fact of a Telegram message. Text you paste
 into a chat yourself, a web page the agent reads, an email it fetches or a file it
 opens in a turn of yours is part of your turn. What a device shows is untrusted in

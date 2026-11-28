@@ -24,6 +24,9 @@ import { foreignOrigin, ownerChat } from "./owner-runs.js";
  * - Creating, resetting and deleting (`manage`) is for a turn the owner started
  *   with a message of their own (goal-turns.js directOwnerTurn): never a routine, a
  *   hook, a goal continuation, a follow-up or a run without a turn.
+ * - A call belongs to the run it names, not to whatever turn its session has now
+ *   (`ownRun`): one that names another turn's run gets no device, and one of a run
+ *   AgentPier sent no turn for never manages.
  * - A member working on a task of its lead uses what the lead passed on with that
  *   task (member-device-passes.js) beside its own devices, and never manages. The
  *   task counts only while the run that started it could have used devices itself:
@@ -137,6 +140,26 @@ export function deviceRun(w, inv) {
   return found;
 }
 
+// Whether the call is of the bound turn's own run. The bridge binds a call to the
+// one live turn of its session (team-bridge.js prepare) whatever run the call names,
+// so the run it names is compared here:
+// - A turn's own calls name the attempt's id (the send's idempotency key) or the run
+//   id the Gateway acknowledged the send with; both map to the attempt
+//   (RequestLedger#attemptForRun). A call that names another attempt (a late call of
+//   an earlier turn, which may have been someone else's content) is refused.
+// - A run id that maps to no attempt is a run AgentPier sent no turn for: OpenClaw's
+//   follow-up after a background command and a check-in run in the chat's own
+//   session under run ids of their own (assistant-owner-run-contract.test.js), also
+//   while a newer turn is bound. Such a call is served like a run without a turn:
+//   it uses devices when the bound turn may, and never manages.
+// - Hermes names no run (its plugin sends none): its calls count as the bound turn's.
+function ownRun(w, inv, attempt) {
+  if (!inv.runId) return true;
+  const named = w.a.ledger.attemptForRun?.(inv.runId) ?? null;
+  if (named && named.id !== attempt.id) throw forbidden();
+  return !!named;
+}
+
 function locate(w, inv, store) {
   const chat = (conversation) => ({
     conversation,
@@ -171,6 +194,7 @@ function locate(w, inv, store) {
     };
   }
   const attempt = w.a.ledger.getAttempt(inv.attemptId);
+  const own = ownRun(w, inv, attempt);
   const request = w.a.ledger.getRequest(attempt.requestId);
   const turn = chat(store.getConversation(request.conversationId));
   const origin = w.a.teams?.store?.context?.(request.id);
@@ -186,6 +210,6 @@ function locate(w, inv, store) {
   }
   // A temporary member works on its lead's tasks only.
   if (taskMember(turn.agent) || !deviceOrigin(origin)) throw forbidden();
-  const manage = directOwnerTurn(origin);
+  const manage = own && directOwnerTurn(origin);
   return { ...turn, kind: manage ? "owner-turn" : "turn", manage, writable: true };
 }

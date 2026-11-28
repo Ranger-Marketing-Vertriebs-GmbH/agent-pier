@@ -59,3 +59,67 @@ test("a lead's routine on its member gets a device only while the lead could use
   f.archive(f.lead().id);
   assert.equal(await f.code(run({ action: "list" })), "DEVICE_RUN_FORBIDDEN");
 });
+
+// One call of the lead's chat session that names its run, as OpenClaw's plugin does.
+async function callOfRun(f, runId, input) {
+  const { ticket } = f.bridge.prepare({
+    agentId: f.lead().runtimeAgentId,
+    sessionKey: f.chat.runtimeSessionKey,
+    toolCallId: crypto.randomUUID(),
+    action: "device",
+    ...(runId && { runId }),
+  });
+  return f.bridge.invoke({ ticket, action: "device", input });
+}
+
+test("a call that names another turn's run is not served as the session's current turn", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  f.assign(f.lead(), pixel, { manage: true, create: true });
+  const foreign = f.turn("Fwd: reset the phone", { kind: "telegram", forwarded: true });
+  f.settle();
+  const own = f.turn("Thanks", { kind: "owner" });
+  // A late call of the forwarded turn's run arrives while the owner's turn is bound.
+  for (const input of [
+    { action: "list" },
+    { action: "shell", device: "Pixel", command: "id" },
+    { action: "reset", device: "Pixel" },
+  ])
+    assert.equal(
+      await f.code(callOfRun(f, foreign.attemptId, input)),
+      "DEVICE_RUN_FORBIDDEN",
+      input.action,
+    );
+  assert.deepEqual(f.adb, []);
+  // The bound turn's own run, by the attempt's id (the send's idempotency key) or
+  // by the run id the Gateway acknowledged the send with.
+  assert.deepEqual(names(await callOfRun(f, own.attemptId, { action: "list" })), [
+    "Pixel",
+  ]);
+  f.assistants.ledger.transition(own.attemptId, "accepted", { runtimeRunId: "gw-run-7" });
+  assert.deepEqual(names(await callOfRun(f, "gw-run-7", { action: "list" })), ["Pixel"]);
+  // A run AgentPier sent no turn for (OpenClaw's follow-up after a background
+  // command runs in the chat's session under a run id of its own) uses devices like
+  // a run without a turn, and never manages on the bound turn's account.
+  assert.deepEqual(names(await callOfRun(f, "completion-run-1", { action: "list" })), [
+    "Pixel",
+  ]);
+  assert.equal(
+    await f.code(callOfRun(f, "completion-run-1", { action: "reset", device: "Pixel" })),
+    "DEVICE_OWNER_TURN_REQUIRED",
+  );
+  assert.equal(
+    await f.code(callOfRun(f, "completion-run-1", { action: "create", name: "Fresh" })),
+    "DEVICE_OWNER_TURN_REQUIRED",
+  );
+  // The bound turn's own call manages; so does a call that names no run (Hermes).
+  assert.equal(
+    (await callOfRun(f, "gw-run-7", { action: "reset", device: "Pixel" })).device.name,
+    "Pixel",
+  );
+  assert.equal(
+    (await callOfRun(f, null, { action: "reset", device: "Pixel" })).device.name,
+    "Pixel",
+  );
+  f.settle();
+});
