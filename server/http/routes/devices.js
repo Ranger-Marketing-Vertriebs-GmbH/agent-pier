@@ -25,7 +25,8 @@ import { Router } from "express";
  */
 const owner = Object.freeze({ kind: "owner" });
 const stable = /^DEVICES?_[A-Z0-9_]+$/;
-const details = ["reason", "image", "exitCode"];
+const detail = (value) =>
+  ["string", "number"].includes(typeof value) ? value : undefined;
 const record = (value) =>
   !!value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const refusal = (code, status = 409) => Object.assign(Error(code), { code, status });
@@ -33,9 +34,15 @@ const refusal = (code, status = 409) => Object.assign(Error(code), { code, statu
 function refuse(res, error) {
   if (!stable.test(error?.code || "")) throw error;
   const { code } = error;
-  const body = { code, error: code };
-  for (const name of details)
-    if (["string", "number"].includes(typeof error[name])) body[name] = error[name];
+  // Only these three properties are ever read from the error; JSON leaves out the
+  // ones that are undefined.
+  const body = {
+    code,
+    error: code,
+    reason: detail(error.reason),
+    image: detail(error.image),
+    exitCode: detail(error.exitCode),
+  };
   res.status([400, 403, 404, 409].includes(error.status) ? error.status : 409).json(body);
 }
 // A handler whose stable refusals are answered as such.

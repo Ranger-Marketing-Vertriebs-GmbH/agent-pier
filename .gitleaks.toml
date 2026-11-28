@@ -121,3 +121,13 @@ condition = "AND"
 paths = ['''(^|/)tests/integration/assistant-runtime-update-scope\.test\.js$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*const secret = "sk-hermes-secret-0123456789";$''']
+
+# A backup test writes a marker into a file named like adb's key to prove that the
+# devices folder stays out of backups; the line holds no key. Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic adb key marker in the devices backup test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/integration/devices-backup\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*\["home/\.android/adbkey", "adb-key-marker-7f3a91"\],$''']

@@ -78,14 +78,7 @@ test("the installation routes go from absent through the install to installed", 
     await json(await post(f, "/api/devices/installation/remove")),
     refused("DEVICES_OPERATION_RUNNING", 409),
   );
-  // The topic carries the progress and the end.
-  const progress = await live.next(
-    (frame) => frame.type === "state" && frame.data.progress?.total > 0,
-    20000,
-  );
-  assert.ok(
-    ["emulator", "platformTools", "image"].includes(progress.data.progress.component),
-  );
+  // The topic carries the end; the job may be over before a frame shows its progress.
   const done = await live.next(
     (frame) => frame.type === "state" && frame.data.state === "installed",
     20000,
@@ -122,10 +115,18 @@ test("the installation routes go from absent through the install to installed", 
 test("a cancelled and a failed installation are told apart", async (t) => {
   const { f, fake, sdk } = await devicesApp(t, { installed: false });
   fake.fetchImpl.stall("emulator");
+  const live = subscribe(f.application.live, "devices.installation");
+  t.after(() => live.stop());
   await post(f, "/api/devices/installation/install", { acceptTerms: true });
   await waitUntil(() => sdk.status().progress?.component === "emulator", {
     describe: "the emulator download",
   });
+  // The topic carries the progress: the stalled download holds it still.
+  const progress = await live.next(
+    (frame) => frame.type === "state" && frame.data.progress?.component === "emulator",
+    20000,
+  );
+  assert.ok(progress.data.progress.total > 0);
   const cancelled = await post(f, "/api/devices/installation/cancel");
   assert.equal(cancelled.status, 202);
   await waitUntil(() => !sdk.operation, { describe: "the cancelled job to end" });
