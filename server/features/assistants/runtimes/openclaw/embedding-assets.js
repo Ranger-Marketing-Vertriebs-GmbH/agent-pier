@@ -6,6 +6,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { privateFolder } from "../../runtime-paths.js";
+import {
+  downloadPinned,
+  downloadResumed,
+  requireSpace,
+} from "../../../tools/pinned-download.js";
 import { runtimeManifest } from "./runtime-manifest.js";
 
 /*
@@ -23,10 +28,11 @@ import { runtimeManifest } from "./runtime-manifest.js";
  * memory search on; the model (about 329 MB) only then. The Gateway is compiled with
  * both paths and never downloads either (openclaw-config/semantic-memory.js).
  */
+// The resumable download lives in tools/pinned-download.js, shared with the Android
+// SDK; it is exported from here for the callers that knew it here.
+export { downloadPinned };
 const executeFile = promisify(execFile);
 const failure = (code, message = code) => Object.assign(Error(message), { code });
-// Bytes without progress before a transfer is given up and resumed.
-const idleMs = 30000;
 // A server start may wait for macOS's first-run check of a new executable.
 const versionTimeoutMs = 120000;
 
@@ -130,147 +136,6 @@ export async function verifyEmbeddingModel(root, manifest = runtimeManifest) {
   }
 }
 
-/**
- * Downloads `url` to `file` through `<file>.partial`, which a later call continues
- * with a range request: the bytes already there are hashed again, and only a file
- * with the pinned `size` and `sha256` is renamed into place. HTTPS only, redirects
- * followed by hand (at most five). `onProgress({ received, total })` hears each
- * chunk. Rejects with a stable `code`; bytes that are not the pinned file (another
- * digest, more bytes, or fewer with nothing left to fetch) remove the partial file,
- * any other failure, a transfer that ended early included, keeps it for the next
- * attempt.
- */
-export async function downloadPinned({
-  url,
-  file,
-  size,
-  sha256,
-  fetchImpl = fetch,
-  onProgress = () => {},
-  signal,
-  timeoutMs = idleMs,
-}) {
-  const partial = `${file}.partial`;
-  let offset = regularFile(partial)?.size || 0;
-  if (offset > size) {
-    await fsp.rm(partial, { force: true });
-    offset = 0;
-  }
-  const controller = new AbortController();
-  const abort = () => controller.abort(signal.reason);
-  signal?.addEventListener("abort", abort, { once: true });
-  if (signal?.aborted) abort();
-  let timer;
-  const arm = () => {
-    clearTimeout(timer);
-    timer = setTimeout(
-      () => controller.abort(failure("EMBEDDING_DOWNLOAD_STALLED")),
-      timeoutMs,
-    );
-  };
-  let handle;
-  try {
-    arm();
-    let target = url,
-      response;
-    for (let redirect = 0; ; redirect++) {
-      if (new URL(target).protocol !== "https:")
-        throw failure("EMBEDDING_DOWNLOAD_FAILED");
-      response = await fetchImpl(target, {
-        signal: controller.signal,
-        redirect: "manual",
-        ...(offset ? { headers: { range: `bytes=${offset}-` } } : {}),
-      });
-      arm();
-      if (![301, 302, 303, 307, 308].includes(response.status)) break;
-      const location = response.headers.get("location");
-      await response.body?.cancel();
-      if (redirect >= 5 || !location) throw failure("EMBEDDING_DOWNLOAD_FAILED");
-      target = new URL(location, target).href;
-    }
-    // A range the server cannot serve (the partial file already holds everything, or
-    // more than the file has): the bytes on disk are checked as they are.
-    if (response.status === 416) await response.body?.cancel();
-    else if (response.status === 200) offset = 0;
-    else if (
-      response.status !== 206 ||
-      !new RegExp(`^bytes ${offset}-`).test(response.headers.get("content-range") || "")
-    ) {
-      await response.body?.cancel();
-      throw Object.assign(failure("EMBEDDING_DOWNLOAD_FAILED"), {
-        upstreamStatus: response.status,
-      });
-    }
-    const hash = createHash("sha256");
-    if (offset) await sha256Of(partial, hash);
-    let received = offset;
-    onProgress({ received, total: size });
-    if (response.status !== 416 && response.body) {
-      handle = await fsp.open(partial, offset ? "a" : "w", 0o600);
-      for await (const chunk of response.body) {
-        arm();
-        received += chunk.length;
-        if (received > size) break;
-        hash.update(chunk);
-        await handle.write(chunk);
-        onProgress({ received, total: size });
-      }
-      await handle.sync();
-      await handle.close();
-      handle = null;
-    }
-    // A transfer that ended early keeps its part: the next attempt continues it.
-    if (received < size && response.status !== 416)
-      throw failure("EMBEDDING_DOWNLOAD_FAILED");
-    if (received !== size || hash.digest("hex") !== sha256) {
-      // Never resumed: these bytes are not the pinned file.
-      await fsp.rm(partial, { force: true });
-      throw failure("EMBEDDING_CHECKSUM_MISMATCH");
-    }
-    await fsp.rename(partial, file);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      // Our own stall failure, or the caller's stop (whatever its reason is).
-      const reason = controller.signal.reason;
-      throw reason?.code === "EMBEDDING_DOWNLOAD_STALLED"
-        ? reason
-        : failure("EMBEDDING_DOWNLOAD_CANCELLED");
-    }
-    throw error?.code?.startsWith?.("EMBEDDING_")
-      ? error
-      : failure("EMBEDDING_DOWNLOAD_FAILED");
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", abort);
-    await handle?.close().catch(() => {});
-  }
-}
-
-// One more attempt after a transfer that broke off; it continues the partial file.
-async function downloadResumed(options, attempts = 3) {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await downloadPinned(options);
-    } catch (error) {
-      const again = ["EMBEDDING_DOWNLOAD_FAILED", "EMBEDDING_DOWNLOAD_STALLED"];
-      if (attempt >= attempts || !again.includes(error.code) || options.signal?.aborted)
-        throw error;
-    }
-  }
-}
-
-async function requireSpace(directory, bytes) {
-  let free;
-  try {
-    const stat = await fsp.statfs(directory);
-    free = Number(stat.bavail) * Number(stat.bsize);
-  } catch {
-    // A file system that does not report its space is not refused.
-    return;
-  }
-  if (free < bytes) throw failure("EMBEDDING_DISK_SPACE");
-}
-
 const jobs = new Map();
 const once = (key, run) => {
   if (!jobs.has(key))
@@ -313,7 +178,7 @@ export function ensureEmbeddingServer({
     const parent = privateFolder(path.dirname(paths.serverDirectory));
     const stage = privateFolder(path.join(parent, `.stage-${randomUUID()}`));
     try {
-      await requireSpace(parent, archive.size * 5);
+      await requireSpace(parent, archive.size * 5, "EMBEDDING_DISK_SPACE");
       const file = path.join(stage, archive.name);
       if (download) {
         const bytes = await download(pin.baseUrl + archive.name);
@@ -388,7 +253,11 @@ export function ensureEmbeddingModel({
     privateFolder(paths.base);
     privateFolder(paths.models);
     const have = regularFile(`${paths.model}.partial`)?.size || 0;
-    await requireSpace(paths.models, pin.size - Math.min(have, pin.size) + 64 * 2 ** 20);
+    await requireSpace(
+      paths.models,
+      pin.size - Math.min(have, pin.size) + 64 * 2 ** 20,
+      "EMBEDDING_DISK_SPACE",
+    );
     // A file without its receipt is no verified download: it is fetched again.
     await fsp.rm(paths.model, { force: true });
     await downloadResumed({
