@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import {
   filterItems,
   flatPageSize,
@@ -252,17 +253,18 @@ test("the list model stays fast with 500 synthetic SSH entries (AC-ZG-3)", () =>
     }),
   );
   let state = initialListState("project");
-  const started = performance.now();
   let model;
-  for (const query of ["", "s", "se", "ser", "server-4", "10.0.4", "deploy"]) {
-    state = listReducer(state, { type: "query", query });
+  // CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
+  const elapsed = cpuMs(() => {
+    for (const query of ["", "s", "se", "ser", "server-4", "10.0.4", "deploy"]) {
+      state = listReducer(state, { type: "query", query });
+      model = listModel(big, state, groupOf, now);
+    }
+    state = listReducer(state, { type: "sort", sort: "changed" });
+    state = listReducer(state, { type: "view", view: "problems" });
     model = listModel(big, state, groupOf, now);
-  }
-  state = listReducer(state, { type: "sort", sort: "changed" });
-  state = listReducer(state, { type: "view", view: "problems" });
-  model = listModel(big, state, groupOf, now);
-  const elapsed = performance.now() - started;
-  assert.ok(elapsed < 250, `500 entries took ${elapsed.toFixed(1)} ms`);
+  });
+  assert.ok(elapsed < 250, `500 entries took ${elapsed.toFixed(1)} ms of CPU`);
   assert.equal(model.counts.all, 500);
   // Only the first rows of each group render, however long the list is.
   const full = listModel(big, initialListState("project"), groupOf, now);

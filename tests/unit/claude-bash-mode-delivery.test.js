@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
 import { deliveryMatches, deliveryNotices } from "../../web/features/chat/chat-draft.js";
 import { deliveryContentMatches } from "../../web/features/chat/delivery-content.js";
@@ -129,11 +130,11 @@ test("a plain command does not match a bash-mode command and vice versa", () => 
   assert.equal(deliveryContentMatches(item("!ls"), row("ls"), true), false);
 });
 
+// CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
 const quick = (label, run) => {
-  const started = performance.now();
-  const result = run();
-  const elapsed = performance.now() - started;
-  assert.ok(elapsed < 200, `${label} took ${Math.round(elapsed)} ms`);
+  let result;
+  const elapsed = cpuMs(() => (result = run()));
+  assert.ok(elapsed < 200, `${label} took ${Math.round(elapsed)} ms of CPU`);
   return result;
 };
 const user = (content) => ({

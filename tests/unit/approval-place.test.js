@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -79,9 +80,11 @@ test("git is covered only in a repository of the project", (t) => {
 test("long chains and deep paths ask without being resolved", (t) => {
   const { place } = project(t);
   const timed = (command, expected) => {
-    const started = performance.now();
-    assert.equal(allowed(command, place), expected, command.slice(0, 30));
-    assert.ok(performance.now() - started < 300, `slow for ${command.slice(0, 30)}…`);
+    // CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
+    const spent = cpuMs(() =>
+      assert.equal(allowed(command, place), expected, command.slice(0, 30)),
+    );
+    assert.ok(spent < 300, `${command.slice(0, 30)}… took ${spent.toFixed(0)} ms of CPU`);
   };
   timed(`${"cd src && cd .. && ".repeat(9)}git status`, true);
   timed(`${"cd src && cd .. && ".repeat(400)}git status`, false);

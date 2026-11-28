@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import { shellSegments } from "../../server/features/requests/shell-command.js";
 import { defaultSegments } from "../../server/features/requests/cli-approval-defaults.js";
 import {
@@ -155,9 +156,11 @@ test("patterns from the CLI are judged quickly", () => {
     ],
     [filled((i) => `f${id(i)}`), true],
   ]) {
-    const started = performance.now();
-    assert.equal(allowed(command), expected, command.slice(0, 30));
-    assert.ok(performance.now() - started < 500, `slow for ${command.slice(0, 30)}…`);
+    // CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
+    const spent = cpuMs(() =>
+      assert.equal(allowed(command), expected, command.slice(0, 30)),
+    );
+    assert.ok(spent < 500, `${command.slice(0, 30)}… took ${spent.toFixed(0)} ms of CPU`);
   }
 });
 
