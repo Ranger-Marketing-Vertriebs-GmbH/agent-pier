@@ -27,7 +27,26 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 // word) shows the status.
 // While the agent's browser runs, its live preview opens it; otherwise, while the
 // browser capability is on, **Browser** does (labelled on a computer, an icon on a
-// phone, an entry of ⋯ in a pane), and the page offers to start it.
+// phone, an entry of ⋯ in a pane), and the page offers to start it. On a phone the
+// agent chat shows it in the row under the header instead (`browserLink` false there;
+// AgentChatTop.jsx renders `BrowserEntryLink`).
+export function BrowserEntryLink({ assistant, navigate }) {
+  if (assistant.browserRunning || !browserOffered(assistant)) return null;
+  const label = assistantBrowserCopy.entryOpen(assistant.name);
+  return (
+    <RouteLink
+      className="assistant-header-settings agent-chat-browser"
+      route={browserRoute(assistant.id)}
+      navigate={navigate}
+      aria-label={label}
+      title={label}
+    >
+      <Icon name="globe" />
+      <span>{assistantBrowserCopy.entry}</span>
+    </RouteLink>
+  );
+}
+
 export default function AssistantHeader({
   assistant,
   variant,
@@ -44,6 +63,7 @@ export default function AssistantHeader({
   statusExtra = null,
   pane = null,
   disconnected = false,
+  browserLink = true,
 }) {
   const menu = useRowMenu();
   const { runtime, models, activity = {} } = useAssistants();
@@ -157,17 +177,8 @@ export default function AssistantHeader({
         {!settings && assistant.browserRunning && (
           <BrowserPreview assistant={assistant} navigate={navigate} />
         )}
-        {browserEntry && !pane && (
-          <RouteLink
-            className="assistant-header-settings agent-chat-browser"
-            route={browserRoute(assistant.id)}
-            navigate={navigate}
-            aria-label={browserLabel}
-            title={browserLabel}
-          >
-            <Icon name="globe" />
-            <span>{assistantBrowserCopy.entry}</span>
-          </RouteLink>
+        {browserEntry && !pane && browserLink && (
+          <BrowserEntryLink assistant={assistant} navigate={navigate} />
         )}
         {actions}
         {!settings && !pane && (

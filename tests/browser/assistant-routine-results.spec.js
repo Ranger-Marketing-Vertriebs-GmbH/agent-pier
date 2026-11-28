@@ -115,7 +115,7 @@ for (const [name, viewport] of [
         );
         await expect(page.locator(".assistant-scheduled-badge")).toHaveCount(0);
         // The header's Events button opens them in a sheet (AgentEventsButton).
-        await page.locator(".assistant-header .agent-chat-events").click();
+        await page.locator(".agent-chat-events").click();
         const sheet = page.getByRole("dialog", { name: words.group });
         const rows = sheet.locator(".agent-event-row");
         await expect(rows).toHaveCount(2);
@@ -143,7 +143,7 @@ for (const [name, viewport] of [
       test.skip(!process.env.ROUTINE_RESULT_SHOTS, "Screenshots are taken on request.");
       await page.emulateMedia({ colorScheme: "dark" });
       await setup(page, "de");
-      await page.locator(".assistant-header .agent-chat-events").click();
+      await page.locator(".agent-chat-events").click();
       await page.screenshot({
         path: info.outputPath(`routine-result-${name}-de-dark.png`),
       });

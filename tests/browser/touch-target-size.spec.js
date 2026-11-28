@@ -161,9 +161,10 @@ test("the agent chat header's icons are 44px touch targets", async ({ page }) =>
     route.fulfill({ json: { fresh: 0, lists: [] } }),
   );
   await page.goto(baseURL + "/agents/home/chats/dinner");
-  const header = page.locator(".assistant-header");
-  await expect(header.getByRole("button", { name: /Review cut/ })).toBeVisible();
-  await expect(header.getByRole("button", { name: /Events/ })).toBeVisible();
+  // On a phone the chat's actions sit in the row under the header.
+  const row = page.locator(".agent-chat-switch");
+  await expect(row.getByRole("button", { name: /Review cut/ })).toBeVisible();
+  await expect(row.getByRole("button", { name: /Events/ })).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
 });
 

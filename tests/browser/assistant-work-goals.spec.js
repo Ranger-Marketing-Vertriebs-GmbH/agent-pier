@@ -13,8 +13,9 @@ const goal = {
   createdAt: 1,
 };
 const goalButton = (page) =>
+  // In the header on a computer, in the row under it on a phone.
   page
-    .locator(".assistant-header")
+    .locator(".assistant-header, .agent-chat-switch")
     .getByRole("button", { name: "Working until done: Review cut" });
 const goalSheet = (page) => page.getByRole("dialog", { name: "Work goal" });
 const messages = [{ id: "u1", role: "user", text: "Finish the episode", timestamp: 1 }];
