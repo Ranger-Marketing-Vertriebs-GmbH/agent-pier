@@ -92,6 +92,56 @@ test("a creator manages its own devices; anyone else needs a grant", async (t) =
   );
 });
 
+test("a grant taken away while a call waited is no grant at its turn", async (t) => {
+  const { service, source, create, clock } = fixture(t);
+  const device = await create("Shared");
+  let grants = [{ deviceId: device.id, manage: true }];
+  service.registerGrants("session", (id) => (id === "s1" ? grants : []));
+  const caller = session("s1");
+  const forbidden = { code: "DEVICE_FORBIDDEN", status: 403 };
+  await service.startDevice(device.id, { caller });
+  // A long shell command of the session's runs; more of its calls wait behind it.
+  const gate = deferred();
+  source.gates.exec = () => gate.promise;
+  const running = service.adb(device.id, ["shell", "sleep 100"], { caller });
+  const waiting = [
+    service.adb(device.id, ["shell", "id"], { caller }),
+    service.startDevice(device.id, { caller }),
+    service.stopDevice(device.id, { caller }),
+    service.reset(device.id, { caller }),
+  ];
+  for (const call of waiting) call.catch(() => {});
+  await clock.settle();
+  // The owner takes the device away from the session.
+  grants = [];
+  source.gates.exec = null;
+  gate.resolve();
+  assert.equal((await running).code, 0);
+  for (const call of waiting) await assert.rejects(call, forbidden);
+  assert.deepEqual(
+    source.log.filter(([name]) => name !== "create").map(([name]) => name),
+    ["start", "exec"],
+  );
+  assert.equal(service.device(device.id).state, "running");
+  assert.equal(service.device(device.id).operation, null);
+  // Reset and delete need `manage` at their turn too, not only `use`.
+  grants = [{ deviceId: device.id, manage: true }];
+  const again = deferred();
+  source.gates.exec = () => again.promise;
+  const busy = service.adb(device.id, ["shell", "sleep 100"], { caller });
+  const removal = service.remove(device.id, { caller });
+  removal.catch(() => {});
+  await clock.settle();
+  grants = [{ deviceId: device.id, manage: false }];
+  source.gates.exec = null;
+  again.resolve();
+  await busy;
+  await assert.rejects(removal, forbidden);
+  assert.equal(service.device(device.id).state, "running");
+  // The owner's own calls are never refused this way.
+  assert.equal((await service.adb(device.id, ["shell", "x"], { caller: owner })).code, 0);
+});
+
 test("remove deletes the device, tells the listeners and frees the name", async (t) => {
   const { service, source, audited, create } = fixture(t);
   const device = await create("A");

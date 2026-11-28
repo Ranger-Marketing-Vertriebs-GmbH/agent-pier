@@ -477,25 +477,78 @@ test("what the device says of a failure is quoted in a few words", async (t) => 
 
 test("a call ends at its deadline and when its caller is gone", async (t) => {
   const f = actionsFixture(t, { callTimeoutMs: 40 });
-  await f.owned("Pixel");
+  const pixel = await f.owned("Pixel");
+  await f.run("start", { device: "Pixel" });
   let release;
-  f.source.gates.exec = () => new Promise((resolve) => (release = resolve));
-  await assert.rejects(
-    f.run("key", { device: "Pixel", key: "home" }),
-    refused("DEVICE_CALL_TIMEOUT", 409),
-  );
+  const heard = [];
+  f.source.gates.exec = (_record, _args, options) => {
+    heard.push(options.signal);
+    return new Promise((resolve) => (release = resolve));
+  };
+  const late = f.run("key", { device: "Pixel", key: "home" });
+  // A second call waits behind the first one, and its deadline passes there.
+  const queued = f.run("key", { device: "Pixel", key: "back" });
+  await assert.rejects(late, refused("DEVICE_CALL_TIMEOUT", 409));
+  await assert.rejects(queued, refused("DEVICE_CALL_TIMEOUT", 409));
+  // The adb call of the first heard the end of its call; the second never ran.
+  assert.equal(heard.length, 1);
+  assert.equal(heard[0].aborted, true);
+  f.source.gates.exec = null;
   release();
   await f.clock.settle();
-  // The adb call heard the end of its call.
-  f.source.gates.exec = null;
-  const seen = [];
-  f.answers((_args, options) => {
-    seen.push(options.signal.aborted);
-    return undefined;
-  });
-  await f.run("key", { device: "Pixel", key: "home" });
+  await f.service.adb(pixel.id, ["shell", "true"], { caller: f.caller });
+  assert.deepEqual(
+    f.adb.map(({ args }) => args.join(" ")),
+    ["shell input keyevent KEYCODE_HOME", "shell true"],
+  );
+  // A caller that is gone before its call began: refused, and nothing is asked.
   const gone = new AbortController();
   gone.abort();
-  await f.run("key", { device: "Pixel", key: "home" }, { signal: gone.signal });
-  assert.deepEqual(seen, [false, true]);
+  const before = f.adb.length;
+  for (const [action, input] of [
+    ["key", { key: "home" }],
+    ["start", {}],
+    ["stop", {}],
+    ["list", {}],
+  ])
+    await assert.rejects(
+      f.run(action, { device: "Pixel", ...input }, { signal: gone.signal }),
+      refused("DEVICE_ADB_CANCELLED", 409),
+      action,
+    );
+  assert.equal(f.adb.length, before);
+  assert.equal(f.state(pixel.id), "running");
+});
+
+test("a caller that is gone starts no device", async (t) => {
+  const f = actionsFixture(t);
+  const pixel = await f.owned("Pixel");
+  const gone = new AbortController();
+  gone.abort();
+  await assert.rejects(
+    f.run("key", { device: "Pixel", key: "home" }, { signal: gone.signal }),
+    refused("DEVICE_ADB_CANCELLED", 409),
+  );
+  // The service itself starts nothing for a call whose signal has ended, also one
+  // that ended while the call waited for its turn.
+  await assert.rejects(
+    f.service.adb(pixel.id, ["shell", "x"], { caller: f.caller, signal: gone.signal }),
+    refused("DEVICE_ADB_CANCELLED", 409),
+  );
+  assert.deepEqual(f.source.calls("start"), []);
+  assert.equal(f.state(pixel.id), "stopped");
+  let release;
+  f.source.gates.start = () => new Promise((resolve) => (release = resolve));
+  const first = f.service.startDevice(pixel.id, { caller: f.caller });
+  const leaving = new AbortController();
+  const waiting = f.service.adb(pixel.id, ["shell", "x"], {
+    caller: f.caller,
+    signal: leaving.signal,
+  });
+  await f.clock.settle();
+  leaving.abort();
+  release();
+  await first;
+  await assert.rejects(waiting, refused("DEVICE_ADB_CANCELLED", 409));
+  assert.deepEqual(f.source.calls("exec"), []);
 });
