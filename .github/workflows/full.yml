@@ -177,6 +177,10 @@ jobs:
   mcp-toolchains:
     name: MCP toolchains
     uses: ./.github/workflows/mcp-toolchains.yml
+  # The real pinned Android emulator on Linux x64 with KVM.
+  android-devices:
+    name: full Android devices
+    uses: ./.github/workflows/android-devices.yml
   # One result for callers such as release.yml: every job above passed.
   result:
     name: full suite
@@ -190,6 +194,7 @@ jobs:
         webkit,
         assistant-runtime,
         mcp-toolchains,
+        android-devices,
       ]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest

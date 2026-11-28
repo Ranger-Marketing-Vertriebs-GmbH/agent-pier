@@ -1,0 +1,90 @@
+name: Android devices
+# The native contract of Android devices: the real pinned emulator and adb on a
+# hosted Linux x64 runner with KVM. Pull requests that touch the feature run it;
+# so do the nightly and release runs through full.yml, and a run on demand. The
+# installed SDK (5 GB) is cached by its pins, so it is downloaded once per pin.
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - ".github/workflows/android-devices.yml"
+      - "server/features/devices/**"
+      - "server/features/tools/pinned-download.js"
+      - "server/features/tools/zip-unpack.js"
+      - "server/lib/process-identity.js"
+      - "scripts/android-device-assets.mjs"
+      - "tests/integration/android-devices-contract.test.js"
+      - "tests/helpers/contract-timeout.js"
+permissions:
+  contents: read
+concurrency:
+  group: android-devices-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  contract:
+    name: Android device contract (linux-x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # The credentials stay: the asset step reads the pull request's changed files
+      # and fetches its base commit for that.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ">=24.22.1 <25"
+          cache: npm
+      - run: npm ci
+      # GitHub's Linux x64 runners expose /dev/kvm; this rule makes it usable for
+      # the runner user (GitHub's documented way for hardware acceleration).
+      - name: Enable KVM for the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # The two libraries the headless emulator needs from the host, as the
+      # installer gives them to a host (scripts/install-dependencies.mjs).
+      - name: Provide the emulator's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-6 libx11-xcb1
+      - name: Read the pinned SDK identity
+        id: sdk
+        run: >-
+          node --input-type=module -e 'import { androidManifest as m } from
+          "./server/features/devices/android-manifest.js";
+          console.log(`identity=emulator${m.emulator.build}-tools${m.platformTools.version}-${m.image.id}`)'
+          >> "$GITHUB_OUTPUT"
+      # Only the immutable SDK is cached; devices and the processes' home stay fresh.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-android-contract/devices/sdk
+          key: android-sdk-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.identity }}
+      # With a cache hit this fetches nothing. Without one it downloads the three
+      # archives from dl.google.com. When they cannot be fetched, a pull request
+      # that changes Android devices fails here; every other run (nightly, release,
+      # on demand) gets a warning annotation and leaves the contract out
+      # (scripts/android-device-assets.mjs).
+      - name: Install the pinned Android SDK
+        id: assets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          node scripts/android-device-assets.mjs
+          --root "$RUNNER_TEMP/agentpier-android-contract"
+          --base "$BASE_SHA"
+      - name: Android device contract
+        if: steps.assets.outputs.available == 'true'
+        env:
+          AGENTPIER_ANDROID_CONTRACT_REQUIRED: "1"
+        run: >-
+          AGENTPIER_ANDROID_CONTRACT_SDK="$RUNNER_TEMP/agentpier-android-contract"
+          node --test tests/integration/android-devices-contract.test.js
+      - name: Upload the emulator logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-device-logs
+          path: ${{ runner.temp }}/agentpier-android-contract/devices/logs/
+          if-no-files-found: ignore
+          retention-days: 7

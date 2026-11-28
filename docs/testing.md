@@ -168,6 +168,46 @@ AgentPier, and is reported as skipped without one:
 AGENTPIER_DEEPGRAM_TEST_KEY=... node --test tests/integration/dictation-deepgram-live.test.js
 ```
 
+### Android devices
+
+Tests of Android devices never start Google's emulator or adb. `fakeAndroidSdk()` from
+`tests/helpers/fake-android-sdk.js` builds a disposable SDK whose `emulator` and `adb`
+are launchers for `tests/fixtures/fake-emulator.mjs` and `tests/fixtures/fake-adb.mjs`:
+real child processes that hold real loopback ports, boot after a moment, save a
+snapshot on `emu kill` and can be told to hang, die, crash or ignore the kill request
+(`sdk.behaviour({ mode })`). `installFakeSdk()` puts that SDK into a data folder as a
+finished installation leaves it, and `freeDevicePorts(pairs)` gives a test its own adb
+server port and console ports, so no test uses AgentPier's device ports (47600 to 47621) or adb's default port 5037; the fake adb refuses to run on 5037. The fakes are
+Node scripts, so a running fake's executable is the node binary: pass
+`identity: sdk.identity` to `EmulatorSource` and `AdbClient`, which reports the launcher
+below the SDK as `processIdentity` does for the native executables. `sdk.launches()`,
+`sdk.calls()`, `sdk.emulators()` and `sdk.servers()` show what the code under test
+started, and `await sdk.cleanup()` in `t.after` returns every pid a fake recorded so the
+test can assert that none is alive.
+
+One native contract runs the real pinned emulator: it creates a device, boots it cold,
+stops it, boots it from its snapshot, kills it, boots it cold again, resets and removes
+it, and checks that `~/.android` is unchanged, that every listening socket of its
+processes is on loopback and none is port 5037, and that no process is left. It needs
+macOS arm64 or Linux x64 with a usable `/dev/kvm`, about 14 GB of disk and one
+emulator's worth of free memory (4 GB), and is reported as skipped without its variable:
+
+```sh
+node scripts/android-device-assets.mjs --root /absolute/disposable/data-folder
+AGENTPIER_ANDROID_CONTRACT_SDK=/absolute/disposable/data-folder node --test tests/integration/android-devices-contract.test.js
+```
+
+The first command installs the pinned SDK below `<data folder>/devices/sdk` (a 2.2 GB
+download; `--archives <folder>` takes the three zip archives from a local folder
+instead, each still checked against its pinned SHA-256). The data folder must be a
+disposable one, never AgentPier's own. `AGENTPIER_ANDROID_CONTRACT_PORT` moves the
+contract's adb server port (47600) and the console ports after it, for a host whose
+AgentPier runs devices at the same time. `.github/workflows/android-devices.yml` runs
+the contract on a Linux x64 runner for pull requests that touch
+`server/features/devices/`, nightly and before a release through `full.yml`, and on
+demand; there `AGENTPIER_ANDROID_CONTRACT_REQUIRED=1` turns a missing prerequisite into
+a failure, and the installed SDK is cached by its pins.
+
 The launch matrix exercises actual `AccountStore` commands and generated profile configuration. It does not start Codex, Claude Code or OpenCode, and does not prove that a remote provider accepts a model, endpoint or entitlement. Provider-specific matrices and isolated MCP tests cover those contracts separately.
 
 The platform matrix checks the installation availability policy for macOS/Linux/Windows, ARM64/x64/ia32 and npm presence. It does not execute native binaries on simulated platforms. Run the blackbox suite on real macOS and Linux CI workers; an in-process platform parameter is not cross-platform runtime evidence.
@@ -247,11 +287,11 @@ The HTTP API, image and preference integration suites share `applicationFixture`
 
 CI runs in three tiers.
 
-| Tier                         | Workflow     | Runs                                                                                                                                                                                                                                                                                                                                                                                                        | Required checks                                     |
-| ---------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Pull request                 | `verify.yml` | Lint, formatting, structure checks and the frontend build. It also runs the node tests and Chromium specs the change affects (Linux, Node 24). Documentation alone runs no test, and the required jobs still report. A macOS backend job (Node 24) runs only when changed platform code is under test.                                                                                                      | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
-| Merge queue                  | `verify.yml` | The same required jobs run the full node suite and all four Chromium shards, with one visible retry per failed file. Advisory: `backend (macos-latest, 24)` and the Linux native filesystem matrix. WebKit does not run in the queue.                                                                                                                                                                       | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
-| Nightly and before a release | `full.yml`   | Everything: Linux and macOS × Node 24 and 26, Chromium and WebKit (with the iPad-size `tablet` project), the native filesystem matrices, the repeats, the extra property seeds, and the assistant runtime's fresh installs and native contracts. `release.yml` builds no package unless this suite passed on the release commit, and packages and publishes a tag only when the tagged commit is on `main`. | –                                                   |
+| Tier                         | Workflow     | Runs                                                                                                                                                                                                                                                                                                                                                                                                                                     | Required checks                                     |
+| ---------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Pull request                 | `verify.yml` | Lint, formatting, structure checks and the frontend build. It also runs the node tests and Chromium specs the change affects (Linux, Node 24). Documentation alone runs no test, and the required jobs still report. A macOS backend job (Node 24) runs only when changed platform code is under test.                                                                                                                                   | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
+| Merge queue                  | `verify.yml` | The same required jobs run the full node suite and all four Chromium shards, with one visible retry per failed file. Advisory: `backend (macos-latest, 24)` and the Linux native filesystem matrix. WebKit does not run in the queue.                                                                                                                                                                                                    | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
+| Nightly and before a release | `full.yml`   | Everything: Linux and macOS × Node 24 and 26, Chromium and WebKit (with the iPad-size `tablet` project), the native filesystem matrices, the repeats, the extra property seeds, the assistant runtime's fresh installs and native contracts, and the Android device contract. `release.yml` builds no package unless this suite passed on the release commit, and packages and publishes a tag only when the tagged commit is on `main`. | –                                                   |
 
 "Node 24" and "Node 26" in job names are majors; every `actions/setup-node` step installs at least the `package.json` `engines` floor of that major, for example `">=24.22.1 <25"`, never a bare `24`, because setup-node takes an older cached Node from the runner image when it matches a bare major. `npm run check:structure` (`scripts/ci-node-versions.mjs`) fails for a workflow or composite action, including its matrix values, whose Node version can resolve outside `engines`. `release.yml` pins the bundled runtime's exact version. Raise the ranges in the same change that raises `engines`; the verify plan derives its range from `engines` itself.
 

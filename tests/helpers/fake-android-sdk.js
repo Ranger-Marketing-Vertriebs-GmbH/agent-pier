@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -51,6 +52,36 @@ export async function waitUntil(
     await new Promise((resolve) => setTimeout(resolve, everyMs));
   }
   throw Error(`Gave up waiting for ${describe}.`);
+}
+
+// Each test process takes its ports from its own part of a range that holds neither
+// adb's default port, nor adb's emulator scan range, nor AgentPier's device ports.
+let nextPort = 48000 + (process.pid % 450) * 32;
+const bindable = (port) =>
+  new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", () => resolve(false));
+    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+  });
+
+/**
+ * Loopback ports for one test, all free now: `adbPort` for the adb server and
+ * `pairs` console ports from `first` to `last` (even steps; a device's adb port is
+ * its console port plus one), as `consolePorts` of EmulatorSource.
+ */
+export async function freeDevicePorts(pairs = 1) {
+  for (;;) {
+    const adbPort = nextPort;
+    nextPort += 2 + pairs * 2;
+    const wanted = Array.from({ length: 1 + pairs * 2 }, (_, index) =>
+      index ? adbPort + 1 + index : adbPort,
+    );
+    if ((await Promise.all(wanted.map(bindable))).every(Boolean))
+      return {
+        adbPort,
+        consolePorts: { first: adbPort + 2, last: adbPort + pairs * 2 },
+      };
+  }
 }
 
 // A launcher: the fixture runs with the state folder and the version it reports.
@@ -181,7 +212,7 @@ function downloadHost(served) {
  *   `.stall(only)`, `.stallAfter(bytes, only)`, `.corrupt(only)`,
  *   `.status(code, only)`, `.reset()`
  * - `behaviour(patch)`: merges into `<state>/behaviour.json`, read by both fakes
- * - `calls()`: the fake adb's calls, `[{ argv, env, pid }]`
+ * - `calls()`: the fake adb's calls, `[{ argv, env, pid, umask }]`
  * - `launches()`: the fake emulator's launches, `[{ avd, argv, env, pid, umask }]`
  * - `emulators()`, `servers()`: the fake emulators and adb servers alive now
  * - `pids()`: every pid a fake recorded; `identity(pid)`: see above
