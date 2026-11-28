@@ -123,3 +123,37 @@ test("a call that names another turn's run is not served as the session's curren
   );
   f.settle();
 });
+
+test("a run without a turn gets a device only when the chat's latest turn could have used one", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  f.assign(f.lead(), pixel);
+  const run = () =>
+    f.code(
+      (async () =>
+        f.invoke(f.lead(), f.chat.runtimeSessionKey, {
+          action: "shell",
+          device: "Pixel",
+          command: "id",
+        }))(),
+    );
+  const after = async (context) => {
+    f.settle();
+    f.turn("x", context);
+    f.settle();
+    return run();
+  };
+  // A chat without any turn has nothing in it the owner did not write.
+  assert.equal(await run(), null);
+  assert.equal(await after({ kind: "owner" }), null);
+  for (const context of [{ kind: "unknown" }, {}, { kind: "memory-step" }])
+    assert.equal(
+      await after(context),
+      "DEVICE_RUN_FORBIDDEN",
+      `after ${JSON.stringify(context)}`,
+    );
+  // Someone else's content ends the chat's runs without a turn altogether.
+  for (const context of [{ kind: "telegram", forwarded: true }, { kind: "ssh-result" }])
+    assert.equal(await after(context), "FORBIDDEN", `after ${JSON.stringify(context)}`);
+  assert.equal(await after({ kind: "owner" }), null);
+});
