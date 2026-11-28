@@ -37,8 +37,10 @@ export default function SessionAgentAccessDialog({ session, close }) {
   useEffect(() => {
     if (!data) return;
     const listed = new Set(data.agents.map((agent) => agent.id));
+    // Read now: the updater below may run after `base` already holds the new grant.
+    const before = base.current;
     setSelected((current) =>
-      current === null || (base.current && sameIds(current, base.current))
+      current === null || (before && sameIds(current, before))
         ? data.assignedIds
         : current.filter((id) => listed.has(id)),
     );

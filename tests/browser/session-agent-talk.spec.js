@@ -49,6 +49,25 @@ test("the Agent access dialog saves a tick and shows the project's agent as fixe
   await expect(own).toBeChecked();
 });
 
+test("the Agent access dialog follows a grant pushed while nothing is unsaved", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await talkFixture(page);
+  await page.goto(baseURL + "/sessions/deploy/chat");
+  await openAccess(page);
+  await liveStub.waitForSubscribe("session.agent-access:deploy");
+  const own = dialog(page).getByRole("checkbox", { name: /Planner/ });
+  await expect(own).not.toBeChecked();
+  // Granted elsewhere, then taken away again: the untouched dialog shows both.
+  state.assigned.deploy = [planner.id];
+  await liveStub.pushRest("session.agent-access:deploy");
+  await expect(own).toBeChecked();
+  state.assigned.deploy = [];
+  await liveStub.pushRest("session.agent-access:deploy");
+  await expect(own).not.toBeChecked();
+});
+
 test("a session without AgentPier tools says it cannot ask", async ({ page }) => {
   await talkFixture(page);
   await page.goto(baseURL + "/sessions/bare/chat");
