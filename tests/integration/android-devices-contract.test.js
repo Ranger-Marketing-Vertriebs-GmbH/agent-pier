@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { isLoopbackAddress } from "../helpers/loopback-address.js";
 import { AndroidSdk } from "../../server/features/devices/android-sdk.js";
@@ -14,6 +14,7 @@ import { hasAvd, hasSnapshot } from "../../server/features/devices/avd-files.js"
 import { hostProblem } from "../../server/features/devices/device-availability.js";
 import { DEVICE_PORTS } from "../../server/features/devices/device-paths.js";
 import { EmulatorSource } from "../../server/features/devices/emulator-source.js";
+import { areaOf } from "../../server/features/devices/host-area.js";
 import { tcpListeners } from "../../server/lib/tcp-listeners.js";
 
 // The tests with Google's real emulator and adb. In the first a device is created,
@@ -295,7 +296,7 @@ test(
       actions.run(
         action,
         { device: created?.id, ...input },
-        { caller, canCreate: () => true, area: () => area },
+        { caller, canCreate: () => true, area: () => areaOf(area) },
       );
     let created = null;
     t.after(async () => {
@@ -452,6 +453,16 @@ test(
       path: "egg.apk",
     });
     assert.ok(apk.bytes > 100000, String(apk.bytes));
+    // Byte for byte what the device has: a pull is the output of the device's `cat`.
+    const sum = await run("shell", {
+      command: "sha256sum /system/app/EasterEgg/EasterEgg.apk",
+    });
+    assert.equal(
+      createHash("sha256")
+        .update(fs.readFileSync(path.join(area, "egg.apk")))
+        .digest("hex"),
+      sum.stdout.split(/\s/)[0],
+    );
     assert.deepEqual(await timed("install", () => run("install", { path: "egg.apk" })), {
       installed: "egg.apk",
       bytes: apk.bytes,

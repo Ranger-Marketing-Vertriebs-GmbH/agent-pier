@@ -34,7 +34,9 @@ import { AREA_UNKNOWN, copyIn, copyOut, destination } from "./host-area.js";
  * (host-area.js); the area is the folder the caller was given, `{ path, dev, ino }`,
  * and a caller without one, or whose folder was moved or replaced, is refused. adb reads and writes a private copy, so no path of the area and
  * nothing a caller typed ever reaches adb as a host path. A device path is one
- * argument of adb (push, pull) or one quoted word of the device's shell.
+ * argument of adb (push) or one quoted word of the device's shell. A file from the
+ * device arrives as the output of the device's `cat`, never through `adb pull`,
+ * which would copy a whole folder to the host when the path names one.
  */
 const area = async (call) => {
   const folder = await call.area();
@@ -55,33 +57,6 @@ const whole = (value, name, min, max, fallback) => {
   if (!Number.isInteger(value) || value < min || value > max) throw invalid(name);
   return value;
 };
-
-/**
- * Runs `work(signal)` while watching `file`: once it is larger than `limit` the
- * signal aborts and DEVICE_FILE_TOO_LARGE is thrown, so a file that grew after its
- * size was read never fills the disk.
- */
-async function capped(file, limit, outer, work) {
-  const controller = new AbortController();
-  let over = false;
-  const watch = setInterval(() => {
-    try {
-      if (fs.statSync(file).size > limit) {
-        over = true;
-        controller.abort();
-      }
-    } catch {
-      // Not there yet.
-    }
-  }, 100);
-  try {
-    return await work(AbortSignal.any([outer, controller.signal]));
-  } catch (error) {
-    throw over ? refusal("DEVICE_FILE_TOO_LARGE", 400, { limit }) : error;
-  } finally {
-    clearInterval(watch);
-  }
-}
 
 /**
  * The private copy of the file `requested` of the caller's area that adb reads,
@@ -155,21 +130,32 @@ export const appActions = {
     if (!(Number(size) <= limit)) throw refusal("DEVICE_FILE_TOO_LARGE", 400, { limit });
     return call.actions.staged(async (folder) => {
       const staged = path.join(folder, "payload");
-      const answer = await capped(staged, limit, call.signal, (signal) =>
-        call.adb(id, ["pull", remote, staged], {
+      // The file's bytes as the output of `cat`, cut at the limit: one stream into
+      // one private file, whatever the path names by now (a file that grew, a
+      // folder). `-T` gives no terminal, so the bytes arrive unchanged, and the
+      // device's shell says with its exit code whether it could read the file.
+      const output = fs.openSync(staged, "wx", 0o600);
+      let answer;
+      try {
+        answer = await call.adb(id, ["shell", "-T", `cat ${shellWord(remote)}`], {
           timeoutMs: 120000,
-          maxBytes: call.limits.outputBytes,
-          signal,
-        }),
-      );
+          maxBytes: limit,
+          onData: (chunk) => fs.writeSync(output, chunk),
+        });
+      } finally {
+        fs.closeSync(output);
+      }
+      if (answer.truncated) throw refusal("DEVICE_FILE_TOO_LARGE", 400, { limit });
       if (answer.code !== 0)
-        throw commandFailed(scrubbed(answer, folder), "The copy failed.");
+        throw refusal("DEVICE_FILE_NOT_FOUND", 404, { detail: brief(answer.stderr) });
       const { bytes, name } = await copyOut({
         area: into,
         requested,
         source: staged,
         maxBytes: limit,
         protectedRoots: call.protectedRoots,
+        // A call that ended at its deadline, or whose caller is gone, writes nothing.
+        signal: call.signal,
       });
       return { pulled: name, bytes };
     });

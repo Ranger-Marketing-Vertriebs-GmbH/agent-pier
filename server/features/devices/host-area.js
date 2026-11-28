@@ -209,9 +209,23 @@ export async function copyIn({ area, requested, target, maxBytes, protectedRoots
  * Writes the private file `source` (at most `maxBytes`) to `requested` in `area`,
  * replacing a regular file of that name. Resolves `{ bytes, name }`. Throws
  * DEVICE_PATH_OUTSIDE (also for a link or folder in its place),
- * DEVICE_FILE_NOT_FOUND (its folder does not exist) or DEVICE_FILE_TOO_LARGE.
+ * DEVICE_FILE_NOT_FOUND (its folder does not exist) or DEVICE_FILE_TOO_LARGE. Once
+ * `signal` has aborted nothing is written any more (DEVICE_ADB_CANCELLED): the file
+ * that was there stays as it was.
  */
-export async function copyOut({ area, requested, source, maxBytes, protectedRoots }) {
+export async function copyOut({
+  area,
+  requested,
+  source,
+  maxBytes,
+  protectedRoots,
+  signal,
+}) {
+  // Asked before every step up to the last one, the rename onto the file's name.
+  const ended = () => {
+    if (signal?.aborted) throw refusal("DEVICE_ADB_CANCELLED");
+  };
+  ended();
   const place = destination(area, requested, { protectedRoots });
   let stat = null;
   try {
@@ -245,6 +259,7 @@ export async function copyOut({ area, requested, source, maxBytes, protectedRoot
     const buffer = Buffer.alloc(nativeReadBytes);
     let bytes = 0;
     for (;;) {
+      ended();
       const read = fs.readSync(input, buffer, 0, buffer.length, bytes);
       if (!read) break;
       if (bytes + read > maxBytes) throw tooLarge(maxBytes);
@@ -258,6 +273,7 @@ export async function copyOut({ area, requested, source, maxBytes, protectedRoot
       bytes += read;
     }
     await native.run("sync", { handle: created.handle });
+    ended();
     if (existing)
       await native.run("removeEntry", {
         directory: folder.handle,

@@ -119,7 +119,14 @@ export class AdbClient {
   // One client call, without making sure that the server runs.
   #client(
     args,
-    { timeoutMs = 30000, maxBytes = 1048576, input, signal, encoding = "utf8" } = {},
+    {
+      timeoutMs = 30000,
+      maxBytes = 1048576,
+      input,
+      signal,
+      encoding = "utf8",
+      onData,
+    } = {},
   ) {
     return new Promise((resolve, reject) => {
       if (signal?.aborted) return reject(deviceError("DEVICE_ADB_CANCELLED"));
@@ -150,8 +157,14 @@ export class AdbClient {
           chunk = chunk.subarray(0, room);
           end(null);
         }
-        chunks.push(chunk);
         size += chunk.length;
+        if (!onData) return chunks.push(chunk);
+        try {
+          onData(chunk);
+        } catch {
+          // Whoever takes the output cannot go on (a full disk).
+          end("DEVICE_ADB_FAILED");
+        }
       });
       child.stderr.setEncoding("utf8");
       child.stderr.on("data", (text) => {
@@ -331,7 +344,10 @@ export class AdbClient {
    * Runs `adb [-s <serial>] <args>` and resolves `{ stdout, stderr, code,
    * truncated }`; a non-zero exit is an answer, not an error. `stdout` is cut at
    * `maxBytes` (the command is ended then, `code` is null and `truncated` true) and
-   * is a Buffer with `encoding: "buffer"`. Rejects with DEVICE_ADB_TIMEOUT after
+   * is a Buffer with `encoding: "buffer"`. With `onData(chunk)` the output is handed
+   * on chunk by chunk (Buffers, never more than `maxBytes` in all) instead of being
+   * kept, and `stdout` is empty; a throwing `onData` ends the command with
+   * DEVICE_ADB_FAILED. Rejects with DEVICE_ADB_TIMEOUT after
    * `timeoutMs` (the command is killed), DEVICE_ADB_CANCELLED when `signal` aborts,
    * and DEVICE_ADB_FAILED when adb or its server cannot be started.
    */

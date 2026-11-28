@@ -342,7 +342,8 @@ export class DeviceService extends DeviceRegistry {
    * by the call's turn, or what the start throws. The grant and the hold are checked
    * when the call arrives and again at its turn, as for a start, stop, reset and
    * delete. The other options are
-   * AdbClient#exec's: `timeoutMs`, `maxBytes`, `input`, `signal`, `encoding`.
+   * AdbClient#exec's: `timeoutMs`, `maxBytes`, `input`, `signal`, `encoding`,
+   * `onData`.
    */
   async adb(id, args, { caller, start = true, ...options } = {}) {
     const runtime = this.#enter(id, caller, "use");

@@ -187,6 +187,10 @@ must lie inside the session's working folder (its project folder or worktree):
   name that was swapped for a link after the check fails instead of leading out.
 - A pulled file replaces a regular file of the same name; a link or a folder in its
   place is refused, never followed.
+- A pulled file is read on the device as one stream of at most 50 MB (the output of
+  the device's `cat`), so a path that names a folder, or a file that keeps growing,
+  never fills the host's disk; a folder is refused (`DEVICE_FILE_NOT_FOUND`). A call
+  that ended at its time limit, or whose session is gone, writes nothing afterwards.
 - adb never gets a path of the folder: AgentPier copies the file to or from a private
   folder below `<data dir>/devices/run/transfers` and removes that copy afterwards.
 
