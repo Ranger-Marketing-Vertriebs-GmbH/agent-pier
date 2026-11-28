@@ -216,9 +216,12 @@ libgl1` up front; find the minimal set.
   forwarded or foreign content and agents with a bot for other people, by the same
   origin facts `agent-previews.js` uses for its gate. So the device tools need their own
   gate, not the preview gate.
-- Team members a lead agent delegates to: my call, not the owner's: no device in the
-  first version, and devices are not a grant a lead can pass on. A member agent that
-  has a device assigned by the owner uses it in its own runs like any agent.
+- Team members (decided by the owner): a lead agent may pass a device it has assigned on
+  to the members it delegates to, as a grant like the existing member grants
+  (`member-grants.js`). A member then uses the device in that task. Because a member's
+  run is not started by the owner, it cannot create, reset or delete devices (my call,
+  following the rule above). A member agent that has a device assigned by the owner
+  uses it in its own runs like any agent.
 - A device can reach the network like any program on the host, including the host's own
   loopback through the emulator's host alias. That is wanted (testing a local dev server
   on a phone) and is stated in the docs; assigning a device is an act of trust like
@@ -246,8 +249,11 @@ the existing families. What they do:
   a sandboxed session cannot make the server read files beyond its sandbox.
 - open a URL
 - read recent logs (logcat), bounded
-- no general `adb shell` tool in the first version (my call: keep the surface small;
-  sessions with a shell can be given one later)
+- run a shell command on the device (`adb shell`), with a timeout and bounded output.
+  Wanted by the owner: it covers what the fixed tools do not (settings, permissions,
+  `dumpsys`, package manager, intents). It runs inside the device, never on the host.
+- copy a file to the device and from the device, with the same path rule on the host
+  side as the APK install and a size limit
 
 A tool call on a stopped device starts it and waits for the boot. Every tool result is
 bounded in size. Tool descriptions say that screen content is untrusted data.
