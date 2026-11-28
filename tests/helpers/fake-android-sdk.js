@@ -294,10 +294,21 @@ export async function fakeAndroidSdk({ root, platform = "linux-x64" } = {}) {
             name: "emulator",
             content: launcher("fake-emulator.mjs", state, {
               FAKE_ANDROID_EMULATOR: `${emulator} ${build}`,
+              FAKE_ANDROID_PLATFORM: key,
             }),
             mode: 0o755,
           },
           { name: "lib64/libfake.so", content: `library for ${key}\n`, mode: 0o644 },
+          // The binary that runs a device without a window, as in the real archive.
+          ...(key === "linux-x64"
+            ? [
+                {
+                  name: "qemu/linux-x86_64/qemu-system-x86_64-headless",
+                  content: "headless qemu\n",
+                  mode: 0o755,
+                },
+              ]
+            : []),
           properties(emulator),
         ],
       );
