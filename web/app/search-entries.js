@@ -537,6 +537,8 @@ export function withTerms(entry) {
  * `sessionOpen` and `runOpen` offer the actions on the session or pipeline run on screen;
  * `offered` lists the page actions a mounted page takes (chat: New chat, Summarize).
  * `runtimes` is the runtime list: each runtime's surfaces that show are indexed.
+ * `devicesAvailable` says that this host offers Android devices: each agent's
+ * devices group is indexed then.
  */
 export function buildSearchIndex({
   agents = [],
@@ -546,12 +548,13 @@ export function buildSearchIndex({
   runOpen = false,
   offered = [],
   runtimes = [],
+  devicesAvailable = false,
 }) {
   return [
     ...pageEntries(),
     ...areaPageEntries(),
     ...surfaceSearchEntries(runtimes, pageEntry, bilingual),
-    ...agentEntries(agents),
+    ...agentEntries(agents, { devicesAvailable }),
     ...agentActionEntries(agents),
     ...agentSurfaceEntries(agents, runtimes, { bilingual, join }),
     ...connectionEntries(connections),

@@ -70,3 +70,60 @@ test("a group shows only where its agent has it", () => {
   // A team member has no Team tab of its own.
   assert.equal(entry("agent:tmp:group:member-groups"), undefined);
 });
+
+test("an agent's Android devices are found while the host offers devices", () => {
+  const agents = [
+    { id: "ops", name: "Ops-Wache" },
+    { id: "usr", name: "Mias Agent", userAccess: { mode: "own", members: [] } },
+    { id: "perm", name: "Helfer", teamMemberId: "m-1", lifetime: "permanent" },
+    { id: "task", name: "Kurier", teamMemberId: "m-2", lifetime: "temporary" },
+    { id: "old", name: "Altlast", archivedAt: "2026-01-01T00:00:00Z" },
+  ];
+  const offered = buildSearchIndex({
+    agents,
+    agentsEnabled: true,
+    devicesAvailable: true,
+  });
+  const found = (query) =>
+    searchEntries(offered, query).flatMap((group) => group.items.map((item) => item.id));
+  const own = offered.find((item) => item.id === "agent:ops:group:devices");
+  assert.equal(own.label.en, "Ops-Wache · Android devices");
+  assert.equal(own.label.de, "Ops-Wache · Android-Geräte");
+  assert.equal(own.path.en, "Agents › Ops-Wache › Access › Android devices");
+  assert.equal(own.path.de, "Agenten › Ops-Wache › Zugriffe › Android-Geräte");
+  assert.equal(routePath(own.target.route), "/agents/ops/settings?tab=access");
+  for (const query of [
+    "Ops Android devices",
+    "Ops Android-Geräte",
+    "Ops emulator",
+    "Ops Handy",
+    "Ops Gerät zuweisen",
+  ])
+    assert.ok(found(query).includes(own.id), query);
+  // A member's devices are set on its own Access tab, permanent or temporary.
+  for (const id of ["perm", "task"])
+    assert.equal(
+      routePath(
+        offered.find((item) => item.id === `agent:${id}:group:devices`).target.route,
+      ),
+      `/agents/${id}/settings?tab=access`,
+    );
+  // Never for an agent of restricted users or an archived one.
+  for (const id of ["usr", "old"])
+    assert.equal(
+      offered.find((item) => item.id === `agent:${id}:group:devices`),
+      undefined,
+      id,
+    );
+  // Without devices on this host, or with agents off, there is no such entry.
+  for (const options of [
+    { agentsEnabled: true },
+    { agentsEnabled: true, devicesAvailable: false },
+    { agentsEnabled: false, devicesAvailable: true },
+  ])
+    assert.ok(
+      !buildSearchIndex({ agents, ...options }).some((item) =>
+        item.id.endsWith(":group:devices"),
+      ),
+    );
+});

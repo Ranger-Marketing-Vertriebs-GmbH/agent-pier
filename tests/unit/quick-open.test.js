@@ -682,6 +682,22 @@ test("Android devices and New device are the owner's; a user's search holds neit
   requestPageAction(action.target.pending, 1000);
   assert.equal(takePageAction("device-create", 1500), true);
   assert.equal(takePageAction("device-create", 1500), false);
+  // An agent's devices rank among the agents, below the page, while the host has
+  // devices; choosing it opens the agent's Access tab.
+  const withAgent = buildSearchIndex({
+    agents: [{ id: "ops", name: "Ops-Wache" }],
+    agentsEnabled: true,
+    devicesAvailable: true,
+  });
+  const agentHit = flat(searchEntries(withAgent, "ops android")).find(
+    (item) => item.id === "agent:ops:group:devices",
+  );
+  assert.equal(agentHit.group, "agents");
+  assert.equal(routePath(agentHit.target.route), "/agents/ops/settings?tab=access");
+  assert.equal(
+    flat(searchEntries(withAgent, "android")).find((item) => item.group === "pages").id,
+    "page:settings-devices",
+  );
   // Devices are the owner's: users get 404 on the routes and no entry here.
   const users = buildUserSearchIndex({ agents: [{ id: "mine", name: "Mine" }] });
   for (const query of ["android", "new device", "Handy", "emulator"])
