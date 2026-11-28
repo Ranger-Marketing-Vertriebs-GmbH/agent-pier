@@ -124,6 +124,42 @@ since its last saved state is lost.
   device's network and the emulator's own requests may need them; a device therefore
   uses the proxy AgentPier itself was started with.
 
+## What runs on the host
+
+Measured with the pinned emulator 37.3.10 and platform-tools 37.0.3 on macOS (Apple
+silicon) and Ubuntu 24.04 with KVM.
+
+- **Processes.** One adb server for all devices
+  (`adb -L tcp:localhost:47600 server nodaemon`, a child of AgentPier), and per running
+  device the emulator (`qemu-system-…-headless`) with two helpers it starts itself:
+  `netsimd` (Bluetooth and Wi-Fi simulation) and `crashpad_handler`. The emulator and
+  its helpers are one process group and end together.
+- **The emulator calls adb itself.** If AgentPier's adb server is gone while a device
+  runs, that call starts a detached adb server on the same port, which on Linux
+  ignores `SIGTERM`. AgentPier ends such a server of its own installation with
+  `adb kill-server` before it starts its own, and a restarted server lists a running
+  device again within about three seconds. `adb connect` is never used: it would add
+  a second connection to the same device.
+- **Listeners**, all on `127.0.0.1` or `::1`: the adb server on 47600; per device its
+  console and adb port (47602 to 47621) and three ports the system assigns; `netsimd`
+  on two assigned ports and the fixed port 6402. The emulator and `netsimd` also hold
+  UDP sockets without a bound address for the device's outgoing traffic; they offer
+  no service. adb's own mDNS discovery, which would open UDP port 5353 on every
+  interface, is turned off.
+- **Crash reports.** `crashpad_handler` is started with an upload address of Google's
+  although the emulator runs with `-no-metrics`. Whether it would upload a crash was
+  not tested; its database stayed empty in every run.
+- **A warning in the device's log is expected:** "Requested adb port (47603) is outside
+  the recommended range [5555,5586]". The ports are outside that range on purpose,
+  so that an adb server of yours does not find AgentPier's devices.
+- **The system image** is Google's `google_apis` image for Android 16, a `userdebug`
+  build, with Chrome 133. Chrome's first-run screens are turned off at a device's
+  first start and again after a reset.
+- **A device on disk** is 3.7 to 4.3 GB after its first start and stop; 2.6 GB of that
+  is the saved memory of its last state.
+- **After a hard end** (a crash, a kill, a reboot of the host) a device's lock files
+  stay in its folder and do not keep it from starting. Its next start is a cold boot.
+
 ## Files
 
 Everything lives below `<data dir>/devices`, readable by the AgentPier account only:
@@ -141,6 +177,8 @@ kept file is yours to inspect and delete.
 
 Two things the emulator writes elsewhere and AgentPier cannot redirect: its crash
 database under `/tmp/android-<account>/`, and on Linux `netsimd` logs in the same folder.
+On Linux `netsimd` also keeps its small `netsim.ini` files in the account's runtime
+folder (`/run/user/<uid>`); on macOS they are in `<data dir>/devices/run/tmp`.
 
 **Devices are not part of backups.** Neither the components nor any device is in a
 backup or restored from one ([backups](backups.md)): the components are a download, and

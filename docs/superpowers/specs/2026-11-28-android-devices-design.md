@@ -304,3 +304,142 @@ topics), both READMEs, `THIRD_PARTY_NOTICES.md`.
 Tool names and schemas, storage format of devices and assignments, module layout, the
 exact UI placement and wording, the frame rate cap, how the numbered overview is
 compacted, and the minimal Linux package set.
+
+## State after pull request 1
+
+Pull request 1 (delivery item 1) is built. This section says what exists and what
+pull requests 2 to 4 build on; the guide for owners is `docs/devices.md`, and each
+module's header comment is the reference for its interface.
+
+### What exists
+
+Backend, `server/features/devices/`:
+
+| Module                                                                         | What it is                                                                                                                                                                    |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `android-manifest.js`, `device-availability.js`                                | The pinned components (emulator 37.3.10, platform-tools 37.0.3, `android-36` `google_apis` r7) with sizes and SHA-256, and why a host cannot run devices                      |
+| `android-sdk-install.js`, `android-sdk.js`                                     | Resumable download, unpacking and checks; `AndroidSdk` is the one install, update or remove job with its status, failure codes and the accepted terms                         |
+| `device-paths.js`, `device-settings.js`, `device-provisioning.js`              | Everything below `<data>/devices`, the private environment of emulator and adb, the fixed ports (adb server 47600, consoles 47602 to 47620), the limits, the installer option |
+| `device-source.js`                                                             | The contract of a device source (twelve methods, `onExit`, the refusal codes)                                                                                                 |
+| `emulator-source.js`, `emulator-leftovers.js`, `avd-files.js`, `adb-client.js` | The emulator source: hand-written AVD files, one emulator process per running device, AgentPier's own adb server, reclaim of what an earlier process left                     |
+| `device-store.js`                                                              | The records in `devices.json`, with recovery from the device folders when the file is damaged                                                                                 |
+| `device-registry.js`, `device-runtime.js`, `device-access.js`                  | Records and in-memory state, the limits, the view, who may use or manage a device, the owner's hold, viewers                                                                  |
+| `device-service.js`, `device-admission.js`                                     | `DeviceService` (extends the registry): create, start, stop, reset, delete, adb calls, the running limit with eviction, the idle stop, server start and shutdown              |
+| `live-topics.js`                                                               | The topics `devices` and `devices.installation` (owner only)                                                                                                                  |
+
+Wiring: `server/application/device-wiring.js` puts `services.devices` (the
+`DeviceService`) and `services.androidSdk` on the application, writes the audit rows
+(`device.created`, `device.reset`, `device.deleted`; `tool.installed`,
+`tool.cancelled`, `tool.deleted` with resource id `android-devices`), mounts
+`server/http/routes/devices.js` and runs start and shutdown. The data area `devices`
+is in the storage overview; devices are in no backup.
+
+Routes, owner only (a restricted user gets 404, as for an unknown route):
+
+| Method and path                          | Answer                                                   |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `GET /api/devices`                       | 200, the view (also the value of topic `devices`)        |
+| `POST /api/devices` `{ name }`           | 201, a device                                            |
+| `POST /api/devices/:id/start`            | 202 once the device holds a running slot, or the refusal |
+| `POST /api/devices/:id/stop`             | 202 at once                                              |
+| `POST /api/devices/:id/reset`            | 202 when done                                            |
+| `DELETE /api/devices/:id`                | 204 when done                                            |
+| `PUT /api/devices/settings`              | 200, `{ maxDevices, maxRunning }`                        |
+| `GET /api/devices/installation`          | 200, the status (also topic `devices.installation`)      |
+| `POST /api/devices/installation/install` | 202, the status; body `{ acceptTerms: true }`            |
+| `POST /api/devices/installation/cancel`  | 202, the status                                          |
+| `POST /api/devices/installation/remove`  | 202, the status; deletes every device first              |
+
+A refusal is `{ code, error: code }` with status 400, 403, 404 or 409 and, where the
+error carries them, `reason`, `image` or `exitCode`. What goes wrong after `start` or
+`stop` answered is the device's `failure: { code, at, reason? }`, pushed over the topic.
+
+The view of one device: `id` (`d-` and twelve hex digits), `name`, `source`, `state`
+(`stopped`, `starting`, `running`, `stopping`, `failed`), `operation` (`reset`,
+`delete` or null), `failure`, `live` (its process still exists), `creator`
+(`{ kind, id, name, gone }`), `assignments` (`[{ kind, id, name, manage }]`, empty so
+far), `image` (`{ id, current }`), `diskBytes`, `held` and `viewers` (false and 0 so
+far), `createdAt`, `lastUsedAt`. Around them: `availability`, `settings`, `counts`.
+
+Codes (each has a text in both catalogs; `tests/unit/device-view.test.js` scans the
+server sources for new ones):
+
+- Refusals of a route: `DEVICE_NOT_FOUND` (404), `DEVICE_NAME_INVALID` (400),
+  `DEVICE_NAME_TAKEN`, `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`, `DEVICE_BUSY`,
+  `DEVICE_UNAVAILABLE` (with `reason`: a host code, `DEVICES_NOT_INSTALLED`,
+  `DEVICES_OPERATION_RUNNING`, `DEVICES_SHUTTING_DOWN` or `DEVICE_SOURCE`),
+  `DEVICE_IMAGE_MISSING`, `DEVICE_DISK_SPACE`, `DEVICE_STOP_FAILED`,
+  `DEVICES_SETTINGS_INVALID` (400), `DEVICES_TERMS_REQUIRED` (400),
+  `DEVICES_IN_USE`, `DEVICES_OPERATION_RUNNING`, and the host codes
+  `DEVICES_PLATFORM_UNSUPPORTED`, `DEVICES_KVM_MISSING`, `DEVICES_KVM_DENIED`.
+- A device's `failure.code`: `DEVICE_BOOT_TIMEOUT`, `DEVICE_EXITED`,
+  `DEVICE_PORTS_BUSY`, `DEVICE_IMAGE_MISSING`, `DEVICE_UNAVAILABLE`,
+  `DEVICE_ADB_FAILED` (with `reason` `DEVICE_ADB_PORT_IN_USE` when the adb port is
+  another program's), `DEVICE_ADB_TIMEOUT`, `DEVICE_BUSY`, `DEVICE_STOP_FAILED`,
+  `DEVICE_START_FAILED`.
+- The installation's `failure.code`: `DEVICES_DOWNLOAD_FAILED`,
+  `DEVICES_DOWNLOAD_STALLED`, `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID`,
+  `DEVICES_DISK_SPACE`, `DEVICES_SDK_UNUSABLE` (with `detail.missing`),
+  `DEVICES_INSTALL_FAILED`, `DEVICES_INTERRUPTED`.
+- Not reachable by the owner's page yet, with texts already: `DEVICE_FORBIDDEN`
+  (403), `DEVICE_HELD`, `DEVICE_NOT_RUNNING`, `DEVICE_ADB_CANCELLED`,
+  `DEVICE_START_CANCELLED`, `DEVICES_DOWNLOAD_CANCELLED`.
+
+Web: `web/features/devices/` (Settings › General › Android devices at
+`/settings/devices`, `useDevices` on both topics, `device-view.js` for every state and
+code), search entries in `device-search-entries.js`. Installer:
+`--with-android-devices` leaves a request that the next server start installs.
+
+Tests: unit and integration tests on a fake emulator and fake adb
+(`tests/helpers/fake-android-sdk.js`, `tests/fixtures/fake-emulator.mjs`,
+`fake-adb.mjs`) and on a source in memory (`tests/helpers/memory-device-source.js`,
+`device-service-fixture.js`); `tests/browser/devices.spec.js` with the live stub; and
+the native contract `tests/integration/android-devices-contract.test.js` with
+Google's emulator (`.github/workflows/android-devices.yml`, and by hand with
+`AGENTPIER_ANDROID_CONTRACT_SDK`; `scripts/android-device-assets.mjs` installs the
+pinned SDK into a data folder for it).
+
+### Seams for pull requests 2 to 4
+
+All on `services.devices`. A caller is `{ kind: "owner" }`, `{ kind: "session", id }`
+or `{ kind: "agent", id }`.
+
+| Need                                           | Method                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Run an adb command on a device                 | `adb(id, args, { caller, start, timeoutMs, maxBytes, input, signal, encoding })`: queued per device, starts a stopped device unless `start` is false, bounds output and time, counts as use; `encoding: "buffer"` for a screenshot   |
+| The devices a caller may use                   | `devicesFor(caller)` (each view with `manage`), `permission(caller, id)` (`{ use, manage }`)                                                                                                                                         |
+| Grants of sessions, agents and team members    | `registerGrants(kind, resolver)` with `resolver(callerId) -> [{ deviceId, manage }]`; `registerAssignments(kind, lister)` with `lister(deviceId) -> [{ kind, id, name, manage }]` for the view; `onRemoved(listener)` to drop grants |
+| Create, start, stop, reset, delete by a caller | `create({ name, creator })`, `startDevice(id, { caller })`, `stopDevice(id, { caller })`, `reset(id, { caller })`, `remove(id, { caller })`; reset and delete need `manage`, a creator manages its own devices                       |
+| The owner takes a device over                  | `hold(id, { ms })` returns `{ release(), extend(ms), until }`; `heldUntil(id)`; other callers get `DEVICE_HELD` meanwhile                                                                                                            |
+| A viewer watches a device                      | `watch(id)` returns the function that ends it; a watched device is not stopped for another and stops after 60 instead of 15 idle minutes                                                                                             |
+| Follow the state                               | topic `devices`, `onChanged(listener)`, `view()`, `device(id)`                                                                                                                                                                       |
+| Whether a creator still exists                 | the `creatorExists(creator)` option of the service (wired to "always" so far)                                                                                                                                                        |
+| Another kind of device                         | an object with the methods of `device-source.js` in `sources`; records carry `source`                                                                                                                                                |
+| Steps at a device's first boot                 | `firstBootSteps` in `emulator-source.js` (a later on-device helper is installed there, AGENTPIER-514)                                                                                                                                |
+
+### What the later pull requests add
+
+2. Session tools (the tool family in `server/features/mcp/tool-service.js`), the grant
+   store for sessions with its picker, the per-session permission to create devices,
+   and what the session sandbox allows on loopback (adb on loopback is not an access
+   boundary, see `docs/devices.md`).
+3. The agent tools for both runtimes, assignments in the agent settings and for team
+   members, the owner-turn rule and the foreign-content gate before any call.
+4. The owner's view over a WebSocket (`watch`, screenshots through `adb` with
+   `encoding: "buffer"`), the takeover lease on `hold().extend` with its warning, and
+   the strips in agent chats and sessions.
+
+Pull requests 2 and 3 provide `creatorExists` and fill `assignments`; the last pull
+request deletes this specification.
+
+### Known and not verified
+
+- On Linux `netsimd` keeps `netsim.ini` in `$XDG_RUNTIME_DIR`; only `TMPDIR` is
+  redirected into the data folder. Setting `XDG_RUNTIME_DIR` for the emulator was not
+  tried.
+- Whether an adb server on the default port 5037 sees AgentPier's devices was checked
+  on Linux (it does not) and on macOS only with a second server on another port.
+- Two devices at once share one `netsimd` on the fixed port 6402; a collision with an
+  emulator the user runs was not provoked.
+- Only one AgentPier per machine can run devices (fixed ports); a second one fails
+  with `DEVICE_ADB_PORT_IN_USE` and leaves the first one's adb server alone.
