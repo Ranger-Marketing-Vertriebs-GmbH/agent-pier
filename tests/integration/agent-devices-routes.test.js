@@ -262,6 +262,70 @@ test(
 );
 
 test(
+  "an agent that can no longer be given devices, or can again, is pushed at once",
+  { timeout },
+  async (t) => {
+    const a = await fixture(t);
+    const pixel = await a.device("Pixel");
+    const scout = a.agent();
+    await a.assign(scout, {
+      devices: [{ deviceId: pixel.id, manage: false }],
+      create: false,
+    });
+    const live = openLive(a.f);
+    t.after(() => live.ws.close());
+    await live.next((frame) => frame.type === "hello");
+    const name = `agent.devices:${scout.id}`;
+    live.send({ op: "sub", topic: name });
+    assert.equal((await live.next((frame) => frame.topic === name)).data.eligible, true);
+    const pushed = (eligible) =>
+      live.next(
+        (frame) => frame.topic === name && frame.data?.eligible === eligible,
+        5000,
+      );
+    const assistants = a.f.application.assistants;
+    const lifecycle = async (action) => {
+      const response = await a.f.request(`/api/assistants/${scout.id}/${action}`, {
+        method: "POST",
+        body: { revision: a.store.getAssistant(scout.id).revision },
+      });
+      assert.equal(response.status, 200, action);
+    };
+    // Archived and restored, through the owner's routes.
+    let next = pushed(false);
+    await lifecycle("archive");
+    assert.equal((await next).data.devices[0].assigned, true, "the assignment is kept");
+    next = pushed(true);
+    await lifecycle("restore");
+    await next;
+    // It gains and loses its own Telegram bot for other people (TelegramSenders
+    // ends every change with the agents' change event, telegram-senders.js commit).
+    const senders = a.f.application.assistantTelegramSenders;
+    const connected = t.mock.method(senders, "connected", (id) => id === scout.id);
+    next = pushed(false);
+    assistants.changed();
+    await next;
+    connected.mock.restore();
+    next = pushed(true);
+    assistants.changed();
+    await next;
+    // It becomes an agent of restricted users, and the owner's own again (the
+    // users' routes end with the same event, user-agents.js, user-release.js).
+    next = pushed(false);
+    a.store.changeUserAgent(scout.id, {
+      userAccess: { mode: "own", members: [{ userId: "u1", level: "chat" }] },
+    });
+    assistants.changed();
+    await next;
+    next = pushed(true);
+    a.store.changeUserAgent(scout.id, { userAccess: null });
+    assistants.changed();
+    await next;
+    live.ws.close();
+  },
+);
+
+test(
   "a change of an agent's devices is an audit row that names no device",
   { timeout },
   async (t) => {

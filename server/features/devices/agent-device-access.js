@@ -2,6 +2,7 @@ import { deviceAgent } from "../assistants/agent-device-origin.js";
 import { deviceWorkspace } from "../assistants/agent-devices.js";
 import { passedDevices } from "../assistants/member-device-passes.js";
 import { refusal } from "./device-registry.js";
+import { agentChangeWatch } from "./live-topics.js";
 
 /*
  * An agent's access to Android devices as the owner reads and sets it: the value of
@@ -108,5 +109,7 @@ export function agentDevicesTopic(services) {
     scopeKey: () => "owner",
     read: (_principal, id) =>
       agentDeviceAccess(services, deviceAgentRecord(services, id)),
+    // `eligible` and `passed` follow the agents' own changes (live-topics.js).
+    watch: agentChangeWatch(services),
   };
 }

@@ -4,6 +4,8 @@ import { agentDevicesFixture } from "../helpers/agent-devices-fixture.js";
 import { taskOrigin } from "../../server/features/assistants/agent-device-origin.js";
 import { taskDevices } from "../../server/features/assistants/member-device-passes.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
+import { agentDevicesTopic } from "../../server/features/devices/agent-device-access.js";
+import { devicesTopic } from "../../server/features/devices/live-topics.js";
 
 // A lead passes Android devices on to a member with one task
 // (member-device-passes.js, agentpier_team_delegate `access.devices`), through the
@@ -315,4 +317,52 @@ test("a task that was asked to stop passes nothing on, before its member's turn 
     f.devices.device(pixel.id).assignments.some((entry) => entry.id === member.id),
     false,
   );
+});
+
+test("the device list and a member's devices are pushed when a pass ends", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  f.assign(f.lead(), pixel);
+  const member = f.agentOf(f.permanent);
+  // The two topics as the live hub follows them while a tab watches.
+  const signals = { devices: 0, agent: 0 };
+  const stops = [
+    devicesTopic(f.services).watch({ invalidate: () => signals.devices++ }),
+    agentDevicesTopic(f.services).watch({
+      param: member.id,
+      invalidate: () => signals.agent++,
+    }),
+  ];
+  t.after(() => stops.forEach((stop) => stop()));
+  const since = () => {
+    const seen = { ...signals };
+    signals.devices = signals.agent = 0;
+    return seen;
+  };
+  const passedTo = () =>
+    f.devices.device(pixel.id).assignments.some((entry) => entry.id === member.id);
+  const passed = () =>
+    agentDevicesTopic(f.services)
+      .read(null, member.id)
+      .devices.find((device) => device.id === pixel.id).passed;
+  // The lead asks to stop the task.
+  let task = await delegate(f, f.permanent, { devices: ["Pixel"] });
+  assert.deepEqual([passedTo(), passed()], [true, true]);
+  since();
+  await f.service.requests.stop(task.id, "lead");
+  let seen = since();
+  assert.ok(seen.devices > 0 && seen.agent > 0, JSON.stringify(seen));
+  assert.deepEqual([passedTo(), passed()], [false, false]);
+  // The member's turn ends, and the task reaches its final phase.
+  const { attemptId } = f.service.requests.store.get(task.id);
+  if (f.assistants.ledger.getAttempt(attemptId).state !== "cancelled")
+    f.assistants.ledger.transition(attemptId, "cancelled");
+  since();
+  await f.service.requests.pass();
+  assert.equal(f.service.requests.store.get(task.id).phase, "cancelled");
+  seen = since();
+  assert.ok(seen.devices > 0 && seen.agent > 0, JSON.stringify(seen));
+  // A change of one chat only (a message, a streamed token) signals neither.
+  f.assistants.changed({ conversationId: f.chat.id });
+  assert.deepEqual(since(), { devices: 0, agent: 0 });
 });

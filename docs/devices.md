@@ -282,7 +282,9 @@ this host can run devices:
   permission, and you see it in the device list with its creator.
 - **Passed on for a task** appears for a team member while its lead passes a device
   on with a task that is open now. It is for your information: you change nothing
-  there, and the entry leaves when the task has ended.
+  there, and the entry leaves when the task has ended or was asked to stop. The
+  open tab and the device list follow that at once, as they follow an agent that is
+  archived or restored or that gains or loses its Telegram bot for other people.
 - The text below says in short which runs use a device (see [Which runs](#which-runs)),
   and **Manage Android devices** opens **Settings › General › Android devices**.
 
