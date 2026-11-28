@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
 import { chatFile } from "./attachment-access.js";
 import { MAX_ATTACHMENT_BYTES } from "./agent-attachment-types.js";
@@ -148,6 +149,8 @@ export class AgentPinboardView {
   async view(assistantId) {
     const agent = this.assistants.store.getAssistant(assistantId);
     const states = new Map();
+    // The file's own name, which a download saves: the entry's name is a title.
+    const fileNames = new Map();
     let written = false;
     let lists = this.store.lists(assistantId);
     for (const list of lists) {
@@ -156,6 +159,7 @@ export class AgentPinboardView {
         const checked = await this.check(agent, entry);
         await checked.opened?.handle.close();
         states.set(entry.id, checked.opened ? "ok" : "unavailable");
+        if (checked.opened) fileNames.set(entry.id, basename(checked.opened.name));
         written ||= checked.written;
       }
     }
@@ -170,7 +174,7 @@ export class AgentPinboardView {
           state === "ok" &&
           !sameIdentity(entry.identity, entry.seenIdentity);
         if (isFresh) fresh++;
-        return viewEntry(entry, state, isFresh);
+        return viewEntry(entry, state, isFresh, fileNames.get(entry.id));
       });
       const origin = this.conversation(list.originConversationId);
       return {
@@ -224,11 +228,12 @@ export class AgentPinboardView {
   }
 }
 
-function viewEntry(entry, state, fresh) {
+function viewEntry(entry, state, fresh, fileName) {
   const identity = entry.identity || {};
   return {
     id: entry.id,
     name: entry.name,
+    ...(fileName ? { fileName } : {}),
     note: entry.note,
     version: entry.version,
     kind: identity.kind || "file",

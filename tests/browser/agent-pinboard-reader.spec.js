@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { textPdf } from "../helpers/text-pdf.js";
 
 // The pinboard reader: a pinned file read in full with previous / next, Markdown
 // rendered like the chat's preview (no raw HTML, no remote images, 512 KB cap).
@@ -38,7 +39,8 @@ const list = {
 };
 const media = [
   entry("pic", "pic.png", "image", { fresh: true }),
-  entry("zip", "data.zip", "file"),
+  // A title the agent chose; the file keeps its own name.
+  entry("zip", "Season data", "file", { fileName: "data.zip" }),
   entry("song", "song.mp3", "audio"),
 ];
 
@@ -61,11 +63,12 @@ async function open(page, { entries = list.entries } = {}) {
   });
   await page.route(/\/pinboard\/entries\/([^/]+)\/file/, (route) => {
     const url = new URL(route.request().url());
-    state.files.push(`${url.pathname.split("/").at(-2)}${url.search}`);
+    const id = url.pathname.split("/").at(-2);
+    state.files.push(`${id}${url.search}`);
     return route.fulfill({
       contentType: "application/octet-stream",
       headers: { "x-content-type-options": "nosniff" },
-      body: notes,
+      body: id === "book" ? textPdf("Why glue sticks") : notes,
     });
   });
   page.on("request", (request) => {
@@ -150,6 +153,31 @@ for (const [view, use] of [
       await expect(page.locator(".pinboard-entry .status-chip")).toHaveCount(0);
     });
 
+    test("shows a PDF page by page, told by the file's name", async ({ page }) => {
+      const state = await open(page, {
+        entries: [
+          entry("book", "Knowledge book", "file", { fileName: "book.pdf", fresh: true }),
+          // Not a PDF inside: the preview says so and keeps the download.
+          entry("broken", "Broken", "file", { fileName: "broken.pdf" }),
+        ],
+      });
+      await showPinboard(page, phone);
+      await page.getByRole("button", { name: /Knowledge book/ }).click();
+      const reader = page.locator(".pinboard-reader");
+      await expect(reader.getByText("1 page", { exact: true })).toBeVisible();
+      await expect(reader.getByRole("img", { name: "Page 1 of 1" })).toBeVisible();
+      await expect(reader.getByRole("button", { name: "Zoom in" })).toBeVisible();
+      await expect.poll(() => state.seen).toEqual(["book"]);
+      expect(state.files).toContain("book?v=1");
+      await reader.getByRole("button", { name: /Next/ }).click();
+      await expect(reader.getByRole("alert")).toBeVisible();
+      await expect(reader.getByRole("link", { name: "Download Broken" })).toHaveAttribute(
+        "download",
+        "broken.pdf",
+      );
+      expect(state.seen).toEqual(["book"]);
+    });
+
     test("shows images, audio and other files", async ({ page }) => {
       const state = await open(page, { entries: media });
       await showPinboard(page, phone);
@@ -166,9 +194,10 @@ for (const [view, use] of [
       await expect(page.getByRole("dialog")).toBeVisible();
       await page.keyboard.press("Escape");
       await reader.getByRole("button", { name: /Next/ }).click();
-      await expect(
-        reader.getByRole("link", { name: "Download data.zip" }),
-      ).toHaveAttribute("href", /\/entries\/zip\/file\?download=1$/);
+      const save = reader.getByRole("link", { name: "Download Season data" });
+      await expect(save).toHaveAttribute("href", /\/entries\/zip\/file\?download=1$/);
+      // Saved under the file's name: a title has no extension to open it by.
+      await expect(save).toHaveAttribute("download", "data.zip");
       // A file that is not NEW is not marked.
       await expect(reader.getByText("Season 2 · 2 of 3")).toBeVisible();
       expect(state.seen).toEqual(["pic"]);

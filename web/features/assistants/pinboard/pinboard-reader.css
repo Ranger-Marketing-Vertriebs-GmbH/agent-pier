@@ -134,3 +134,14 @@
   border-top: 1px solid var(--header-line);
   background: var(--header-bg);
 }
+/* A PDF's pages (PdfPages): wider than the reader when zoomed in, so they scroll
+   sideways here; the toolbar takes the pinboard's background, not the side panel's. */
+.pinboard-reader-pdf {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-3);
+  overflow-x: auto;
+}
+.pinboard-reader-pdf .agent-pdf-toolbar {
+  background: transparent;
+}

@@ -7,6 +7,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { canvasScale } from "./agent-pdf-preview.js";
 import usePdfDocument from "./usePdfDocument.js";
+import "./agent-attachments.css";
 
 const ZOOM_STEP = 1.25;
 
@@ -21,7 +22,8 @@ function PdfPage({ document, number, count, scale, fallback }) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(entry.isIntersecting),
-      // The scrolling panel body is the root: the margin grows its visible area.
+      // The scrolling panel body is the root: the margin grows its visible area. The
+      // pinboard reader has none and scrolls with its area.
       { root: ref.current.closest(".side-panel-body"), rootMargin: "100% 0px" },
     );
     observer.observe(ref.current);
@@ -99,7 +101,7 @@ function ZoomButton({ label, icon, off, onClick }) {
 // The pages under a toolbar: Fit width (the scale at which the first page fills the
 // panel's width, kept as the panel resizes) and Zoom in / Zoom out in steps of x1.25,
 // from half to four times that width.
-function PdfPages({ document }) {
+export function PdfPages({ document }) {
   const count = document.numPages;
   const list = useRef(null);
   const [first, setFirst] = useState(null);
