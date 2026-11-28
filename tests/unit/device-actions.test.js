@@ -552,3 +552,36 @@ test("a caller that is gone starts no device", async (t) => {
   await assert.rejects(waiting, refused("DEVICE_ADB_CANCELLED", 409));
   assert.deepEqual(f.source.calls("exec"), []);
 });
+
+test("a grant taken away while a device started or stopped answers a refusal", async (t) => {
+  const f = actionsFixture(t);
+  const pixel = await f.owned("Pixel", true);
+  for (const [action, gate] of [
+    ["start", "start"],
+    ["stop", "stop"],
+    ["reset", "stop"],
+  ]) {
+    f.grant("s1", pixel.id, true);
+    if (action !== "start") await f.run("start", { device: "Pixel" });
+    let release;
+    f.source.gates[gate] = () => new Promise((resolve) => (release = resolve));
+    const running = f.run(action, { device: "Pixel" });
+    await f.clock.settle();
+    assert.equal(typeof release, "function", action);
+    f.revoke("s1");
+    f.source.gates[gate] = null;
+    release();
+    await assert.rejects(running, refused("DEVICE_FORBIDDEN", 403), action);
+    await f.service.stopDevice(pixel.id, { caller: { kind: "owner" } });
+  }
+  // A device that was deleted meanwhile is gone, not forbidden.
+  f.grant("s1", pixel.id, true);
+  let release;
+  f.source.gates.start = () => new Promise((resolve) => (release = resolve));
+  const starting = f.run("start", { device: "Pixel" });
+  await f.clock.settle();
+  const removal = f.service.remove(pixel.id, { caller: { kind: "owner" } });
+  release();
+  await removal;
+  await assert.rejects(starting, (error) => /^DEVICE_/.test(error.code));
+});

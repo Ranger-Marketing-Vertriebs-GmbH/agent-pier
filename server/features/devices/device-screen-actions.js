@@ -47,11 +47,9 @@ const summary = (caller, device) => ({
   ...(device.operation && { operation: device.operation }),
   ...(device.failure && { failure: device.failure.code }),
 });
-const mine = (call, id) =>
-  summary(
-    call.caller,
-    call.devices.devicesFor(call.caller).find((device) => device.id === id),
-  );
+// The device after an action. The caller may have lost it while the action ran (a
+// grant taken away, a device deleted): DEVICE_FORBIDDEN or DEVICE_NOT_FOUND then.
+const mine = (call, id) => summary(call.caller, call.device(id));
 // A shell command of ours that must succeed.
 async function command(call, id, text, options) {
   const answer = await call.shell(id, text, options);
