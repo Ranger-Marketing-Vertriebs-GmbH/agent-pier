@@ -585,3 +585,25 @@ test("a grant taken away while a device started or stopped answers a refusal", a
   await removal;
   await assert.rejects(starting, (error) => /^DEVICE_/.test(error.code));
 });
+
+test("an overview is kept or dropped by the device's state alone", async (t) => {
+  const f = actionsFixture(t);
+  const pixel = await f.owned("Pixel");
+  f.answers((args) => (args.includes("uiautomator") ? { stdout: dump } : undefined));
+  await f.run("ui", { device: "Pixel" });
+  // No view of a device (with its reads of session files) is built per change. The
+  // fixture's own listener reads the whole view; nothing else may.
+  let views = 0;
+  const { device } = f.service;
+  f.service.device = (...args) => (views++, device.apply(f.service, args));
+  for (let count = 0; count < 5; count++) f.service.signal();
+  f.service.hold(pixel.id, { ms: 1000 }).release();
+  assert.equal(views, 0);
+  f.service.device = device;
+  await f.run("tap", { device: "Pixel", element: 1 });
+  await f.run("stop", { device: "Pixel" });
+  await assert.rejects(
+    f.run("tap", { device: "Pixel", element: 1 }),
+    refused("DEVICE_ELEMENT_STALE"),
+  );
+});

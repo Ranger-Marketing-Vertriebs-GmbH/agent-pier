@@ -151,6 +151,14 @@ export class DeviceRegistry {
       devices: devices.map((record) => this.#view(record)),
     };
   }
+  /**
+   * `{ state, operation }` of device `id` as it is known in memory, or null for a
+   * device nobody has asked about: no record is read and no view is built.
+   */
+  status(id) {
+    const runtime = this.runtimes.get(id);
+    return runtime ? { state: runtime.state, operation: runtime.operation } : null;
+  }
   /** The view of one device. Throws DEVICE_NOT_FOUND (404). */
   device(id) {
     return this.#view(this.store.get(id));
