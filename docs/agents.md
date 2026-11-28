@@ -1144,6 +1144,14 @@ pause takes a few seconds longer.
   search is restored and the setting shows **Off** with the reason; switching it on
   again retries (a broken-off download continues where it stopped). Memory search is
   never left without an index.
+- **On** is shown only while it works. If the embedding server or the model stops
+  working later (a file removed, a system library gone after an upgrade), agents
+  still get answers, by keyword only, and the group shows **Not working** with the
+  reason instead of **On**. AgentPier notices it when it looks at the installed
+  files, when you search an agent's memory, when you open this tab (once after each
+  start of the agent service) and after an agent's own memory search; it does not
+  poll. **Repair …** installs the server and, if needed, the model again, restarts
+  the agent service and rebuilds the indexes; **Turn off …** stays possible.
 - It is off, with the reason, where it cannot run: until the current OpenClaw runtime
   is activated under **OpenClaw updates**, while the agent service is stopped, and on
   a Linux host without the OpenMP runtime (`libgomp1`; see

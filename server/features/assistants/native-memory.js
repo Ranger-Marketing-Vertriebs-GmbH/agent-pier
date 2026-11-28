@@ -385,6 +385,8 @@ export class NativeMemory {
         maxResults: 12,
       });
       const details = result.output?.details;
+      // Whether embeddings answered tells the owner's semantic memory search.
+      this.assistants.memorySearched?.(agent, details);
       if (!result.ok || !Array.isArray(details?.results))
         throw assistantProblem("unavailable", 503);
       return {

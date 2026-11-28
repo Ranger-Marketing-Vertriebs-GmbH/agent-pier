@@ -140,8 +140,18 @@ async function fixture(t) {
   config.nativeReady = () => true;
   // The real wiring: its switch restarts the Gateway, each start compiles and
   // reconciles. The restart stands in for the provider synchronization's.
+  const assistants = {
+    store,
+    runtime,
+    config,
+    admit: (fn) => Promise.resolve().then(fn),
+    requireReady: () => assert.ok(runtime.client.ready),
+    changed() {},
+  };
   semantic = connectSemanticMemory({
     assistantRuntime: runtime,
+    // Its memory searches report whether embeddings answered (memorySearched).
+    assistants,
     assistantProviderSynchronization: {
       async restartGateway(operation) {
         await runtime.stop();
@@ -156,8 +166,10 @@ async function fixture(t) {
   // this installation would have left them, and check them as it always does.
   const own = embeddingPaths(runtime.paths.root);
   const cached = embeddingPaths(assets);
-  const seed = ({ model: withModel = true } = {}) => {
-    fs.cpSync(cached.serverDirectory, own.serverDirectory, { recursive: true });
+  const seed = ({ model: withModel = true, server = true } = {}) => {
+    // Never over a server that runs: Linux refuses to write a busy executable.
+    if (server)
+      fs.cpSync(cached.serverDirectory, own.serverDirectory, { recursive: true });
     if (!withModel) return;
     fs.mkdirSync(own.models, { recursive: true });
     for (const suffix of ["", ".json"])
@@ -165,14 +177,6 @@ async function fixture(t) {
   };
   await runtime.start();
   config.client = runtime.client;
-  const assistants = {
-    store,
-    runtime,
-    config,
-    admit: (fn) => Promise.resolve().then(fn),
-    requireReady: () => assert.ok(runtime.client.ready),
-    changed() {},
-  };
   const memory = new NativeMemory(assistants);
   async function create(name) {
     let agent = store.createAssistant({
@@ -413,8 +417,64 @@ test(
       (await f.search(alpha, "Wann muss ich zum Dentisten?"))[0],
       "memory/zahnarzt.md",
     );
-    const last = f.serverPid();
+    let last = f.serverPid();
     assert.ok(last && alive(last), "the restarted Gateway started its own server");
+
+    // The embeddings break while it is on: the server is gone and the model file no
+    // longer loads (same size, so the cheap look at the assets sees nothing). The
+    // next memory search is answered by keyword alone, and its answer says so:
+    // the state is degraded, never a silent "on".
+    process.kill(last, "SIGTERM");
+    const { size } = fs.statSync(f.own.model);
+    fs.writeFileSync(f.own.model, Buffer.alloc(size, 7));
+    assert.equal(f.semantic.status().state, "on", "nothing searched yet");
+    assert.equal(
+      (await f.search(alpha, "Wann muss ich zum Dentisten?")).includes(
+        "memory/zahnarzt.md",
+      ),
+      false,
+      "by keyword the dentist note is no hit",
+    );
+    assert.deepEqual(await f.search(alpha, "Zahnarzttermin"), ["memory/zahnarzt.md"]);
+    let status = f.semantic.status();
+    assert.equal(status.state, "degraded");
+    assert.equal(status.enabled, true);
+    assert.equal(status.degraded.code, "EMBEDDINGS_UNAVAILABLE");
+    // The same Gateway does not recover with the file back; the check the owner's
+    // look at the Runtime tab starts asks nothing more while it is degraded.
+    f.seed({ server: false });
+    assert.equal(
+      (await f.search(alpha, "Wann muss ich zum Dentisten?")).includes(
+        "memory/zahnarzt.md",
+      ),
+      false,
+      "by keyword the dentist note is no hit",
+    );
+    await f.semantic.opened();
+    assert.equal(f.semantic.status().state, "degraded");
+    // A model file that is gone shows without any search.
+    fs.renameSync(f.own.model, `${f.own.model}.away`);
+    f.semantic.health = null;
+    assert.equal(f.semantic.status().degraded.code, "EMBEDDING_MODEL_MISSING");
+    // Repair: the server is installed anew and the model checked (both "downloads"
+    // come from the cache here), the Gateway restarts and every index is rebuilt.
+    f.semantic.assets.ensureServer = async () => f.seed({ model: false });
+    f.semantic.assets.ensureModel = async () => f.seed({ server: false });
+    const before = f.semantic.status();
+    f.semantic.set({ enabled: true, repair: true, revision: before.revision });
+    await f.semantic.idle();
+    status = f.semantic.status();
+    assert.equal(status.state, "on");
+    assert.equal(status.degraded, undefined);
+    assert.equal(
+      (await f.search(alpha, "Wann muss ich zum Dentisten?"))[0],
+      "memory/zahnarzt.md",
+    );
+    // Asked on the owner's look, a working Gateway stays "on".
+    await f.semantic.opened();
+    assert.equal(f.semantic.status().state, "on");
+    last = f.serverPid();
+    assert.ok(last && alive(last));
 
     // Off again: keyword search works at once, the model is removed and no
     // embedding server is left.

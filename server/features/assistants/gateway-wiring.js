@@ -105,6 +105,14 @@ export function chatEventListener(service) {
       compilerFor(null).wikiChangedBy?.(event.step.name)
     )
       service.onWikiChange?.(conversation.assistantId);
+    // An agent's own memory search ended: a moment to check, without waking a model,
+    // whether embeddings still answer (semantic-memory-wiring.js).
+    if (
+      event.step?.type === "tool" &&
+      event.step.phase === "end" &&
+      event.step.name === "memory_search"
+    )
+      service.onMemorySearch?.();
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The chat's live feed always holds the reply so far.
     const text = event.kind === "text" ? service.chatStreams.delta(event) : undefined;

@@ -10,6 +10,7 @@ import {
   installedEmbeddingModel,
   installedEmbeddingServer,
   removeEmbeddingModel,
+  removeEmbeddingServer,
   verifyEmbeddingModel,
 } from "./embedding-assets.js";
 import { reclaimEmbeddingServer } from "./embedding-server.js";
@@ -45,6 +46,17 @@ import {
  * off is therefore: prepare the assets, save the setting, restart the Gateway. A
  * failed or interrupted rebuild for local embeddings switches the setting off with
  * its reason and rebuilds the keyword indexes, so memory search is never left paused.
+ *
+ * "On" is only shown while it is true. Once the indexes are built, a local provider
+ * that cannot answer (a system library removed, the server or the model gone) does
+ * not pause the search: OpenClaw answers with keyword hits alone and says so only in
+ * the search result (`details.provider` is "none" instead of "local"; verified on
+ * 2026.11.6, whose `memory.status` and `doctor.memory.status` RPCs report the same
+ * for a working and a broken provider). The status is therefore "degraded", with a
+ * reason, when the installed server or model is missing (a cheap look at each status
+ * read) or a memory search answered without embeddings (`observe`, `check`). The
+ * same Gateway process does not recover by itself; the owner's "Repair" installs the
+ * assets again, restarts and rebuilds.
  */
 export const stateFile = "semantic-memory.json";
 export const markerFile = "agentpier-memory-index.json";
@@ -80,12 +92,17 @@ export class SemanticMemory {
       ensureModel: ensureEmbeddingModel,
       verifyModel: verifyEmbeddingModel,
       removeModel: removeEmbeddingModel,
+      removeServer: removeEmbeddingServer,
       installedServer: installedEmbeddingServer,
       installedModel: installedEmbeddingModel,
       ...assets,
     };
     this.tail = Promise.resolve();
     this.operation = null;
+    // What memory searches of the running Gateway showed: `{ code, at }` once one
+    // answered without embeddings, and when the last check ran.
+    this.health = null;
+    this.checkedAt = null;
     this.abort = new AbortController();
     this.recover();
   }
@@ -238,6 +255,8 @@ export class SemanticMemory {
   }
   async reconcile() {
     if (this.closed) return;
+    // A new Gateway process: what the previous one's searches showed is void.
+    this.health = this.checkedAt = null;
     const { paths } = this.supervisor;
     await this.reclaim(this.paths);
     const config = readJSON(paths.config, null);
@@ -248,7 +267,11 @@ export class SemanticMemory {
     const current =
       marker.mode === target &&
       (target === "keyword" || marker.model === this.manifest.embeddingModel.sha256);
-    if (current && !journal) return this.settle(target);
+    // The one place the model's bytes are hashed while the setting is on; changed
+    // bytes are handled like a failed rebuild below.
+    const intact =
+      target !== "local" || (await this.assets.verifyModel(this.root, this.manifest));
+    if (current && !journal && intact) return this.settle(target);
     // No index yet (no agent with memory): nothing to rebuild, the marker follows.
     if (!indexedAgents(config).length) {
       this.mark(target);
@@ -256,6 +279,7 @@ export class SemanticMemory {
       return this.settle(target);
     }
     try {
+      if (!intact) throw failure("EMBEDDING_MODEL_CHANGED");
       await this.rebuildFor(target);
     } catch (error) {
       if (this.closed) throw error;
@@ -312,8 +336,9 @@ export class SemanticMemory {
   }
   /**
    * `{ available, reason, enabled, state, progress, failure, pending, revision,
-   * model }` for the owner: `state` is "off", "downloading", "rebuilding", "on" or
-   * "failed" (off, with `failure.code`). `pending`: the setting is on and the indexes
+   * model }` for the owner: `state` is "off", "downloading", "rebuilding", "on",
+   * "degraded" (on, but keyword search is answering: `degraded.code`) or "failed"
+   * (off, with `failure.code`). `pending`: the setting is on and the indexes
    * are rebuilt with the next start of the agent service.
    */
   status() {
@@ -326,6 +351,9 @@ export class SemanticMemory {
     const on = state.enabled && marker.mode === "local";
     let view = state.enabled ? "on" : state.failure ? "failed" : "off";
     let progress = null;
+    // Not working although it is on: an asset is gone, or a search said so.
+    const degraded = on && !operation ? this.degraded() : null;
+    if (degraded) view = "degraded";
     if (operation?.phase === "downloading") {
       view = "downloading";
       progress = { received: operation.received || 0, total: operation.total || 0 };
@@ -346,6 +374,7 @@ export class SemanticMemory {
       state: view,
       progress,
       failure: state.enabled ? null : state.failure,
+      ...(degraded && { degraded }),
       pending: view === "on" && !on,
       revision: state.revision,
       model: { id, size, termsUrl },
@@ -354,23 +383,69 @@ export class SemanticMemory {
   busy() {
     return !!this.operation || !!this.reconciling;
   }
+  // Why local embeddings do not answer although the indexes are theirs, or null.
+  degraded() {
+    const missing = this.unusable(this.supervisor.runtime);
+    if (!missing) return this.health;
+    // Why a repair could not install it again says more than that it is missing.
+    const { failure: last } = this.read();
+    return { code: last?.code.startsWith("EMBEDDING_") ? last.code : missing };
+  }
+  /**
+   * What a memory search of the running Gateway answered with (`details` of
+   * OpenClaw's memory_search result). "none" while the setting is on means the
+   * embeddings did not answer; "local" with hits means they did. A search without
+   * hits proves nothing: an empty index is answered without an embedding.
+   */
+  observe(details) {
+    if (!this.read().enabled || this.marker().mode !== "local" || this.busy()) return;
+    const before = this.health;
+    if (details?.provider === "none")
+      this.health ||= { code: "EMBEDDINGS_UNAVAILABLE", at: this.now() };
+    else if (details?.provider === "local" && details.results?.length) this.health = null;
+    else return;
+    if (before !== this.health) this.changed();
+  }
+  /**
+   * Asks the running Gateway once whether embeddings answer, through `probe()` (one
+   * search without hits per agent with memory; resolves the answers' `details`).
+   * At most once per `everyMs`, and never while it is off or an operation runs. The
+   * first check of a Gateway process may start the embedding server; later ones
+   * follow an agent's own search, when it runs anyway.
+   */
+  async check(probe, { everyMs = 0 } = {}) {
+    if (!this.read().enabled || this.marker().mode !== "local" || this.busy()) return;
+    if (this.checking || this.degraded()) return;
+    if (this.checkedAt !== null && this.now() - this.checkedAt < everyMs) return;
+    this.checking = true;
+    this.checkedAt = this.now();
+    try {
+      for (const details of await probe()) this.observe(details);
+    } catch {
+      // No answer is no evidence either way.
+    } finally {
+      this.checking = false;
+    }
+  }
   /**
    * The owner's switch. Refuses (409, a stable `code`) a stale `revision`, a switch
    * while an operation runs, and switching on where it cannot run or without the
    * model terms accepted. Answers the status at once; the operation goes on in the
    * background and reports through `changed()`.
    */
-  set({ enabled, revision, acceptTerms } = {}) {
+  set({ enabled, revision, acceptTerms, repair = false } = {}) {
     if (typeof enabled !== "boolean" || !Number.isInteger(revision))
       throw failure("INVALID", 400);
     const state = this.read();
     if (revision !== state.revision) throw failure("CONFLICT");
     if (this.busy()) throw failure("OPERATION_RUNNING");
-    if (enabled === state.enabled) return this.status();
+    // "Repair": while it is on, installs the assets again and rebuilds.
+    repair = repair === true && enabled && state.enabled;
+    if (enabled === state.enabled && !repair) return this.status();
     if (enabled) {
       const { reason } = this.status();
       if (reason) throw failure(reason);
-      if (acceptTerms !== true) throw failure("TERMS_REQUIRED", 400);
+      if (acceptTerms !== true && !repair) throw failure("TERMS_REQUIRED", 400);
     }
     const target = enabled ? "local" : "keyword";
     this.operation = { target, phase: enabled ? "downloading" : "stopping" };
@@ -380,7 +455,7 @@ export class SemanticMemory {
       failure: null,
       intent: { target, since: this.now() },
     });
-    this.running = (enabled ? this.switchOn() : this.switchOff())
+    this.running = (enabled ? this.switchOn({ repair }) : this.switchOff())
       .catch((error) => {
         // AgentPier's shutdown: the next start recovers (recover()).
         if (this.closed) return;
@@ -388,10 +463,12 @@ export class SemanticMemory {
         const code = refused
           ? "SERVICE_BUSY"
           : stable(error, enabled ? "ENABLE_FAILED" : "DISABLE_FAILED");
-        // A restart that was refused leaves the previous setting in force. After any
-        // other failure the saved setting stands: the next start completes it.
+        // A restart that was refused leaves the previous setting in force (a refused
+        // repair leaves it on, as degraded as before). After any other failure the
+        // saved setting stands: the next start completes it, or falls back to
+        // keyword search when an asset could not be installed again.
         this.update({
-          ...(refused && { enabled: !enabled }),
+          ...(refused && !repair && { enabled: !enabled }),
           failure: { code, at: this.now() },
         });
       })
@@ -402,11 +479,21 @@ export class SemanticMemory {
       });
     return this.status();
   }
-  async switchOn() {
+  async switchOn({ repair = false } = {}) {
     const signal = this.abort.signal;
     const onProgress = ({ received, total }) =>
       this.progress({ phase: "downloading", download: true, received, total });
     const options = { root: this.root, manifest: this.manifest, signal };
+    if (repair) {
+      // The marker stops naming this model, so the start rebuilds every index: for
+      // local embeddings, or for keyword search should an asset stay missing. The
+      // server is installed anew, which runs it once and names a missing library.
+      writePrivate(path.join(this.supervisor.paths.state, markerFile), {
+        mode: "local",
+        model: "repair",
+      });
+      await this.assets.removeServer(this.root, this.manifest, this.host);
+    }
     await this.assets.ensureServer({ ...options, ...this.host });
     await this.assets.ensureModel({ ...options, onProgress });
     // A model file from an earlier time is trusted only with its bytes checked.

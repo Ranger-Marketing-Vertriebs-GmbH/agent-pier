@@ -3,7 +3,7 @@ import { Router } from "express";
 /**
  * The owner's semantic memory search (runtimes/openclaw/semantic-memory.js).
  * `GET` answers its status. `PUT { enabled, revision, acceptTerms }` starts the
- * switch and answers the status at once (202): the model download, the Gateway
+ * switch (`{ enabled: true, repair: true, revision }` the repair of a degraded one) and answers the status at once (202): the model download, the Gateway
  * restart and the index rebuild go on in the background and reach the browser over
  * the live topic `runtime.semantic-memory`. A refusal carries only its stable
  * `code`, which the web app translates.
@@ -24,6 +24,7 @@ export function assistantSemanticMemoryRoutes({ assistantSemanticMemory: memory 
           enabled: input.enabled,
           revision: input.revision,
           acceptTerms: input.acceptTerms,
+          repair: input.repair === true,
         }),
       );
     } catch (error) {

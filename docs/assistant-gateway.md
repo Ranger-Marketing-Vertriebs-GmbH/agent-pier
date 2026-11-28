@@ -1773,9 +1773,41 @@ What AgentPier makes of it:
   rebuild that fails as well is repeated by every later start.
 - **States** (`GET /api/assistant-semantic-memory`, pushed over the live topic
   `runtime.semantic-memory`): `off`, `downloading` (bytes), `rebuilding` (stopping,
-  indexing with agents done of total, starting), `on` and `failed` (off, with a
-  stable reason code). `PUT { enabled, revision, acceptTerms }` answers 202 with the
-  first state; the operation continues in the background.
+  indexing with agents done of total, starting), `on`, `degraded` (on, but keyword
+  search is answering: `degraded.code`) and `failed` (off, with a stable reason
+  code). `PUT { enabled, revision, acceptTerms }` answers 202 with the first state;
+  the operation continues in the background. `PUT { enabled: true, repair: true,
+revision }` is the repair of a degraded search.
+- **"On" is shown only while embeddings answer.** With the indexes built, a local
+  provider that stops working (a system library removed, the server or the model
+  file gone or unreadable) does not pause the search: OpenClaw answers by keyword
+  alone and logs a warning. Of what 2026.11.6 offers, only the search result says
+  so: `details.provider` of `memory_search` is `"none"` instead of `"local"`.
+  The RPCs `memory.status` and `doctor.memory.status` report the same for a
+  working and a broken provider (`providerState.mode: "pending"`, embedding "not
+  checked"), and a tool event carries no result. An agent whose index is empty is
+  answered `"local"` without any embedding, so only an answer with hits proves
+  that embeddings work. AgentPier therefore reports `degraded`:
+  - when the installed server or the model is missing or has another size, looked at
+    with every status read (two `stat` calls and the receipts; no hash). The model's
+    bytes are hashed once per Gateway start; changed bytes go back to keyword search
+    like a failed rebuild (`EMBEDDING_MODEL_CHANGED`);
+  - when a memory search AgentPier issues itself (the memory page) is answered with
+    `"none"` (`EMBEDDINGS_UNAVAILABLE`);
+  - when a check finds it: one search with a query no note answers, per OpenClaw
+    agent with memory (at most eight), so it embeds the query, finds nothing and
+    records no recall. It runs when the owner opens the Runtime tab (the live topic's
+    first watcher; once per Gateway process, which may start the embedding server
+    once) and after an agent's own `memory_search` ended (at most every ten minutes;
+    the server runs then anyway). Nothing is timed, in the browser or on the server.
+
+  The same Gateway process does not recover by itself, even with the file back.
+  **Repair** installs the server anew (which runs it once and names a missing
+  library), downloads the model if it is missing or changed, restarts the Gateway and
+  rebuilds and checks every index. If that fails, the usual fallback applies: off with
+  the reason, keyword indexes in place. While an asset cannot be installed again the
+  state stays `degraded` with that reason until the next Gateway start falls back.
+
 - **An embedding server never outlives its Gateway for long.** The start wrapper
   writes the server's pid; before every Gateway start and at AgentPier's shutdown a
   process that still runs the installed server executable under that pid is stopped
@@ -1802,10 +1834,10 @@ CPU.
 
 Limits: the pinned Linux build needs glibc 2.34 (2.38 on arm64) and the OpenMP
 runtime (`libgomp1`, which the installer adds on Debian and Ubuntu; a host without it
-gets `EMBEDDING_SERVER_UNUSABLE`). If the server stops working after a successful
-switch (a system library removed by an upgrade), OpenClaw keeps answering with
-keyword hits and the setting still shows on; switching off and on checks it again.
-Session transcripts stay unindexed, as before.
+gets `EMBEDDING_SERVER_UNUSABLE`). A provider that breaks while it is on is noticed
+with the next search AgentPier sees an answer of (above), not at the moment it
+breaks: until then agents get keyword hits while the state still reads on. Session
+transcripts stay unindexed, as before.
 
 A release that ships this needs **Upgrade notes**: existing installations must
 activate the new OpenClaw runtime under **Agents › Runtime › OpenClaw updates** before

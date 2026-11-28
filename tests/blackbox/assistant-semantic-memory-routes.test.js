@@ -124,8 +124,21 @@ test("a switch answers 202 with the first state; a refusal carries only its code
     enabled: false,
     revision: 2,
   });
-  // Only the three known fields reach the service.
-  assert.deepEqual(calls[0], { enabled: true, revision: 1, acceptTerms: true });
+  // Only the known fields reach the service.
+  assert.deepEqual(calls[0], {
+    enabled: true,
+    revision: 1,
+    acceptTerms: true,
+    repair: false,
+  });
+  // The repair of a degraded search is the same switch with `repair`.
+  await put({ enabled: true, revision: 1, repair: true });
+  assert.deepEqual(calls[1], {
+    enabled: true,
+    revision: 1,
+    acceptTerms: undefined,
+    repair: true,
+  });
   const running = await put({ enabled: false, revision: 3 });
   assert.equal(running.status, 409);
   assert.deepEqual(await running.json(), {
@@ -138,6 +151,7 @@ test("a switch answers 202 with the first state; a refusal carries only its code
     enabled: undefined,
     revision: undefined,
     acceptTerms: undefined,
+    repair: false,
   });
 });
 
@@ -146,10 +160,11 @@ test("the topic pushes each change the service signals and nothing is sampled", 
   const hub = new LiveHub({ timers: clock.timers });
   t.after(() => hub.close());
   let status = { state: "off", enabled: false, revision: 1 };
+  let opened = 0;
   const services = {
     assistantFeature: { enabled: true, events: new EventEmitter() },
     assistants: {},
-    assistantSemanticMemory: { status: () => status },
+    assistantSemanticMemory: { status: () => status, opened: () => opened++ },
   };
   const topic = semanticMemoryTopic(services);
   assert.equal(topic.authorize({ role: "owner" }), true);
@@ -163,6 +178,21 @@ test("the topic pushes each change the service signals and nothing is sampled", 
   );
   await clock.advance(0);
   assert.deepEqual(frames[0].data, status);
+  // The first watcher (the owner opening the Runtime tab) has the service check
+  // whether embeddings answer; a second tab does not ask again.
+  assert.equal(opened, 1);
+  hub.subscribe({ role: "owner" }, "runtime.semantic-memory", undefined, () => {});
+  await clock.advance(0);
+  assert.equal(opened, 1);
+  // A search that answered without embeddings is a change like any other.
+  status = {
+    state: "degraded",
+    degraded: { code: "EMBEDDINGS_UNAVAILABLE" },
+    revision: 2,
+  };
+  hub.invalidate("runtime.semantic-memory");
+  await clock.advance(1000);
+  assert.deepEqual(frames.at(-1).data, status);
   // Each step of a download is a change the service signals itself.
   for (const received of [10, 20]) {
     status = { state: "downloading", progress: { received, total: 100 }, revision: 2 };

@@ -8,6 +8,7 @@ const tones = {
   on: "ok",
   downloading: "working",
   rebuilding: "working",
+  degraded: "warn",
   failed: "error",
 };
 
@@ -23,10 +24,12 @@ const reasonText = (texts, code) =>
   Object.hasOwn(texts, code) ? texts[code] : copy.failed(code);
 
 /**
- * The view of `status`: `{ tone, state, running, progress, note, alert, action }`.
+ * The view of `status`: `{ tone, state, running, progress, note, alert, actions }`.
  * `progress` is the running step in words (`bytes(n)` formats a size); `note` a
- * plain remark, `alert` why it is off after a failure; `action` the switch the owner
- * may use now, `{ kind: "on" | "off", label, hint, disabled }`.
+ * plain remark, `alert` why it is off after a failure, or why keyword search is
+ * answering although it is on (degraded); `actions` what the owner may do now, each
+ * `{ kind: "on" | "off" | "repair", label, hint, disabled }`: the switch, and before
+ * it the repair while it is degraded.
  */
 export function semanticMemoryView(status, bytes) {
   const running = ["downloading", "rebuilding"].includes(status.state);
@@ -42,26 +45,39 @@ export function semanticMemoryView(status, bytes) {
   const kind = status.enabled ? "off" : "on";
   // Switching off never needs the embeddings; switching on needs them usable.
   const blocked = kind === "on" && status.available === false ? status.reason : "";
+  const degraded = status.state === "degraded" ? status.degraded?.code || "UNKNOWN" : "";
+  const action = {
+    kind,
+    label: kind === "on" ? copy.turnOn : copy.turnOff,
+    hint: blocked
+      ? reasonText(copy.unavailable, blocked)
+      : kind === "on"
+        ? copy.turnOnHint
+        : copy.turnOffHint,
+    disabled: running || !!blocked,
+  };
+  const repair = {
+    kind: "repair",
+    label: copy.repair,
+    hint: copy.repairHint,
+    disabled: false,
+  };
   return {
     tone: tones[status.state],
     state: copy.states[status.state],
     running,
     progress: step,
     note: status.pending ? copy.pending : "",
-    alert:
-      status.state === "failed" && status.failure?.code
+    alert: degraded
+      ? copy.degraded(
+          Object.hasOwn(copy.degradedReasons, degraded)
+            ? copy.degradedReasons[degraded]
+            : copy.degradedReason(degraded),
+        )
+      : status.state === "failed" && status.failure?.code
         ? reasonText(copy.failures, status.failure.code)
         : "",
-    action: {
-      kind,
-      label: kind === "on" ? copy.turnOn : copy.turnOff,
-      hint: blocked
-        ? reasonText(copy.unavailable, blocked)
-        : kind === "on"
-          ? copy.turnOnHint
-          : copy.turnOffHint,
-      disabled: running || !!blocked,
-    },
+    actions: degraded ? [repair, action] : [action],
   };
 }
 
