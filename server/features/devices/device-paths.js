@@ -1,6 +1,6 @@
 import path from "node:path";
 import { privateDirectory } from "../../lib/storage.js";
-import { cleanEnvironment } from "../accounts/account-store.js";
+import { cleanEnvironment } from "../../lib/clean-environment.js";
 import { androidManifest, androidPlatform } from "./android-manifest.js";
 
 /*
