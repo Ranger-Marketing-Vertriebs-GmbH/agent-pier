@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import {
   defaultRowLimit,
   filterCandidates,
@@ -188,9 +189,11 @@ test("long lists render a capped number of rows and count the rest", () => {
   assert.equal(rows.length, defaultRowLimit);
   assert.equal(hidden, 600 - defaultRowLimit);
   assert.deepEqual(visibleRows(hosts, 10), { rows: hosts, hidden: 0 });
-  const started = performance.now();
-  for (let index = 0; index < 50; index += 1) filterCandidates(many, `host-${index}`);
-  assert.ok(performance.now() - started < 200, "filtering 600 items stays fast");
+  // CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
+  const spent = cpuMs(() => {
+    for (let index = 0; index < 50; index += 1) filterCandidates(many, `host-${index}`);
+  });
+  assert.ok(spent < 200, `filtering 600 items took ${spent.toFixed(0)} ms of CPU`);
 });
 
 test("the copy pluralises the count and the add button in both languages", () => {

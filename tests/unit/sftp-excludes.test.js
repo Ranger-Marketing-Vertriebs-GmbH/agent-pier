@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { cpuMs } from "../helpers/cpu-time.js";
 import {
   defaultExcludes,
   excluded,
@@ -78,7 +79,9 @@ test("pathological patterns stay fast", () => {
   const pattern = "*a".repeat(90) + "b";
   const list = excludeList([pattern, "**/".repeat(60) + "z"], { defaults: false });
   const name = "a".repeat(250);
-  const started = performance.now();
-  assert.equal(excluded(Array.from({ length: 16 }, () => name).join("/"), list), false);
-  assert.ok(performance.now() - started < 500);
+  // CPU time, not the clock: a busy machine does not count (helpers/cpu-time.js).
+  const spent = cpuMs(() =>
+    assert.equal(excluded(Array.from({ length: 16 }, () => name).join("/"), list), false),
+  );
+  assert.ok(spent < 500, `${spent.toFixed(0)} ms of CPU`);
 });
