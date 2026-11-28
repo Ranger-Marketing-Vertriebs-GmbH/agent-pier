@@ -217,7 +217,8 @@ owner and fail with stable `PREVIEW_*` codes. See [Session previews](previews.md
 While the [Android components](devices.md) are installed and this host can run
 devices, every one of your coding sessions with **AgentPier tools** also has the tools
 below. They answer only for the devices you assigned to the session
-([Devices for coding sessions](devices.md#devices-for-coding-sessions)); a device
+([Devices for coding sessions](devices.md#devices-for-coding-sessions): **New session ›
+Extensions › Android devices**, or **Android devices** in the running session); a device
 assigned later needs no reload. `device` is a device's id or its name.
 
 | Tool                | Arguments                                                   | What it does                                                                                                                                                                                                         |

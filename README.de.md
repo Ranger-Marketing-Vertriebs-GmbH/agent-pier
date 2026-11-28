@@ -113,7 +113,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Emulator, macOS mit Apple Silicon und Linux x64 mit KVM), mit einem Klick installiert
   und unter **Einstellungen › Allgemein › Android-Geräte** angelegt, gestartet,
   zurückgesetzt und gelöscht, innerhalb der Limits, die du setzt. Coding-Sessions,
-  denen du ein Gerät zuweist, sehen es an, bedienen es, installieren und starten Apps,
+  denen du ein Gerät zuweist (in **Neue Session** oder in der Session unter
+  **Android-Geräte**), sehen es an, bedienen es, installieren und starten Apps,
   öffnen URLs und lesen Logs über ihre AgentPier-Werkzeuge
   ([Android-Geräte](docs/devices.md), auf Englisch).
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und

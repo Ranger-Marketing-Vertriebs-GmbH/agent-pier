@@ -72,7 +72,10 @@ has the same shape: a phone with Android 16, 720 × 1600 pixels at 320 dpi, 4 co
 
 A row also shows who created the device (you, an agent or a session; "creator no longer
 exists" when that agent or session is gone), who it is assigned to, and its size on
-disk (measured while the device is stopped, so a running device shows none). A device that failed shows the reason in words; see
+disk (measured while the device is stopped, so a running device shows none). Sessions
+are named as they are called now, with "(may reset and delete)" where you allowed it;
+a device more than three sessions share names three and counts the rest ("and 2
+more"). The session's own **Android devices** dialog shows the full choice. A device that failed shows the reason in words; see
 [Troubleshooting](#troubleshooting).
 
 Resources, measured with the pinned emulator:
@@ -91,13 +94,34 @@ A coding session (Claude Code, Codex, OpenCode) uses a device through tools that
 AgentPier adds to it, once you assigned the device to that session. Nothing is shared
 by default: a session sees no device until you give it one.
 
-<!-- UI: name the control of the launch dialog and the session's button here, once
-the web part of this change exists. -->
+Where you assign devices:
+
+- **New session › Extensions › Android devices.** The section lists the devices you
+  added, each with a remove button, and ends in the **Add Android device** field.
+  Below it, **Permissions** holds one switch **Reset and delete "<device>"** per added
+  device and the switch **Create devices**. The section appears for coding CLIs while
+  the Android components are installed and this host can run devices; a shell, a
+  launch from a task profile and a host without devices show none. Started without
+  **AgentPier tools**, the section says that the session gets no device tools.
+- **Android devices** in a running coding session's header (the phone icon; on a
+  phone in its **More actions** menu), and in the search (⌘K / Ctrl+K) as
+  "<session> · Android devices". Search the devices on the left and check the ones the
+  session may use; the right side lists the allowed devices and the same
+  **Permissions** (on a phone it is one checklist with the permissions below).
+  **Save** applies the change at once, without a reload; a change made elsewhere
+  shows in the open dialog. A device the session created is listed as allowed with
+  "created by this session" and cannot be taken away. A session that runs without
+  AgentPier tools says so: the assignment is saved, but the session gets the device
+  tools only after a reload with AgentPier tools, and a session started without them
+  needs a new session.
+
+What the choices mean:
 
 - **Assign devices** when you start a session and at any time while it runs. Several
   sessions may have the same device; their calls on it run one after another.
 - **Reset and delete** is a separate permission per assigned device, off by default.
-  Without it a session uses the device but can neither wipe nor delete it.
+  Without it a session uses the device but can neither wipe nor delete it. A device
+  you remove from a session and add again starts without it.
 - **Create devices** is a permission per session, off by default. A device a session
   created is its own: it may use, reset and delete it without further permission. It
   appears in your device list with the session as its creator, counts towards
@@ -110,6 +134,9 @@ the web part of this change exists. -->
   restricted user started, and no external MCP client.
 - **While you hold a device** (the owner's view, in a later version), a session's
   calls on it are refused until you hand it back.
+- **Audit log.** Each change you save in a session's **Android devices** is recorded
+  as `session.updated` with the kind `device-grants` (the session and the outcome,
+  never the devices); a launch is `session.started` as always.
 
 The tools appear in a session while the Android components are installed and this
 host can run devices; a device you assign later needs no reload. They are listed with
