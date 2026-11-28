@@ -183,12 +183,23 @@ Node scripts, so a running fake's executable is the node binary: pass
 below the SDK as `processIdentity` does for the native executables. `sdk.launches()`,
 `sdk.calls()`, `sdk.emulators()` and `sdk.servers()` show what the code under test
 started, and `await sdk.cleanup()` in `t.after` returns every pid a fake recorded so the
-test can assert that none is alive.
+test can assert that none is alive. For the device tools the fake adb also answers
+`exec-out screencap -p`, `exec-out uiautomator dump /dev/tty`, `install`, `push`, `pull`
+and the shell commands AgentPier builds (`input`, `am`, `pm`, `cmd package`, `logcat`,
+`stat`, `pidof`, `wm size`) as the pinned emulator answered them
+(`tests/fixtures/fake-android-device.mjs`): what was typed, tapped, installed and
+pushed is in `<state>/device-<serial>.json` and `<state>/files-<serial>/`, and nothing
+of a command is ever run on the host. `tests/helpers/device-actions-fixture.js` runs the
+device actions on a source in memory whose adb answers a test scripts.
 
-One native contract runs the real pinned emulator: it creates a device, boots it cold,
-stops it, boots it from its snapshot, kills it, boots it cold again, resets and removes
-it, and checks that `~/.android` is unchanged, that every listening socket of its
-processes is on loopback and none is port 5037, and that no process is left. It needs
+One native contract runs the real pinned emulator, in two tests. The first creates a
+device, boots it cold, stops it, boots it from its snapshot, kills it, boots it cold
+again, resets and removes it, and checks that `~/.android` is unchanged, that every
+listening socket of its processes is on loopback and none is port 5037, and that no
+process is left. The second runs every device action once through the device service:
+a screenshot, the UI overview, a tap by number, text with shell metacharacters typed
+into Chrome's address bar and read back, keys, a scroll, a URL, apps, a file pushed and
+pulled, an APK pulled from the device and installed, shell commands and logs. Both together take about two and a half minutes on an Apple silicon Mac. It needs
 macOS arm64 or Linux x64 with a usable `/dev/kvm`, about 14 GB of disk and one
 emulator's worth of free memory (4 GB), and is reported as skipped without its variable:
 

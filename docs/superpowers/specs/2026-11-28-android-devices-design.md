@@ -443,3 +443,125 @@ request deletes this specification.
   emulator the user runs was not provoked.
 - Only one AgentPier per machine can run devices (fixed ports); a second one fails
   with `DEVICE_ADB_PORT_IN_USE` and leaves the first one's adb server alone.
+
+## State after pull request 2 (backend)
+
+The backend half of pull request 2 is built: the device actions, the sessions' grants
+with their routes and topic, and the session tools. The web part (pickers, dialog,
+strip, search entries, texts) builds on what this section lists. Guides:
+`docs/devices.md` (Devices for coding sessions), `docs/mcp.md` (Android devices from
+sessions).
+
+### Modules
+
+All in `server/features/devices/` unless a path is given.
+
+| Module                                                                         | What it is                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `device-actions.js`, `device-screen-actions.js`, `device-app-actions.js`       | `DeviceActions#run(action, input, { caller, canCreate, area, signal })`: the 21 actions, independent of MCP, for sessions now and agents in pull request 3                                  |
+| `device-input.js`, `ui-overview.js`, `host-area.js`                            | Checked and quoted words for the device's shell, the numbered overview from a `uiautomator` dump, and the rule that a host file stays inside the caller's area                              |
+| `session-device-grants.js`                                                     | `SessionDeviceGrants`: `devices/session-grants.json`, the sessions' assignments and create permission, and `deviceEligible`                                                                 |
+| `session-device-access.js`                                                     | The value of the routes and of the topic `session.devices`, the check of a launch's `deviceAccess`                                                                                          |
+| `device-mcp.js`, `device-tool-messages.js`                                     | The session tool family and the English sentence for each code                                                                                                                              |
+| `server/http/routes/session-devices.js`, `server/application/device-wiring.js` | The two routes; `services.sessionDeviceGrants` and `services.deviceActions`, registered with `registerGrants("session")`, `registerAssignments("session")`, `onRemoved` and `creatorExists` |
+
+### Routes (owner only; a restricted user gets 404)
+
+| Method and path                 | Body                                                                                          | Answer                                               |
+| ------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `GET /api/sessions/:id/devices` | –                                                                                             | 200, the session's device access                     |
+| `PUT /api/sessions/:id/devices` | `{ devices: [{ deviceId, manage }], create }` (both fields, nothing else; at most 20 devices) | 200, the same after the change                       |
+| `POST /api/sessions`            | optional `deviceAccess`, the body of the `PUT`                                                | as before; the access is stored with the new session |
+
+The session's device access (also the value of the live topic
+`session.devices:<session id>`, registered in `web/lib/live/live-topics.js` with the
+path `/sessions/<id>/devices`):
+
+```json
+{
+  "availability": { "available": true, "reason": null },
+  "eligible": true,
+  "tools": "ready",
+  "create": false,
+  "devices": [
+    {
+      "id": "d-0123456789ab",
+      "name": "Pixel",
+      "state": "stopped",
+      "creator": { "kind": "owner", "id": "owner", "name": "", "gone": false },
+      "assigned": true,
+      "manage": false,
+      "own": false
+    }
+  ]
+}
+```
+
+- `devices` is every device, in the order of the device list: the picker's choices.
+  `assigned` and `manage` are the owner's grant; `own` says the session created the
+  device (then `manage` is true and it needs no grant; `assigned` stays what the owner
+  set).
+- `eligible` is false for a session that cannot be given devices (not running, a
+  shell, sign-in, pipeline or imported session, or started by a restricted user's
+  agent). A `PUT` that grants anything to such a session answers 409
+  `DEVICE_SESSION_INELIGIBLE`; a `PUT` that grants nothing always works.
+- `tools` is `"missing"` when the session has no AgentPier tools: the grant is stored,
+  but the session has no device tools until it is reloaded with them (the same
+  situation as in `SessionAgentAccessDialog.jsx`).
+- `availability` is the device view's: with `available: false` the tools are not
+  offered at all.
+- Refusals answer `{ code, error: code }`: `DEVICE_ASSIGNMENT_INVALID` (400, another
+  shape, a duplicate, or a device that does not exist), `DEVICE_SESSION_INELIGIBLE`
+  (409). An unknown session is the session routes' 404. A refused launch answers the
+  same codes through the general error handler (`{ error, code }`).
+- The device view (`GET /api/devices`, topic `devices`) now fills `assignments` with
+  `{ kind: "session", id, name, manage }` (the session's current name) and sets
+  `creator.gone` for a device whose creating session was removed. Both topics are
+  signalled on every change of a grant and of a device.
+- Grants stay through a stop and a reload of their session and go when the session is
+  deleted or the device is removed.
+
+### Tools
+
+`devices_list`, `device_create`, `device_start`, `device_stop`, `device_reset`,
+`device_delete`, `device_screenshot`, `device_ui`, `device_tap`, `device_swipe`,
+`device_key`, `device_type`, `device_install`, `device_push`, `device_pull`,
+`device_app_launch`, `device_app_stop`, `device_apps`, `device_open_url`,
+`device_logs`, `device_shell`; arguments and results in `docs/mcp.md`. Offered to an
+eligible session's context while `devices.availability()` is null, whatever the
+session's MCP grant covers.
+
+### Codes added (each with a text in both web catalogs, `devicesCopy.codes`)
+
+`DEVICE_CREATE_FORBIDDEN` (403), `DEVICE_SESSION_INELIGIBLE` (409; 403 from a tool),
+`DEVICE_ASSIGNMENT_INVALID` (400), `DEVICE_INPUT_INVALID` (400),
+`DEVICE_TEXT_UNSUPPORTED` (400), `DEVICE_ELEMENT_STALE`, `DEVICE_PATH_OUTSIDE` (403),
+`DEVICE_FILE_NOT_FOUND` (404), `DEVICE_FILE_TOO_LARGE` (400), `DEVICE_COMMAND_FAILED`,
+`DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` (409 unless noted). Only the first
+three reach the owner's pages; the others are answers of a tool. `DEVICE_FORBIDDEN`
+and `DEVICE_HELD` are now reachable (by a tool).
+
+### Left for the web part
+
+- The picker in the launch dialog (`deviceAccess` in the launch body) and the dialog of
+  a running session (`GET`/`PUT`, `useLiveTopic("session.devices:<id>")`), with
+  `GrantPicker`; a per-device switch for "reset and delete" and one switch for "create
+  devices". Offer neither while `availability.available` is false or `eligible` is
+  false; say so when `tools` is `"missing"`.
+- The device list already receives `assignments` and `creator.gone`
+  (`device-view.js` renders both).
+- Search entries, both language catalogs, browser tests, and the two places in
+  `docs/devices.md` that name the controls (marked with an HTML comment).
+- No strip for the device in use yet: that belongs to the owner's view (pull request 4).
+
+### Known and not verified (pull request 2)
+
+- Whether a session under nono reaches the adb port was read from nono's documented
+  behaviour and the launch code, not tried with a device under nono. That a plain
+  local process without any key operates a device through `127.0.0.1:47600`, and that
+  the console port refuses commands without its token, was tried.
+- The emulator's own adb port (the odd one) was not tried with a foreign adb key.
+- Linux: the new actions ran on the real emulator on macOS only; the Linux run is the
+  workflow's (`.github/workflows/android-devices.yml`).
+- A file on the device that grows while it is pulled is ended by a watch on the
+  private copy every 100 ms; between two looks adb may write more than the limit.

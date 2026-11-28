@@ -3,8 +3,8 @@
 Android devices are emulated Android phones that run on the AgentPier host, in Google's
 Android Emulator. They exist so that agents and coding sessions can test apps and
 websites on a phone. This version provides the installation, the devices and their
-lifecycle; the tools for sessions and agents and the owner's live view of a device
-follow in later versions.
+lifecycle, and the tools for coding sessions; the tools for agents and the owner's live
+view of a device follow in later versions.
 
 Everything is under **Settings › General › Android devices** (`/settings/devices`), for
 the owner only. ⌘K finds the page as "Android", "Emulator", "Phone" or "Handy", and
@@ -85,6 +85,101 @@ Resources, measured with the pinned emulator:
 | First boot                     | 30 to 37 s             | 52 to 55 s         |
 | Later starts                   | about 3 s              | about 3 s          |
 
+## Devices for coding sessions
+
+A coding session (Claude Code, Codex, OpenCode) uses a device through tools that
+AgentPier adds to it, once you assigned the device to that session. Nothing is shared
+by default: a session sees no device until you give it one.
+
+<!-- UI: name the control of the launch dialog and the session's button here, once
+the web part of this change exists. -->
+
+- **Assign devices** when you start a session and at any time while it runs. Several
+  sessions may have the same device; their calls on it run one after another.
+- **Reset and delete** is a separate permission per assigned device, off by default.
+  Without it a session uses the device but can neither wipe nor delete it.
+- **Create devices** is a permission per session, off by default. A device a session
+  created is its own: it may use, reset and delete it without further permission. It
+  appears in your device list with the session as its creator, counts towards
+  **Devices in total**, and you can assign it to other sessions or delete it.
+- **When the session is removed**, its assignments go with it. Devices it created
+  stay and show "creator no longer exists"; you decide what happens to them. Stopping
+  a session keeps its assignments, and a stopped session can call nothing.
+- **Which sessions:** your own running coding sessions with **AgentPier tools**. Not
+  sign-in, pipeline, shell or imported sessions, not a session that an agent of a
+  restricted user started, and no external MCP client.
+- **While you hold a device** (the owner's view, in a later version), a session's
+  calls on it are refused until you hand it back.
+
+The tools appear in a session while the Android components are installed and this
+host can run devices; a device you assign later needs no reload. They are listed with
+their arguments in [MCP › Android devices from sessions](mcp.md#android-devices-from-sessions).
+What a session can do with an assigned device:
+
+| Tools                                                                   | What they do                                                                                                              |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `devices_list`, `device_create`, `device_start`, `device_stop`          | See its devices, create one (with the permission), start and stop. A stopped device starts by itself when a tool uses it. |
+| `device_reset`, `device_delete`                                         | Factory state, or gone. Only with **Reset and delete** or on a device the session created.                                |
+| `device_screenshot`, `device_ui`                                        | The screen as a PNG, or as a numbered list of what is on it (text, type, position, what can be tapped).                   |
+| `device_tap`, `device_swipe`, `device_key`, `device_type`               | Tap an element by its number or a point, long-press, scroll and swipe, press a key, type text.                            |
+| `device_install`, `device_app_launch`, `device_app_stop`, `device_apps` | Install an APK, start and stop apps, list them.                                                                           |
+| `device_open_url`, `device_logs`                                        | Open a URL in Chrome or in the app that handles it; read the device's recent log.                                         |
+| `device_push`, `device_pull`                                            | Copy a file to the device, or from it.                                                                                    |
+| `device_shell`                                                          | Run a shell command inside the device.                                                                                    |
+
+Limits of this version, each said to the session when it runs into one:
+
+- **Typing is ASCII only.** Text with umlauts, accents, emoji or line breaks is
+  refused as a whole (`DEVICE_TEXT_UNSUPPORTED`); the Enter key is `device_key`.
+- **The overview takes 2 to 3 seconds** and lists at most 150 elements or 16 KB. An
+  element's number is valid until the next overview; after a stop, a restart or a
+  reset of the device it is refused (`DEVICE_ELEMENT_STALE`).
+- **Sizes:** up to 200 MB to a device (an APK too), up to 50 MB from it, a
+  screenshot of up to 4 MB, 64 KB of shell or log output (cut, with a note).
+- **Time:** a shell command ends after 30 seconds unless the session asks for more,
+  at most 120; a call as a whole ends after 140 seconds, also while a device is still
+  booting, which then goes on.
+
+### Files stay in the session's working folder
+
+A file a session installs, pushes or pulls is named by a path on the host. That path
+must lie inside the session's working folder (its project folder or worktree):
+
+- AgentPier resolves the real path, following every link. A link that leads to
+  another place inside the folder is fine; a real path outside is refused
+  (`DEVICE_PATH_OUTSIDE`), and so is anything in AgentPier's own data folder and a file
+  with a second name (a hard link).
+- The file is then opened from the folder's root without following any link, so a
+  name that was swapped for a link after the check fails instead of leading out.
+- A pulled file replaces a regular file of the same name; a link or a folder in its
+  place is refused, never followed.
+- adb never gets a path of the folder: AgentPier copies the file to or from a private
+  folder below `<data dir>/devices/run/transfers` and removes that copy afterwards.
+
+A session in a [sandbox](sandbox.md) therefore cannot make AgentPier, which runs
+outside it, read or write files the session itself could not.
+
+### The shell runs in the device
+
+`device_shell` is `adb shell`: the command runs inside the emulated phone as its
+`shell` user, with what that user may do there (settings, permissions, `dumpsys`, the
+package manager, intents). It never runs on the host. AgentPier starts adb with a list
+of arguments and no shell of its own, and passes the command as one of them; the
+other tools build their commands from checked values (a package name, a key from a
+fixed list, coordinates) and quote everything else as one word.
+
+"Inside the device" is still not "isolated": a device reaches the network and the
+host's loopback (see below). Give a session a device as you would give it a shell on
+your network.
+
+### What a device shows is untrusted
+
+A screen, a UI text, a log line, a pulled file and the output of an app or a shell
+command come from the device and from whatever it loaded, a web page included. The
+tools say so in their descriptions, and a session should read such content as data,
+never as instructions. Keep that in mind before you let a session with other
+permissions (SSH, secrets, pipelines) browse pages you do not control.
+
 ## Limits and automatic stop
 
 Two limits, both under **Limits** on the page:
@@ -108,10 +203,31 @@ since its last saved state is lost.
   shell on the host's network.
 - **Loopback adb is not an access boundary.** AgentPier runs its own adb server on
   `127.0.0.1:47600` and each running device listens on two loopback ports from
-  `47602` to `47621`. Any program of the same host account that reaches loopback can
-  talk to that adb server and to a running device. Assignments decide which tools
-  AgentPier offers to an agent or session; they do not isolate a device from other
-  local processes.
+  `47602` to `47621`. The adb server asks for no credentials: any local process
+  that can open a TCP connection to loopback, of any account on the host, lists the
+  devices and runs commands on every running one through it (checked with a plain
+  socket and no adb key). Assignments decide which tools AgentPier offers to an agent
+  or session; they do not isolate a device from other local processes, and AgentPier
+  adds no firewall.
+  - A device's **console port** (the even one) asks for a token that the emulator
+    keeps in `<data dir>/devices/home`; without it a command such as `kill` is
+    refused (checked). Its **adb port** (the odd one) is the device's own adb
+    endpoint, which authenticates a client by its adb key; AgentPier's key is in the
+    same folder (not tried with another key). A process that cannot read the data
+    folder has neither, but the adb server in front of them asks for none.
+  - **Sessions without a sandbox** run as the AgentPier account and reach all of
+    this, whatever you assigned.
+  - **[Sandboxed sessions](sandbox.md)** depend on their nono profile. nono allows
+    the network by default, loopback included, so such a session can talk to the adb
+    server directly, around the assignments; it cannot read the adb key or the
+    console token, which lie in a folder it is not granted. A profile that blocks
+    the network (`network.block`) blocks loopback as well, and AgentPier opens no
+    device port for a session; such a session reaches devices only through its
+    tools. (Read from nono's documented behaviour and AgentPier's launch code; not
+    tried with a device under nono.)
+  - **The device tools work in every sandboxed session** all the same: they go to
+    the AgentPier server over the session's granted Unix socket, and the server
+    talks to adb.
 - **Nothing listens beyond loopback**, and the emulator's unauthenticated gRPC endpoint
   stays off.
 - **Your own Android setup stays untouched.** The emulator and adb run with their own
@@ -164,8 +280,10 @@ silicon) and Ubuntu 24.04 with KVM.
 
 Everything lives below `<data dir>/devices`, readable by the AgentPier account only:
 `sdk` (the components), `avd` (the devices), `home` (adb keys and emulator state),
-`downloads`, `run`, `logs` (the emulator output of each device's last start),
-`settings.json` and `devices.json`. **System status › Storage** lists it as **Android
+`downloads`, `run` (with `run/transfers`, the private copies of files on their way
+to or from a device, removed after each call), `logs` (the emulator output of each
+device's last start), `settings.json`, `devices.json` and `session-grants.json`
+(which devices are assigned to which session). **System status › Storage** lists it as **Android
 devices**.
 
 If `devices.json` cannot be read at a start (cut off by a crash, edited by hand),
@@ -190,25 +308,31 @@ the components and create the devices again.
 The page shows each of these in words; the codes appear in the audit log, the server
 log and the installer's result.
 
-| Code                                                   | Meaning and what to do                                                                                                                                                                                                            |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEVICES_PLATFORM_UNSUPPORTED`                         | No emulator build for this host. Use macOS on Apple silicon or Linux x64.                                                                                                                                                         |
-| `DEVICES_KVM_MISSING`                                  | Linux has no `/dev/kvm`. Turn on hardware virtualization in the firmware, or nested virtualization for a virtual machine.                                                                                                         |
-| `DEVICES_KVM_DENIED`                                   | AgentPier may not open `/dev/kvm`. Add its account to the `kvm` group (`sudo usermod -aG kvm <name>`), sign that account in again and restart AgentPier.                                                                          |
-| `DEVICES_SDK_UNUSABLE`                                 | The downloaded emulator does not start. On Linux install `libx11-6` and `libx11-xcb1`; the page names the missing libraries when the system reports them. Then **Try again …**.                                                   |
-| `DEVICES_DOWNLOAD_FAILED`, `DEVICES_DOWNLOAD_STALLED`  | The download broke off or stopped making progress. Check the connection to `dl.google.com` and **Try again …**; it continues.                                                                                                     |
-| `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID` | A downloaded archive was not the pinned one or could not be unpacked. It was discarded; **Try again …**.                                                                                                                          |
-| `DEVICES_DISK_SPACE`, `DEVICE_DISK_SPACE`              | Too little free space for the components or for another device. Free up space or delete a device.                                                                                                                                 |
-| `DEVICES_INTERRUPTED`                                  | AgentPier stopped during the installation. **Try again …** continues the download.                                                                                                                                                |
-| `DEVICES_INSTALL_FAILED`                               | The installation or removal failed for another reason. Try again; check the free space and the server log.                                                                                                                        |
-| `DEVICES_IN_USE`, `DEVICES_OPERATION_RUNNING`          | A device runs, or the components are being installed, updated or removed. Stop the devices, or wait.                                                                                                                              |
-| `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`           | A limit is reached. Delete or stop a device, or raise the limit.                                                                                                                                                                  |
-| `DEVICE_BOOT_TIMEOUT`                                  | The device did not finish booting within 3 minutes. Start it again; if it keeps failing, reset it.                                                                                                                                |
-| `DEVICE_EXITED`                                        | The emulator ended by itself, during the boot or while running. Start the device again; `<data dir>/devices/logs/<id>.log` holds its last output.                                                                                 |
-| `DEVICE_PORTS_BUSY`                                    | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                         |
-| `DEVICE_IMAGE_MISSING`                                 | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset. |
-| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`              | AgentPier could not reach the device through adb. Stop the device and start it again. When the page says that port 47600 is used by another program, see "A second AgentPier on the same machine" below.                          |
-| `DEVICE_STOP_FAILED`                                   | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                            |
+| Code                                                                        | Meaning and what to do                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEVICES_PLATFORM_UNSUPPORTED`                                              | No emulator build for this host. Use macOS on Apple silicon or Linux x64.                                                                                                                                                         |
+| `DEVICES_KVM_MISSING`                                                       | Linux has no `/dev/kvm`. Turn on hardware virtualization in the firmware, or nested virtualization for a virtual machine.                                                                                                         |
+| `DEVICES_KVM_DENIED`                                                        | AgentPier may not open `/dev/kvm`. Add its account to the `kvm` group (`sudo usermod -aG kvm <name>`), sign that account in again and restart AgentPier.                                                                          |
+| `DEVICES_SDK_UNUSABLE`                                                      | The downloaded emulator does not start. On Linux install `libx11-6` and `libx11-xcb1`; the page names the missing libraries when the system reports them. Then **Try again …**.                                                   |
+| `DEVICES_DOWNLOAD_FAILED`, `DEVICES_DOWNLOAD_STALLED`                       | The download broke off or stopped making progress. Check the connection to `dl.google.com` and **Try again …**; it continues.                                                                                                     |
+| `DEVICES_CHECKSUM_MISMATCH`, `DEVICES_ARCHIVE_INVALID`                      | A downloaded archive was not the pinned one or could not be unpacked. It was discarded; **Try again …**.                                                                                                                          |
+| `DEVICES_DISK_SPACE`, `DEVICE_DISK_SPACE`                                   | Too little free space for the components or for another device. Free up space or delete a device.                                                                                                                                 |
+| `DEVICES_INTERRUPTED`                                                       | AgentPier stopped during the installation. **Try again …** continues the download.                                                                                                                                                |
+| `DEVICES_INSTALL_FAILED`                                                    | The installation or removal failed for another reason. Try again; check the free space and the server log.                                                                                                                        |
+| `DEVICES_IN_USE`, `DEVICES_OPERATION_RUNNING`                               | A device runs, or the components are being installed, updated or removed. Stop the devices, or wait.                                                                                                                              |
+| `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`                                | A limit is reached. Delete or stop a device, or raise the limit.                                                                                                                                                                  |
+| `DEVICE_BOOT_TIMEOUT`                                                       | The device did not finish booting within 3 minutes. Start it again; if it keeps failing, reset it.                                                                                                                                |
+| `DEVICE_EXITED`                                                             | The emulator ended by itself, during the boot or while running. Start the device again; `<data dir>/devices/logs/<id>.log` holds its last output.                                                                                 |
+| `DEVICE_PORTS_BUSY`                                                         | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                         |
+| `DEVICE_IMAGE_MISSING`                                                      | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset. |
+| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`                                   | AgentPier could not reach the device through adb. Stop the device and start it again. When the page says that port 47600 is used by another program, see "A second AgentPier on the same machine" below.                          |
+| `DEVICE_FORBIDDEN`, `DEVICE_CREATE_FORBIDDEN`                               | A session used a device it was not given, tried to reset or delete without that permission, or to create a device without it. Assign the device or allow the action for the session.                                              |
+| `DEVICE_HELD`                                                               | You are holding the device, so a session's call on it was refused. It can go on when you hand the device back.                                                                                                                    |
+| `DEVICE_PATH_OUTSIDE`, `DEVICE_FILE_NOT_FOUND`, `DEVICE_FILE_TOO_LARGE`     | A file for a device was outside the session's working folder, missing, or larger than 200 MB (to a device) or 50 MB (from it).                                                                                                    |
+| `DEVICE_TEXT_UNSUPPORTED`, `DEVICE_ELEMENT_STALE`, `DEVICE_INPUT_INVALID`   | A session typed text beyond ASCII, used an element number of an outdated overview, or passed a malformed argument. The session is told what to do instead.                                                                        |
+| `DEVICE_COMMAND_FAILED`, `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` | The device refused an action (the session gets its words), did not deliver its screen, or a call took longer than 140 seconds.                                                                                                    |
+| `DEVICE_ASSIGNMENT_INVALID`, `DEVICE_SESSION_INELIGIBLE`                    | An assignment named a device that no longer exists, or a session that cannot be given devices (see [Devices for coding sessions](#devices-for-coding-sessions)).                                                                  |
+| `DEVICE_STOP_FAILED`                                                        | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                            |
 
 Also worth knowing:
 

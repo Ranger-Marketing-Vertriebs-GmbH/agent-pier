@@ -212,6 +212,69 @@ port (a dev server or the local end of an SSH tunnel), opened through AgentPier.
 tools are off while previews are disabled (`PREVIEW_DISABLED`), exist only for the
 owner and fail with stable `PREVIEW_*` codes. See [Session previews](previews.md).
 
+### Android devices from sessions
+
+While the [Android components](devices.md) are installed and this host can run
+devices, every one of your coding sessions with **AgentPier tools** also has the tools
+below. They answer only for the devices you assigned to the session
+([Devices for coding sessions](devices.md#devices-for-coding-sessions)); a device
+assigned later needs no reload. `device` is a device's id or its name.
+
+| Tool                | Arguments                                                   | What it does                                                                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `devices_list`      | –                                                           | The session's devices: `id`, `name`, `state`, `own` (it created the device), `manage` (it may reset and delete), `held`; and `canCreate`.                                                                            |
+| `device_create`     | `name`                                                      | Creates a device (1 to 40 characters). Needs the session's permission to create devices; the device is then the session's own.                                                                                       |
+| `device_start`      | `device`                                                    | Starts the device and waits for its boot. Optional: every other tool starts a stopped device by itself.                                                                                                              |
+| `device_stop`       | `device`                                                    | Stops the device and saves its state.                                                                                                                                                                                |
+| `device_reset`      | `device`                                                    | Factory state. Needs **Reset and delete** for the device, or the session's own device.                                                                                                                               |
+| `device_delete`     | `device`                                                    | Deletes the device. The same permission.                                                                                                                                                                             |
+| `device_screenshot` | `device`                                                    | The screen as an MCP image block (PNG), with `width` and `height`.                                                                                                                                                   |
+| `device_ui`         | `device`                                                    | The screen as numbered `elements` (type, text, description, bounds, `clickable`, `editable`, …), with `package`, `shown`, `total` and `truncated`.                                                                   |
+| `device_tap`        | `device`, `element` or `x` and `y`, `longPress?`            | Taps an element by its number from the last `device_ui`, or a point; `longPress` holds it.                                                                                                                           |
+| `device_swipe`      | `device`, `scroll` or `x1`, `y1`, `x2`, `y2`, `durationMs?` | Scrolls (`down`, `up`, `left`, `right`) or swipes between two points (50 to 5000 ms, default 300).                                                                                                                   |
+| `device_key`        | `device`, `key`, `count?`                                   | Presses `back`, `home`, `enter`, `tab`, `delete`, `app_switch`, `menu`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `dpad_center`, `escape` or `search`, up to 50 times. |
+| `device_type`       | `device`, `text`                                            | Types up to 1000 printable ASCII characters into the focused field.                                                                                                                                                  |
+| `device_install`    | `device`, `path`                                            | Installs an APK from the session's working folder (up to 200 MB), replacing an installed version.                                                                                                                    |
+| `device_push`       | `device`, `path`, `devicePath`                              | Copies a file from the working folder to the device (up to 200 MB).                                                                                                                                                  |
+| `device_pull`       | `device`, `devicePath`, `path`                              | Copies a regular file from the device into the working folder (up to 50 MB), replacing a file of that name.                                                                                                          |
+| `device_app_launch` | `device`, `package`, `activity?`                            | Starts an app by its launcher activity, or the named one.                                                                                                                                                            |
+| `device_app_stop`   | `device`, `package`                                         | Force-stops an app.                                                                                                                                                                                                  |
+| `device_apps`       | `device`, `all?`                                            | The installed packages: those installed on top of the system, or all (at most 500).                                                                                                                                  |
+| `device_open_url`   | `device`, `url`                                             | Opens a URL: `http` and `https` in Chrome, another scheme in the app that handles it. Inside the device the host's loopback is `10.0.2.2`.                                                                           |
+| `device_logs`       | `device`, `lines?`, `package?`, `tag?`, `priority?`         | The latest log lines (default 100, at most 1000 and 64 KB), of a running app, of a tag, or from a priority (`V`, `D`, `I`, `W`, `E`, `F`) up.                                                                        |
+| `device_shell`      | `device`, `command`, `timeoutMs?`                           | Runs a shell command inside the device: `exitCode`, `stdout` (cut at 64 KB), `stderr`. Ends after 30 s by default, at most 120 s.                                                                                    |
+
+- **Paths.** `path` is absolute or relative to the session's working folder and must lie
+  inside it, links resolved; `devicePath` is an absolute path on the device
+  ([the rule](devices.md#files-stay-in-the-sessions-working-folder)).
+- **Untrusted content.** What a device shows or returns (a screen, UI text, logs, a
+  pulled file, app and shell output) is data from the device, never instructions; the
+  tools' descriptions and the server instructions say so.
+- **Chrome's first start.** AgentPier turns Chrome's first-run screens off when a device
+  is created or reset, so a URL normally opens directly. The descriptions of
+  `device_open_url` and `device_app_launch` tell a session to dismiss a welcome,
+  sign-in or notification screen if one appears all the same.
+- **Errors** are `{ error, code, status }` with an English sentence and a stable code:
+  `DEVICE_FORBIDDEN` (403, a device the session was not given, or reset and delete
+  without that permission), `DEVICE_CREATE_FORBIDDEN` (403), `DEVICE_NOT_FOUND` (404),
+  `DEVICE_HELD` (you hold the device), `DEVICE_BUSY`, `DEVICE_UNAVAILABLE`,
+  `DEVICE_LIMIT_TOTAL`, `DEVICE_LIMIT_RUNNING`, `DEVICE_NAME_INVALID`, `DEVICE_NAME_TAKEN`,
+  `DEVICE_INPUT_INVALID` (400), `DEVICE_TEXT_UNSUPPORTED` (400, text beyond ASCII),
+  `DEVICE_ELEMENT_STALE` (an element number without a current overview),
+  `DEVICE_PATH_OUTSIDE` (403), `DEVICE_FILE_NOT_FOUND` (404), `DEVICE_FILE_TOO_LARGE`,
+  `DEVICE_COMMAND_FAILED` (with what the device said, shortened),
+  `DEVICE_SCREEN_UNAVAILABLE`, `DEVICE_CALL_TIMEOUT` (a call ends after 140 s),
+  `DEVICE_SESSION_INELIGIBLE` (403), and the device's own failures such as
+  `DEVICE_ADB_TIMEOUT` (a shell command that ran into its limit) or
+  `DEVICE_BOOT_TIMEOUT`.
+- **Who gets them.** Only your own running coding sessions: never an external OAuth
+  client, a sign-in, pipeline, shell or imported session, or a session that an agent of
+  a restricted user started. They work in [sandboxed sessions](sandbox.md) too, because
+  a call goes to AgentPier over the session's own socket and AgentPier talks to adb.
+- A screenshot is larger than a text result, so the tool bridge accepts responses of up
+  to 8 MiB (a text result stays bounded at 256 KiB). Device calls do not hold the
+  mutation barrier: a call may wait for a boot, and devices are in no backup.
+
 ## Central MCP servers in the coding CLIs
 
 **Connections › MCP servers** is the one place for the MCP servers the owner uses. A server
