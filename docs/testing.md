@@ -208,6 +208,17 @@ Concurrent local Playwright invocations need distinct `AGENTPIER_TEST_PORT` valu
 
 Chat fixtures must mock both HTTP and the chat WebSocket using `mockChatStream`; an HTTP-only fixture otherwise connects its invented session ID to the real test backend and can show unrelated errors. For geometry checks, read related bounds in one browser evaluation and retry the complete invariant after viewport changes. To test concurrent operations in two tabs, queue sequential pointer clicks behind a shared lock instead of racing mouse actions across pages.
 
+### Traces of failed attempts
+
+Playwright keeps a trace, a screenshot and the page snapshot (`error-context.md`) of every failed attempt (`trace: "retain-on-failure"` in `playwright.config.js`). In CI a test gets one retry, so a flaky test fails once and leaves the job green; the browser shard action uploads what was kept in either case, as the artifact `browser-traces-<browser>-shard<N>-attempt<run attempt>`, for 7 days. A run without a failed attempt uploads nothing. The job summary names the tests that passed only on their retry.
+
+```sh
+gh run download <run id> -R Ranger-Marketing-Vertriebs-GmbH/agent-pier -n browser-traces-chromium-shard3-attempt1 -D /tmp/traces
+npx playwright show-trace /tmp/traces/process-1/<test folder>/trace.zip
+```
+
+`gh run view <run id>` lists the artifacts of a run; without `-n` the download takes all of them. The folder of a first attempt ends in the project name (`-desktop`), that of a retry in `-retry1`. The traces hold only what the fixtures and the job's disposable server produced: no browser job has secrets, and no spec signs in anywhere else.
+
 ### Live socket stub
 
 Every browser spec imports `test` and `expect` from `tests/helpers/browser-test.js`, never from `@playwright/test` (`tests/unit/browser-spec-imports.test.js` enforces this). Its `page` fixture routes the live channel of every page in the default context (the first page and every later one from `context.newPage()` or a popup), `/api/live`, to `stubLive(page, { mode })` from `tests/helpers/live-stub.js` before the spec runs, so live topics answer from the spec's own mocks instead of the test server. Choose the mode with the `live` option:
