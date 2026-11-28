@@ -6,7 +6,9 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
 import {
+  devicePortRange,
   fakeAndroidSdk,
+  freeDevicePorts,
   installFakeSdk,
   waitUntil,
 } from "../helpers/fake-android-sdk.js";
@@ -21,23 +23,9 @@ import {
 // The fake `emulator` and `adb` executables every device test builds on, driven as
 // AgentPier drives the real ones: as child processes with the device environment.
 // Each test uses its own ports and checks that no process of it is left.
-let nextPort = 46100 + (process.pid % 400) * 2;
 const freePorts = async () => {
-  for (;;) {
-    const consolePort = (nextPort += 4);
-    const busy = await Promise.all(
-      [consolePort, consolePort + 1, consolePort + 2].map(
-        (port) =>
-          new Promise((resolve) => {
-            const probe = net.createServer();
-            probe.once("error", () => resolve(true));
-            probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(false)));
-          }),
-      ),
-    );
-    if (!busy.includes(true))
-      return { consolePort, adbPort: consolePort + 1, serverPort: consolePort + 2 };
-  }
+  const { adbPort: serverPort, consolePorts } = await freeDevicePorts(1);
+  return { consolePort: consolePorts.first, adbPort: consolePorts.first + 1, serverPort };
 };
 const alive = (pid) => {
   try {
@@ -546,4 +534,30 @@ test("the device folders are created for the owner only", async (t) => {
   assert.ok(fs.existsSync(path.join(paths.image(), "system.img")));
   assert.ok(paths.image().endsWith("arm64-v8a"));
   await assert.rejects(installFakeSdk(sdk.dataDir, {}), /made by fakeAndroidSdk/);
+});
+
+test("device test ports lie below the system's own, in one slot per process", async () => {
+  const { first, slot, slots } = devicePortRange;
+  assert.ok(first >= 1024 && first + slot * slots <= 20100);
+  const taken = [];
+  // More tests than any file has, each with the most ports a test asks for.
+  for (let round = 0; round < 60; round++) {
+    const { adbPort, consolePorts } = await freeDevicePorts(3);
+    assert.equal(consolePorts.first, adbPort + 2);
+    assert.equal(consolePorts.last, adbPort + 6);
+    taken.push(adbPort, consolePorts.last + 1);
+  }
+  const base = first + Math.floor((taken[0] - first) / slot) * slot;
+  for (const port of taken) {
+    // The slot's first port is the claim itself and is never handed out.
+    assert.ok(port > base && port < base + slot, `${port} leaves the slot at ${base}`);
+    assert.ok(port < 32768);
+  }
+  // The claim is a listener of this process: no other process takes the slot.
+  const probe = net.createServer();
+  const code = await new Promise((resolve) => {
+    probe.once("error", (error) => resolve(error.code));
+    probe.listen(base, "127.0.0.1", () => probe.close(() => resolve(null)));
+  });
+  assert.equal(code, "EADDRINUSE");
 });
