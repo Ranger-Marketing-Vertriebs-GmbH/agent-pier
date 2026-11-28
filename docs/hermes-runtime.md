@@ -1596,6 +1596,9 @@ connection of the fake model declared with image input) an attached PNG and a pr
 folder image: the model's request carries the attachment as an image part after the
 turn's text, the chat shows the owner's words with the file, and the image the agent
 views with `agentpier_workspace` `image_view` reaches the model as an image part of the
-tool result, never as base64 text. The tests use a private
+tool result, never as base64 text. `hermes-device-tool-contract.test.js` gives such an
+agent an Android device on the fake SDK: `agentpier_device` is part of its plugin, a
+call without an assignment lists no device, and after the owner assigned one its
+screenshot reaches the model as an image part of the tool result. The tests use a private
 `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.
