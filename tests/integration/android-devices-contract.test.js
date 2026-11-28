@@ -8,15 +8,19 @@ import { randomBytes } from "node:crypto";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { isLoopbackAddress } from "../helpers/loopback-address.js";
 import { AndroidSdk } from "../../server/features/devices/android-sdk.js";
+import { DeviceActions } from "../../server/features/devices/device-actions.js";
+import { DeviceService } from "../../server/features/devices/device-service.js";
 import { hasAvd, hasSnapshot } from "../../server/features/devices/avd-files.js";
 import { hostProblem } from "../../server/features/devices/device-availability.js";
 import { DEVICE_PORTS } from "../../server/features/devices/device-paths.js";
 import { EmulatorSource } from "../../server/features/devices/emulator-source.js";
 import { tcpListeners } from "../../server/lib/tcp-listeners.js";
 
-// The one test with Google's real emulator and adb: a device is created, booted
-// cold, stopped, booted from its snapshot, killed, booted cold again, reset and
-// removed, and all the while nothing of the user's own Android setup is touched.
+// The tests with Google's real emulator and adb. In the first a device is created,
+// booted cold, stopped, booted from its snapshot, killed, booted cold again, reset
+// and removed, and all the while nothing of the user's own Android setup is touched.
+// In the second every device action (device-actions.js) runs once on a real device,
+// through the device service, as a session's tools call them.
 //
 //   node scripts/android-device-assets.mjs --root <data folder>
 //   AGENTPIER_ANDROID_CONTRACT_SDK=<data folder> node --test tests/integration/android-devices-contract.test.js
@@ -266,5 +270,251 @@ test(
       "every process of the device to end",
     );
     assert.equal(userAndroid(), before, "the user's ~/.android is untouched");
+  },
+);
+
+test(
+  "every device action works on a real device",
+  { skip: required ? false : skip, timeout: contractTimeout(900000) },
+  async (t) => {
+    assert.equal(skip, false, "the contract is required here");
+    const source = new EmulatorSource({
+      dataDir,
+      sdk,
+      adbPort,
+      consolePorts: { first: adbPort + 2, last: adbPort + 20 },
+      bootTimeoutMs: contractTimeout(180000),
+    });
+    const service = new DeviceService({ dataDir, sdk, sources: { emulator: source } });
+    const actions = new DeviceActions({ devices: service, dataDir });
+    const area = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), "device-contract-")),
+    );
+    const caller = { kind: "session", id: "contract", name: "Contract" };
+    const run = (action, input = {}) =>
+      actions.run(
+        action,
+        { device: created?.id, ...input },
+        { caller, canCreate: () => true, area: () => area },
+      );
+    let created = null;
+    t.after(async () => {
+      if (created)
+        await service.remove(created.id, { caller: { kind: "owner" } }).catch(() => {});
+      await service.shutdown({ graceMs: 8000 });
+      fs.rmSync(area, { recursive: true, force: true });
+    });
+    const timed = async (name, work) => {
+      const from = Date.now();
+      const value = await work();
+      t.diagnostic(`${name}: ${Date.now() - from} ms`);
+      return value;
+    };
+    const refused = (code) => (error) => error.code === code;
+    // The overview once it shows what `wanted` looks for.
+    const overview = (wanted, describe) =>
+      until(
+        async () => {
+          const shown = await run("ui").catch((error) => {
+            if (error.code !== "DEVICE_SCREEN_UNAVAILABLE") throw error;
+            return null;
+          });
+          return shown && wanted(shown) ? shown : null;
+        },
+        60000,
+        describe,
+      );
+    const numbered = (shown, pattern) =>
+      Number(shown.elements.find((entry) => pattern.test(entry)).split(" ")[0]);
+
+    await service.start();
+    ({ device: created } = await run("create", {
+      name: `Contract ${randomBytes(3).toString("hex")}`,
+    }));
+    assert.deepEqual(
+      [created.state, created.own, created.manage],
+      ["stopped", true, true],
+    );
+    // A number without an overview is refused, and the device is not started for it.
+    await assert.rejects(run("tap", { element: 1 }), refused("DEVICE_ELEMENT_STALE"));
+    assert.equal(service.device(created.id).state, "stopped");
+
+    // The first action boots the device.
+    const shot = await timed("screenshot with the cold boot", () => run("screenshot"));
+    assert.deepEqual([shot.mimeType, shot.width, shot.height], ["image/png", 720, 1600]);
+    assert.deepEqual([...shot.image.subarray(1, 4)], [0x50, 0x4e, 0x47]);
+    t.diagnostic(`screenshot: ${shot.image.length} bytes`);
+    assert.equal((await run("list")).devices[0].state, "running");
+    const again = await timed("screenshot", () => run("screenshot"));
+    assert.equal(again.width, 720);
+
+    // A URL opens in Chrome, whose first-run screens are off.
+    assert.deepEqual(
+      await timed("open URL", () => run("open_url", { url: "https://example.com/" })),
+      { opened: "https://example.com/" },
+    );
+    const field = / EditText#url_bar /;
+    const page = await timed("overview of Chrome", () =>
+      overview(
+        (shown) =>
+          shown.package === "com.android.chrome" &&
+          shown.elements.some((entry) => field.test(entry)),
+        "Chrome with its address bar",
+      ),
+    );
+    assert.ok(page.shown > 0 && page.shown === page.elements.length);
+    assert.equal(page.truncated, false);
+    await assert.rejects(
+      run("open_url", { url: "agentpier-contract-nothing://x" }),
+      refused("DEVICE_COMMAND_FAILED"),
+    );
+
+    // An input field: Chrome's address bar. Its number is tapped, text is typed
+    // and read back from the next overview, character for character.
+    const bar = numbered(page, field);
+    assert.match(page.elements[bar - 1], /editable/);
+    const tapped = await timed("tap by number", () => run("tap", { element: bar }));
+    assert.ok(tapped.tapped.x > 0 && tapped.tapped.y > 0);
+    const text = "a b %s|100%sure $HOME;`id`\"q\"'x'\\n&<>(){}*?!~# -d";
+    // As an overview line quotes it.
+    const quoted = (value) => JSON.stringify(value).slice(1, -1);
+    const holds = (value) => (shown) =>
+      shown.elements.some((entry) => field.test(entry) && entry.includes(quoted(value)));
+    assert.deepEqual(await timed("type", () => run("type", { text })), {
+      typed: text.length,
+    });
+    await overview(holds(text), "the typed text in the address bar");
+    await timed("key", () => run("key", { key: "delete", count: 3 }));
+    await overview(
+      (shown) => holds(text.slice(0, -3))(shown) && !holds(text)(shown),
+      "the text without its last three characters",
+    );
+    await assert.rejects(
+      run("type", { text: "Grüße" }),
+      refused("DEVICE_TEXT_UNSUPPORTED"),
+    );
+    await run("key", { key: "escape" });
+    assert.deepEqual(
+      (await timed("scroll", () => run("swipe", { scroll: "down" }))).swiped,
+      { from: { x: 360, y: 1200 }, to: { x: 360, y: 400 } },
+    );
+    await run("tap", { x: 360, y: 800, longPress: true });
+    await run("key", { key: "home" });
+
+    // Apps: listed, launched by their launcher activity, stopped.
+    const all = await timed("list apps", () => run("apps", { all: true }));
+    assert.ok(all.packages.includes("com.android.chrome"), String(all.total));
+    assert.ok(all.packages.includes("com.android.settings"));
+    assert.ok(Array.isArray((await run("apps")).packages));
+    assert.deepEqual(await run("app_launch", { package: "com.android.settings" }), {
+      launched: "com.android.settings/.Settings",
+    });
+    await overview(
+      (shown) => shown.package === "com.android.settings",
+      "the settings in front",
+    );
+    assert.deepEqual(await run("app_stop", { package: "com.android.settings" }), {
+      stopped: "com.android.settings",
+    });
+    await assert.rejects(
+      run("app_launch", { package: "com.agentpier.contract.missing" }),
+      refused("DEVICE_COMMAND_FAILED"),
+    );
+
+    // Files: a round trip, and an APK. The repository holds no APK, so the device's
+    // own Easter egg is pulled and installed again over itself.
+    const content = `contract ${randomBytes(8).toString("hex")}\n`;
+    fs.writeFileSync(path.join(area, "notes.txt"), content);
+    const remote = "/data/local/tmp/agentpier contract's notes.txt";
+    assert.deepEqual(
+      await timed("push", () => run("push", { path: "notes.txt", devicePath: remote })),
+      { pushed: remote, bytes: content.length },
+    );
+    assert.deepEqual(
+      await timed("pull", () => run("pull", { devicePath: remote, path: "back.txt" })),
+      { pulled: "back.txt", bytes: content.length },
+    );
+    assert.equal(fs.readFileSync(path.join(area, "back.txt"), "utf8"), content);
+    await assert.rejects(
+      run("pull", { devicePath: remote, path: "../escaped.txt" }),
+      refused("DEVICE_PATH_OUTSIDE"),
+    );
+    await assert.rejects(
+      run("pull", { devicePath: "/data/local/tmp/agentpier-nothing", path: "x.txt" }),
+      refused("DEVICE_FILE_NOT_FOUND"),
+    );
+    await assert.rejects(
+      run("pull", { devicePath: "/data/local/tmp", path: "x.txt" }),
+      refused("DEVICE_FILE_NOT_FOUND"),
+    );
+    const apk = await run("pull", {
+      devicePath: "/system/app/EasterEgg/EasterEgg.apk",
+      path: "egg.apk",
+    });
+    assert.ok(apk.bytes > 100000, String(apk.bytes));
+    assert.deepEqual(await timed("install", () => run("install", { path: "egg.apk" })), {
+      installed: "egg.apk",
+      bytes: apk.bytes,
+    });
+    fs.writeFileSync(path.join(area, "broken.apk"), "no package");
+    await assert.rejects(run("install", { path: "broken.apk" }), (error) => {
+      t.diagnostic(`install of a broken file: ${error.detail}`);
+      return error.code === "DEVICE_COMMAND_FAILED";
+    });
+
+    // The shell runs inside the device: its exit code, its output, its limits.
+    assert.deepEqual(
+      await timed("shell", () =>
+        run("shell", { command: "getprop ro.build.version.sdk" }),
+      ),
+      { exitCode: 0, stdout: "36\n", stderr: "", truncated: false },
+    );
+    assert.deepEqual(await run("shell", { command: "echo out; echo err >&2; exit 7" }), {
+      exitCode: 7,
+      stdout: "out\n",
+      stderr: "err\n",
+      truncated: false,
+    });
+    const flood = await run("shell", { command: "yes" });
+    assert.deepEqual(
+      [flood.exitCode, flood.stdout.length, flood.truncated],
+      [null, 65536, true],
+    );
+    await assert.rejects(
+      run("shell", { command: "sleep 30", timeoutMs: 1000 }),
+      refused("DEVICE_ADB_TIMEOUT"),
+    );
+    // The device still answers after a command was ended.
+    assert.equal((await run("shell", { command: "echo alive" })).stdout, "alive\n");
+
+    // Logs: the latest lines, and those of one app.
+    const logs = await timed("logs", () => run("logs", { lines: 30 }));
+    assert.equal(logs.lines.length, 30);
+    for (const entry of logs.lines)
+      assert.match(entry, /^\d\d-\d\d \d\d:\d\d:\d\d\.\d{3} /);
+    const errors = await run("logs", { priority: "E", lines: 10 });
+    for (const entry of errors.lines) assert.match(entry, /^\S+ \S+ +\d+ +\d+ [EF] /);
+    const chrome = await run("logs", { package: "com.android.chrome", lines: 5 });
+    assert.ok(chrome.lines.length > 0 || /not running/.test(chrome.note), chrome.note);
+    assert.deepEqual(await run("logs", { package: "com.agentpier.contract.missing" }), {
+      lines: [],
+      truncated: false,
+      note: "com.agentpier.contract.missing is not running.",
+    });
+
+    // Stopped and started again, a number of the earlier overview is stale.
+    await run("ui");
+    await run("tap", { element: 1 });
+    assert.equal((await timed("stop", () => run("stop"))).device.state, "stopped");
+    await assert.rejects(run("tap", { element: 1 }), refused("DEVICE_ELEMENT_STALE"));
+    assert.equal(
+      (await timed("start from the snapshot", () => run("start"))).device.state,
+      "running",
+    );
+    await assert.rejects(run("tap", { element: 1 }), refused("DEVICE_ELEMENT_STALE"));
+    const id = created.id;
+    assert.deepEqual(await run("delete"), { deleted: { id, name: created.name } });
+    created = null;
+    assert.equal(hasAvd(source.paths, id), false);
   },
 );
