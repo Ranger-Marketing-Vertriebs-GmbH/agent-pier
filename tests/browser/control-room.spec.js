@@ -52,8 +52,8 @@ test("two orders keep their own sessions, decisions, batch plan and run history"
     await expect(form.getByText("No SSH accesses yet.")).toBeVisible();
     const secrets = form.getByRole("group", { name: "Secrets" });
     await secrets.getByRole("combobox", { name: "Add secret" }).fill("ARCHIVE");
+    // A click on the option adds it at once.
     await secrets.getByRole("option", { name: /ARCHIVE_TOKEN/ }).click();
-    await secrets.getByRole("button", { name: "Add 1" }).click();
     await form.getByRole("button", { name: "Start order" }).click();
     await expect(page).toHaveURL(/\/sessions\/[^/]+\/chat$/);
     const { orders } = await f.application.autopilot.orders.list();

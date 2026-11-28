@@ -271,8 +271,9 @@ test("an explicit grant can be removed while inherited access stays active", asy
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/sessions/fixture-session");
   await sessionAction(page, "SSH accesses");
-  // On a phone the dialog shows the stacked GrantPicker: allowed rows with their notes.
-  const allowed = page.getByRole("group", { name: /^Allowed in this session/ });
+  // On a phone the dialog is one checklist: a row shows its notes.
+  const allowed = page.getByRole("group", { name: "SSH accesses", exact: true });
+  const box = allowed.getByRole("checkbox", { name: "Build server" });
   await expect(allowed.getByText(/Explicit session assignment/)).toBeVisible();
   await expect(allowed.getByText(/Project managed/)).toBeVisible();
   await page.screenshot({ path: ".cache/ssh-dual-assignment-mobile-en.png" });
@@ -280,17 +281,12 @@ test("an explicit grant can be removed while inherited access stays active", asy
   // Still allowed through the project, and it cannot be removed here.
   await expect(allowed.getByText("Build server", { exact: true })).toBeVisible();
   await expect(allowed.getByText(/Explicit session assignment/)).toHaveCount(0);
-  await expect(allowed.getByRole("button", { name: "Remove Build server" })).toHaveCount(
-    0,
-  );
+  await expect(box).toBeChecked();
+  await expect(box).toBeDisabled();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.assignedIds).toEqual([]);
   state.inheritedIds = [];
   await page.reload();
   await sessionAction(page, "SSH accesses");
-  await expect(
-    page
-      .getByRole("group", { name: /^Allowed in this session/ })
-      .getByText("Build server", { exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: "Build server" })).not.toBeChecked();
 });
