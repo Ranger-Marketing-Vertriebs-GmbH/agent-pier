@@ -12,6 +12,12 @@ import { cliDefinition, isCodingCli } from "../features/clis/catalog.js";
 import { addGrant } from "../features/nono/sandbox-grants.js";
 import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
 import { talkAgentIds } from "../features/session-talk/live-topics.js";
+import { refusal } from "../features/devices/device-registry.js";
+import {
+  checkedDeviceAccess,
+  grantsAnything,
+  setSessionDeviceAccess,
+} from "../features/devices/session-device-access.js";
 
 // A CLI that takes AgentPier's session id as its own (Claude Code's --session-id), so
 // the chat binds to it from the start; the shell and the others do not.
@@ -129,6 +135,14 @@ export function createSessionLifecycle(services) {
       : [];
     if (agentIds.length && (login || trusted.pipeline))
       throw problem(serverMessages.sessions.agentAccessCodingOnly);
+    // Android devices a coding session may use (`{ devices: [{ deviceId, manage }],
+    // create }`); never a sign-in session or a pipeline step.
+    const deviceAccess =
+      services.sessionDeviceGrants && body.deviceAccess !== undefined
+        ? checkedDeviceAccess(services, body.deviceAccess)
+        : null;
+    if (grantsAnything(deviceAccess) && (login || trusted.pipeline))
+      throw refusal("DEVICE_SESSION_INELIGIBLE");
     if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
       throw problem(serverMessages.sessions.invalidSandboxProfile);
     if (body.nonoProfile && login)
@@ -155,6 +169,7 @@ export function createSessionLifecycle(services) {
           sshIds,
           secretIds,
           agentIds,
+          deviceAccess,
         });
       } finally {
         unreserve();
@@ -169,12 +184,14 @@ export function createSessionLifecycle(services) {
     login,
     trusted,
     { account, selection },
-    { sshIds, secretIds, agentIds },
+    { sshIds, secretIds, agentIds, deviceAccess },
   ) {
     const nativeModelId = nativeModelFor(body, account, { login });
     trusted.validateAccount?.(account);
     if (agentIds.length && !isCodingCli(account.tool))
       throw problem(serverMessages.sessions.agentAccessCodingOnly);
+    if (grantsAnything(deviceAccess) && !isCodingCli(account.tool))
+      throw refusal("DEVICE_SESSION_INELIGIBLE");
     const cwd = await directory(
       body.cwd || (login ? config.home : preferences.get().defaultCwd),
     );
@@ -348,6 +365,8 @@ export function createSessionLifecycle(services) {
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
       if (agentIds.length) services.sessionAgentGrants.set(session, agentIds);
+      if (grantsAnything(deviceAccess))
+        setSessionDeviceAccess(services, session, deviceAccess);
       // The agent's files catch up with the assignments and any change during the launch.
       await services.sshAgents?.sync(session).catch(() => {});
       // A secret change while the launch ran reached no file yet; this catches it up.
@@ -356,6 +375,7 @@ export function createSessionLifecycle(services) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);
       services.sessionAgentGrants?.discard(id);
+      services.sessionDeviceGrants?.discard(id);
       services.sessionSecrets?.discard(id);
       await services.sshAgents?.discard(id).catch(() => {});
       if (session) {

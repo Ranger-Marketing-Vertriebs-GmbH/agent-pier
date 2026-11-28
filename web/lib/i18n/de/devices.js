@@ -198,6 +198,10 @@ export const devicesCopy = {
     DEVICE_NOT_RUNNING: "Das Gerät läuft nicht. Starte es zuerst.",
     DEVICE_CREATE_FORBIDDEN:
       "Diese Session darf keine Geräte anlegen. Erlaube es bei den Geräten der Session.",
+    DEVICE_SESSION_INELIGIBLE:
+      "Geräte bekommen nur deine eigenen laufenden Coding-Sessions, keine Anmelde-, Pipeline- oder importierten Sessions und keine Sessions des Agenten eines eingeschränkten Nutzers.",
+    DEVICE_ASSIGNMENT_INVALID:
+      "Diese Zuweisung ist nicht gültig. Vielleicht gibt es ein Gerät darin nicht mehr; lade neu und versuche es erneut.",
     DEVICE_INPUT_INVALID:
       "Beim Aufruf des Geräts fehlte eine Angabe oder sie hatte die falsche Form.",
     DEVICE_TEXT_UNSUPPORTED:

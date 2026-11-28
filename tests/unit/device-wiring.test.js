@@ -66,7 +66,10 @@ test("connecting sets the services, mounts the routes and starts nothing", async
   const { services, mounted, whenListening, listen } = start();
   assert.equal(typeof services.devices.view, "function");
   assert.equal(typeof services.androidSdk.status, "function");
-  assert.equal(mounted.length, 1);
+  assert.equal(typeof services.sessionDeviceGrants.grantsOf, "function");
+  assert.equal(typeof services.deviceActions.run, "function");
+  // The devices' routes and the sessions' device routes.
+  assert.equal(mounted.length, 2);
   assert.equal(whenListening.length, 1);
   await listen();
   assert.deepEqual(services.devices.view().availability, {

@@ -3,7 +3,8 @@
 // state); DeviceService signals it on every change. `devices.installation` carries
 // GET /api/devices/installation (the state of the SDK components and the progress of
 // a download); AndroidSdk signals it per component, phase and percent. Nothing is
-// sampled.
+// sampled. Every change of the devices also reaches `session.devices:<session id>`
+// (session-device-access.js), the devices one session may use.
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -29,5 +30,8 @@ export function deviceInstallationTopic(services) {
   };
 }
 
-export const devicesChanged = (hub) => hub?.invalidate("devices");
+export function devicesChanged(hub) {
+  hub?.invalidate("devices");
+  hub?.invalidate("session.devices");
+}
 export const deviceInstallationChanged = (hub) => hub?.invalidate("devices.installation");
