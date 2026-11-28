@@ -523,6 +523,12 @@ lists every device whose folder exists under `avd` again as **Recovered device 1
 assignments are lost, so rename the devices or delete the ones you do not need. The
 kept file is yours to inspect and delete.
 
+The same holds for `session-grants.json` and `agent-grants.json`: a file that cannot
+be read, or that holds an entry AgentPier cannot read, assigns nothing there, is kept
+as `session-grants.json.damaged-<time>` or `agent-grants.json.damaged-<time>` and
+named in the server log, before your next change of an assignment writes the file
+anew. Assign the devices again; the kept file shows what was assigned.
+
 Two things the emulator writes elsewhere and AgentPier cannot redirect: its crash
 database under `/tmp/android-<account>/`, and on Linux `netsimd` logs in the same folder.
 On Linux `netsimd` also keeps its small `netsim.ini` files in the account's runtime

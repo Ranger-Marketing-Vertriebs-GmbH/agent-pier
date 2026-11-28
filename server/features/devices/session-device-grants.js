@@ -5,6 +5,7 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { isDeviceId } from "./avd-files.js";
 import { devicePaths } from "./device-paths.js";
 import { refusal } from "./device-registry.js";
+import { readGrants } from "./grant-file.js";
 
 /*
  * Which devices the owner assigned to which coding session, and which sessions may
@@ -59,34 +60,26 @@ export function deviceEligible(session, { userAgent = () => false } = {}) {
 }
 
 export class SessionDeviceGrants {
-  constructor({ dataDir }) {
+  /** `now()` and `log(line)` are for a damaged file (grant-file.js); tests replace them. */
+  constructor({ dataDir, now, log }) {
     this.file = path.join(devicePaths(dataDir).root, "session-grants.json");
     this.sessions = path.join(path.resolve(dataDir), "sessions");
     this.onChange = null;
-    this.entries = this.#read();
-  }
-  #read() {
-    let stored = null;
-    try {
-      stored = readJSON(this.file, null);
-    } catch {
-      // A damaged file grants nothing; the next change writes a sound one.
-    }
-    const entries = new Map();
-    if (!plain(stored?.sessions)) return entries;
-    for (const [id, entry] of Object.entries(stored.sessions)) {
-      if (!sessionId.test(id) || !plain(entry)) continue;
-      try {
-        entries.set(id, {
-          createdAt: entry.createdAt,
-          name: typeof entry.name === "string" ? entry.name.slice(0, 200) : "",
-          ...this.validate({ devices: entry.devices, create: entry.create }),
-        });
-      } catch {
-        // An entry of another shape grants nothing.
-      }
-    }
-    return entries;
+    // A damaged file, and an entry of another shape, grant nothing; the file is
+    // kept aside and logged before the next change writes a sound one.
+    this.entries = readGrants(
+      this.file,
+      "sessions",
+      (id, entry) =>
+        sessionId.test(id) && plain(entry)
+          ? {
+              createdAt: entry.createdAt,
+              name: typeof entry.name === "string" ? entry.name.slice(0, 200) : "",
+              ...this.validate({ devices: entry.devices, create: entry.create }),
+            }
+          : null,
+      { now, log },
+    );
   }
   // The file first, then what is known in memory: a change that cannot be stored
   // is no change, so nothing is taken away (or given) until the next start only.

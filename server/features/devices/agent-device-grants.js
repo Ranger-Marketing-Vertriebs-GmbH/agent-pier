@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { readJSON, writePrivate } from "../../lib/storage.js";
+import { writePrivate } from "../../lib/storage.js";
 import { isDeviceId } from "./avd-files.js";
 import { devicePaths } from "./device-paths.js";
 import { refusal } from "./device-registry.js";
+import { readGrants } from "./grant-file.js";
 import { areaOf } from "./host-area.js";
 
 /*
@@ -50,34 +51,26 @@ const areaShape = (area) =>
     : null;
 
 export class AgentDeviceGrants {
-  constructor({ dataDir, agent, eligible = () => true }) {
+  /** `now()` and `log(line)` are for a damaged file (grant-file.js); tests replace them. */
+  constructor({ dataDir, agent, eligible = () => true, now, log }) {
     this.file = path.join(devicePaths(dataDir).root, "agent-grants.json");
     this.lookup = agent;
     this.eligibleAgent = eligible;
     this.onChange = null;
-    this.entries = this.#read();
-  }
-  #read() {
-    let stored = null;
-    try {
-      stored = readJSON(this.file, null);
-    } catch {
-      // A damaged file grants nothing; the next change writes a sound one.
-    }
-    const entries = new Map();
-    if (!plain(stored?.agents)) return entries;
-    for (const [id, entry] of Object.entries(stored.agents)) {
-      if (!agentId.test(id) || !plain(entry)) continue;
-      try {
-        entries.set(id, {
-          ...this.validate({ devices: entry.devices, create: entry.create }),
-          area: areaShape(entry.area),
-        });
-      } catch {
-        // An entry of another shape grants nothing.
-      }
-    }
-    return entries;
+    // A damaged file, and an entry of another shape, grant nothing; the file is
+    // kept aside and logged before the next change writes a sound one.
+    this.entries = readGrants(
+      this.file,
+      "agents",
+      (id, entry) =>
+        agentId.test(id) && plain(entry)
+          ? {
+              ...this.validate({ devices: entry.devices, create: entry.create }),
+              area: areaShape(entry.area),
+            }
+          : null,
+      { now, log },
+    );
   }
   // The file first, then what is known in memory: a change that cannot be stored
   // is no change.
