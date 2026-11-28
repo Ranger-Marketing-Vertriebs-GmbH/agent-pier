@@ -24,6 +24,8 @@ export function deferred() {
  *   with DEVICE_START_CANCELLED, when its `signal` aborts while it waits
  * - `peak`: the most starts, adb calls and live devices (starting, running or
  *   stopping) seen at one moment
+ * - `answer`: `(record, args, options) => result` for an adb call; without one, or
+ *   when it answers nothing, the call echoes its arguments
  * - `image`: what `reset` answers; `unavailable`: what `availability()` answers
  * - `exit(id, result)`: the device ends by itself, as a crashed emulator does
  */
@@ -51,6 +53,7 @@ export function memoryDeviceSource({ image = "android-36-google_apis-r7" } = {})
     peak,
     gates: {},
     image,
+    answer: null,
     unavailable: null,
     onExit: null,
     availability: () => source.unavailable,
@@ -109,6 +112,9 @@ export function memoryDeviceSource({ image = "android-36-google_apis-r7" } = {})
       log.push(["exec", record.id, args.join(" ")]);
       return during("exec", async () => {
         await source.gates.exec?.(record, args, options);
+        const answered = await source.answer?.(record, args, options);
+        if (answered)
+          return { stdout: "", stderr: "", code: 0, truncated: false, ...answered };
         return { stdout: `${args.join(" ")}\n`, stderr: "", code: 0, truncated: false };
       });
     },
