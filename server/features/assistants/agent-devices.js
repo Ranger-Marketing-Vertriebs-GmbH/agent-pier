@@ -141,9 +141,6 @@ export async function invokeDevice(w, inv, input) {
   };
   const { agent } = first;
   const workspace = deviceWorkspace(w.a, agent);
-  const controller = new AbortController();
-  // The runtime gave the call up (team-bridge.js handle): nothing more is done.
-  inv.undelivered = () => controller.abort();
   let result;
   try {
     result = await actions.run(action, parsed.data, {
@@ -155,7 +152,10 @@ export async function invokeDevice(w, inv, input) {
       scope: scopeOf(s, first),
       protectedRoots: () => protectedRoots(workspace),
       callTimeoutMs: AGENT_CALL_TIMEOUT_MS,
-      signal: controller.signal,
+      // The runtime gave the call up, its connection closed (team-bridge.js
+      // awaited): what runs on the device is aborted, and a call that still waits
+      // for its turn there never runs.
+      signal: inv.gone,
     });
   } catch (error) {
     throw worded(error);

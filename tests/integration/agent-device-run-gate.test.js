@@ -157,3 +157,73 @@ test("a run without a turn gets a device only when the chat's latest turn could 
     assert.equal(await after(context), "FORBIDDEN", `after ${JSON.stringify(context)}`);
   assert.equal(await after({ kind: "owner" }), null);
 });
+
+// One device call over the bridge's HTTP server, as a runtime's plugin sends it;
+// `give up` closes its connection.
+function httpCall(f, input) {
+  const { url, token } = f.bridge.connection;
+  const caller = new AbortController();
+  const { ticket } = f.bridge.prepare({
+    agentId: f.lead().runtimeAgentId,
+    sessionKey: f.chat.runtimeSessionKey,
+    toolCallId: crypto.randomUUID(),
+    action: "device",
+  });
+  const done = fetch(`${url}/invoke`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ticket, action: "device", input }),
+    signal: caller.signal,
+  }).then(
+    (response) => response.json(),
+    () => "gone",
+  );
+  return { done, giveUp: () => caller.abort() };
+}
+const until = async (condition, what) => {
+  for (let n = 0; n < 400 && !condition(); n++)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(condition(), what);
+};
+
+test("a call the runtime gave up is aborted while it runs, and one queued behind it never runs", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  f.assign(f.lead(), pixel);
+  await f.devices.startDevice(pixel.id, { caller: { kind: "owner" } });
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  t.after(() => release());
+  const running = [];
+  f.source.gates.exec = async (_record, args, options) => {
+    running.push({ args, signal: options.signal });
+    await held;
+  };
+  f.turn();
+  const first = httpCall(f, { action: "shell", device: "Pixel", command: "sleep 100" });
+  await until(() => running.length === 1, "the first call runs on the device");
+  const second = httpCall(f, {
+    action: "shell",
+    device: "Pixel",
+    command: "rm -rf /sdcard/Download",
+  });
+  await until(
+    () => f.devices.runtimes.get(pixel.id).pending === 2,
+    "the second call waits",
+  );
+  assert.equal(running[0].signal.aborted, false);
+  // The runtime gives both calls up: their connections close. The turn stays live.
+  first.giveUp();
+  second.giveUp();
+  assert.deepEqual(await Promise.all([first.done, second.done]), ["gone", "gone"]);
+  await until(() => running[0].signal.aborted, "the running call's signal is aborted");
+  f.source.gates.exec = null;
+  release();
+  await until(() => f.devices.runtimes.get(pixel.id).pending === 0, "the queue is empty");
+  assert.equal(running.length, 1, "the queued call never reached the device");
+  assert.equal(f.adb.filter(({ args }) => args.join(" ").includes("rm -rf")).length, 0);
+  // A call that is not given up still runs to its answer.
+  const third = httpCall(f, { action: "list" });
+  assert.deepEqual(names(await third.done), ["Pixel"]);
+  f.settle();
+});

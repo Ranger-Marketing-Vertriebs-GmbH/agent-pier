@@ -453,7 +453,11 @@ export class TeamBridge {
       confirmFromCall(this.assistants, record.sessionKey, record.runId);
     this.valid(record);
     record.hash = hash;
+    const gone = new AbortController();
+    record.abandon = () => gone.abort();
     const invocation = {
+      // Aborts once nobody waits for the call's answer any more (awaited).
+      gone: gone.signal,
       attemptId: record.attemptId,
       toolCallId: record.toolCallId,
       // Waits (an ask) count from here, the moment the call reached AgentPier.
@@ -478,8 +482,22 @@ export class TeamBridge {
       .catch(() => {});
     return record.promise;
   }
+  // An invoke and what its caller does when it leaves before the answer: once the
+  // last connection waiting for a running call has closed, the call's `gone` signal
+  // aborts. A device call ends there (agent-devices.js); no other action reads it,
+  // and `undelivered` still hears of a lost answer only once there is one (handle).
+  awaited(input) {
+    const promise = this.invoke(input);
+    const record = this.tickets.get(input.ticket);
+    record.callers = (record.callers ?? 0) + 1;
+    return {
+      promise,
+      left: () => --record.callers || record.settled || record.abandon(),
+    };
+  }
   async handle(req, res) {
     let lost = false,
+      call = null,
       invocation = null;
     try {
       if (req.headers.origin || req.headers["sec-fetch-site"])
@@ -523,8 +541,10 @@ export class TeamBridge {
         if (!res.writableFinished) {
           lost = true;
           invocation?.undelivered?.();
+          call?.left();
         }
       });
+      if (req.url === "/invoke") call = this.awaited(input);
       const result = await (req.url === "/prepare"
         ? this.prepare(input)
         : req.url === "/tool-policy"
@@ -543,7 +563,7 @@ export class TeamBridge {
                       ? hooks.secretsPolicy(this, input)
                       : req.url === "/guard"
                         ? this.registerGuard(input)
-                        : this.invoke(input));
+                        : call.promise);
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {
