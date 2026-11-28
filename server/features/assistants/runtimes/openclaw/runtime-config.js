@@ -82,6 +82,7 @@ export const nativeTools = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  "agentpier_device",
   // OpenClaw's own question to the owner (native-capabilities.js questionTools).
   ...questionTools,
 ];

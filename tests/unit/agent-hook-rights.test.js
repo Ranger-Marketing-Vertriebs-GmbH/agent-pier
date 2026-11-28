@@ -176,6 +176,8 @@ test("hookTools builds toolsAllow from ticks, plus sharing files with the owner"
     "agentpier_share_file",
     "agentpier_pinboard",
     "agentpier_card",
+    // The agent's Android devices in every hook run; the bridge decides per call.
+    "agentpier_device",
   ];
   assert.deepEqual(hookTools(hookDefaults, none), base);
   const all = hookTools(

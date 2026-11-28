@@ -144,6 +144,7 @@ const nativeAllow = [
   "agentpier_project",
   "agentpier_preview",
   "agentpier_craft",
+  "agentpier_device",
   "ask_user",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;

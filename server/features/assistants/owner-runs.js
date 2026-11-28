@@ -97,6 +97,9 @@ export const ownerRunActions = new Set([
   "preview",
   // A rebuild for the owner (craft/agent-craft.js).
   "craft",
+  // The agent's Android devices, never creating, resetting or deleting one
+  // (agent-device-origin.js).
+  "device",
 ]);
 
 /**

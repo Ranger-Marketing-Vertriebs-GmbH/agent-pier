@@ -57,6 +57,8 @@ export class AgentLifecycle {
       dataDir: s.dataDir || s.config?.dataDir,
       users: s.users,
       audit: s.audit,
+      // Read late: the devices are wired after the agents (device-wiring.js).
+      deviceGrants: () => s.agentDeviceGrants ?? null,
     };
   }
   get a() {
@@ -301,6 +303,9 @@ export class AgentLifecycle {
       await purgeAgent(this.s, member, channelIds);
     }
     await purgeAgent(this.s, agent, channelIds);
+    // Their Android devices stay; the grants go, and a device one of them created
+    // shows that its creator is gone (devices/agent-device-grants.js).
+    for (const id of [...memberIds, agent.id]) this.s.deviceGrants()?.discard(id);
     await this.teams?.applyMcp?.();
     await this.a.config?.browserProfiles?.sync?.().catch(() => {});
     this.a.changed();

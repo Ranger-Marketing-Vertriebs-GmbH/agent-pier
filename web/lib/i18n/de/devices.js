@@ -201,6 +201,16 @@ export const devicesCopy = {
       "Diese Session darf keine Geräte anlegen. Erlaube es bei den Geräten der Session.",
     DEVICE_SESSION_INELIGIBLE:
       "Geräte bekommen nur deine eigenen laufenden Coding-Sessions, keine Anmelde-, Pipeline- oder importierten Sessions und keine Sessions des Agenten eines eingeschränkten Nutzers.",
+    DEVICE_AGENT_INELIGIBLE:
+      "Geräte bekommen nur deine eigenen Agenten, kein archivierter Agent, kein Agent eingeschränkter Nutzer und kein Agent mit eigenem Telegram-Bot für andere Personen.",
+    DEVICE_RUN_FORBIDDEN:
+      "Der Agent bekommt in diesem Lauf kein Gerät, weil er Inhalte verarbeitet, die nicht von dir stammen, oder weil die Herkunft des Laufs unbekannt ist.",
+    DEVICE_OWNER_TURN_REQUIRED:
+      "Ein Agent legt Geräte nur in einem Turn an, setzt sie nur dort zurück und löscht sie nur dort, den du mit einer eigenen Nachricht gestartet hast.",
+    DEVICE_PULL_READONLY:
+      "Dieser Lauf darf im Workspace des Agenten keine Dateien ändern, deshalb wurde keine Datei vom Gerät kopiert.",
+    DEVICE_PASS_INVALID:
+      "Ein Agent kann an ein Teammitglied nur Geräte weitergeben, die er selbst hat.",
     DEVICE_ASSIGNMENT_INVALID:
       "Diese Zuweisung ist nicht gültig. Vielleicht gibt es ein Gerät darin nicht mehr; lade neu und versuche es erneut.",
     DEVICE_INPUT_INVALID:

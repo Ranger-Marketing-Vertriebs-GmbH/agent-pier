@@ -169,6 +169,8 @@ export function hookTools(effective, ceiling) {
     "agentpier_share_file",
     "agentpier_pinboard",
     "agentpier_card",
+    // The agent's Android devices, while it holds the tool (agent-devices.js).
+    "agentpier_device",
   ];
   if (effective.research) {
     if (ceiling.webSearch) tools.push(...capabilityTools.webSearch);
