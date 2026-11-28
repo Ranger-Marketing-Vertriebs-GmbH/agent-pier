@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { agentDevicesFixture } from "../helpers/agent-devices-fixture.js";
+import { taskOrigin } from "../../server/features/assistants/agent-device-origin.js";
+import { taskDevices } from "../../server/features/assistants/member-device-passes.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 // A lead passes Android devices on to a member with one task
@@ -87,8 +89,20 @@ test("a member uses a passed device in that task only, and never resets, deletes
     [audited.resourceId, audited.details.devices, audited.details.requestId],
     [member.id, 1, task.id],
   );
-  // In the member's own chat with the owner the pass does not count.
+  // A member the lead passed nothing on to has nothing.
   assert.deepEqual(names(await f.memberCall(f.second, { action: "list" })), []);
+  // In the member's own chat with the owner the pass does not count, while its
+  // task is still open and the device service still knows the pass.
+  assert.deepEqual(names(await f.memberCall(f.permanent, { action: "list" })), []);
+  assert.equal(
+    await f.code(f.memberCall(f.permanent, { action: "start", device: pixel.id })),
+    "DEVICE_FORBIDDEN",
+  );
+  assert.equal(f.service.requests.store.get(task.id).phase, "running");
+  assert.equal(
+    f.devices.permission({ kind: "agent", id: member.id }, pixel.id).use,
+    true,
+  );
   // The task ends, and the pass with it.
   f.finish(task);
   f.settle();
@@ -220,11 +234,46 @@ test("a member's own device works in its own runs, and in a task only when the t
     );
   f.finish(foreign);
   f.settle();
-  // A colleague's request is the colleague's content.
+  // A colleague's answer is the colleague's content.
   f.memberTurn(f.second);
   assert.equal(
     await f.code(f.memberCall(f.permanent, { action: "list" }, { kind: "peer-result" })),
     "DEVICE_RUN_FORBIDDEN",
+  );
+});
+
+test("a colleague's request is the colleague's content: the member working on it gets no device", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const phone = await f.device("Phone");
+  f.assign(f.agentOf(f.second), phone);
+  f.settle();
+  // A permanent member hands a task to its colleague (agentpier_team_peer_delegate).
+  const peer = await f.peerDelegate(f.memberTurn(f.permanent), f.second);
+  assert.equal(peer.fromMemberId, f.permanent.id);
+  assert.equal(peer.memberAssistantId, f.agentOf(f.second).id);
+  const working = (request) =>
+    f.code(
+      f.memberCall(
+        f.second,
+        { action: "shell", device: "Phone", command: "id" },
+        { kind: "lead-request", requestId: request.id },
+      ),
+    );
+  assert.equal(await working(peer), "DEVICE_RUN_FORBIDDEN");
+  // Whatever origin the request records: it stays a colleague's while it names one.
+  const doctored = f.service.store.write(f.service.requests.store.get(peer.id), {
+    origin: { kind: "owner" },
+  });
+  assert.equal(taskOrigin(doctored.origin), true);
+  assert.equal(await working(doctored), "DEVICE_RUN_FORBIDDEN");
+  assert.deepEqual(taskDevices(f.services, { ...doctored, devices: [phone.id] }), []);
+  assert.deepEqual(f.adb, []);
+  // The same member's own turn with the owner uses its device.
+  assert.equal(
+    await f.code(
+      f.memberCall(f.second, { action: "shell", device: "Phone", command: "id" }),
+    ),
+    null,
   );
 });
 
