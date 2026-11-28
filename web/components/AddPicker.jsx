@@ -18,6 +18,11 @@ import { addPickerCopy as copy } from "../lib/i18n/messages/components.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import "./add-picker.css";
 
+// How long the list waits for the click of a press that ended outside it. Browsers
+// deliver a tap's click within a few milliseconds of its end; 350 ms also covers an
+// engine that still waits for a second tap.
+const clickWait = 350;
+
 const asResult = (result) =>
   Array.isArray(result)
     ? { items: result, total: result.length }
@@ -98,23 +103,43 @@ export default function AddPicker({
   useEffect(() => {
     if (!state.open || state.selected.length) return undefined;
     // A click elsewhere closes an untouched list; checked items keep it open. The
-    // list closes once the press has ended and its click is delivered: it lies in
-    // the page's flow, so closing it at once would move a control below it away
-    // from under the pointer and that click would be lost.
+    // list lies in the page's flow, so closing it at once would move a control below
+    // it away from under the pointer and that press's click would be lost. It
+    // therefore closes after the click of the press was delivered. A touch delivers
+    // its click in a later task than its end, so the end of the press only starts a
+    // short wait for that click; a press that ends in none (a drag, a long press)
+    // closes the list when the wait is over, and one the browser takes over (a
+    // scroll) at once.
     let timer = null;
-    const ended = () => {
+    const closeAfter = (ms) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => dispatch({ type: "close" }), ms);
+    };
+    const clicked = () => {
       release();
-      timer = setTimeout(() => dispatch({ type: "close" }), 0);
+      closeAfter(0);
+    };
+    // The click may still come: only the wait for it begins.
+    const ended = () => {
+      unpress();
+      closeAfter(clickWait);
+    };
+    const unpress = () => {
+      document.removeEventListener("pointerup", ended, true);
+      document.removeEventListener("pointercancel", clicked, true);
     };
     const release = () => {
-      document.removeEventListener("pointerup", ended, true);
-      document.removeEventListener("pointercancel", ended, true);
+      unpress();
+      document.removeEventListener("click", clicked, true);
     };
     const outside = (event) => {
-      if (root.current?.contains(event.target)) return;
+      // A new press ends the wait of the one before; inside, the list stays.
       release();
+      clearTimeout(timer);
+      if (root.current?.contains(event.target)) return;
+      document.addEventListener("click", clicked, true);
       document.addEventListener("pointerup", ended, true);
-      document.addEventListener("pointercancel", ended, true);
+      document.addEventListener("pointercancel", clicked, true);
     };
     document.addEventListener("pointerdown", outside);
     return () => {

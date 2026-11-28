@@ -211,6 +211,37 @@ test("a switch below the open add list takes the first click", async ({ page }) 
   await expect(list).toHaveCount(0);
 });
 
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  // A tap's click arrives in a later task than the end of its touch, so the list
+  // must still be in place then.
+  test("a switch below the open add list takes the first tap", async ({ page }) => {
+    await setup(page, { shown: view([pixel, tablet]) });
+    const devices = await openLaunchDevices(page);
+    const field = devices.getByRole("combobox", { name: "Add Android device" });
+    await field.tap();
+    await field.fill("Pixel test");
+    await devices.getByRole("option", { name: "Pixel test" }).tap();
+    const list = devices.getByRole("listbox");
+    await expect(list).toBeVisible();
+    const manage = devices.getByRole("switch", {
+      name: "Reset and delete “Pixel test”",
+    });
+    for (const checked of [true, false, true]) {
+      await manage.tap();
+      await expect(manage).toBeChecked({ checked });
+      await expect(list).toHaveCount(0);
+      // Open again above the switch for the next tap.
+      await field.tap();
+      await expect(list).toBeVisible();
+    }
+    // A touch that ends without a click (a scroll, a drag) closes the list too.
+    await page.touchscreen.tap(5, 5);
+    await expect(list).toHaveCount(0);
+  });
+});
+
 test("a host without devices and a shell offer no device choice", async ({ page }) => {
   const state = await setup(page, { shown: notInstalledView() });
   const devices = await openLaunchDevices(page);
