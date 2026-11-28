@@ -5,6 +5,7 @@ import {
   androidPlatform,
   diskBytes,
   downloadBytes,
+  licencesFor,
 } from "./android-manifest.js";
 import {
   ensureSdk,
@@ -156,7 +157,7 @@ export class AndroidSdk {
           }
         : null,
       sources: manifest.hosts,
-      licences: manifest.licences,
+      licences: licencesFor(manifest, key),
     };
   }
   /**

@@ -1,5 +1,10 @@
 import fs from "node:fs";
-import { androidManifest, androidPlatform, downloadBytes } from "./android-manifest.js";
+import {
+  androidManifest,
+  androidPlatform,
+  downloadBytes,
+  licencesFor,
+} from "./android-manifest.js";
 import { installedSdk } from "./android-sdk-install.js";
 import { hostProblem } from "./device-availability.js";
 import { devicePaths } from "./device-paths.js";
@@ -118,7 +123,9 @@ export async function provisionAndroidDevices({
         `  Android Emulator ${versions.emulator}, platform tools ${versions.platformTools}, ` +
           `system image ${versions.image}`,
         "Google provides them under these terms:",
-        ...manifest.licences.map((licence) => `  ${licence.name}: ${licence.url}`),
+        ...licencesFor(manifest, key).map(
+          (licence) => `  ${licence.name}: ${licence.url}`,
+        ),
         "By passing --with-android-devices you accept these terms. AgentPier redistributes " +
           "none of these files; remove them again in Settings › Android devices.",
       ].join("\n"),
