@@ -101,8 +101,10 @@ and agents that work as a team.
   macOS on Apple silicon and Linux x64 with KVM), installed with one click and created,
   started, reset and deleted under **Settings › General › Android devices**, within
   limits you set. Coding sessions you assign a device to (in **New session** or under
-  **Android devices** in the session) look at it, operate it, install and start apps,
-  open URLs and read logs through their AgentPier tools
+  **Android devices** in the session) and agents you assign one to (in the agent's
+  settings under **Access › Android devices**) look at it, operate it, install and
+  start apps, open URLs and read logs through their AgentPier tools; a lead agent can
+  pass a device on to a team member for a task
   ([Android devices](docs/devices.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).

@@ -814,3 +814,74 @@ Nothing built here stands in its way. What it needs:
 - "Forwarded" exists for Telegram messages only; content the owner pastes, or that
   an agent reads in an owner's turn (web, mail, files, a device's screen), is part of
   that turn.
+
+## State after pull request 3 (web)
+
+The web half of pull request 3 is built. Guides for owners: `docs/devices.md` (Devices
+for agents; Devices) and `docs/agents.md` (Access).
+
+### What exists
+
+| Module                                                            | What it is                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `web/features/devices/agent-device-access.js`                     | The rules, free of React: the draft in one order (`orderedDraft`, `agentAccessDraft`), the body of the `PUT` without devices that are gone (`agentAccessBody`), `agentAccessBlocked`, `keptAssignment`, `passedDevices`, the heading and `devicesStep` |
+| `web/features/devices/useAgentDevices.js`                         | `useAgentDevices(agentId)` on `agent.devices:<id>`: `{ offered, access, error, refresh, save }`. Nothing is read while `useAssignableDevices()` is null                                                                                                |
+| `web/features/assistants/settings/access/DevicesAccess.jsx`       | The group `#agent-access-devices` of the Access tab: `DeviceGrantFields` stacked, the list **Passed on for a task**, the run rules, the link to Settings › General › Android devices; the reason in words for an agent that gets no devices            |
+| `web/features/assistants/settings/access/MemberDevicesAccess.jsx` | The same group for a temporary member, with a draft and save bar of its own (**Save devices**), mounted in `MemberAccess.jsx`                                                                                                                          |
+| `web/features/devices/DeviceGrantFields.jsx`                      | Takes `ownNote` and `createSub`, the agent's wording of "created by this session" and of the note under **Create devices**                                                                                                                             |
+| `web/features/devices/device-view.js`                             | `assignmentText` names the kind ("agent Home", "session Checkout") and a pass ("agent Scout (passed on by Home for a task)"); a creator that is gone and left no name reads "Created by an agent that no longer exists"                                |
+| `web/app/agent-search-entries.js`                                 | `agent:<id>:group:devices`, "<agent> · Android devices", for every agent of the owner's while `devicesAvailable` (`buildSearchIndex`, passed by `SearchDialog.jsx`)                                                                                    |
+| Texts                                                             | `devicesCopy.agent`, `devicesCopy.list.assignedAgent`, `assignedSession`, `assignedPassed`, `assignedPassedUnnamed`, `creatorAgentGone`, `creatorSessionGone`                                                                                          |
+
+Rules the web part follows:
+
+- The group is the last one of the Access tab, after Email, and shows only while the
+  host offers devices. For an agent of the owner's and a permanent member the choice
+  is the field `devices` of the tab's draft (`AccessTab.jsx`): it saves with **Save
+  agent** through its own step (`PUT /api/assistants/:id/devices`, after the access
+  and MCP steps) and is listed in the tab's conflict notice as **Android devices**.
+- A push while the choice is unedited replaces it. A push that changes the grants
+  while it is edited keeps the edit and is the tab's conflict ("Changed elsewhere in
+  the meantime." with **Reload** and **Overwrite anyway**); a device that only
+  changed its state is no conflict, because the draft holds grants only, in one
+  order. A device deleted meanwhile leaves the picker and is not sent.
+- The `PUT` has no revision. A refusal shows in the save bar in words
+  (`refusalText`); a 409 `DEVICE_AGENT_INELIGIBLE` is an error, not a conflict.
+- `eligible: false` shows `DEVICE_AGENT_INELIGIBLE` in words with a shield, no
+  picker and no switch, and adds that the assignment is kept when there is one. An
+  agent of users shows it beside its lock notice.
+- `own: true` is a locked entry "created by this agent" without a switch;
+  `passed: true` is a row of **Passed on for a task**, read only. A passed device
+  stays an ordinary candidate of the picker, so the owner can assign it as well.
+- The run rules are a visible paragraph below the group, not a hint; for a member
+  (`teamMemberId`) a sentence about its lead's passes follows. The hint behind ⓘ
+  says what the tool does and that a device reaches the network.
+- A temporary member's Access tab is its lead's and has no draft, so its devices
+  carry their own (`useTabDraft` with the one field, the tab's unsaved-changes
+  guard, **Save devices**).
+
+Tests: `tests/unit/agent-device-access.test.js`, `device-view.test.js` (agents, a
+pass, the cap, a creator without a name), `search-index-agent-groups.test.js` and
+`quick-open.test.js` (the entry), `tests/browser/agent-devices.spec.js` (assign and
+save, pushes while editing, a refused save, the ineligible agent, a permanent and a
+temporary member with an own and a passed device, a host without devices, ⌘K,
+German, phone in both languages), `tests/browser/devices.spec.js` (agents, a pass
+and a gone agent creator on the device page; desktop, German, phone).
+
+### Left for pull request 4
+
+- The owner's view and takeover, and any strip or button that opens a device from
+  a chat. The group lists devices by name; `devices[].state` is delivered and not
+  shown.
+- The device list still names three assignments and counts the rest; a disclosure
+  for the rest belongs to the device row if long lists become common.
+
+### Known and not verified (pull request 3, web)
+
+- An ineligible agent that holds assignments gets no control to take them away; the
+  server accepts an empty `PUT` for it and the note says that the assignment is kept.
+- The Access tab's save bar keeps its note "Applies before the next message." also
+  when only devices changed, which apply at once.
+- The search entry opens the Access tab; it does not scroll to the group, like the
+  other group entries.
+- Browser tests ran in Chromium only; WebKit runs with the `webkit` label.
