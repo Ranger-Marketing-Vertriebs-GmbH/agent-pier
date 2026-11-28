@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import yazl from "yazl";
 import { processIdentity } from "../../server/lib/process-identity.js";
+import { run as runTool } from "../../server/features/tools/tool-run.js";
 import {
   devicePaths,
   ensureDeviceFolders,
@@ -28,6 +29,38 @@ const hosts = {
   "linux-x64": { platform: "linux", arch: "x64", abi: "x86_64" },
   "darwin-arm64": { platform: "darwin", arch: "arm64", abi: "arm64-v8a" },
 };
+// The libraries the fake emulator archive brings in `lib64`.
+export const bundledLibraries = ["libfake.so", "libc++.so", "libandroid-emu-base.so"];
+
+/**
+ * What `ldd <binary>` prints for a file of the fake Linux emulator, as the real one
+ * answers. The launcher needs only the host's libc. A headless qemu binary needs the
+ * emulator's bundled libraries, which resolve only from a folder on
+ * `env.LD_LIBRARY_PATH` (the real launcher sets it to `<emulator>/lib64`): without
+ * it each reads "not found" although the emulator runs. A binary that emulates
+ * another architecture names a library no host has.
+ */
+export function fakeLdd(binary, env = {}) {
+  const lines = ["\tlinux-vdso.so.1 (0x00007ffc0000)"];
+  if (binary.endsWith("-headless")) {
+    const folders = String(env.LD_LIBRARY_PATH || "")
+      .split(":")
+      .filter(Boolean);
+    for (const name of bundledLibraries) {
+      const folder = folders.find((entry) => fs.existsSync(path.join(entry, name)));
+      lines.push(
+        folder
+          ? `\t${name} => ${path.join(folder, name)} (0x00007f0000001000)`
+          : `\t${name} => not found`,
+      );
+    }
+    if (path.basename(path.dirname(binary)) !== "linux-x86_64")
+      lines.push("\tlibfake-foreign.so.1 => not found");
+  }
+  lines.push("\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f0000000000)");
+  return lines.join("\n") + "\n";
+}
+
 // What installFakeSdk needs to know about a manifest made here.
 const made = new WeakMap();
 
@@ -298,16 +331,23 @@ export async function fakeAndroidSdk({ root, platform = "linux-x64" } = {}) {
             }),
             mode: 0o755,
           },
-          { name: "lib64/libfake.so", content: `library for ${key}\n`, mode: 0o644 },
-          // The binary that runs a device without a window, as in the real archive.
+          // The emulator's own libraries, which its binaries load from here.
+          ...bundledLibraries.map((name) => ({
+            name: `lib64/${name}`,
+            content: `library for ${key}\n`,
+            mode: 0o644,
+          })),
+          // The binary that runs a device without a window, as in the real archive,
+          // beside one that emulates another architecture and never runs.
           ...(key === "linux-x64"
             ? [
-                {
-                  name: "qemu/linux-x86_64/qemu-system-x86_64-headless",
-                  content: "headless qemu\n",
-                  mode: 0o755,
-                },
-              ]
+                "linux-x86_64/qemu-system-x86_64",
+                "linux-aarch64/qemu-system-aarch64",
+              ].map((name) => ({
+                name: `qemu/${name}-headless`,
+                content: "headless qemu\n",
+                mode: 0o755,
+              }))
             : []),
           properties(emulator),
         ],
@@ -395,6 +435,16 @@ export async function fakeAndroidSdk({ root, platform = "linux-x64" } = {}) {
     pin,
     fetchImpl,
     state,
+    /**
+     * The installer's process runner on this fake host: `ldd` answers as on a Linux
+     * host (fakeLdd; a Mac has none), everything else really runs.
+     */
+    run(command, args, env, ...rest) {
+      if (command !== "ldd") return runTool(command, args, env, ...rest);
+      return platform.startsWith("linux")
+        ? Promise.resolve(fakeLdd(args[0], env))
+        : Promise.reject(Error("ldd: command not found"));
+    },
     behaviour(patch) {
       let current = {};
       try {

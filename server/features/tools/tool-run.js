@@ -9,7 +9,9 @@ function groupSignal(child, signal) {
 }
 /**
  * Runs an installer step in its own process group: no shell, a timeout, abort on
- * shutdown, and the last 16 KiB of output for the error.
+ * shutdown, and the last 16 KiB of output for the error. A step that exits with a
+ * failure rejects with that output as `error.output`, for a caller that reads a
+ * reason from it; the message stays free of it.
  */
 export function run(command, args, env, cwd, signal, timeout) {
   return new Promise((resolve, reject) => {
@@ -60,12 +62,17 @@ export function run(command, args, env, cwd, signal, timeout) {
         const hint = output.match(
           /\b(EACCES|ENOSPC|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|EBADENGINE)\b/,
         )?.[1];
+        // Not enumerable: an error that is copied or serialised never carries it.
         return reject(
-          problem(
-            hint
-              ? serverMessages.tools.installationExitFailureWithHint(code, hint)
-              : serverMessages.tools.installationExitFailure(code),
-            409,
+          Object.defineProperty(
+            problem(
+              hint
+                ? serverMessages.tools.installationExitFailureWithHint(code, hint)
+                : serverMessages.tools.installationExitFailure(code),
+              409,
+            ),
+            "output",
+            { value: output },
           ),
         );
       }

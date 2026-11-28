@@ -22,6 +22,7 @@ export const fakeDeviceOptions = (fake, ports, { source = {}, ...rest } = {}) =>
   host: fake.host,
   problem: () => null,
   fetchImpl: fake.fetchImpl,
+  run: fake.run,
   source: { identity: fake.identity, pollMs: 20, killGraceMs: 2000, ...ports, ...source },
   ...rest,
 });

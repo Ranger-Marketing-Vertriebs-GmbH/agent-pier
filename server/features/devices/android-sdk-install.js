@@ -133,42 +133,47 @@ export async function removeSdk(paths) {
     await fsp.rm(directory, { recursive: true, force: true });
 }
 
-// The binaries that run a device without a window (`<emulator>/qemu/<host>/*-headless`):
-// the launcher starts one of them, and its libraries are the ones that matter.
-function headlessBinaries(directory) {
-  const qemu = path.join(directory, "qemu");
-  try {
-    return fs
-      .readdirSync(qemu)
-      .flatMap((host) =>
-        fs
-          .readdirSync(path.join(qemu, host))
-          .filter((name) => name.endsWith("-headless"))
-          .map((name) => path.join(qemu, host, name)),
-      )
-      .filter(regularFile);
-  } catch {
-    return [];
-  }
+// The binary that runs a device without a window on this host
+// (`<emulator>/qemu/<host>/qemu-system-<arch>-headless`): the launcher starts it. The
+// archive also holds headless binaries that emulate other architectures; AgentPier
+// never starts those.
+const headless = { "linux-x64": "qemu/linux-x86_64/qemu-system-x86_64-headless" };
+const libraryMissing =
+  /error while loading shared libraries: (\S+): cannot open shared object file/g;
+
+// Libraries `ldd` cannot resolve for `binary`. `ldd` itself missing or failing
+// names nothing: the start below decides then.
+async function unresolved(binary, { run, env, directory, signal }) {
+  const listed = await run("ldd", [binary], env, directory, signal, 60000).catch(
+    () => "",
+  );
+  return [...listed.matchAll(/^\s*(\S+)\s+=>\s+not found/gm)].map((match) => match[1]);
 }
 
 // The component runs and is the pinned version. On Linux, `ldd` names libraries the
-// host lacks, for the launcher and for the headless binary it starts; one the
-// emulator only loads later (libX11-xcb) shows as a start that fails, which is the
-// same code without the names. The emulator is asked with `-no-window`: a bare
-// `-version` starts the windowed binary on Linux, which needs X libraries a server
-// does not have and AgentPier never uses.
+// host lacks, for the launcher and for the headless binary it starts. That binary
+// loads the emulator's own libraries from `<emulator>/lib64`, which the launcher puts
+// on LD_LIBRARY_PATH, so `ldd` gets the same path: without it every bundled library
+// reads as missing on a host where the emulator runs. A library the emulator only
+// loads later (libX11-xcb) shows as a start that fails; the loader's message names
+// it. The emulator is asked with `-no-window`: a bare `-version` starts the windowed
+// binary on Linux, which needs X libraries a server does not have and AgentPier
+// never uses.
 async function check(part, directory, { manifest, key, run, env, signal }) {
   const executable = path.join(directory, path.basename(part.executable));
   if (!regularFile(executable)) throw failure("DEVICES_ARCHIVE_INVALID");
   if (key.startsWith("linux") && part.name === "emulator") {
-    const missing = new Set();
-    for (const binary of [executable, ...headlessBinaries(directory)]) {
-      const listed = await run("ldd", [binary], env, directory, signal, 60000).catch(
-        () => "",
-      );
-      for (const match of listed.matchAll(/^\s*(\S+)\s+=>\s+not found/gm))
-        missing.add(match[1]);
+    const context = { run, env, directory, signal };
+    const missing = new Set(await unresolved(executable, context));
+    const qemu = headless[key] && path.join(directory, headless[key]);
+    if (qemu && regularFile(qemu)) {
+      const bundled = path.join(directory, "lib64");
+      const LD_LIBRARY_PATH = [bundled, env?.LD_LIBRARY_PATH].filter(Boolean).join(":");
+      for (const name of await unresolved(qemu, {
+        ...context,
+        env: { ...env, LD_LIBRARY_PATH },
+      }))
+        missing.add(name);
     }
     if (missing.size) throw failure("DEVICES_SDK_UNUSABLE", { missing: [...missing] });
   }
@@ -181,7 +186,13 @@ async function check(part, directory, { manifest, key, run, env, signal }) {
     versionTimeoutMs,
   ).catch((error) => {
     if (signal.aborted || diskFull(error)) throw error;
-    throw failure("DEVICES_SDK_UNUSABLE");
+    // The loader names a library it could not open (the runner keeps the output).
+    const missing = [
+      ...new Set(
+        [...String(error?.output ?? "").matchAll(libraryMissing)].map((m) => m[1]),
+      ),
+    ];
+    throw failure("DEVICES_SDK_UNUSABLE", missing.length ? { missing } : undefined);
   });
   const version =
     part.name === "emulator"

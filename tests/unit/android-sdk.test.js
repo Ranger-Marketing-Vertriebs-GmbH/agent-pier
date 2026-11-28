@@ -28,6 +28,7 @@ async function fixture(t, { platform, ...options } = {}) {
       manifest: sdk.manifest,
       host: sdk.host,
       fetchImpl: sdk.fetchImpl,
+      run: sdk.run,
       // The fake SDK is a Linux one wherever the test runs: no look at /dev/kvm.
       problem: () => null,
       now: () => clock++,
