@@ -25,7 +25,8 @@ import { screenActions } from "./device-screen-actions.js";
  * - `areaWritable()`: false when AgentPier must not write into that folder for the
  *   caller: a sandboxed session, whose sandbox may give it the folder read-only
  *   (`pull` answers DEVICE_PULL_SANDBOXED then).
- * - `signal`: aborts the call when the caller is gone.
+ * - `signal`: aborts the call when the caller is gone (DEVICE_ADB_CANCELLED); a
+ *   call that still waits for its turn on the device then starts and runs nothing.
  *
  * The actions (ACTIONS) and their inputs are documented where they are defined:
  * device-screen-actions.js (list, create, start, stop, reset, delete, screenshot,
@@ -158,9 +159,10 @@ export class DeviceActions {
     const caller = context?.caller;
     if (!handler || !["session", "agent"].includes(caller?.kind) || !caller.id)
       throw refusal("DEVICE_FORBIDDEN", 403);
+    // A caller that is gone before its call began gets nothing done.
+    if (context.signal?.aborted) throw refusal("DEVICE_ADB_CANCELLED");
     const controller = new AbortController();
     const abort = () => controller.abort();
-    if (context.signal?.aborted) abort();
     context.signal?.addEventListener("abort", abort, { once: true });
     let timer;
     const late = new Promise((_, reject) => {

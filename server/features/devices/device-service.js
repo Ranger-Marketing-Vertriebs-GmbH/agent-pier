@@ -91,6 +91,12 @@ export class DeviceService extends DeviceRegistry {
     if (runtime.operation) throw refusal("DEVICE_BUSY");
     return runtime;
   }
+  // At a call's turn on the device's queue: the owner may have taken the device
+  // away from the caller, or for themselves, while the call waited.
+  #turn(id, caller, need, runtime, { held = true } = {}) {
+    if (!this.permission(caller, id)[need]) throw refusal("DEVICE_FORBIDDEN", 403);
+    if (held) this.#free(runtime, caller);
+  }
 
   /**
    * Creates a device for `creator` (`{ kind, id, name }`) and returns its view;
@@ -220,7 +226,10 @@ export class DeviceService extends DeviceRegistry {
    */
   async startDevice(id, { caller } = {}) {
     const runtime = this.#enter(id, caller, "use", { held: false });
-    await this.#enqueue(runtime, () => this.#boot(id));
+    await this.#enqueue(runtime, () => {
+      this.#turn(id, caller, "use", runtime, { held: false });
+      return this.#boot(id);
+    });
     return this.device(id);
   }
   /**
@@ -231,7 +240,10 @@ export class DeviceService extends DeviceRegistry {
   async stopDevice(id, { caller } = {}) {
     const runtime = this.#enter(id, caller, "use");
     runtime.boot?.abort();
-    await this.#enqueue(runtime, () => this.#stop(id));
+    await this.#enqueue(runtime, () => {
+      this.#turn(id, caller, "use", runtime);
+      return this.#stop(id);
+    });
     return this.device(id);
   }
   // A reset or delete: announced at once, run on the device's queue. A boot in
@@ -242,7 +254,10 @@ export class DeviceService extends DeviceRegistry {
     runtime.operation = operation;
     this.signal();
     try {
-      return await this.#enqueue(runtime, () => work(this.store.get(id), runtime));
+      return await this.#enqueue(runtime, () => {
+        this.#turn(id, caller, "manage", runtime);
+        return work(this.store.get(id), runtime);
+      });
     } finally {
       runtime.operation = null;
       this.signal();
@@ -323,15 +338,20 @@ export class DeviceService extends DeviceRegistry {
    * `{ stdout, stderr, code, truncated }`. A stopped device is started first unless
    * `start` is false (DEVICE_NOT_RUNNING then). Throws DEVICE_HELD while the owner
    * holds the device and the caller is someone else, DEVICE_BUSY during a reset or
-   * delete, DEVICE_FORBIDDEN (403), or what the start throws. The other options are
+   * delete, DEVICE_FORBIDDEN (403), DEVICE_ADB_CANCELLED when `signal` has aborted
+   * by the call's turn, or what the start throws. The grant and the hold are checked
+   * when the call arrives and again at its turn, as for a start, stop, reset and
+   * delete. The other options are
    * AdbClient#exec's: `timeoutMs`, `maxBytes`, `input`, `signal`, `encoding`.
    */
   async adb(id, args, { caller, start = true, ...options } = {}) {
     const runtime = this.#enter(id, caller, "use");
     return this.#enqueue(runtime, async () => {
+      this.#turn(id, caller, "use", runtime);
       const record = this.store.get(id);
-      // The owner may have taken the device while this call waited.
-      this.#free(runtime, caller);
+      // A caller that is gone, or whose call ended at its deadline while it waited,
+      // starts no device and runs nothing.
+      if (options.signal?.aborted) throw refusal("DEVICE_ADB_CANCELLED");
       if (runtime.state !== "running") {
         if (!start) throw refusal("DEVICE_NOT_RUNNING");
         await this.#boot(id);
