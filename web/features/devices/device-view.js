@@ -35,7 +35,8 @@ export const validDevices = (view) =>
  * The text of a refusal or failure `code`, a known one in words that say what the
  * owner can do; an unknown code shows itself. `detail` is what came with the code:
  * `{ missing }` names the libraries of DEVICES_SDK_UNUSABLE, `{ reason }` says why
- * devices are unavailable (DEVICE_UNAVAILABLE), and that reason's text is the answer.
+ * devices are unavailable (DEVICE_UNAVAILABLE) or why adb could not be used
+ * (DEVICE_ADB_FAILED), and that reason's text is the answer.
  */
 export function codeText(code, detail) {
   const known = (value) => typeof value === "string" && Object.hasOwn(copy.codes, value);
@@ -45,7 +46,7 @@ export function codeText(code, detail) {
     );
     if (missing.length) return copy.sdkMissingLibraries(missing.join(", "));
   }
-  if (code === "DEVICE_UNAVAILABLE" && known(detail?.reason))
+  if (["DEVICE_UNAVAILABLE", "DEVICE_ADB_FAILED"].includes(code) && known(detail?.reason))
     return copy.codes[detail.reason];
   return known(code) ? copy.codes[code] : copy.unknownCode(String(code || "UNKNOWN"));
 }

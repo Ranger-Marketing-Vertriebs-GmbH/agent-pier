@@ -264,3 +264,83 @@ test("a later process reclaims the recorded server and no other pid", async (t) 
   assert.equal(alive(other.pid), true);
   assert.equal(record(paths).pid, sdk.servers()[0].pid);
 });
+
+test("a second instance on the same port leaves the first one's adb server alone", async (t) => {
+  // Two AgentPier instances on one host: two data folders, each with its own SDK,
+  // and the same adb port (a stage instance beside the live service).
+  const first = await fixture(t);
+  const other = await fakeAndroidSdk();
+  const otherPaths = await installFakeSdk(other.dataDir, other.manifest);
+  const second = new AdbClient({
+    paths: otherPaths,
+    port: first.ports.adbPort,
+    identity: other.identity,
+  });
+  t.after(async () => {
+    await second.stopServer();
+    assert.deepEqual((await other.cleanup()).filter(alive), []);
+  });
+  await first.adb.startServer();
+  const [server] = first.sdk.servers();
+  const foreign = {
+    code: "DEVICE_ADB_FAILED",
+    reason: "DEVICE_ADB_PORT_IN_USE",
+    status: 409,
+  };
+  await assert.rejects(second.startServer(), foreign);
+  await assert.rejects(second.exec(null, ["devices"]), foreign);
+  assert.equal(await second.reclaimServer(), false);
+  // The first instance's server was neither asked to end nor signalled.
+  assert.equal(alive(server.pid), true);
+  assert.deepEqual(await first.adb.devices(), []);
+  assert.deepEqual(
+    other.calls().filter((call) => call.argv.includes("kill-server")),
+    [],
+  );
+  assert.deepEqual(other.servers(), []);
+  assert.equal(second.server, null);
+  // The daemon an emulator of the first instance leaves there is not the second's
+  // either.
+  await first.adb.stopServer();
+  await gone(server.pid);
+  await new Promise((resolve) =>
+    execFile(first.paths.adbBin, ["start-server"], { env: first.env }, resolve),
+  );
+  const [daemon] = first.sdk.servers();
+  assert.equal(daemon.daemon, true);
+  await assert.rejects(second.startServer(), foreign);
+  assert.equal(alive(daemon.pid), true);
+  // Its own instance ends it; then the port is the second's to take.
+  await first.adb.startServer();
+  await gone(daemon.pid);
+  await first.adb.stopServer();
+  await second.startServer();
+  assert.equal(other.servers().length, 1);
+});
+
+test("a listener that cannot be identified is never ended", async (t) => {
+  const { sdk, paths, env, client } = await fixture(t);
+  await new Promise((resolve) =>
+    execFile(paths.adbBin, ["start-server"], { env }, resolve),
+  );
+  const [daemon] = sdk.servers();
+  // A host without the program that names a port's listener, and one that names none.
+  for (const listeners of [
+    () => {
+      throw Object.assign(Error("spawn ss ENOENT"), { code: "ENOENT" });
+    },
+    () => [],
+  ]) {
+    const blind = client({ listeners });
+    await assert.rejects(blind.startServer(), {
+      code: "DEVICE_ADB_FAILED",
+      reason: "DEVICE_ADB_PORT_IN_USE",
+    });
+    assert.equal(await blind.reclaimServer(), false);
+  }
+  assert.equal(alive(daemon.pid), true);
+  assert.equal(
+    sdk.calls().some((call) => call.argv.includes("kill-server")),
+    false,
+  );
+});

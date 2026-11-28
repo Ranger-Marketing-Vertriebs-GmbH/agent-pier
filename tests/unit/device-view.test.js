@@ -436,6 +436,40 @@ test("a failed device whose process still lives offers the stop, not the start",
   );
 });
 
+test("a failure says what its reason names", () => {
+  const foreign = row({
+    state: "failed",
+    failure: { code: "DEVICE_ADB_FAILED", at: 1, reason: "DEVICE_ADB_PORT_IN_USE" },
+  });
+  assert.match(
+    foreign.alert,
+    /port \(47600 on this computer\) is used by another program/,
+  );
+  assert.match(foreign.alert, /a second AgentPier/);
+  assert.match(
+    row({ state: "failed", failure: { code: "DEVICE_ADB_FAILED", at: 1 } }).alert,
+    /could not reach the device through adb/,
+  );
+  // The refusal of a route says the same, in German as well.
+  assert.equal(
+    refusalText({ code: "DEVICE_ADB_FAILED", reason: "DEVICE_ADB_PORT_IN_USE" }),
+    foreign.alert,
+  );
+  withLanguage("de", () =>
+    assert.match(
+      codeText("DEVICE_ADB_FAILED", { reason: "DEVICE_ADB_PORT_IN_USE" }),
+      /zweites AgentPier/,
+    ),
+  );
+  assert.match(
+    row({
+      state: "failed",
+      failure: { code: "DEVICE_UNAVAILABLE", at: 1, reason: "DEVICES_NOT_INSTALLED" },
+    }).alert,
+    /components are not installed/,
+  );
+});
+
 test("a reset or delete that runs locks the device's actions", () => {
   for (const [operation, text] of [
     ["reset", "Resetting"],

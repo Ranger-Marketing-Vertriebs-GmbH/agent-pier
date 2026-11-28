@@ -4313,6 +4313,7 @@
   "devices:devicesCopy.codes.DEVICES_TERMS_REQUIRED": "de:bbc76e324bad en:167effb50e1c",
   "devices:devicesCopy.codes.DEVICE_ADB_CANCELLED": "de:f2681a2b67e8 en:9bd9d01adefe",
   "devices:devicesCopy.codes.DEVICE_ADB_FAILED": "de:c56b1a2ef68f en:42234d78f35d",
+  "devices:devicesCopy.codes.DEVICE_ADB_PORT_IN_USE": "de:70064bb78797 en:d812581e64c2",
   "devices:devicesCopy.codes.DEVICE_ADB_TIMEOUT": "de:bc25837ff4da en:4c84378e9c3a",
   "devices:devicesCopy.codes.DEVICE_BOOT_TIMEOUT": "de:c48754058d83 en:5dd178bbd8ee",
   "devices:devicesCopy.codes.DEVICE_BUSY": "de:7f63850610b7 en:d072284be691",

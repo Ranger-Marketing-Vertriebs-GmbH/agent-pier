@@ -169,7 +169,7 @@ log and the installer's result.
 | `DEVICE_EXITED`                                        | The emulator ended by itself, during the boot or while running. Start the device again; `<data dir>/devices/logs/<id>.log` holds its last output.                                                                                 |
 | `DEVICE_PORTS_BUSY`                                    | Another program uses AgentPier's loopback ports 47600 to 47621. Close it and start the device again. The ports are fixed.                                                                                                         |
 | `DEVICE_IMAGE_MISSING`                                 | The system image a new or reset device needs is not installed, usually because an update of the components has not run yet. Update the installation, then try again. A device on an earlier image still starts until it is reset. |
-| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`              | AgentPier could not reach the device through adb. Stop the device and start it again.                                                                                                                                             |
+| `DEVICE_ADB_FAILED`, `DEVICE_ADB_TIMEOUT`              | AgentPier could not reach the device through adb. Stop the device and start it again. When the page says that port 47600 is used by another program, see "A second AgentPier on the same machine" below.                          |
 | `DEVICE_STOP_FAILED`                                   | The device did not stop. The row keeps **Stop**: use it again (reset and delete try the stop again too); restarting AgentPier ends what is left of it.                                                                            |
 
 Also worth knowing:
@@ -178,6 +178,13 @@ Also worth knowing:
   `netsimd` listens on the fixed loopback port 6402. An emulator you start yourself
   (Android Studio) uses the same port, so the two may collide or share one helper.
   Stop one of them if a device fails to start while your own emulator runs.
+- **A second AgentPier on the same machine.** The adb port 47600 and the device ports
+  are fixed, so only one AgentPier per machine can run devices at a time (a stage
+  instance beside the installed service, for example). The second one never ends the
+  first one's adb server: AgentPier ends only an adb server of its own data
+  directory, and one it cannot identify (the `lsof` or `ss` program is missing) it
+  leaves alone as well. Its devices then fail to start and say that the port is used
+  by another program. Stop the devices of the other instance, or that instance.
 - **Memory.** A running device takes 3 to 6 GB of host memory. Lower **Devices running
   at once** on a small host.
 - **Restricted users** do not see the page; for them its routes answer like unknown

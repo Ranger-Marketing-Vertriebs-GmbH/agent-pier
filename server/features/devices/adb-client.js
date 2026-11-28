@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn as nodeSpawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { processIdentity } from "../../lib/process-identity.js";
+import { tcpListeners } from "../../lib/tcp-listeners.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { DEVICE_PORTS, deviceEnvironment, ensureDeviceFolders } from "./device-paths.js";
 import { deviceError } from "./device-source.js";
@@ -17,10 +18,15 @@ import { deviceError } from "./device-source.js";
  *
  * A client call without a server would make adb start a daemonized one, which
  * ignores SIGTERM on Linux. So `exec` starts the server first when it is not
- * running, and `startServer` first ends whatever adb server holds the port: a
- * running emulator calls adb itself and starts such a daemon when ours is gone. A
- * listener that does not answer adb's `kill-server` is not ours; it is left alone
- * and the start fails with DEVICE_ADB_FAILED.
+ * running, and `startServer` first ends an adb server of ours that holds the port:
+ * a running emulator calls adb itself and starts such a daemon when ours is gone.
+ *
+ * Only a server of ours is ever ended: the one `run/adb-server.json` records (by
+ * pid, start time and executable), or a listener on the port whose process runs an
+ * executable below this data folder's SDK. Any other listener is left alone, a
+ * second AgentPier on the same host included (its adb server holds the connection
+ * to its devices), and so is one that cannot be identified; the start then fails
+ * with DEVICE_ADB_FAILED and `reason: "DEVICE_ADB_PORT_IN_USE"`.
  */
 // `sh` sets the umask and replaces itself with the program: the pid is the program's.
 const shell = "/bin/sh";
@@ -78,7 +84,8 @@ export function ownProcess({ pid, startTime }, sdk, identity = processIdentity) 
 export class AdbClient {
   /**
    * `paths` are devicePaths(); `port` is the private server port; `env` the
-   * environment of every adb process; `spawn` and `identity` are replaced in tests.
+   * environment of every adb process; `spawn`, `identity` and `listeners`
+   * (tcpListeners) are replaced in tests.
    */
   constructor({
     paths,
@@ -86,8 +93,9 @@ export class AdbClient {
     env = deviceEnvironment(paths, { adbPort: port }),
     spawn = nodeSpawn,
     identity = processIdentity,
+    listeners = tcpListeners,
   }) {
-    Object.assign(this, { paths, port, env, spawn, identity });
+    Object.assign(this, { paths, port, env, spawn, identity, listeners });
     this.recordFile = path.join(paths.run, "adb-server.json");
     // The server child of this process, and the chain its starts and stops run on.
     this.server = null;
@@ -203,9 +211,27 @@ export class AdbClient {
     fs.rmSync(this.recordFile, { force: true });
     return stopped;
   }
-  // Asks whatever adb server holds the port to end. True when the port is free then.
+  // Whether every process that listens on the port runs an executable of this data
+  // folder's SDK. False for any other program and whenever that cannot be told.
+  #ours() {
+    try {
+      const pids = [
+        ...new Set(this.listeners({ port: this.port }).map((row) => row.pid)),
+      ];
+      const root = fs.realpathSync(this.paths.sdk) + path.sep;
+      return (
+        pids.length > 0 &&
+        pids.every((pid) => this.identity(pid).executable.startsWith(root))
+      );
+    } catch {
+      return false;
+    }
+  }
+  // Asks an adb server of ours that holds the port to end. True when the port is free
+  // then; a listener that is not ours is not asked and keeps the port.
   async #freePort() {
     if (!(await listening(this.port))) return true;
+    if (!this.#ours()) return false;
     const answer = await this.#client(["kill-server"], { timeoutMs: 5000 }).catch(
       () => null,
     );
@@ -216,8 +242,9 @@ export class AdbClient {
   /**
    * Starts the server as a child of this process and writes `run/adb-server.json`
    * (`{ pid, startTime, port }`). Nothing happens when it runs already. Throws
-   * DEVICE_ADB_FAILED when the port is held by something that is not an adb server,
-   * or the server does not come up.
+   * DEVICE_ADB_FAILED with `reason: "DEVICE_ADB_PORT_IN_USE"` when the port is held
+   * by something that is not ours, and plain DEVICE_ADB_FAILED when the server does
+   * not come up.
    */
   startServer() {
     return this.#serial(() => this.#start());
@@ -226,7 +253,8 @@ export class AdbClient {
     if (this.server) return;
     ensureDeviceFolders(this.paths);
     await this.#reclaimRecorded();
-    if (!(await this.#freePort())) throw deviceError("DEVICE_ADB_FAILED");
+    if (!(await this.#freePort()))
+      throw deviceError("DEVICE_ADB_FAILED", { reason: "DEVICE_ADB_PORT_IN_USE" });
     let child;
     const log = fs.openSync(path.join(this.paths.logs, "adb-server.log"), "w", 0o600);
     try {
@@ -285,9 +313,10 @@ export class AdbClient {
     });
   }
   /**
-   * Ends what an earlier AgentPier process left on the port: the server it recorded
-   * (verified by pid, start time and executable), and a daemon an emulator's own adb
-   * call started there, which only `kill-server` ends. Resolves whether one ended.
+   * Ends what an earlier AgentPier process of this data folder left on the port: the
+   * server it recorded (verified by pid, start time and executable), and a daemon an
+   * emulator's own adb call started there, which only `kill-server` ends. Another
+   * program's listener stays. Resolves whether one ended.
    */
   reclaimServer() {
     return this.#serial(async () => {

@@ -178,6 +178,8 @@ export const devicesCopy = {
       "Das Gerät hat nicht gestoppt. Stoppe es erneut; bleibt es dabei, starte AgentPier neu, das beendet, was davon übrig ist.",
     DEVICE_ADB_FAILED:
       "AgentPier hat das Gerät über adb nicht erreicht. Stoppe das Gerät und starte es neu.",
+    DEVICE_ADB_PORT_IN_USE:
+      "Den adb-Port von AgentPier (47600 auf diesem Rechner) belegt ein anderes Programm, zum Beispiel ein zweites AgentPier. Beende es und starte das Gerät dann erneut.",
     DEVICE_ADB_TIMEOUT:
       "Das Gerät hat nicht rechtzeitig geantwortet. Stoppe das Gerät und starte es neu.",
     DEVICE_ADB_CANCELLED: "Der Aufruf an das Gerät wurde abgebrochen.",
