@@ -177,6 +177,21 @@ archive, and the pypdfium2 wheel AgentPier's pdf tool reads PDF pages with
 the licenses of PDFium's third-party code inside the wheel), the release and SHA-256
 per platform the same manifest pins, from PyPI.
 
+## Android emulator, platform tools and system image
+
+Android devices are not bundled and AgentPier redistributes none of their parts. Only
+when the owner installs them (in the interface, or with the installer option), AgentPier
+downloads three pinned archives directly from Google's download server
+(`dl.google.com`) into the data directory: the Android Emulator, the Android SDK
+Platform-Tools (adb) and one Google APIs system image for Android 16 (API 36, without
+the Play Store). They are provided by Google under the Android Software Development
+Kit License Agreement (<https://developer.android.com/studio/terms>); the arm64 system
+image used on macOS is provided under the variant of that agreement with additional
+terms of Arm Limited (licence `android-sdk-arm-dbt-license` in Google's repository
+index). The owner accepts these terms before the download starts, and the licence and
+notice files of the components stay inside the installed folders. Versions, addresses
+and SHA-256 of the archives are pinned in `server/features/devices/android-manifest.js`.
+
 ## Unicode upload-name data
 
 The pinned Unicode 15.1 data under `server/features/files/unicode-15.1/` is
