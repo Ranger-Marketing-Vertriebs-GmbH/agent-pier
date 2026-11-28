@@ -836,7 +836,10 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   device call by its run exactly as an OpenClaw agent's (`agent-device-origin.js`):
   the plugin names a chat's session, or a routine's or hook's run session
   (`…:hermes:cron:<job>:<session>`), and a session AgentPier does not know (an
-  invisible subagent's own session) gets no ticket and so no device. A plugin tool's handler receives
+  invisible subagent's own session) gets no ticket and so no device. Hermes's plugin
+  names no run with a call (OpenClaw's does), so a call counts for the turn its chat
+  session has when it arrives; the gate's comparison of a call's run with the bound
+  turn's (`ownRun`) has nothing to compare on Hermes. A plugin tool's handler receives
   the calling session's id, the stored session id the session keys carry, and runs
   under the tool call's id (`model_tools.py` `handle_function_call`,
   `tools/approval_context.py`); an MCP call carries neither (`tools/mcp_tool_handlers.py`

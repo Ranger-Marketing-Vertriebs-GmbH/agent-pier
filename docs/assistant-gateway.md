@@ -6004,6 +6004,18 @@ when its turn on the device's queue comes (`DeviceService` calls the caller's
 | Forwarded or foreign origin, `memory-step`, `unknown`, no record, a temporary member's other turns   | no (`DEVICE_RUN_FORBIDDEN`)    | no                    |
 | Agent of restricted users, archived, or with a bot for other people; a chat that is not the owner's  | no (`DEVICE_AGENT_INELIGIBLE`) | no                    |
 
+The bridge binds a call to the one live turn of its session whatever run the call
+names, so the gate compares the run itself (`agent-device-origin.js` `ownRun`): a
+turn's own calls name the attempt's id (the send's idempotency key) or the run id the
+Gateway acknowledged the send with, and both map to the attempt
+(`RequestLedger#attemptForRun`). A call whose `runId` maps to another attempt is
+refused (`DEVICE_RUN_FORBIDDEN`). A `runId` that maps to no attempt is a run AgentPier
+sent no turn for (the completion run after a background command and a heartbeat run
+in the chat's session under run ids of their own,
+`assistant-owner-run-contract.test.js`): it is served like an owner run without a
+turn, uses devices when the bound turn may, and never manages. A call without a
+`runId` (Hermes) counts as the bound turn's.
+
 A lead passes devices on with `agentpier_team_delegate` `access.devices`
 (`member-device-passes.js`): checked against what the lead has and against the
 lead's own run, written onto the task's record (`devices`), counted live while the
