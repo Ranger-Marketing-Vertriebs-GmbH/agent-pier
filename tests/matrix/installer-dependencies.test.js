@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureDependencies, runInstaller } from "../../scripts/release-install.mjs";
+import { missingLibraryPackages } from "../../scripts/install-dependencies.mjs";
 import { detectUtilities } from "../../server/features/accounts/account-store.js";
 
 function fixture({ unavailable = ["tmux"], noManager = false, broken = false } = {}) {
@@ -259,4 +260,101 @@ test("invalid and conflicting CLI options fail before any host changes", async (
     await assert.rejects(runInstaller(args, { run: ctx.run }));
     assert.equal(ctx.calls.length, 0);
   }
+});
+
+test("Linux x64 gets the Android emulator's libraries only when Android devices are wanted", async (t) => {
+  const listing = (libraries) =>
+    libraries.map((name) => `\t${name} (libc6) => /lib/${name}\n`).join("");
+  const host = ({ cache, unavailable = [], refuse = false }) => {
+    const calls = [];
+    return {
+      calls,
+      run: async (command, args) => {
+        calls.push([command, ...args]);
+        if (command === "ldconfig") return { stdout: cache };
+        if (unavailable.includes(command)) throw Error("missing");
+        if (refuse && args.includes("install"))
+          throw Error("sudo: a password is required");
+        if (args.includes("install")) unavailable.length = 0;
+        return { stdout: "", stderr: "OpenSSH_9.6p1" };
+      },
+    };
+  };
+  const installs = (ctx) => ctx.calls.filter((call) => call.includes("install"));
+  const linux = { platform: "linux", arch: "x64", uid: 0 };
+  const android = { optional: { androidDevices: true } };
+  const bare = listing(["libc.so.6", "libgomp.so.1"]);
+  // A server that never asked for Android devices gets no X library.
+  const plain = host({ cache: bare });
+  await ensureDependencies({ run: plain.run, ...linux });
+  assert.deepEqual(installs(plain), []);
+  const off = host({ cache: bare });
+  await ensureDependencies({
+    run: off.run,
+    ...linux,
+    optional: { androidDevices: false },
+  });
+  assert.deepEqual(installs(off), []);
+  // Asked for: exactly the two libraries the headless emulator needs.
+  const asked = host({ cache: bare });
+  await ensureDependencies({ run: asked.run, ...linux, ...android });
+  assert.deepEqual(installs(asked), [
+    ["apt-get", "install", "-y", "libx11-6", "libx11-xcb1"],
+  ]);
+  // Only what is missing, together with the other optional library and a tool.
+  const partly = host({
+    cache: listing(["libc.so.6", "libX11.so.6"]),
+    unavailable: ["git"],
+  });
+  await ensureDependencies({ run: partly.run, ...linux, ...android });
+  assert.deepEqual(installs(partly), [
+    ["apt-get", "install", "-y", "git", "libgomp1", "libx11-xcb1"],
+  ]);
+  const present = host({
+    cache: listing(["libgomp.so.1", "libX11.so.6", "libX11-xcb.so.1"]),
+  });
+  await ensureDependencies({ run: present.run, ...linux, ...android });
+  assert.deepEqual(installs(present), []);
+  // There is no emulator for another architecture, and none of this on macOS.
+  const arm = host({ cache: bare });
+  await ensureDependencies({ run: arm.run, ...linux, arch: "arm64", ...android });
+  assert.deepEqual(installs(arm), []);
+  const mac = host({ cache: bare });
+  await ensureDependencies({
+    run: mac.run,
+    platform: "darwin",
+    arch: "arm64",
+    ...android,
+  });
+  assert.deepEqual(installs(mac), []);
+  assert.deepEqual(
+    await missingLibraryPackages("linux", plain.run, { ...android, arch: "x64" }),
+    ["libx11-6", "libx11-xcb1"],
+  );
+  assert.deepEqual(await missingLibraryPackages("linux", plain.run), []);
+  // A refused sudo is no error; the message names what each package is for.
+  const errors = t.mock.method(console, "error", () => {});
+  const refused = host({ cache: listing(["libc.so.6"]), refuse: true });
+  const result = await ensureDependencies({
+    run: refused.run,
+    ...linux,
+    uid: 501,
+    interactive: false,
+    ...android,
+  });
+  assert.deepEqual(result.installed, []);
+  assert.deepEqual(installs(refused), [
+    ["sudo", "-n", "apt-get", "install", "-y", "libgomp1", "libx11-6", "libx11-xcb1"],
+  ]);
+  assert.deepEqual(
+    errors.mock.calls.map((call) => call.arguments[0]),
+    [
+      "Optional: install libgomp1 for the agents' semantic memory search.",
+      "Optional: install libx11-6, libx11-xcb1 for Android devices.",
+    ],
+  );
+  // Checking only installs nothing.
+  const checked = host({ cache: bare });
+  await ensureDependencies({ run: checked.run, ...linux, install: false, ...android });
+  assert.deepEqual(installs(checked), []);
 });

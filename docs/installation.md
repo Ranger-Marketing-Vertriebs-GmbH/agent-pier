@@ -70,6 +70,20 @@ arm64 are supported; Intel Macs and Linux arm64 get Craft Anything without Ghidr
 `--with-hermes` enables Hermes Agent, the second agent runtime, and installs its pinned
 runtime in advance (see [Hermes Agent runtime](#hermes-agent-runtime)). A failed
 download never fails the installation; the result reports `hermesRuntime.status`.
+`--with-android-devices` requests Android devices: phones on Google's Android Emulator
+that agents and coding sessions can use. It downloads nothing itself. It leaves a
+request in `<data dir>/devices/settings.json`, and the next server start downloads the
+pinned Android Emulator, platform tools and one system image from `dl.google.com`
+(about 2.3 GB, 6 GB unpacked), resumably and with its progress under
+**Settings › Android devices**. The option counts as accepting Google's terms for these
+components (the Android SDK licence and the terms of the Google APIs system image); the
+installer prints their names and addresses, and AgentPier records the acceptance with
+its time and the pinned versions. AgentPier redistributes none of these files. Supported
+are macOS on Apple silicon and Linux x64 with KVM (see
+[Linux](linux.md#optional-android-geräte)); on any other host the result reports
+`androidDevices.status` as `unavailable` with the reason, nothing is written and the
+installation goes on. Otherwise the status is `requested` or `installed`. Remove the
+components, and with them every device, under **Settings › Android devices**.
 
 After an interruption, run the same command again. A matching existing setup is
 resumed; an AgentPier version that has already been updated is not downgraded.

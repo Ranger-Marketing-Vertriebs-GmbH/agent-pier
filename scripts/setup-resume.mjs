@@ -29,6 +29,10 @@ import { provisionInstallerToolchains } from "../server/features/mcp-packages/to
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";
 import { provisionCraftAnything } from "../server/features/tools/craft-provisioning.js";
+import {
+  androidDevicesWanted,
+  provisionAndroidDevices,
+} from "../server/features/devices/device-provisioning.js";
 import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
@@ -98,6 +102,7 @@ export async function resumeSetup(
     craftAnything = provisionCraftAnything,
     githubMcp = provisionGithubMcp,
     hermes = provisionInstallerHermes,
+    androidDevices = provisionAndroidDevices,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -176,6 +181,12 @@ export async function resumeSetup(
       platform,
       run,
       env,
+      // The emulator's system libraries, only where Android devices are wanted.
+      optional: {
+        androidDevices:
+          options.withAndroidDevices === true ||
+          androidDevicesWanted({ dataDir, platform }),
+      },
     });
     folder(dataDir);
     const advance = async (phase) => {
@@ -234,6 +245,12 @@ export async function resumeSetup(
     const githubMcpResult = await githubMcp({ dataDir });
     // The pinned Hermes Agent runtime on request, or when Hermes is already enabled.
     const hermesResult = await hermes({ dataDir, enable: options.withHermes === true });
+    // Android devices are requested now; the server downloads them at its next start.
+    const devicesResult = await androidDevices({
+      dataDir,
+      enable: options.withAndroidDevices === true,
+      platform,
+    });
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -292,6 +309,7 @@ export async function resumeSetup(
         : {}),
       ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
       ...(hermesResult ? { hermesRuntime: hermesResult } : {}),
+      ...(devicesResult ? { androidDevices: devicesResult } : {}),
     };
   } finally {
     unlock();

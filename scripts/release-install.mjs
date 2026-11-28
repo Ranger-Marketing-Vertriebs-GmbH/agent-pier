@@ -18,6 +18,10 @@ import { provisionInstallerToolchains } from "../server/features/mcp-packages/to
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";
 import { provisionCraftAnything } from "../server/features/tools/craft-provisioning.js";
+import {
+  androidDevicesWanted,
+  provisionAndroidDevices,
+} from "../server/features/devices/device-provisioning.js";
 import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 export async function installRelease(options, dependencies = {}) {
@@ -38,6 +42,7 @@ async function installInitialRelease(
     withRea = false,
     withCraftAnything = false,
     withHermes = false,
+    withAndroidDevices = false,
   },
   {
     run,
@@ -54,6 +59,7 @@ async function installInitialRelease(
     craftAnything = provisionCraftAnything,
     githubMcp = provisionGithubMcp,
     hermes = provisionInstallerHermes,
+    androidDevices = provisionAndroidDevices,
   } = {},
 ) {
   if (
@@ -70,6 +76,10 @@ async function installInitialRelease(
     platform,
     run,
     env,
+    // The emulator's system libraries, only where Android devices are wanted.
+    optional: {
+      androidDevices: withAndroidDevices || androidDevicesWanted({ dataDir, platform }),
+    },
   });
   dataDir = folder(dataDir);
   const releases = new Releases({
@@ -97,6 +107,12 @@ async function installInitialRelease(
   const githubMcpResult = await githubMcp({ dataDir });
   // The pinned Hermes Agent runtime on request, or when Hermes is already enabled.
   const hermesResult = await hermes({ dataDir, enable: withHermes });
+  // Android devices are requested now; the server downloads them at its next start.
+  const devicesResult = await androidDevices({
+    dataDir,
+    enable: withAndroidDevices,
+    platform,
+  });
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -132,6 +148,7 @@ async function installInitialRelease(
       : {}),
     ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
     ...(hermesResult ? { hermesRuntime: hermesResult } : {}),
+    ...(devicesResult ? { androidDevices: devicesResult } : {}),
   };
 }
 export async function runInstaller(args, dependencies = {}) {
@@ -150,6 +167,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--with-rea",
         "--with-craft-anything",
         "--with-hermes",
+        "--with-android-devices",
       ].includes(key)
     )
       options[key] = true;
@@ -201,6 +219,7 @@ export async function runInstaller(args, dependencies = {}) {
       withRea: options["--with-rea"] === true,
       withCraftAnything: options["--with-craft-anything"] === true,
       withHermes: options["--with-hermes"] === true,
+      withAndroidDevices: options["--with-android-devices"] === true,
     },
     dependencies,
   );

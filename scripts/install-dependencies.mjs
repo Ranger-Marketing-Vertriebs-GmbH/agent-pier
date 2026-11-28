@@ -32,16 +32,57 @@ const versionArgs = { tmux: ["-V"], git: ["--version"], ssh: ["-V"] };
 // embeddings, docs/assistant-gateway.md) is built with OpenMP, whose runtime a
 // minimal Debian or Ubuntu lacks. It is optional: AgentPier runs without it and the
 // setting then names the missing library, so it never fails an installation.
-const optionalLibraries = { linux: [{ file: "libgomp.so.1", package: "libgomp1" }] };
+//
+// The Android emulator needs two X11 client libraries even without a window (the
+// second is loaded late, so `ldd` does not name it). They are looked for only where
+// Android devices are wanted (`when: "androidDevices"`, on x64, the only Linux the
+// emulator is built for): a headless server that never asked gets no X libraries.
+const optionalLibraries = {
+  linux: [
+    {
+      file: "libgomp.so.1",
+      package: "libgomp1",
+      purpose: "the agents' semantic memory search",
+      when: "always",
+    },
+    {
+      file: "libX11.so.6",
+      package: "libx11-6",
+      purpose: "Android devices",
+      when: "androidDevices",
+      arch: "x64",
+    },
+    {
+      file: "libX11-xcb.so.1",
+      package: "libx11-xcb1",
+      purpose: "Android devices",
+      when: "androidDevices",
+      arch: "x64",
+    },
+  ],
+};
 
 /**
  * The packages of optional shared libraries this Linux host lacks, read from the
  * dynamic linker's cache. A listing that cannot be read means unknown: nothing is
- * installed on a guess.
+ * installed on a guess. `optional.androidDevices` adds the Android emulator's
+ * libraries on `arch` x64.
  */
-export async function missingLibraryPackages(platform, probe) {
-  const libraries = optionalLibraries[platform];
-  if (!libraries) return [];
+export async function missingLibraryPackages(platform, probe, options) {
+  return (await missingLibraries(platform, probe, options)).map((l) => l.package);
+}
+
+async function missingLibraries(
+  platform,
+  probe,
+  { optional = {}, arch = process.arch } = {},
+) {
+  const libraries = optionalLibraries[platform]?.filter(
+    (library) =>
+      (library.when === "always" || optional[library.when] === true) &&
+      (!library.arch || library.arch === arch),
+  );
+  if (!libraries?.length) return [];
   let listing;
   try {
     listing = String((await probe("ldconfig", ["-p"]))?.stdout ?? "");
@@ -49,7 +90,7 @@ export async function missingLibraryPackages(platform, probe) {
     return [];
   }
   if (!/\.so\b/.test(listing)) return [];
-  return libraries.filter(({ file }) => !listing.includes(file)).map((l) => l.package);
+  return libraries.filter(({ file }) => !listing.includes(file));
 }
 
 /**
@@ -81,14 +122,20 @@ async function installOptional(libraries, { probe, installRun, uid, interactive,
   const prefix = uid === 0 ? [] : [...(interactive ? [] : ["-n"]), "apt-get"];
   try {
     await probe("apt-get", ["--version"]);
-    await installRun(command, [...prefix, "install", "-y", ...libraries], {
-      env,
-      timeout: 600000,
-    });
-  } catch {
-    console.error(
-      `Optional: install ${libraries.join(", ")} for the agents' semantic memory search.`,
+    await installRun(
+      command,
+      [...prefix, "install", "-y", ...libraries.map((library) => library.package)],
+      { env, timeout: 600000 },
     );
+  } catch {
+    // One line per purpose, so the owner sees what each package is for.
+    for (const purpose of new Set(libraries.map((library) => library.purpose)))
+      console.error(
+        `Optional: install ${libraries
+          .filter((library) => library.purpose === purpose)
+          .map((library) => library.package)
+          .join(", ")} for ${purpose}.`,
+      );
   }
 }
 
@@ -100,6 +147,9 @@ export async function ensureDependencies({
   env = process.env,
   uid = process.getuid?.(),
   interactive = Boolean(process.stdin.isTTY),
+  arch = process.arch,
+  // `androidDevices`: also the libraries of the Android emulator.
+  optional = {},
 } = {}) {
   const runtimeEnv = hostEnvironment(env);
   const probe = (command, args) => run(command, args, { env: runtimeEnv, timeout: 3000 });
@@ -116,7 +166,7 @@ export async function ensureDependencies({
   const openssh = await checkOpenSsh(probe);
   if (openssh instanceof Error) throw openssh;
   if (openssh === "missing") missing.push("ssh");
-  const libraries = await missingLibraryPackages(platform, probe);
+  const libraries = await missingLibraries(platform, probe, { optional, arch });
   if (!missing.length) {
     // Only an optional library is missing: installed when packages may be installed
     // and apt-get is there; a refusal (no sudo) is no error.
@@ -172,7 +222,13 @@ export async function ensureDependencies({
       await installRun(command, [...prefix, "update"], options);
       await installRun(
         command,
-        [...prefix, "install", "-y", ...names(packages.linux), ...libraries],
+        [
+          ...prefix,
+          "install",
+          "-y",
+          ...names(packages.linux),
+          ...libraries.map((library) => library.package),
+        ],
         options,
       );
     } catch {

@@ -249,6 +249,34 @@ macOS (see [installation](installation.md#hermes-agent-runtime)): uv's glibc bui
 installs its own Python 3.14, so the distribution's Python is not used. About 540 MB
 under the data directory; no systemd unit of its own.
 
+### Optional: Android-Geräte
+
+`--with-android-devices` fordert Android-Geräte an (siehe
+[Installation](installation.md)): Beim nächsten Start lädt AgentPier den gepinnten
+Android Emulator, die Platform Tools und ein System-Image von `dl.google.com`. Die
+Option gilt als Zustimmung zu Googles Bedingungen, die der Installer ausgibt. Es gibt den
+Emulator nur für Linux x64; auf arm64 meldet der Installer `unavailable`.
+
+- **KVM.** Der Emulator braucht `/dev/kvm`, les- und schreibbar für den Benutzer, unter
+  dem AgentPier läuft. Fehlt die Datei, ist die Hardware-Virtualisierung in der Firmware
+  aus oder der Rechner ist eine VM ohne verschachtelte Virtualisierung (auf dem Host
+  einschalten, bei Proxmox etwa CPU-Typ `host`). Prüfen: `ls -l /dev/kvm`.
+- **Gruppe `kvm`.** Darf der Benutzer `/dev/kvm` nicht öffnen, nimm ihn in die Gruppe auf
+  und melde ihn neu an (ein laufender systemd-Benutzerdienst sieht die Gruppe erst nach
+  einer neuen Anmeldung oder einem Neustart):
+
+  ```sh
+  sudo usermod -aG kvm "$USER"
+  ```
+
+- **Pakete.** Der Emulator braucht auch ohne Fenster zwei X11-Bibliotheken:
+  `libx11-6` und `libx11-xcb1`. Der Installer installiert sie nur mit
+  `--with-android-devices` oder wenn Android-Geräte schon angefordert oder installiert
+  sind; ein Server, der sie nie wollte, bekommt keine X-Bibliotheken. Ohne apt oder sudo
+  nennt der Installer die Pakete und läuft weiter; dann von Hand:
+  `sudo apt-get install libx11-6 libx11-xcb1`. Fehlen sie, endet die Installation der
+  Android-Geräte mit `DEVICES_SDK_UNUSABLE`.
+
 ### Toolchains für MCP-Pakete
 
 Für MCP-Serverpakete aus npm und PyPI stellt AgentPier eigene, per SHA-256 geprüfte

@@ -24,6 +24,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
         "--with-rea",
         "--with-craft-anything",
         "--with-hermes",
+        "--with-android-devices",
       ].includes(option)
     ) {
       present.add(option);
@@ -86,6 +87,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
     ...(present.has("--with-rea") ? { withRea: true } : {}),
     ...(present.has("--with-craft-anything") ? { withCraftAnything: true } : {}),
     ...(present.has("--with-hermes") ? { withHermes: true } : {}),
+    ...(present.has("--with-android-devices") ? { withAndroidDevices: true } : {}),
     resume: true,
   };
 }
@@ -114,6 +116,7 @@ export function installerArguments(options, version) {
   if (options.withRea) args.push("--with-rea");
   if (options.withCraftAnything) args.push("--with-craft-anything");
   if (options.withHermes) args.push("--with-hermes");
+  if (options.withAndroidDevices) args.push("--with-android-devices");
   return args;
 }
 
