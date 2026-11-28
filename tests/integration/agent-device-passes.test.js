@@ -227,3 +227,43 @@ test("a member's own device works in its own runs, and in a task only when the t
     "DEVICE_RUN_FORBIDDEN",
   );
 });
+
+test("a task that was asked to stop passes nothing on, before its member's turn has ended", async (t) => {
+  const f = await agentDevicesFixture(t);
+  const pixel = await f.device("Pixel");
+  const phone = await f.device("Phone");
+  const member = f.agentOf(f.permanent);
+  f.assign(f.lead(), pixel);
+  f.assign(member, phone);
+  const task = await delegate(f, f.permanent, { devices: ["Pixel"] });
+  assert.deepEqual(names(await inTask(f, f.permanent, { action: "list" })), [
+    "Pixel",
+    "Phone",
+  ]);
+  // The lead, the owner or the deadline asks to stop: the member's turn still runs
+  // and the task is not in a final phase yet.
+  f.service.store.write(f.service.requests.store.get(task.id), {
+    cancelRequested: true,
+    cancelledBy: "lead",
+  });
+  assert.equal(f.service.requests.store.get(task.id).phase, "running");
+  for (const input of [
+    { action: "list" },
+    { action: "shell", device: "Pixel", command: "id" },
+    { action: "shell", device: "Phone", command: "id" },
+  ])
+    assert.equal(
+      await f.code(inTask(f, f.permanent, input)),
+      "DEVICE_RUN_FORBIDDEN",
+      JSON.stringify(input),
+    );
+  assert.deepEqual(f.adb, []);
+  assert.deepEqual(f.devices.permission({ kind: "agent", id: member.id }, pixel.id), {
+    use: false,
+    manage: false,
+  });
+  assert.equal(
+    f.devices.device(pixel.id).assignments.some((entry) => entry.id === member.id),
+    false,
+  );
+});

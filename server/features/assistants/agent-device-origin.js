@@ -114,6 +114,14 @@ export function deviceOrigin(origin) {
  */
 export const taskOrigin = (origin) => origin?.kind === "routine" || deviceOrigin(origin);
 
+/**
+ * Whether task `request` has ended as far as devices go: in a final phase, or asked
+ * to stop (by its lead, the owner or its deadline) while its member's turn still
+ * runs.
+ */
+export const taskEnded = (request) =>
+  requestTerminal.has(request.phase) || !!request.cancelRequested;
+
 // A routine of the owner's own (never a lead's on its member) writes unless they
 // switched "May write" off; a lead's routine as AgentPier decides for it.
 function routineWritable(w, binding) {
@@ -134,7 +142,7 @@ function memberTask(w, agent, origin) {
     !request ||
     request.kind !== requestKind ||
     request.memberAssistantId !== agent.id ||
-    requestTerminal.has(request.phase) ||
+    taskEnded(request) ||
     // A colleague's request is the colleague's content, not the lead's.
     request.fromMemberId ||
     !taskOrigin(request.origin)
